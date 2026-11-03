@@ -48,6 +48,14 @@ function setup(scenario: MockScenarioName | 'broken', gate?: Promise<void>) {
   return { service, store, pushed, kernel, waitFor, registered }
 }
 
+// 等确认的那条权限请求的 id（Mock 每次发的 id 都不一样）
+function pendingRequest(store: SessionStore, id: string): string {
+  const part = store
+    .detail(id)
+    ?.parts.find((p) => p.type === 'permission' && p.status === 'pending')
+  return part?.payload.type === 'permission' ? part.payload.requestId : ''
+}
+
 const input = {
   text: '给兑换接口加幂等校验，改完跑 tests/points',
   workdir: '/w',
@@ -94,7 +102,11 @@ describe('SessionService', () => {
     const s = await service.create(input)
     await waitFor(s.id, ['waiting'])
     const ks = store.kernelSessionId(s.id) ?? ''
-    await kernel.respondPermission({ id: ks, workdir: '/w', agent: 'assistant' }, 'per_1', 'once')
+    await kernel.respondPermission(
+      { id: ks, workdir: '/w', agent: 'assistant' },
+      pendingRequest(store, s.id),
+      'once',
+    )
     await waitFor(s.id, ['done'])
   })
 
