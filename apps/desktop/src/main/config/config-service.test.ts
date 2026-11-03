@@ -9,15 +9,29 @@ import {
 } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfigService } from './config-service'
 import { resolveConfigDir } from './paths'
+
+// 模拟磁盘满：原子写入按开关失败
+const disk = vi.hoisted(() => ({ writeFails: false }))
+vi.mock('./atomic', async (orig) => {
+  const real = await orig<typeof import('./atomic')>()
+  return {
+    ...real,
+    writeFileAtomic: (...args: Parameters<typeof real.writeFileAtomic>) => {
+      if (disk.writeFails) throw new Error('ENOSPC')
+      return real.writeFileAtomic(...args)
+    },
+  }
+})
 
 let dir: string
 beforeEach(() => {
   dir = mkdtempSync(path.join(os.tmpdir(), 'kits-config-'))
 })
 afterEach(() => {
+  disk.writeFails = false
   rmSync(dir, { recursive: true, force: true })
 })
 
@@ -66,6 +80,14 @@ describe('ConfigService', () => {
     const backup = readdirSync(dir).find((f) => f.startsWith('settings.json.broken-'))
     expect(backup).toBeDefined()
     expect(readFileSync(path.join(dir, backup ?? ''), 'utf8')).toBe('{ not json')
+  })
+
+  it('keeps reporting a broken file when saving over it fails', () => {
+    writeFileSync(path.join(dir, 'settings.json'), '{ not json')
+    const config = new ConfigService({ dir })
+    disk.writeFails = true
+    expect(() => config.updateSettings({ general: { theme: 'light' } })).toThrow('ENOSPC')
+    expect(config.loadError).toContain('settings.json')
   })
 
   it('clears the broken state when the broken file is deleted and settings are saved', () => {

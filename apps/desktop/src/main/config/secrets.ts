@@ -27,7 +27,8 @@ function isStore(v: unknown): v is Record<string, Stored> {
 export class SecretStore {
   private values: Record<string, Stored> = {}
   // 文件坏了或读不了时的原因；坏文件备份成 secrets.json.broken-<时间>，从空表开始，不让应用打不开
-  readonly loadError: string | undefined
+  // 保存成功后清掉
+  loadError: string | undefined
   // 坏文件还没备份成功：保存前要先补上备份，补不上就不保存，免得把还能恢复的旧密钥盖掉
   private backup: string | undefined
 
@@ -45,8 +46,11 @@ export class SecretStore {
       const stamp = new Date(now()).toISOString().replace(/[:.]/g, '-')
       this.backup = `${file}.broken-${stamp}`
       // 备份失败也不拦启动，保存时再试
-      this.tryBackup()
-      this.loadError = `${file} 读取失败（${e instanceof Error ? e.message : String(e)}），已备份，需要重新填写密钥`
+      const backedUp = this.tryBackup()
+      const reason = e instanceof Error ? e.message : String(e)
+      this.loadError = backedUp
+        ? `${file} 读取失败（${reason}），已备份，需要重新填写密钥`
+        : `${file} 读取失败（${reason}），备份也没成功，原文件先留着；保存密钥前会再试一次备份`
     }
   }
 
@@ -100,5 +104,6 @@ export class SecretStore {
     if (!this.tryBackup()) throw new Error(`${this.file} 损坏且备份失败，先腾出磁盘空间再保存`)
     writeFileAtomic(this.file, `${JSON.stringify(next, null, 2)}\n`, 0o600)
     this.values = next
+    this.loadError = undefined
   }
 }
