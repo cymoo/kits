@@ -1,10 +1,9 @@
-import type { Gateway, GatewayTestResult, KernelInfo } from '@kits/core/ipc'
+import type { Gateway, GatewayTestResult, KernelInfo, KernelName } from '@kits/core/ipc'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
-
+import { RadioGroup } from 'radix-ui'
 import { useEffect, useRef, useState } from 'react'
 import { type MessageKey, t } from '../../../app/i18n'
-
 import { kits, useSettings, useUpdateSettings } from '../../../lib/kits'
 import { gatewaySecretKey } from '../../../lib/secret-keys'
 import { Button } from '../../../ui/Button'
@@ -253,8 +252,11 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
               </Button>
             </div>
           </div>
-          <div
-            role="radiogroup"
+          {/* Radix 的单选组：方向键切换、组内只有一个 Tab 入口、跳过停用的项 */}
+          <RadioGroup.Root
+            value={defaultModel}
+            onValueChange={(ref) => void setDefault(ref)}
+            disabled={!gateway.enabled}
             aria-label={t('model.defaultModel')}
             className="flex flex-col pb-1.5"
           >
@@ -288,14 +290,9 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                   key={m.id}
                   className={cx('flex items-center gap-3 px-4 py-1.5', on && 'bg-accent-bg/60')}
                 >
-                  {/* biome-ignore lint/a11y/useSemanticElements: 和原型一致的自绘单选 */}
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    disabled={!gateway.enabled}
-                    onClick={() => void setDefault(ref)}
-                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left disabled:cursor-default disabled:opacity-50"
+                  <RadioGroup.Item
+                    value={ref}
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-[6px] text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-default disabled:opacity-50"
                   >
                     <span
                       className={cx(
@@ -313,7 +310,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                         {t('model.default')}
                       </span>
                     ) : null}
-                  </button>
+                  </RadioGroup.Item>
                   <label className="flex items-center gap-1 text-[0.923rem] text-fg-label">
                     <span>{t('model.context')}</span>
                     <input
@@ -342,7 +339,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                 </div>
               )
             })}
-          </div>
+          </RadioGroup.Root>
         </>
       ) : null}
     </div>
@@ -404,24 +401,21 @@ function KernelCard() {
         <b className="font-semibold">{t('model.kernel')}</b>
         <small className="text-[0.923rem] text-fg-muted">{t('model.kernelNote')}</small>
       </div>
-      <div
-        role="radiogroup"
+      <RadioGroup.Root
+        value={current}
+        onValueChange={(kernel) => update.mutate({ kernel: kernel as KernelName })}
         aria-label={t('model.kernelDefault')}
         className="grid grid-cols-2 gap-3 p-[18px]"
       >
         {(status.data ?? []).map((k) => {
           const on = k.id === current
           return (
-            // biome-ignore lint/a11y/useSemanticElements: 和原型一致的卡片单选
-            <button
+            <RadioGroup.Item
               key={k.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
+              value={k.id}
               disabled={!k.installed}
-              onClick={() => update.mutate({ kernel: k.id })}
               className={cx(
-                'flex cursor-pointer flex-col items-start gap-1.5 rounded-[12px] border p-3.5 text-left disabled:cursor-default',
+                'flex cursor-pointer flex-col items-start gap-1.5 rounded-[12px] border p-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:cursor-default',
                 on ? 'border-accent bg-accent-bg/50' : 'border-line hover:border-line-strong',
               )}
             >
@@ -434,10 +428,10 @@ function KernelCard() {
               <span className="text-[0.962rem] text-fg-muted leading-[1.55]">
                 {KERNEL_TEXT[k.id].note}
               </span>
-            </button>
+            </RadioGroup.Item>
           )
         })}
-      </div>
+      </RadioGroup.Root>
       {currentInfo && (currentInfo.state === 'error' || currentInfo.problems.length > 0) ? (
         <div
           role="alert"
