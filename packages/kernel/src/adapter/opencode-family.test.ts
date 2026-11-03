@@ -12,6 +12,8 @@ interface Fake {
   url: string
   // 当前连着的事件流
   streams: ServerResponse[]
+  // 一共连过几次（断线重连后加一）
+  connections: number
   // GET /session/status 返回的状态
   status: Record<string, { type: string }>
   messages: unknown[]
@@ -32,6 +34,7 @@ async function startFake(): Promise<Fake> {
       res.writeHead(200, { 'Content-Type': 'text/event-stream' })
       res.write(`data: ${JSON.stringify({ type: 'server.connected', properties: {} })}\n\n`)
       fake.streams.push(res)
+      fake.connections += 1
       req.on('close', () => {
         fake.streams = fake.streams.filter((s) => s !== res)
       })
@@ -93,12 +96,15 @@ afterEach(async () => {
   await fake?.close()
 })
 
-async function collect(iter: AsyncIterable<KernelEvent>, during: () => Promise<void>) {
+async function collect(
+  iter: AsyncIterable<KernelEvent>,
+  during: (events: KernelEvent[]) => Promise<void>,
+) {
   const events: KernelEvent[] = []
   const done = (async () => {
     for await (const e of iter) events.push(e)
   })()
-  await during()
+  await during(events)
   await done
   return events
 }
@@ -119,7 +125,7 @@ describe('OpencodeFamilyKernel', () => {
   it('reconnects the event stream and backfills parts it missed', async () => {
     const s = await setup()
     fake.status = { ses_1: { type: 'busy' } }
-    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
       await until(() => fake.promptCount === 1)
       send(fake, 'message.updated', {
         sessionID: 'ses_1',
@@ -132,7 +138,8 @@ describe('OpencodeFamilyKernel', () => {
         field: 'text',
         delta: '前半',
       })
-      await until(() => fake.streams.length === 1)
+      // 等客户端真的收到前半段再断，不然断开时没发出去的数据会丢，测的就不是补齐了
+      await until(() => seen.some((e) => e.type === 'text-delta'))
       // 断线期间内核把后半段写完了
       fake.messages = [
         {
@@ -140,9 +147,10 @@ describe('OpencodeFamilyKernel', () => {
           parts: [{ id: 'prt_1', messageID: 'msg_a', type: 'text', text: '前半后半' }],
         },
       ]
+      const before = fake.connections
       for (const stream of fake.streams) stream.destroy()
-      await until(() => fake.streams.length === 1)
-      await new Promise((r) => setTimeout(r, 50))
+      await until(() => fake.connections > before)
+      await until(() => seen.filter((e) => e.type === 'text-delta').length >= 2)
       send(fake, 'session.idle', { sessionID: 'ses_1' })
     })
     const text = events.flatMap((e) => (e.type === 'text-delta' ? [e.text] : [])).join('')
