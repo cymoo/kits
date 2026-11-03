@@ -1,8 +1,10 @@
 import { z } from 'zod'
 
 // 权限：每个工具一档（允许 / 询问 / 拒绝），bash 这类按输入分档的工具可以写成“模式 → 档位”。
-// 键是内核里的工具名，MCP 工具是 `<服务名>_<工具名>`；模式里 `*` 是通配，后写的优先。
+// 键是内核里的工具名（可以带通配，如 `wiki_*`），MCP 工具是 `<服务名>_<工具名>`；模式里 `*` 是通配。
 // 三层叠加见 phase1-implementation 3.6 节：默认值 → 会话模式 → Agent 覆盖。
+// 解析结果是一串有顺序的规则（和内核一样，后面匹配的优先）：每一层整段接在前一层后面，不挪动、不合并，
+// 所以 Agent 里后写的规则一定压过前面的默认值和 MCP 设置，通配键之间怎么相交都不用特殊处理。
 
 export const permissionLevelSchema = z.enum(['allow', 'ask', 'deny'])
 export type PermissionLevel = z.infer<typeof permissionLevelSchema>
@@ -93,17 +95,30 @@ export function levelFor(
   return level
 }
 
-// 整个权限集对某个工具、某个输入的最终档位：工具名的键也可以带通配（`*`、`wiki_*`），按顺序后匹配的优先
+// 一条规则：工具名（可带通配）+ 输入模式 + 档位
+export interface PermissionRule {
+  tool: string
+  pattern: string
+  level: PermissionLevel
+}
+
+export function flattenPermissions(set: PermissionSet): PermissionRule[] {
+  return Object.entries(set).flatMap(([tool, value]) =>
+    typeof value === 'string'
+      ? [{ tool, pattern: '*', level: value }]
+      : Object.entries(value).map(([pattern, level]) => ({ tool, pattern, level })),
+  )
+}
+
+// 一串规则对某个工具、某个输入的最终档位：按顺序找最后一条工具名和输入都匹配的
 export function effectiveLevel(
-  set: PermissionSet,
+  rules: PermissionRule[],
   tool: string,
   input: string,
 ): PermissionLevel | undefined {
   let level: PermissionLevel | undefined
-  for (const [key, value] of Object.entries(set)) {
-    if (!matchPattern(key, tool)) continue
-    level = levelFor(value, input) ?? level
-  }
+  for (const r of rules)
+    if (matchPattern(r.tool, tool) && matchPattern(r.pattern, input)) level = r.level
   return level
 }
 
@@ -156,56 +171,18 @@ export interface ResolvePermissionsInput {
   }
 }
 
-function set(target: PermissionSet, key: string, value: PermissionValue): void {
-  // 重新插入到末尾：内核按顺序匹配，后写的优先
-  delete target[key]
-  target[key] = value
-}
-
-// 给一个工具加模式规则。
-// 具体工具（bash）：这个工具的规则挪到末尾，挪之前先把前面所有匹配它的规则（包括 `*` 这类通配键）按顺序折进它的模式表，
-// 这样挪动不改变其他输入的结果，只有新加的模式生效。
-// 通配键（`wiki_create_*`）：不折别的键、不挪位置，只在它自己的模式表里加，免得把宽泛的兜底规则提到更具体的规则后面；
-// 排在它后面、被它覆盖的更具体的键（MCP 设置里的 `wiki_create_page`）再各自加一遍同样的模式，新规则对它们也生效。
-function setPattern(target: PermissionSet, key: string, pattern: string, level: PermissionLevel) {
-  if (key.includes('*')) {
-    const keys = Object.keys(target)
-    const after = keys.includes(key) ? keys.slice(keys.indexOf(key) + 1) : []
-    const current = target[key]
-    const rules: Record<string, PermissionLevel> =
-      current === undefined ? {} : typeof current === 'string' ? { '*': current } : { ...current }
-    delete rules[pattern]
-    rules[pattern] = level
-    // 已有的键原地更新（保持位置），新键加在末尾
-    target[key] = rules
-    for (const k of after)
-      if (k !== key && matchPattern(key, k)) setPattern(target, k, pattern, level)
-    return
-  }
-  const rules: Record<string, PermissionLevel> = {}
-  for (const [k, value] of Object.entries(target)) {
-    if (!matchPattern(k, key)) continue
-    for (const [p, l] of Object.entries(typeof value === 'string' ? { '*': value } : value)) {
-      delete rules[p]
-      rules[p] = l
-    }
-  }
-  delete rules[pattern]
-  rules[pattern] = level
-  set(target, key, rules)
-}
-
-export function resolvePermissions(input: ResolvePermissionsInput): PermissionSet {
+// 第一层：默认值 + MCP 设置，按会话模式调整。只整键替换，不涉及顺序问题，结果还是 PermissionSet（写进内核配置的全局权限）
+export function basePermissions(input: Omit<ResolvePermissionsInput, 'agent'>): PermissionSet {
   const { mode } = input
   const result: PermissionSet = structuredClone(input.defaults ?? defaultPermissions)
 
-  // MCP：写入类按名字猜成询问，用户在设置页改过的照用户的
+  // MCP：写入类按名字猜成询问，用户在设置页改过的照用户的（具体工具排在通配后面）
   const writeKeys = new Set<string>()
   for (const server of input.mcp?.servers ?? []) {
     for (const prefix of WRITE_PREFIXES) {
       const key = mcpToolKey(server, `${prefix}*`)
       writeKeys.add(key)
-      set(result, key, 'ask')
+      result[key] = 'ask'
     }
   }
   for (const [name, level] of Object.entries(input.mcp?.rules ?? {})) {
@@ -214,32 +191,39 @@ export function resolvePermissions(input: ResolvePermissionsInput): PermissionSe
     const tool = name.slice(dot + 1)
     const key = mcpToolKey(name.slice(0, dot), tool)
     if (isWriteTool(tool) || level === 'ask') writeKeys.add(key)
-    set(result, key, level)
+    delete result[key]
+    result[key] = level
   }
 
-  // 会话模式
   if (mode === 'read') {
-    set(result, 'edit', 'deny')
-    set(result, 'bash', bashRules('deny'))
-    set(result, 'external_directory', 'deny')
-    for (const key of writeKeys) set(result, key, 'deny')
+    result.edit = 'deny'
+    result.bash = bashRules('deny')
+    result.external_directory = 'deny'
+    for (const key of writeKeys) result[key] = 'deny'
   } else if (mode === 'auto') {
-    set(result, 'edit', 'allow')
-    set(result, 'bash', bashRules('allow'))
-    set(result, 'external_directory', 'ask')
+    result.edit = 'allow'
+    result.bash = bashRules('allow')
+    result.external_directory = 'ask'
   }
-
-  // Agent 覆盖：deny 永远生效；allow / ask 只在“执行前确认”模式下生效
-  for (const [key, value] of Object.entries(input.agent ?? {})) {
-    if (typeof value === 'string') {
-      if (value === 'deny' || mode === 'ask') set(result, key, value)
-      continue
-    }
-    for (const [pattern, level] of Object.entries(value)) {
-      if (level === 'deny' || mode === 'ask') setPattern(result, key, pattern, level)
-    }
-  }
-  // kits 自己的工具（提问、提交产出、记忆）放在最后，Agent 写了 `'*': deny` 也照样能用
-  for (const tool of KITS_TOOLS) set(result, mcpToolKey(KITS_MCP_SERVER, tool), 'allow')
   return result
+}
+
+// Agent 覆盖这一层：按文件里写的顺序；deny 永远生效，allow / ask 只在“执行前确认”模式下生效
+export function agentOverrideRules(agent: PermissionSet, mode: PermissionMode): PermissionRule[] {
+  return flattenPermissions(agent).filter((r) => r.level === 'deny' || mode === 'ask')
+}
+
+// kits 自己的工具（提问、提交产出、记忆）放在最后，Agent 写了 `'*': deny` 也照样能用
+export const kitsToolRules: PermissionRule[] = KITS_TOOLS.map((tool) => ({
+  tool: mcpToolKey(KITS_MCP_SERVER, tool),
+  pattern: '*',
+  level: 'allow' as const,
+}))
+
+export function resolvePermissions(input: ResolvePermissionsInput): PermissionRule[] {
+  return [
+    ...flattenPermissions(basePermissions(input)),
+    ...agentOverrideRules(input.agent ?? {}, input.mode),
+    ...kitsToolRules,
+  ]
 }

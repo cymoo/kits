@@ -1,17 +1,21 @@
 import {
   type AgentProfile,
+  agentOverrideRules,
+  basePermissions,
   checkJsonSchema,
   effectiveLevel,
   expandVars,
   findModel,
   findVars,
+  flattenPermissions,
   KITS_MCP_SERVER,
+  kitsToolRules,
   type McpFile,
   type McpServerConfig,
   type PermissionLevel,
   type PermissionMode,
+  type PermissionRule,
   type PermissionSet,
-  resolvePermissions,
   type Settings,
   type SkillInfo,
 } from '@kits/core'
@@ -95,36 +99,70 @@ export function gatewayKeyEnv(id: string): string {
   return envName('KITS_GW_', id, '_KEY')
 }
 
-// 一个 Agent 在某个会话模式下的完整权限：默认值 → 模式 → Agent 覆盖，再加上工具和技能允许列表。
-// 允许列表不是用户的权限选择，所以不受“allow 只在 ask 模式生效”的限制。会话创建时也用它（PR2）。
+// 一个 Agent 在某个会话模式下的完整权限：一串有顺序的规则（后面的优先），建会话时整串交给内核（PR2）。
+// 层次：默认值和 MCP（按模式调整）→ Agent 覆盖（按文件顺序）→ 工具允许列表 → 技能允许列表 → kits 工具。
+// 允许列表不是用户的权限选择，所以不受“allow 只在 ask 模式生效”的限制。
 // 内核的 tools 开关不会转成权限规则（契约测试实测），列表外的工具在权限里也写 deny。
 export function agentPermissions(
   agent: AgentProfile | undefined,
   mode: PermissionMode,
   mcp: McpFile,
-): PermissionSet {
-  const result = resolvePermissions({
-    mode,
-    ...(agent ? { agent: agent.permissions } : {}),
-    mcp: { servers: enabledServers(mcp), rules: mcp.permissions },
-  })
+): PermissionRule[] {
+  const before = rulesBeforeSkills(agent, mode, mcp)
+  return [...before, ...skillRules(agent, before), ...kitsToolRules]
+}
+
+function rulesBeforeSkills(
+  agent: AgentProfile | undefined,
+  mode: PermissionMode,
+  mcp: McpFile,
+): PermissionRule[] {
+  return [
+    ...flattenPermissions(basePermissions({ mode, mcp: mcpRules(mcp) })),
+    ...(agent ? agentOverrideRules(agent.permissions, mode) : []),
+    ...deniedBuiltinKeys(agent).map((tool) => ({ tool, pattern: '*', level: 'deny' as const })),
+  ]
+}
+
+function mcpRules(mcp: McpFile) {
+  return { servers: enabledServers(mcp), rules: mcp.permissions }
+}
+
+function deniedBuiltinKeys(agent: AgentProfile | undefined): string[] {
   const allowed = agent && allowedBuiltinTools(agent)
-  if (allowed) {
-    const keys = new Set(OPENCODE_BUILTIN_TOOLS.map((t) => TOOL_PERMISSION[t] ?? t))
-    for (const t of allowed) keys.delete(TOOL_PERMISSION[t] ?? t)
-    for (const key of keys) {
-      delete result[key]
-      result[key] = 'deny'
-    }
+  if (!allowed) return []
+  const keys = new Set(OPENCODE_BUILTIN_TOOLS.map((t) => TOOL_PERMISSION[t] ?? t))
+  for (const t of allowed) keys.delete(TOOL_PERMISSION[t] ?? t)
+  return [...keys]
+}
+
+// 技能允许列表和前面算出来的 skill 权限取交集：列表外的拒绝，列表内的保留原来的档位（deny、ask 照旧，
+// 包括 Agent 写的 `'*': deny` 这类通配）
+function skillRules(agent: AgentProfile | undefined, before: PermissionRule[]): PermissionRule[] {
+  if (!agent?.skills) return []
+  return [
+    { tool: 'skill', pattern: '*', level: 'deny' },
+    ...agent.skills.map((name) => ({
+      tool: 'skill',
+      pattern: name,
+      level: effectiveLevel(before, 'skill', name) ?? ('allow' as const),
+    })),
+  ]
+}
+
+// 写进 opencode.json 的 Agent 权限：内核把它接在全局权限后面。Agent 自己写的规则原样保留顺序，
+// 允许列表、技能和 kits 工具都是整键替换，不改动其他键的顺序
+function agentConfigPermission(agent: AgentProfile, mcp: McpFile): PermissionSet {
+  const result: PermissionSet = structuredClone(agent.permissions)
+  const replace = (key: string, value: PermissionSet[string]) => {
+    delete result[key]
+    result[key] = value
   }
-  // 技能允许列表和已有的 skill 权限取交集：列表外的拒绝，列表内的保留原来的档位（deny、ask 照旧）
-  // 已有规则按顺序算，包括 `*` 这类通配键（Agent 写了 `'*': deny` 时列表里的技能也是 deny）
-  if (agent?.skills) {
-    const rules: Record<string, PermissionLevel> = { '*': 'deny' }
-    for (const name of agent.skills) rules[name] = effectiveLevel(result, 'skill', name) ?? 'allow'
-    delete result.skill
-    result.skill = rules
-  }
+  for (const key of deniedBuiltinKeys(agent)) replace(key, 'deny')
+  const skills = skillRules(agent, rulesBeforeSkills(agent, 'ask', mcp))
+  if (skills.length > 0)
+    replace('skill', Object.fromEntries(skills.map((r) => [r.pattern, r.level])))
+  for (const r of kitsToolRules) replace(r.tool, r.level)
   return result
 }
 
@@ -283,7 +321,7 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
       ...(a.prompt ? { prompt: a.prompt } : {}),
       ...(a.model ? { model: a.model } : {}),
       ...(Object.keys(tools).length > 0 ? { tools } : {}),
-      permission: agentPermissions(a, 'ask', input.mcp),
+      permission: agentConfigPermission(a, input.mcp),
     }
   }
 
@@ -303,7 +341,10 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
     model: settings.defaultModel,
     ...(defaultAgent ? { default_agent: opencodeAgentName(defaultAgent) } : {}),
     agent,
-    permission: agentPermissions(undefined, 'ask', input.mcp),
+    permission: {
+      ...basePermissions({ mode: 'ask', mcp: mcpRules(input.mcp) }),
+      ...Object.fromEntries(kitsToolRules.map((r) => [r.tool, r.level])),
+    },
     mcp,
     // 技能目录直接列给内核，内核会把每个技能同时注册成 / 命令
     skills: { paths: input.skills.map((s) => s.dir) },

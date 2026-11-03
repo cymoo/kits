@@ -1,14 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import {
+  basePermissions,
   defaultPermissions,
   effectiveLevel,
   isWriteTool,
   levelFor,
   matchPattern,
+  type PermissionMode,
+  type PermissionSet,
   resolvePermissions,
 } from './permission'
 
 const mcp = { servers: ['wiki'], rules: { 'wiki.get_page': 'allow' as const } }
+
+// 解析结果对某个工具、某个输入的最终档位
+function level(
+  input: {
+    mode: PermissionMode
+    agent?: PermissionSet
+    mcp?: { servers: string[]; rules: Record<string, 'allow' | 'ask' | 'deny'> }
+    defaults?: PermissionSet
+  },
+  tool: string,
+  arg = '*',
+) {
+  return effectiveLevel(resolvePermissions(input), tool, arg)
+}
 
 describe('defaultPermissions', () => {
   it('allows read-only commands and asks for everything else in bash', () => {
@@ -21,33 +38,26 @@ describe('defaultPermissions', () => {
   })
 
   it('only allows the listing forms of git branch', () => {
-    const bash = defaultPermissions.bash as Record<string, string>
-    expect(bash['git branch']).toBe('allow')
-    expect(bash['git branch -a']).toBe('allow')
-    expect(bash['git branch *']).toBeUndefined()
+    expect(level({ mode: 'ask' }, 'bash', 'git branch')).toBe('allow')
+    expect(level({ mode: 'ask' }, 'bash', 'git branch -a')).toBe('allow')
+    expect(level({ mode: 'ask' }, 'bash', 'git branch -D feature')).toBe('ask')
   })
 
-  it('sends git --output, command substitution and rg --pre back to the fallback level', () => {
-    const bash = defaultPermissions.bash as Record<string, string>
-    for (const p of [
-      'git *--output*',
-      'git *--ext-diff*',
-      '*$(*',
-      '*`*',
-      'rg *--pre*',
-      'tree *-o *',
+  it('sends redirects, command substitution and writing options back to the fallback level', () => {
+    for (const cmd of [
+      'echo hi > a.txt',
+      'echo $(rm -rf x)',
+      'cat `which sh`',
+      'git diff --output=changes.txt',
+      'git log --ext-diff',
+      'find . -delete',
+      'find . -exec rm {} ;',
+      'rg --pre ./run.sh foo',
+      'tree -o out.txt',
     ]) {
-      expect(bash[p]).toBe('ask')
+      expect(level({ mode: 'ask' }, 'bash', cmd), cmd).toBe('ask')
     }
-  })
-
-  it('sends redirects and find -delete back to the fallback level', () => {
-    const bash = defaultPermissions.bash as Record<string, string>
-    const keys = Object.keys(bash)
-    expect(bash['*>*']).toBe('ask')
-    expect(bash['find *-delete*']).toBe('ask')
-    // 内核按顺序匹配、后写的优先，兜底规则要排在白名单后面
-    expect(keys.indexOf('*>*')).toBeGreaterThan(keys.indexOf('echo *'))
+    expect(level({ mode: 'ask' }, 'bash', 'git diff HEAD~1')).toBe('allow')
   })
 })
 
@@ -61,134 +71,127 @@ describe('isWriteTool', () => {
   })
 })
 
-describe('resolvePermissions', () => {
-  it('returns the defaults in ask mode without agent or mcp', () => {
-    const result = resolvePermissions({ mode: 'ask' })
-    expect(result.edit).toBe('allow')
-    expect(result.bash).toEqual(defaultPermissions.bash)
-    expect(result.kits_ask_user).toBe('allow')
-  })
-
-  it('asks for mcp tools whose names look like writes', () => {
-    const result = resolvePermissions({ mode: 'ask', mcp })
-    expect(result['wiki_create_*']).toBe('ask')
-    expect(result.wiki_get_page).toBe('allow')
-  })
-
-  it('keeps the user setting for an mcp tool over the name guess', () => {
-    const result = resolvePermissions({
+describe('basePermissions', () => {
+  it('asks for mcp tools whose names look like writes and keeps user settings', () => {
+    const base = basePermissions({
       mode: 'ask',
       mcp: { servers: ['wiki'], rules: { 'wiki.update_page': 'allow' } },
     })
-    const keys = Object.keys(result)
-    expect(result.wiki_update_page).toBe('allow')
+    expect(base['wiki_create_*']).toBe('ask')
+    const keys = Object.keys(base)
     expect(keys.indexOf('wiki_update_page')).toBeGreaterThan(keys.indexOf('wiki_update_*'))
+  })
+})
+
+describe('resolvePermissions', () => {
+  it('uses the defaults in ask mode', () => {
+    expect(level({ mode: 'ask' }, 'edit')).toBe('allow')
+    expect(level({ mode: 'ask' }, 'bash', 'npm test')).toBe('ask')
+    expect(level({ mode: 'ask' }, 'webfetch')).toBe('deny')
+  })
+
+  it('follows the mcp settings over the name guess', () => {
+    expect(level({ mode: 'ask', mcp }, 'wiki_create_page')).toBe('ask')
+    expect(level({ mode: 'ask', mcp }, 'wiki_get_page')).toBe('allow')
   })
 
   it('denies edits, non-whitelisted commands and mcp writes in read mode', () => {
-    const result = resolvePermissions({
-      mode: 'read',
-      mcp: { servers: ['wiki'], rules: { 'wiki.update_page': 'allow', 'wiki.sync': 'ask' } },
-    })
-    expect(result.edit).toBe('deny')
-    expect(result.external_directory).toBe('deny')
-    expect(result.bash).toMatchObject({ '*': 'deny', 'git diff *': 'allow', '*>*': 'deny' })
-    expect(result['wiki_create_*']).toBe('deny')
-    expect(result.wiki_update_page).toBe('deny')
-    expect(result.wiki_sync).toBe('deny')
+    const m = {
+      servers: ['wiki'],
+      rules: { 'wiki.update_page': 'allow' as const, 'wiki.sync': 'ask' as const },
+    }
+    expect(level({ mode: 'read', mcp: m }, 'edit')).toBe('deny')
+    expect(level({ mode: 'read', mcp: m }, 'external_directory')).toBe('deny')
+    expect(level({ mode: 'read', mcp: m }, 'bash', 'npm test')).toBe('deny')
+    expect(level({ mode: 'read', mcp: m }, 'bash', 'git diff')).toBe('allow')
+    expect(level({ mode: 'read', mcp: m }, 'bash', 'echo a > b')).toBe('deny')
+    expect(level({ mode: 'read', mcp: m }, 'wiki_create_page')).toBe('deny')
+    expect(level({ mode: 'read', mcp: m }, 'wiki_update_page')).toBe('deny')
+    expect(level({ mode: 'read', mcp: m }, 'wiki_sync')).toBe('deny')
   })
 
   it('allows bash and edit but still asks for outside dirs and mcp writes in auto mode', () => {
-    const result = resolvePermissions({ mode: 'auto', mcp })
-    expect(result.bash).toEqual({ '*': 'allow' })
-    expect(result.edit).toBe('allow')
-    expect(result.external_directory).toBe('ask')
-    expect(result['wiki_send_*']).toBe('ask')
+    expect(level({ mode: 'auto', mcp }, 'bash', 'rm -rf build')).toBe('allow')
+    expect(level({ mode: 'auto', mcp }, 'edit')).toBe('allow')
+    expect(level({ mode: 'auto', mcp }, 'external_directory')).toBe('ask')
+    expect(level({ mode: 'auto', mcp }, 'wiki_send_mail')).toBe('ask')
   })
 
   it('applies agent deny in every mode', () => {
     for (const mode of ['ask', 'read', 'auto'] as const) {
-      const result = resolvePermissions({ mode, agent: { bash: 'deny', edit: 'deny' } })
-      expect(result.bash).toBe('deny')
-      expect(result.edit).toBe('deny')
+      expect(level({ mode, agent: { bash: 'deny' } }, 'bash', 'git status')).toBe('deny')
+      expect(level({ mode, agent: { edit: 'deny' } }, 'edit')).toBe('deny')
     }
   })
 
   it('applies agent allow and ask only in ask mode', () => {
     const agent = { bash: 'allow' as const, webfetch: 'ask' as const }
-    expect(resolvePermissions({ mode: 'ask', agent })).toMatchObject(agent)
-    const read = resolvePermissions({ mode: 'read', agent })
-    expect(read.webfetch).toBe('deny')
-    expect((read.bash as Record<string, string>)['*']).toBe('deny')
+    expect(level({ mode: 'ask', agent }, 'bash', 'npm test')).toBe('allow')
+    expect(level({ mode: 'ask', agent }, 'webfetch')).toBe('ask')
+    expect(level({ mode: 'read', agent }, 'webfetch')).toBe('deny')
+    expect(level({ mode: 'read', agent }, 'bash', 'npm test')).toBe('deny')
   })
 
-  it('merges agent command patterns into the bash rules', () => {
-    const result = resolvePermissions({
-      mode: 'auto',
-      agent: { bash: { 'rm *': 'deny', 'npm *': 'allow' } },
-    })
-    expect(result.bash).toEqual({ '*': 'allow', 'rm *': 'deny' })
+  it('applies agent command patterns on top of the mode', () => {
+    const agent = { bash: { 'rm *': 'deny' as const, 'npm *': 'allow' as const } }
+    expect(level({ mode: 'auto', agent }, 'bash', 'rm -rf x')).toBe('deny')
+    expect(level({ mode: 'auto', agent }, 'bash', 'ls')).toBe('allow')
+    expect(level({ mode: 'ask', agent }, 'bash', 'npm test')).toBe('allow')
   })
 
-  it('always allows the kits tools, even after an agent wildcard deny', () => {
-    const result = resolvePermissions({ mode: 'read', agent: { '*': 'deny' } })
-    expect(effectiveLevel(result, 'kits_ask_user', '*')).toBe('allow')
-    expect(effectiveLevel(result, 'kits_submit_output', '*')).toBe('allow')
-    expect(effectiveLevel(result, 'bash', 'ls')).toBe('deny')
-  })
-
+  // 以下几条来自 review：通配键和具体键相交时，后写的规则都要压过前面的
   it('keeps an agent wildcard deny when the agent also adds command patterns', () => {
     for (const mode of ['ask', 'auto'] as const) {
-      const result = resolvePermissions({
-        mode,
-        agent: { '*': 'deny', bash: { 'rm *': 'deny' } },
-      })
-      expect(effectiveLevel(result, 'bash', 'touch unexpected.txt')).toBe('deny')
-      expect(effectiveLevel(result, 'bash', 'rm -rf x')).toBe('deny')
+      const agent = { '*': 'deny' as const, bash: { 'rm *': 'deny' as const } }
+      expect(level({ mode, agent }, 'bash', 'touch unexpected.txt')).toBe('deny')
     }
   })
 
-  it('does not lift a broad wildcard allow over a specific deny when merging a wildcard key', () => {
-    const result = resolvePermissions({
-      mode: 'ask',
-      defaults: {},
-      agent: { 'b*': 'allow', bash: { 'rm *': 'deny' }, 'ba*': { 'ls *': 'deny' } },
-    })
-    expect(effectiveLevel(result, 'bash', 'rm -rf example')).toBe('deny')
-    expect(effectiveLevel(result, 'bash', 'ls a')).toBe('deny')
-    expect(effectiveLevel(result, 'bash', 'pwd')).toBe('allow')
+  it('lets later agent patterns override an earlier agent wildcard deny in ask mode', () => {
+    const agent = { '*': 'deny' as const, bash: { 'git *': 'allow' as const } }
+    expect(level({ mode: 'ask', agent }, 'bash', 'git log')).toBe('allow')
+    expect(level({ mode: 'ask', agent }, 'bash', 'touch x')).toBe('deny')
+  })
+
+  it('does not lift a broad wildcard allow over a specific deny', () => {
+    const agent = {
+      'b*': 'allow' as const,
+      bash: { 'rm *': 'deny' as const },
+      'ba*': { 'ls *': 'deny' as const },
+    }
+    expect(level({ mode: 'ask', defaults: {}, agent }, 'bash', 'rm -rf example')).toBe('deny')
+    expect(level({ mode: 'ask', defaults: {}, agent }, 'bash', 'ls a')).toBe('deny')
+    expect(level({ mode: 'ask', defaults: {}, agent }, 'bash', 'pwd')).toBe('allow')
   })
 
   it('lets an agent wildcard deny beat an mcp allow on a more specific tool', () => {
+    const m = { servers: ['wiki'], rules: { 'wiki.create_page': 'allow' as const } }
     for (const mode of ['ask', 'auto'] as const) {
-      const result = resolvePermissions({
-        mode,
-        mcp: { servers: ['wiki'], rules: { 'wiki.create_page': 'allow' } },
-        agent: { 'wiki_create_*': { '*': 'deny' } },
-      })
-      expect(effectiveLevel(result, 'wiki_create_page', '*')).toBe('deny')
-      expect(effectiveLevel(result, 'wiki_create_space', '*')).toBe('deny')
-      expect(effectiveLevel(result, 'wiki_get_page', '*')).toBeUndefined()
+      const agent = { 'wiki_create_*': { '*': 'deny' as const } }
+      expect(level({ mode, mcp: m, agent }, 'wiki_create_page')).toBe('deny')
     }
   })
 
-  it('does not allow tools of another server whose name starts with kits_', () => {
-    const result = resolvePermissions({
-      mode: 'read',
-      mcp: { servers: ['kits_wiki'], rules: {} },
-      agent: {},
-    })
-    expect(effectiveLevel(result, 'kits_wiki_delete_page', '*')).toBe('deny')
-    expect(effectiveLevel(result, 'kits_remember', '*')).toBe('allow')
+  it('honors declaration order between overlapping agent wildcards', () => {
+    const m = { servers: ['wiki'], rules: {} }
+    const denyLast = { 'wiki_*_page': 'allow' as const, 'wiki_create_*': { '*': 'deny' as const } }
+    expect(level({ mode: 'ask', mcp: m, agent: denyLast }, 'wiki_create_page')).toBe('deny')
+    expect(level({ mode: 'ask', mcp: m, agent: denyLast }, 'wiki_get_page')).toBe('allow')
+    const broadLast = { 'wiki_create_*': 'deny' as const, 'wiki_*': 'allow' as const }
+    expect(level({ mode: 'ask', mcp: m, agent: broadLast }, 'wiki_create_page')).toBe('allow')
   })
 
-  it('lets agent command patterns override an earlier wildcard deny in ask mode', () => {
-    const result = resolvePermissions({
-      mode: 'ask',
-      agent: { '*': 'deny', bash: { 'git *': 'allow' } },
-    })
-    expect(effectiveLevel(result, 'bash', 'git log')).toBe('allow')
-    expect(effectiveLevel(result, 'bash', 'touch x')).toBe('deny')
+  it('always allows the kits tools, even after an agent wildcard deny', () => {
+    const agent = { '*': 'deny' as const }
+    expect(level({ mode: 'read', agent }, 'kits_ask_user')).toBe('allow')
+    expect(level({ mode: 'read', agent }, 'kits_submit_output')).toBe('allow')
+    expect(level({ mode: 'read', agent }, 'bash', 'ls')).toBe('deny')
+  })
+
+  it('does not allow tools of another server whose name starts with kits_', () => {
+    const m = { servers: ['kits_wiki'], rules: {} }
+    expect(level({ mode: 'read', mcp: m }, 'kits_wiki_delete_page')).toBe('deny')
+    expect(level({ mode: 'read', mcp: m }, 'kits_remember')).toBe('allow')
   })
 })
 
@@ -208,15 +211,5 @@ describe('levelFor', () => {
     ).toBe('ask')
     expect(levelFor('deny', 'anything')).toBe('deny')
     expect(levelFor({ a: 'allow' }, 'b')).toBeUndefined()
-  })
-})
-
-describe('effectiveLevel', () => {
-  it('follows wildcard tool keys in order', () => {
-    const set = { skill: 'allow' as const, '*': 'deny' as const }
-    expect(effectiveLevel(set, 'skill', 'review')).toBe('deny')
-    expect(effectiveLevel({ '*': 'deny', skill: { review: 'allow' } }, 'skill', 'review')).toBe(
-      'allow',
-    )
   })
 })

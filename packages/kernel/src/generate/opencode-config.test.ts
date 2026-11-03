@@ -1,7 +1,13 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { type AgentProfile, agentProfileSchema, parseMcpFile, parseSettings } from '@kits/core'
+import {
+  type AgentProfile,
+  agentProfileSchema,
+  effectiveLevel,
+  parseMcpFile,
+  parseSettings,
+} from '@kits/core'
 import { describe, expect, it } from 'vitest'
 import {
   agentPermissions,
@@ -177,11 +183,9 @@ describe('generateOpencodeConfig', () => {
     const c = config({
       agents: [agent({ name: 'r', permissions: { bash: 'deny', edit: 'deny' } })],
     })
-    expect(c.agent['kits-r'].permission).toMatchObject({
-      bash: 'deny',
-      edit: 'deny',
-      read: 'allow',
-    })
+    // Agent 那一份只放 Agent 自己的规则，默认值在全局 permission 里，内核按“全局 → Agent”的顺序接起来
+    expect(c.agent['kits-r'].permission).toMatchObject({ bash: 'deny', edit: 'deny' })
+    expect(c.agent['kits-r'].permission.read).toBeUndefined()
     expect(c.permission.bash).toMatchObject({ '*': 'ask', 'git status': 'allow' })
   })
 
@@ -284,20 +288,29 @@ describe('generateOpencodeConfig', () => {
 
 describe('agentPermissions', () => {
   const mcp = parseMcpFile({ mcpServers: {} })
+  const level = (a: AgentProfile, mode: 'ask' | 'read' | 'auto', tool: string, arg = '*') =>
+    effectiveLevel(agentPermissions(a, mode, mcp), tool, arg)
 
   it('denies built-in tools outside the agent tool list in every mode', () => {
-    const a = agent({ name: 'a', tools: ['read', 'grep', 'glob', 'edit'] })
+    const a = agent({
+      name: 'a',
+      tools: ['read', 'grep', 'glob', 'edit'],
+      permissions: { bash: 'allow' },
+    })
     for (const mode of ['ask', 'auto'] as const) {
-      const p = agentPermissions(a, mode, mcp)
-      expect(p).toMatchObject({ bash: 'deny', webfetch: 'deny', task: 'deny', read: 'allow' })
-      expect(p.edit).toBe('allow')
+      expect(level(a, mode, 'bash', 'ls')).toBe('deny')
+      expect(level(a, mode, 'webfetch')).toBe('deny')
+      expect(level(a, mode, 'task')).toBe('deny')
+      expect(level(a, mode, 'read')).toBe('allow')
+      expect(level(a, mode, 'edit')).toBe('allow')
     }
   })
 
   it('limits the skill tool to the agent skill list in every mode', () => {
     const a = agent({ name: 'a', skills: ['review'] })
     for (const mode of ['ask', 'read', 'auto'] as const) {
-      expect(agentPermissions(a, mode, mcp).skill).toEqual({ '*': 'deny', review: 'allow' })
+      expect(level(a, mode, 'skill', 'review')).toBe('allow')
+      expect(level(a, mode, 'skill', 'other')).toBe('deny')
     }
   })
 
@@ -307,29 +320,38 @@ describe('agentPermissions', () => {
       skills: ['review', 'doc'],
       permissions: { skill: { review: 'deny', doc: 'ask' } },
     })
-    expect(agentPermissions(a, 'ask', mcp).skill).toEqual({
-      '*': 'deny',
-      review: 'deny',
-      doc: 'ask',
-    })
+    expect(level(a, 'ask', 'skill', 'review')).toBe('deny')
+    expect(level(a, 'ask', 'skill', 'doc')).toBe('ask')
     // read 模式下 ask 不生效，回到默认的 allow；deny 永远生效
-    expect(agentPermissions(a, 'read', mcp).skill).toEqual({
-      '*': 'deny',
-      review: 'deny',
-      doc: 'allow',
-    })
+    expect(level(a, 'read', 'skill', 'review')).toBe('deny')
+    expect(level(a, 'read', 'skill', 'doc')).toBe('allow')
   })
 
   it('keeps an agent wildcard deny over the skill list', () => {
     const a = agent({ name: 'a', skills: ['review'], permissions: { '*': 'deny' } })
     for (const mode of ['ask', 'read', 'auto'] as const) {
-      expect(agentPermissions(a, mode, mcp).skill).toEqual({ '*': 'deny', review: 'deny' })
+      expect(level(a, mode, 'skill', 'review')).toBe('deny')
     }
   })
 
-  it('keeps an agent skill deny over the skill list', () => {
-    const a = agent({ name: 'a', skills: ['review'], permissions: { skill: 'deny' } })
-    expect(agentPermissions(a, 'ask', mcp).skill).toEqual({ '*': 'deny', review: 'deny' })
+  it('writes the agent part of the rules into the config without reordering the agent keys', () => {
+    const c = config({
+      agents: [
+        agent({
+          name: 'r',
+          tools: ['read', 'skill'],
+          skills: ['review'],
+          permissions: { 'wiki_*_page': 'allow', 'wiki_create_*': { '*': 'deny' } },
+        }),
+      ],
+    })
+    const keys = Object.keys(c.agent['kits-r'].permission)
+    expect(keys.slice(0, 2)).toEqual(['wiki_*_page', 'wiki_create_*'])
+    expect(c.agent['kits-r'].permission).toMatchObject({
+      bash: 'deny',
+      skill: { '*': 'deny', review: 'allow' },
+      kits_ask_user: 'allow',
+    })
   })
 })
 
