@@ -134,6 +134,8 @@ export class McpService {
       raw.mcpServers = { ...(raw.mcpServers ?? {}) }
       for (const [name, server] of Object.entries(r.servers)) {
         raw.mcpServers[name] = toMcpServersEntry(server)
+        // 同名替换：旧配置测出来的工具列表不作数了，等重新测试
+        this.tools.delete(name)
         if (!server.enabled) raw.enabled = { ...(raw.enabled ?? {}), [name]: false }
         else if (raw.enabled) delete raw.enabled[name]
       }
