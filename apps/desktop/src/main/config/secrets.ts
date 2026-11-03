@@ -73,8 +73,9 @@ export class SecretStore {
     }
   }
 
+  // 解不开的值不算有（换了机器或钥匙串被重置），界面据此提示重新填写
   has(key: string): boolean {
-    return key in this.values
+    return this.get(key) !== undefined
   }
 
   remove(key: string): void {
