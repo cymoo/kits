@@ -342,7 +342,11 @@ export class OpencodeFamilyKernel implements AgentKernel {
     let unsubscribe: (() => void) | undefined
     try {
       try {
-        for (const m of await this.messages(session, this.setupTimeout).catch(() => [])) {
+        for (const m of await this.messages(
+          session,
+          this.setupTimeout,
+          run.controller.signal,
+        ).catch(() => [])) {
           if (m.info.id) known.add(m.info.id)
         }
         const listener = {
@@ -535,7 +539,11 @@ export class OpencodeFamilyKernel implements AgentKernel {
     await this.request('POST', `/session/${session.id}/summarize`, session.workdir, model)
   }
 
-  async messages(session: KernelSession, timeoutMs?: number): Promise<KernelMessage[]> {
+  async messages(
+    session: KernelSession,
+    timeoutMs?: number,
+    signal?: AbortSignal,
+  ): Promise<KernelMessage[]> {
     return (
       (await this.request<KernelMessage[]>(
         'GET',
@@ -543,6 +551,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
         session.workdir,
         undefined,
         timeoutMs,
+        signal,
       )) ?? []
     )
   }
