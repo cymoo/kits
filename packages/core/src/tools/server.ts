@@ -32,6 +32,20 @@ export interface KitsToolServerOptions {
 
 const text = (t: string) => ({ content: [{ type: 'text' as const, text: t }] })
 
+// submit_output 的处理：没有输出格式、格式不对都不交给 onOutput。真工具和 Mock 内核共用这一段
+export async function submitOutput(
+  handlers: Pick<KitsToolHandlers, 'outputSchema' | 'onOutput'>,
+  output: unknown,
+  context: KitsToolContext,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const schema = handlers.outputSchema(context)
+  if (!schema) return { ok: false, error: '当前 Agent 没有设置输出格式，不需要提交。' }
+  const result = validateOutput(schema, output)
+  if (!result.ok) return { ok: false, error: `输出不符合格式：\n${result.errors.join('\n')}` }
+  await handlers.onOutput(result.output, context)
+  return { ok: true }
+}
+
 export const KITS_TOOL_NAMES = ['ask_user', 'submit_output', 'remember'] as const
 
 export function createKitsToolServer(options: KitsToolServerOptions): McpServer {
@@ -68,15 +82,8 @@ export function createKitsToolServer(options: KitsToolServerOptions): McpServer 
       inputSchema: { output: z.unknown().describe('符合输出格式 JSON Schema 的结果') },
     },
     async (input) => {
-      const context = await ctx('submit_output', input)
-      const schema = handlers.outputSchema(context)
-      if (!schema) return { isError: true, ...text('当前 Agent 没有设置输出格式，不需要提交。') }
-      const result = validateOutput(schema, input.output)
-      if (!result.ok) {
-        return { isError: true, ...text(`输出不符合格式：\n${result.errors.join('\n')}`) }
-      }
-      await handlers.onOutput(result.output, context)
-      return text('已提交')
+      const result = await submitOutput(handlers, input.output, await ctx('submit_output', input))
+      return result.ok ? text('已提交') : { isError: true, ...text(result.error) }
     },
   )
 

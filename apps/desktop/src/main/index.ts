@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { gatewaySecretKey } from '@kits/core'
+import type { KernelName } from '@kits/core/ipc'
 import { app, BrowserWindow, shell } from 'electron'
 import { ConfigService } from './config/config-service'
 import { resolveConfigDir } from './config/paths'
@@ -11,7 +12,9 @@ import { openDatabase } from './db'
 import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc, trustedUrl } from './ipc/register'
 import { kernelInfo, kernelLogsDir } from './kernel/kernel-info'
+import { createKernelManager } from './kernel/runtime'
 import { createElectronPlatform } from './platform'
+import { KitsToolHost } from './tools/kits-tool-host'
 
 // 主进程入口：读配置、打开数据库、注册 IPC、开窗口。会话、内核等按模块往里加。
 
@@ -36,6 +39,14 @@ if (!app.requestSingleInstanceLock()) {
     if (win.isMinimized()) win.restore()
     win.focus()
   })
+}
+
+let shutdown: (() => Promise<void>) | undefined
+
+// IPC 传来的内核名只认这两个
+function kernelName(v: unknown): KernelName {
+  if (v !== 'opencode' && v !== 'codeagent') throw new Error(`不认识的内核：${String(v)}`)
+  return v
 }
 
 // 家目录下的路径写成 ~/…，结尾带 /，和原型一致
@@ -89,14 +100,28 @@ function createWindow(onFocus: () => void): void {
 app.whenReady().then(() => {
   const platform = createElectronPlatform()
   openDatabase(path.join(platform.userDataDir, 'kits.db'), migrationsFolder())
-  const config = new ConfigService({
-    dir: resolveConfigDir(),
-    onSettingsChanged: (settings) => push('settings.changed', settings),
-  })
   const secrets = new SecretStore(
     path.join(platform.userDataDir, 'secrets.json'),
     platform.encryptor,
   )
+  const tools = new KitsToolHost()
+  // 设置变了要重启内核、内核启动要读设置，两边互相引用
+  let onConfigChanged = () => {}
+  const config = new ConfigService({
+    dir: resolveConfigDir(),
+    onSettingsChanged: (settings) => {
+      push('settings.changed', settings)
+      onConfigChanged()
+    },
+  })
+  const kernels = createKernelManager({
+    platform,
+    config,
+    secrets,
+    tools,
+    onStatus: (status) => push('kernel.status', status),
+  })
+  onConfigChanged = () => kernels.configChanged()
 
   registerIpc(
     {
@@ -126,22 +151,42 @@ app.whenReady().then(() => {
       },
       kernel: {
         status: () =>
-          kernelInfo({ userDataDir: platform.userDataDir, resourcesPath: platform.resourcesPath }),
+          kernelInfo({
+            userDataDir: platform.userDataDir,
+            resourcesPath: platform.resourcesPath,
+            runtime: (id) => kernels.status(id),
+            mock: process.env.KITS_KERNEL === 'mock',
+          }),
+        // 类型只管编译期，渲染进程传来的值要在这里挡住：它会拼进目录和可执行文件路径
+        restart: (id) => kernels.requestRestart(kernelName(id)),
         openLogs: async (id) => {
-          const dir = kernelLogsDir(platform.userDataDir, id)
+          const dir = kernelLogsDir(platform.userDataDir, kernelName(id))
           mkdirSync(dir, { recursive: true })
           await platform.openPath(dir)
         },
       },
+      // 网关 key、MCP 变量都经内核子进程的环境变量传进去，改了也要按新配置重启
       secrets: {
-        set: ({ key, value }) => secrets.set(key, value),
+        set: ({ key, value }) => {
+          secrets.set(key, value)
+          kernels.configChanged()
+        },
         has: (key) => secrets.has(key),
         encrypted: () => secrets.encrypted,
-        remove: (key) => secrets.remove(key),
+        remove: (key) => {
+          secrets.remove(key)
+          kernels.configChanged()
+        },
       },
     },
     isTrusted,
   )
+
+  // 退出时关掉内核子进程和工具服务，不留孤儿进程
+  shutdown = async () => {
+    await kernels.dispose()
+    await tools.stop()
+  }
 
   // 窗口回到前台时看一眼 settings.json 有没有被人改过
   const onFocus = () => void config.reloadIfChanged()
@@ -150,6 +195,19 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(onFocus)
   })
+})
+
+// will-quit 不等异步清理：先拦下退出，清理完再直接退出。清理期间再触发的退出也拦下，只是不重复清理。
+// 用 app.exit 而不是再调 app.quit：清理很快时 quit 还处在被取消的那一轮里，会被忽略，进程就退不掉
+let quitting = false
+app.on('will-quit', (event) => {
+  if (!shutdown) return
+  event.preventDefault()
+  if (quitting) return
+  quitting = true
+  void shutdown()
+    .catch(() => {})
+    .finally(() => app.exit(0))
 })
 
 app.on('window-all-closed', () => {

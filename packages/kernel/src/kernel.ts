@@ -15,6 +15,16 @@ export interface KernelConfig {
   dataDir: string
   // 只给子进程的环境变量：网关 key、MCP 的 `${VAR}`、kits 工具 token。配置文件里只写 `{env:…}`
   env: Record<string, string>
+  // 子进程的 stdout / stderr 追加写到这个文件；不传就只留在内存里（最后 64 KB）
+  logFile?: string
+}
+
+// 内核进程意外退出（不是 close 关掉的）
+export interface KernelExit {
+  code: number | null
+  signal: string | null
+  // stdout / stderr 的最后几十行，出错卡片上显示
+  tail: string
 }
 
 export interface KernelSession {
@@ -79,6 +89,8 @@ export interface AgentKernel {
   summarize(session: KernelSession): Promise<void>
   messages(session: KernelSession): Promise<KernelMessage[]>
   revert(session: KernelSession, messageId: string): Promise<void>
+  // 进程意外退出时通知；正在跑的轮次会先各自收到 done: error
+  onExit(listener: (exit: KernelExit) => void): void
   dispose(): Promise<void>
 }
 
@@ -98,6 +110,7 @@ export interface KernelDialect {
 export interface SpawnedKernel {
   baseUrl: string
   headers: Record<string, string>
+  onExit(listener: (exit: KernelExit) => void): void
   close(): Promise<void>
 }
 

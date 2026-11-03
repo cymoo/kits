@@ -1,9 +1,9 @@
 import type { Gateway, GatewayTestResult, KernelInfo, KernelName } from '@kits/core/ipc'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
 import { RadioGroup } from 'radix-ui'
 import { useEffect, useRef, useState } from 'react'
-import { t } from '../../../app/i18n'
+import { type MessageKey, t } from '../../../app/i18n'
 import { kits, useSettings, useUpdateSettings } from '../../../lib/kits'
 import { gatewaySecretKey } from '../../../lib/secret-keys'
 import { Button } from '../../../ui/Button'
@@ -346,6 +346,29 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
   )
 }
 
+function KernelState({ info }: { info: KernelInfo }) {
+  if (!info.installed) {
+    return (
+      <span className="rounded-[8px] bg-muted px-[7px] font-medium text-[0.846rem] text-fg-muted">
+        {t('model.notInstalled')}
+      </span>
+    )
+  }
+  const tone =
+    info.state === 'running'
+      ? 'bg-ok-bg text-ok'
+      : info.state === 'error'
+        ? 'bg-danger-bg text-danger'
+        : info.state === 'stopped'
+          ? 'bg-muted text-fg-muted'
+          : 'bg-warn-bg text-warn'
+  return (
+    <span className={cx('rounded-[8px] px-[7px] font-medium text-[0.846rem]', tone)}>
+      {t(`model.state.${info.state}` as MessageKey)}
+    </span>
+  )
+}
+
 const KERNEL_TEXT: Record<KernelInfo['id'], { name: string; note: string }> = {
   opencode: { name: 'OpenCode', note: '开源内核，随应用打包。第一阶段以它为主走通全流程。' },
   codeagent: {
@@ -357,9 +380,21 @@ const KERNEL_TEXT: Record<KernelInfo['id'], { name: string; note: string }> = {
 function KernelCard() {
   const settings = useSettings()
   const update = useUpdateSettings()
+  const client = useQueryClient()
   const status = useQuery({ queryKey: ['kernel', 'status'], queryFn: () => kits.kernel.status() })
+  // 内核状态变化由主进程推过来，直接合进缓存
+  useEffect(
+    () =>
+      kits.on('kernel.status', (runtime) =>
+        client.setQueryData<KernelInfo[]>(['kernel', 'status'], (list) =>
+          list?.map((k) => (k.id === runtime.id ? { ...k, ...runtime } : k)),
+        ),
+      ),
+    [client],
+  )
   const current = settings.data?.kernel ?? 'opencode'
-  const logs = status.data?.find((k) => k.id === current)?.logsDir
+  const currentInfo = status.data?.find((k) => k.id === current)
+  const logs = currentInfo?.logsDir
   return (
     <section className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised">
       <div className="flex items-center gap-2.5 border-line-soft border-b px-[18px] py-3">
@@ -388,14 +423,7 @@ function KernelCard() {
                 <span className="font-semibold text-[1.077rem]">{KERNEL_TEXT[k.id].name}</span>
                 <span className="font-mono text-[0.885rem] text-fg-muted">{k.version ?? ''}</span>
                 <span className="flex-1" />
-                <span
-                  className={cx(
-                    'rounded-[8px] px-[7px] font-medium text-[0.846rem]',
-                    k.installed ? 'bg-ok-bg text-ok' : 'bg-muted text-fg-muted',
-                  )}
-                >
-                  {k.installed ? t('model.installed') : t('model.notInstalled')}
-                </span>
+                <KernelState info={k} />
               </span>
               <span className="text-[0.962rem] text-fg-muted leading-[1.55]">
                 {KERNEL_TEXT[k.id].note}
@@ -404,7 +432,33 @@ function KernelCard() {
           )
         })}
       </RadioGroup.Root>
+      {currentInfo && (currentInfo.state === 'error' || currentInfo.problems.length > 0) ? (
+        <div
+          role="alert"
+          className="mx-[18px] mb-3 flex flex-col gap-1 rounded-[10px] bg-danger-bg px-3.5 py-2.5 text-[0.962rem] text-danger"
+        >
+          <span className="whitespace-pre-wrap">{currentInfo.error}</span>
+          {currentInfo.problems.map((p) => (
+            <span key={`${p.section}-${p.target}-${p.message}`}>
+              · {p.target}：{p.message}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="flex flex-col gap-2 px-[18px] pb-[18px]">
+        <div className="flex items-center gap-2.5 rounded-[10px] bg-bg px-3.5 py-2.5 text-[0.962rem]">
+          <span className="shrink-0 text-fg-muted">{t('model.process')}</span>
+          <span className="flex-1" data-testid="kernel-state">
+            {currentInfo ? t(`model.state.${currentInfo.state}` as MessageKey) : ''}
+          </span>
+          <Button
+            variant="link"
+            disabled={!currentInfo?.installed}
+            onClick={() => void kits.kernel.restart(current)}
+          >
+            {currentInfo?.state === 'stopped' ? t('model.start') : t('model.restart')}
+          </Button>
+        </div>
         <div className="flex items-center gap-2.5 rounded-[10px] bg-bg px-3.5 py-2.5 text-[0.962rem]">
           <span className="shrink-0 text-fg-muted">{t('model.network')}</span>
           <span className="flex-1">{t('model.networkNote')}</span>

@@ -7,6 +7,7 @@ import type {
   FileDiff,
   KernelConfig,
   KernelDialect,
+  KernelExit,
   KernelMessage,
   KernelSession,
   SpawnedKernel,
@@ -58,6 +59,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 class EventHub {
   private listeners = new Set<Listener>()
   private controller: AbortController | undefined
+  // 还在等第一条事件时被关掉（进程退出），让等着的订阅失败，不然这一轮一直挂着
+  private failFirst: ((e: Error) => void) | undefined
   private connected: Promise<void> | undefined
   lastEventAt = Date.now()
 
@@ -95,6 +98,11 @@ class EventHub {
     this.controller = controller
     return new Promise((resolve, reject) => {
       let first = true
+      this.failFirst = (e) => {
+        if (!first) return
+        first = false
+        reject(e)
+      }
       const loop = async () => {
         while (!controller.signal.aborted) {
           try {
@@ -134,6 +142,8 @@ class EventHub {
   }
 
   close(): void {
+    this.failFirst?.(new Error('内核事件流已关闭'))
+    this.failFirst = undefined
     this.controller?.abort()
     this.controller = undefined
     this.listeners.clear()
@@ -207,6 +217,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
   private readonly reconnect: number
   private readonly abortGrace: number
   private readonly setupTimeout: number
+  private exitListeners: ((exit: KernelExit) => void)[] = []
 
   constructor(
     private readonly dialect: KernelDialect,
@@ -225,7 +236,29 @@ export class OpencodeFamilyKernel implements AgentKernel {
 
   async start(cfg: KernelConfig): Promise<void> {
     if (this.spawned) throw new Error('kernel already started')
-    this.spawned = await this.dialect.spawn(cfg)
+    const spawned = await this.dialect.spawn(cfg)
+    this.spawned = spawned
+    spawned.onExit((exit) => this.handleExit(spawned, exit))
+  }
+
+  onExit(listener: (exit: KernelExit) => void): void {
+    this.exitListeners.push(listener)
+  }
+
+  // 进程意外退出：正在跑的轮次以 done: error 结束，带退出码和输出尾部，再通知 KernelManager
+  private handleExit(spawned: SpawnedKernel, exit: KernelExit): void {
+    if (this.spawned !== spawned) return
+    this.spawned = undefined
+    const reason = exit.signal ? `信号 ${exit.signal}` : `退出码 ${exit.code}`
+    const message = `内核进程退出了（${reason}）${exit.tail ? `\n${exit.tail}` : ''}`
+    for (const run of this.active.values()) {
+      for (const e of run.mapper.finish('error', message)) run.queue.push(e)
+      run.queue.close()
+    }
+    this.active.clear()
+    for (const hub of this.hubs.values()) hub.close()
+    this.hubs.clear()
+    for (const l of this.exitListeners) l(exit)
   }
 
   private get kernel(): SpawnedKernel {

@@ -2,7 +2,7 @@ import { createServer, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { KernelEvent } from '@kits/core'
 import { afterEach, describe, expect, it } from 'vitest'
-import type { KernelDialect, KernelSession } from '../kernel'
+import type { KernelDialect, KernelExit, KernelSession } from '../kernel'
 import { OpencodeFamilyKernel, type OpencodeFamilyOptions } from './opencode-family'
 
 // 用一个最小的假内核测适配器自己的逻辑：session.idle 丢了靠轮询收尾、事件流断了重连并补齐、卡死判定。
@@ -129,6 +129,7 @@ const until = async (cond: () => boolean) => {
 
 let fake: Fake
 let kernel: OpencodeFamilyKernel
+let exitListener: ((exit: KernelExit) => void) | undefined
 
 async function setup(options: OpencodeFamilyOptions = {}): Promise<KernelSession> {
   fake = await startFake()
@@ -136,7 +137,14 @@ async function setup(options: OpencodeFamilyOptions = {}): Promise<KernelSession
     id: 'opencode',
     apiPrefix: '',
     permissionListPath: '/permission',
-    spawn: async () => ({ baseUrl: fake.url, headers: {}, close: async () => {} }),
+    spawn: async () => ({
+      baseUrl: fake.url,
+      headers: {},
+      close: async () => {},
+      onExit: (l) => {
+        exitListener = l
+      },
+    }),
     writeConfig: async () => {},
     permissionReplyPath: (id) => `/permission/${id}/reply`,
   }
@@ -323,6 +331,36 @@ describe('OpencodeFamilyKernel', () => {
     for await (const e of kernel.prompt(s, { text: 'hi' })) events.push(e)
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({ type: 'done', reason: 'error' })
+  })
+  it('ends running turns with an error when the kernel process exits', async () => {
+    const s = await setup()
+    fake.status = { ses_1: { type: 'busy' } }
+    const exits: KernelExit[] = []
+    kernel.onExit((e) => exits.push(e))
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+      await until(() => fake.promptCount === 1)
+      exitListener?.({ code: 1, signal: null, tail: 'panic: boom' })
+    })
+    expect(events.at(-1)).toEqual({
+      type: 'done',
+      reason: 'error',
+      error: '内核进程退出了（退出码 1）\npanic: boom',
+    })
+    expect(exits).toHaveLength(1)
+  })
+
+  it('ends the turn when the process exits before the first event arrives', async () => {
+    const s = await setup({ setupTimeoutMs: 5_000 })
+    fake.silentStream = true
+    const started = Date.now()
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+      await until(() => fake.streams.length === 1)
+      exitListener?.({ code: 1, signal: null, tail: 'panic: early' })
+    })
+    expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'error' })
+    expect(events.at(-1)).toMatchObject({ error: expect.stringContaining('panic: early') })
+    // 不用等建连超时
+    expect(Date.now() - started).toBeLessThan(2_000)
   })
 
   it('does not submit the turn when abort comes while it is still preparing', async () => {

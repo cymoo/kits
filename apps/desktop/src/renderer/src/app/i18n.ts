@@ -87,12 +87,19 @@ const zhCN = {
   'model.kernel': 'Agent 内核',
   'model.kernelNote': '新会话用哪个内核；已开始的会话不换',
   'model.kernelDefault': '默认内核',
-  'model.installed': '已安装',
   'model.notInstalled': '未安装',
   'model.network': '内核联网',
   'model.networkNote': '自动更新、分享、模型目录、LSP 下载都已关闭；内核只监听本机地址。',
   'model.logs': '内核日志',
   'model.openDir': '打开目录',
+  'model.process': '内核进程',
+  'model.start': '启动',
+  'model.restart': '重启',
+  'model.state.stopped': '未启动（开始会话时自动启动）',
+  'model.state.starting': '启动中…',
+  'model.state.running': '运行中',
+  'model.state.error': '出错',
+  'model.state.restart-pending': '待重启（当前会话结束后按新配置重启）',
 } as const
 
 export type MessageKey = keyof typeof zhCN

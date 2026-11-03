@@ -144,3 +144,63 @@
 - `done: max-steps` 还没有映射：1.19.5 里输出超长是 `session.error` 的 `MessageOutputLengthError`，现在按普通错误报，带内核给的原因。
 - 正文只按 `messageID` 的角色过滤用户消息；角色还没到就先来的 part 当作回复。契约测试确认 1.19.5 总是先发 `message.updated`。
 - 只读白名单只写单条命令的模式；`&&`、管道串起来的命令由内核拆开逐条判断，有一条不在白名单就整体询问。契约测试 `asks for the non-whitelisted part of a chained command` 锁住了这个行为，升级 OpenCode 时会先报。
+
+## 2026-11-04　KernelManager 和 Mock 内核
+
+> 日期：2026-11-04　PR：见本分支 `feat/kernel-runtime`　作者：Claude Code
+
+### 原始需求
+
+[phase1-implementation.md](../plans/phase1-implementation.md) 第 8 节 PR6：5.1 节 KernelManager（关 #5）、4.4 节 Mock 内核和 8 个场景、`kernel.status` 推送。
+
+做到什么程度算完：一个应用每种内核最多一个进程，第一次需要时启动；进程意外退出时正在跑的轮次以出错结束、下次自动拉起；设置改了按新配置重启（有轮次在跑就等它结束）；设置页能看到内核状态、能手动启动 / 重启、配置不全时指出缺什么。`KITS_KERNEL=mock` 时换成按场景回放的 Mock 内核。
+
+### 怎么验收
+
+1. `pnpm check` 全绿；`pnpm build && pnpm test:e2e` 9 个用例通过，其中 `kernel.spec.ts` 2 个是本 PR 的。
+2. 配置不全时不启动：`KITS_CONFIG_DIR=/tmp/kits-empty pnpm dev`（空目录），⌘, → 内核与模型，“内核进程”一行写“未启动（开始会话时自动启动）”；点“启动”，状态变“出错”，下面红框列出“gateways：还没有启用的模型网关”“defaultModel：还没有选默认模型”。
+3. 真内核：用上一节的步骤配一个网关和默认模型，点“启动”，几秒后变“运行中”；点“内核日志”一行的“打开目录”，能看到当天的 `YYYY-MM-DD.log`，里面是 `opencode serve` 的输出。`{userData}/kernel/opencode/config/opencode.json` 是生成的配置，没有密钥明文。
+4. 配置变更：内核运行中时在网关卡片里改一下模型的上下文窗口（任何设置保存都算），状态短暂变“未启动 / 启动中”后回到“运行中”，日志里多一段新的 `--- … opencode serve ---`。
+5. 进程退出：内核运行中时在终端里 `pkill -f "opencode serve"`，状态变“出错”，红框里写“内核进程退出了（信号 SIGTERM）”；再点“重启”回到“运行中”。
+6. Mock 内核：`KITS_KERNEL=mock pnpm dev`，内核卡片两个都显示 mock，“启动”后立刻“运行中”。各场景的事件序列在 `packages/kernel/src/mock/scenarios.ts`，会话页做好之后（PR7）用 `KITS_MOCK_SCENARIO=permission` 等环境变量逐个看。
+
+### 主要改动
+
+- `packages/kernel`：
+  - `kernel.ts`：`KernelConfig` 加 `logFile`；`SpawnedKernel` 和 `AgentKernel` 加 `onExit`（意外退出才通知，`close()` 关掉的不算），带退出码 / 信号和输出尾部。
+  - `dialects/opencode.ts`：子进程输出追加写日志文件；内存里只留最后 64 KB（以前无上限）。
+  - `adapter/opencode-family.ts`：进程意外退出时，正在跑的每一轮以 `done: error`（“内核进程退出了（退出码 N）”加输出尾部）结束，再通知监听方。
+  - `mock/mock-kernel.ts`、`mock/scenarios.ts`：Mock 内核和 8 个场景（`streaming`、`permission`、`question`、`done`、`retry`、`crash`、`context`、`output-structured`），和原型 `session.html` 的 `?s=` 一一对应。权限请求真的等 `respondPermission`，按回复走允许 / 拒绝两个分支；提问和提交产出调和真内核一样的 kits 工具处理函数；`KITS_MOCK_SPEED` 调快慢。
+- `apps/desktop/src/main`：
+  - `kernel/kernel-manager.ts`：`acquire / release`（会话服务每轮调一次，用来判断能不能立即重启）、懒启动（并发调用共用一次启动）、退出处理、`configChanged`、`requestRestart`（设置页的“重启”：有轮次在跑就标待重启，最后一轮结束后再重启，不会把在跑的轮次掐断）、`dispose`，状态变化推给界面。
+  - `dialects/opencode.ts`：Windows 上关内核用 `taskkill /T /F` 结束整棵进程树，OpenCode 拉起的 stdio MCP 服务和命令不会在应用退出后留下。
+  - Mock 内核：会话 id 跨实例唯一（重启后新建的会话不会和旧会话撞 id）；崩溃时先通知退出再交出 `done`，崩溃是整个实例的事，其他会话在跑的轮次也以出错结束、退出只通知一次；`dispose` 后还没开始的等待也立刻结束；停在 `submit_output` 时不再交产出；注入的 `askUser` / `onOutput` 抛错时以 `done: error` 结束。
+  - 同一批并发的 `acquire` 共用一次启动（失败也共用），健康检查超时不会被串行重试 N 次；之后单独的请求照常重试。
+  - 内核日志在子进程 `close`（stdio 都关了）时才结束，退出前最后几行诊断不会丢。
+  - 健康检查刚通过进程就退了，按启动失败处理，不会把已退出的实例标成运行中。
+  - 启动途中点“重启”：记成和“启动途中改了配置”一样的意图，启动完再按有没有轮次决定立即重启还是待重启；启动还排在队列里时不用再重启（它本身就按最新配置起）。
+  - Mock 内核的 `submit_output` 和真工具共用 `submitOutput`（core）：没有输出格式、格式不对都不交给 `onOutput`，返回错误。
+  - `kernel/kernel-config.ts`：从 `~/.kits`（设置、个人 Agent、个人技能、`mcp.json`、个人记忆）和密钥表收拢成内核配置，写进 `{userData}/kernel/<id>/config`，日志在 `{userData}/kernel/<id>/logs/<日期>.log`。
+  - `kernel/runtime.ts`：真内核 / Mock 内核的工厂；找不到内核二进制时报“内核没有安装”。
+  - `tools/kits-tool-host.ts`：kits 工具服务的宿主（一个应用一个 HTTP MCP 服务），处理函数可替换，PR7 由会话服务接上。
+  - `index.ts`：设置保存后通知 KernelManager；退出时关内核子进程和工具服务。
+- `packages/core/src/ipc.ts`：`KernelRuntime`（状态、错误、配置问题）、`kernel.restart`、推送 `kernel.status`。
+- 设置页“Agent 内核”卡片：标签换成运行状态，加“内核进程”一行（状态 + 启动 / 重启），出错时红框列出原因和配置问题。原型 `designs/app/settings.html#model` 同步加了这一行，`?proc=stopped|starting|running|restart-pending|error` 切演示状态。
+- `apps/desktop` 开发依赖加 `opencode-ai@1.19.5`（和 `packages/kernel` 同一个版本，pnpm 硬链接同一份文件）：主进程打包后从 `apps/desktop/out` 找 npm 包，原来找不到内核。
+- 和方案不一样的地方：Mock 场景写成 TS（`scenarios.ts`）而不是 `scenarios/*.json`，步骤类型有检查，写错字段编译就报。
+- 没有数据库 schema 改动，没有新的三方依赖。
+
+### 测试
+
+- 单元测试：`kernel-manager.test.ts`（懒启动只启动一次、配置问题不启动、退出后标出错并在下次拉起、空闲时立即重启、有轮次时待重启、配置修好后清掉错误、dispose）；`mock-kernel.test.ts`（8 个场景都以一条 done 结束、权限两个分支、提问走 askUser、产出走 onOutput、崩溃通知（消费方在 done 处停下也收得到）、等权限时 abort、dispose 后结束、会话 id 跨实例唯一、重试时间、diff）；`kernel-manager.test.ts` 补“有轮次时手动重启要等、空闲时立即重启”；`opencode-family.test.ts` 补“进程退出时正在跑的轮次以出错结束”。
+- E2E：`kernel.spec.ts`：Mock 内核从设置页启动和重启；没配网关时启动真内核失败并列出缺的设置。
+
+### 新增依赖
+
+无新的三方库（`opencode-ai` 已是 `packages/kernel` 的开发依赖，这里在 `apps/desktop` 再声明一次）。
+
+### 已知问题
+
+- 项目级（`<工作目录>/.agents/`）的 Agent、技能、记忆还没进内核配置：内核配置是整个进程一份，而工作目录跟着会话走。PR13、PR14、PR16 做三级来源时一起定（候选做法：把最近用过的工作目录的项目配置都列进去，同名时按会话的工作目录选）。
+- CodeAgent 方言在 PR19；现在默认内核选 CodeAgent 会报“CodeAgent 方言还没接入”。
+- MCP 配置里 `${VAR}` 的值先查密钥表的 `env:<VAR>` 再查环境变量；设置页填 MCP 密钥的界面在 PR12。

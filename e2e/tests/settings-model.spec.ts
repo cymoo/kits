@@ -33,17 +33,18 @@ test('adds a gateway, picks the default model and keeps the key out of settings.
       'aria-checked',
       'true',
     )
-    // 单选组能用方向键切换（Radix 在按键后的下一个 tick 才移动焦点并选中，按住一小会儿像真人按键）
-    await page.keyboard.press('ArrowUp', { delay: 50 })
-    await expect(card.getByRole('radio', { name: /deepseek-v4-pro/ })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    )
-    await page.keyboard.press('ArrowDown', { delay: 50 })
-    await expect(card.getByRole('radio', { name: /qwen-coder/ })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    )
+    // 单选组能用方向键切换。Radix 在按键后的下一个 tick 才移动焦点并选中，按键松开得太快会只移焦点不选中：
+    // 按住，等焦点过去再松开，CI 上慢也不会抖
+    const deepseek = card.getByRole('radio', { name: /deepseek-v4-pro/ })
+    const qwen = card.getByRole('radio', { name: /qwen-coder/ })
+    await page.keyboard.down('ArrowUp')
+    await expect(deepseek).toBeFocused()
+    await page.keyboard.up('ArrowUp')
+    await expect(deepseek).toHaveAttribute('aria-checked', 'true')
+    await page.keyboard.down('ArrowDown')
+    await expect(qwen).toBeFocused()
+    await page.keyboard.up('ArrowDown')
+    await expect(qwen).toHaveAttribute('aria-checked', 'true')
 
     await card.getByRole('button', { name: '测试', exact: true }).click()
     await expect(card.getByRole('status')).toContainText('连接正常')
