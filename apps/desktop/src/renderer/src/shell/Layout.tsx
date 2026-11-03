@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { useAppearance } from '../app/use-appearance'
-import { useAppInfo, useSettings, useSettingsSync } from '../lib/kits'
+import { kits, useAppInfo, useSettings, useSettingsSync } from '../lib/kits'
 import { useSessionListSync, useSessions } from '../lib/sessions'
 import { isMac, useShortcuts } from '../lib/shortcuts'
 import { useUi } from '../lib/ui-store'
@@ -51,6 +51,16 @@ export function Layout() {
     const last = sessions.data?.[0]
     if (s.general.startup === 'last' && last) navigate(`/s/${last.id}`, { replace: true })
   }, [settings.data, sessions.isFetched, sessions.data, info.data, location.pathname, navigate])
+
+  // 点了系统通知：主进程叫窗口到前面，再让这里跳到那个会话
+  useEffect(
+    () =>
+      kits.on('app.navigate', (to: string) => {
+        setPaletteOpen(false)
+        navigate(to)
+      }),
+    [navigate, setPaletteOpen],
+  )
 
   useShortcuts({
     // 跳转前先关掉 ⌘K 面板，不然目标页面被面板挡着

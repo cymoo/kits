@@ -259,6 +259,8 @@ export interface PushEvents {
   'session.output': OutputView
   // 一条用户消息带的附件存好了
   'session.attachments': { sessionId: string; attachments: AttachmentView[] }
+  // 点了系统通知：界面跳到这个路由（#/s/<id>）
+  'app.navigate': string
 }
 export type PushChannel = keyof PushEvents
 export const pushChannels: PushChannel[] = [
@@ -271,6 +273,7 @@ export const pushChannels: PushChannel[] = [
   'session.diffs',
   'session.output',
   'session.attachments',
+  'app.navigate',
 ]
 
 export function channelName(domain: string, method: string): string {

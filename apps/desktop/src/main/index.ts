@@ -4,12 +4,14 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { defaultPermissions, gatewaySecretKey, readonlyCommandPatterns } from '@kits/core'
 import type { KernelName } from '@kits/core/ipc'
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, Notification, shell } from 'electron'
 import { AgentService } from './agents/agent-service'
 import { ConfigService } from './config/config-service'
 import { resolveConfigDir } from './config/paths'
 import { SecretStore } from './config/secrets'
 import { openDatabase } from './db'
+import { Notifier } from './desktop/notifier'
+import { setupBackground } from './desktop/tray'
 import { FileSearch } from './files/search'
 import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc, trustedUrl } from './ipc/register'
@@ -71,6 +73,13 @@ function builtinFolder(): string {
     : path.resolve(import.meta.dirname, '../../resources/builtin')
 }
 
+// 托盘图标等（打包后在 resources，开发时在 apps/desktop/resources）
+function resourcesFolder(): string {
+  return app.isPackaged
+    ? process.resourcesPath
+    : path.resolve(import.meta.dirname, '../../resources')
+}
+
 function migrationsFolder(): string {
   return app.isPackaged
     ? path.join(process.resourcesPath, 'drizzle')
@@ -85,7 +94,7 @@ function rendererEntry(): string {
 
 const isTrusted = trustedUrl(rendererEntry())
 
-function createWindow(onFocus: () => void): void {
+function createWindow(onFocus: () => void): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -110,6 +119,7 @@ function createWindow(onFocus: () => void): void {
   })
   win.on('focus', onFocus)
   void win.loadURL(rendererEntry())
+  return win
 }
 
 app.whenReady().then(() => {
@@ -122,12 +132,15 @@ app.whenReady().then(() => {
   const tools = new KitsToolHost()
   // 设置变了要重启内核、内核启动要读设置，两边互相引用
   let onConfigChanged = () => {}
+  // “关闭窗口后继续运行”关掉时收起托盘
+  let onBackgroundChanged = () => {}
   // 只有进内核配置的字段变了才重启：最近目录、外观这些改了不动内核，免得新建会话时撞上重启
   let kernelInputs: string | undefined
   const config = new ConfigService({
     dir: resolveConfigDir(),
     onSettingsChanged: (settings) => {
       push('settings.changed', settings)
+      onBackgroundChanged()
       const next = kernelSettingsKey(settings)
       if (next === kernelInputs) return
       kernelInputs = next
@@ -162,6 +175,23 @@ app.whenReady().then(() => {
     openPath: (file) => platform.openPath(file),
   })
   const store = new SessionStore(db)
+  // 系统通知：窗口不在前台时，等确认、提问、出错、完成各发一次；点了打开那个会话
+  let openSession = (_id: string) => {}
+  const notifier = new Notifier({
+    general: () => config.getSettings().general,
+    focused: () => BrowserWindow.getFocusedWindow() !== null,
+    session: (id) => store.session(id),
+    show: ({ sessionId, title, body }) => {
+      if (!Notification.isSupported()) return
+      const n = new Notification({ title, body })
+      n.on('click', () => openSession(sessionId))
+      n.show()
+    },
+    // 程序坞角标：有几个会话在等你
+    onWaitingCount: (n) => {
+      if (process.platform === 'darwin') app.dock?.setBadge(n > 0 ? String(n) : '')
+    },
+  })
   // 上次退出时还在跑的会话标成中断
   store.markInterrupted(Date.now())
   const sessions = new SessionService({
@@ -175,7 +205,10 @@ app.whenReady().then(() => {
       ).find((a) => a.name === name),
     loadMcp: () => loadMcp(config),
     registry: tools.registry,
-    push,
+    push: (channel, payload) => {
+      push(channel, payload)
+      notifier.observe(channel, payload)
+    },
     exportsDir: path.join(platform.userDataDir, 'exports'),
     attachmentsDir: path.join(platform.userDataDir, 'attachments'),
     disabledSkills: () => config.getSettings().skillsDisabled,
@@ -397,10 +430,28 @@ app.whenReady().then(() => {
 
   // 窗口回到前台时看一眼 settings.json 有没有被人改过
   const onFocus = () => void config.reloadIfChanged()
-  createWindow(onFocus)
+  const background = setupBackground({
+    resources: resourcesFolder(),
+    keepRunning: () => config.getSettings().general.keepRunning,
+    window: () => BrowserWindow.getAllWindows()[0] ?? open(),
+    activeCount: () =>
+      store.list().filter((s) => s.status === 'running' || s.status === 'waiting').length,
+  })
+  const open = () => {
+    const win = createWindow(onFocus)
+    background.attach(win)
+    return win
+  }
+  open()
+  onBackgroundChanged = () => background.sync()
+  openSession = (id) => {
+    background.show()
+    push('app.navigate', `/s/${id}`)
+  }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(onFocus)
+    // 关窗藏起来的：点程序坞图标再显示出来
+    background.show()
   })
 })
 
@@ -417,6 +468,7 @@ app.on('will-quit', (event) => {
     .finally(() => app.exit(0))
 })
 
+// 开着“关闭窗口后继续运行”时关窗只是藏起来，走不到这里；关掉了才按平台习惯退出
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
