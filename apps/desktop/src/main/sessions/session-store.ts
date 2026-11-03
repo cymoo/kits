@@ -14,6 +14,7 @@ import {
   messages,
   type PartRecord,
   parts,
+  permissionLog,
   type SessionRecord,
   sessions,
 } from '../db/schema'
@@ -159,6 +160,31 @@ export class SessionStore {
     this.db.insert(parts).values(values).onConflictDoUpdate({ target: parts.id, set: values }).run()
   }
 
+  // 某个会话里的提问 part（回答不阻塞的提问时用）
+  questionPart(sessionId: string, questionId: string): PartView | undefined {
+    return this.db
+      .select()
+      .from(parts)
+      .where(and(eq(parts.sessionId, sessionId), eq(parts.type, 'question')))
+      .all()
+      .map(toPart)
+      .find((p) => p.payload.type === 'question' && p.payload.questionId === questionId)
+  }
+
+  logPermission(entry: {
+    id: string
+    sessionId: string
+    tool: string
+    input: unknown
+    decision: string
+    createdAt: number
+  }): void {
+    this.db
+      .insert(permissionLog)
+      .values({ ...entry, createdAt: new Date(entry.createdAt) })
+      .run()
+  }
+
   detail(id: string): SessionDetail | null {
     const session = this.session(id)
     if (!session) return null
@@ -204,11 +230,16 @@ export class SessionStore {
         .where(eq(messages.id, m.id))
         .run()
       const own = this.db.select().from(parts).where(eq(parts.messageId, m.id)).all()
-      this.db
-        .update(parts)
-        .set({ status: 'expired', updatedAt: at })
-        .where(and(eq(parts.messageId, m.id), eq(parts.status, 'pending')))
-        .run()
+      for (const p of own.map(toPart)) {
+        if (p.status !== 'pending') continue
+        // 不阻塞的提问之后还能回答（回答作为下一条消息），保持 pending
+        if (p.payload.type === 'question' && !p.payload.blocking) continue
+        this.db
+          .update(parts)
+          .set({ status: 'expired', updatedAt: at })
+          .where(eq(parts.id, p.id))
+          .run()
+      }
       this.savePart({
         id: `${m.id}:error`,
         messageId: m.id,

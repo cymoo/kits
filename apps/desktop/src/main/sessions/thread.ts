@@ -4,7 +4,8 @@ import type { KernelEvent, MessageView, PartPayload, PartView, SessionStatus } f
 // 返回这次变了哪些 part、消息有没有变、会话状态要不要变，由 SessionService 落库和推给界面。
 // - 正文 / 思考的增量按内核的 partId 合并到同一个 part；
 // - 工具按 callId 一个 part，开始时 running，结束时 completed / error；
-// - 权限请求一个 part，状态 pending，会话进入 waiting；回复后回到 running。
+// - 权限请求、阻塞提问各一个 part，状态 pending，会话进入 waiting；都回复了回到 running；
+//   这一轮结束时还没回复的标成 expired（不阻塞的提问除外）。
 
 export interface TurnChange {
   parts: PartView[]
@@ -51,6 +52,53 @@ export class TurnRecorder {
     return part
   }
 
+  // ask_user 进来了：记一个提问 part；阻塞的提问让会话进入 waiting
+  question(
+    questionId: string,
+    input: {
+      question: string
+      options?: string[] | undefined
+      assumption?: string | undefined
+      blocking: boolean
+    },
+  ): TurnChange {
+    const part = this.upsert(
+      `question:${questionId}`,
+      'question',
+      () => ({
+        type: 'question',
+        questionId,
+        question: input.question,
+        options: input.options ?? [],
+        ...(input.assumption ? { assumption: input.assumption } : {}),
+        blocking: input.blocking,
+      }),
+      'pending',
+    )
+    return { parts: [part], ...(input.blocking ? { status: 'waiting' as const } : {}) }
+  }
+
+  answer(questionId: string, answer: string): TurnChange {
+    const id = `${this.message.id}:question:${questionId}`
+    if (!this.parts.has(id)) return { parts: [] }
+    const part = this.upsert(
+      `question:${questionId}`,
+      'question',
+      (prev) => ({ ...(prev as Extract<PartPayload, { type: 'question' }>), answer }),
+      'answered',
+    )
+    return { parts: [part], status: this.waitingOn() ? 'waiting' : 'running' }
+  }
+
+  // 还有没回复的权限请求或阻塞提问
+  private waitingOn(): boolean {
+    return [...this.parts.values()].some(
+      (p) =>
+        p.status === 'pending' &&
+        (p.type === 'permission' || (p.payload.type === 'question' && p.payload.blocking)),
+    )
+  }
+
   // 用户回复了权限请求
   replyPermission(requestId: string, reply: string, message?: string): TurnChange {
     const id = `${this.message.id}:perm:${requestId}`
@@ -64,10 +112,7 @@ export class TurnRecorder {
       }),
       reply,
     )
-    const pending = [...this.parts.values()].some(
-      (p) => p.type === 'permission' && p.status === 'pending',
-    )
-    return { parts: [part], status: pending ? 'waiting' : 'running' }
+    return { parts: [part], status: this.waitingOn() ? 'waiting' : 'running' }
   }
 
   apply(event: KernelEvent): TurnChange {
@@ -172,6 +217,14 @@ export class TurnRecorder {
         const status: SessionStatus =
           event.reason === 'completed' ? 'done' : event.reason === 'aborted' ? 'aborted' : 'error'
         const change: TurnChange = { parts: [], message: this.message, status }
+        // 这一轮结束了，还没回复的确认 / 提问作废，卡片上不再给按钮
+        for (const p of [...this.parts.values()]) {
+          // 不阻塞的提问轮次结束后还能回答（回答作为下一条消息）
+          if (p.status !== 'pending' || (p.payload.type === 'question' && !p.payload.blocking))
+            continue
+          const key = p.id.slice(this.message.id.length + 1)
+          change.parts.push(this.upsert(key, p.type, (prev) => prev as PartPayload, 'expired'))
+        }
         // 出错的轮次在对话流里留一个出错块，原因写在里面（PR8 做成完整的出错卡片）
         if (status === 'error') {
           const message = event.error ?? (event.reason === 'max-steps' ? '超出最大步数' : '出错了')

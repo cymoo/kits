@@ -28,7 +28,38 @@ export type Block =
     }
   | { kind: 'text'; id: string; text: string; streaming: boolean }
   | { kind: 'status'; id: string; text: string; since: number }
-  | { kind: 'error'; id: string; message: string }
+  | {
+      kind: 'permission'
+      id: string
+      requestId: string
+      tool: string
+      // 卡片上要确认的东西：命令、文件路径或参数
+      subject: string
+      // “本会话允许”的规则，空表示内核不支持
+      always: string[]
+    }
+  | {
+      kind: 'question'
+      id: string
+      questionId: string
+      question: string
+      options: string[]
+      assumption?: string
+      blocking: boolean
+      // pending：可以回答；answered：已回答；expired：这一轮结束时还没回答（阻塞提问）
+      state: 'pending' | 'answered' | 'expired'
+      answer?: string
+    }
+  | { kind: 'retry'; id: string; attempt: number; message: string; nextAt: number }
+  // last：是不是最后一轮（只有最后一轮能“继续”）
+  | {
+      kind: 'error'
+      id: string
+      message: string
+      last: boolean
+      // 这一轮还没发到内核就失败了（配置不完整、内核起不来）：内核里没有原任务，要重发原文而不是说“继续”
+      resend?: string
+    }
 
 type ToolPayload = Extract<PartPayload, { type: 'tool' }>
 
@@ -59,6 +90,36 @@ function editedFiles(p: ToolPayload, workdir: string): string[] {
   if (p.name === 'apply_patch') return patchTargets(p.input, workdir)
   const file = rel((p.input as Record<string, unknown> | undefined)?.filePath, workdir)
   return file ? [file] : []
+}
+
+// 权限请求要确认的东西。参数不截断：MCP 写入请求后面的目标、选项也要让人看到（卡片里限高滚动）；
+// 什么都解析不出来时用请求的 patterns 兜底，不让人对着空白授权
+export function permissionSubject(
+  tool: string,
+  input: unknown,
+  workdir: string,
+  patterns: string[] = [],
+): string {
+  const i = (input ?? {}) as Record<string, unknown>
+  const subject =
+    tool === 'bash'
+      ? str(i.command)
+      : EDIT_TOOLS.has(tool) || tool === 'read'
+        ? rel(i.filePath, workdir)
+        : tool === 'webfetch'
+          ? str(i.url)
+          : input === undefined || input === null || JSON.stringify(input) === '{}'
+            ? ''
+            : JSON.stringify(input, null, 2)
+  return subject || patterns.join('\n')
+}
+
+const REPLY_META: Record<string, string> = {
+  once: '已允许',
+  always: '本会话允许',
+  reject: '已拒绝',
+  // 这一轮结束（停止、出错、应用退出）时还没回复
+  expired: '已过期',
 }
 
 export function describeTool(p: ToolPayload, workdir: string): { kind: string; detail: string } {
@@ -123,9 +184,12 @@ export function deriveBlocks(
   const messages = [...detail.messages].sort(
     (a, b) => a.createdAt - b.createdAt || (a.role === 'user' ? -1 : 1),
   )
+  const lastAssistant = messages.filter((m) => m.role === 'assistant').at(-1)?.id
+  let lastUserText = ''
   for (const m of messages) {
     if (m.role === 'user') {
       blocks.push({ kind: 'user', id: m.id, text: m.text })
+      lastUserText = m.text
       continue
     }
     const parts = (byMessage.get(m.id) ?? []).sort((a, b) => a.seq - b.seq)
@@ -135,7 +199,14 @@ export function deriveBlocks(
     const reasoning: string[] = []
     const answer: string[] = []
     const files = new Set<string>()
+    const cards: Block[] = []
     let error: string | undefined
+    // 回复过的权限请求标在对应的工具步骤上
+    const replies = new Map<string, string>()
+    for (const p of parts) {
+      if (p.payload.type === 'permission' && p.payload.callId && p.status && p.status !== 'pending')
+        replies.set(p.payload.callId, p.status)
+    }
     parts.forEach((p, i) => {
       const payload = p.payload
       if (payload.type === 'reasoning') reasoning.push(payload.text)
@@ -154,6 +225,9 @@ export function deriveBlocks(
         if (EDIT_TOOLS.has(payload.name) && p.status === 'completed') {
           for (const f of editedFiles(payload, session.workdir)) files.add(f)
         }
+        // 提问在对话里有自己的卡片
+        if (payload.name === 'kits_ask_user') return
+        const reply = REPLY_META[replies.get(payload.callId) ?? '']
         steps.push({
           id: p.id,
           kind,
@@ -166,17 +240,57 @@ export function deriveBlocks(
               : p.status === 'error'
                 ? 'error'
                 : 'done',
-          ...(p.status === 'error' ? { meta: '失败' } : {}),
+          ...(reply ? { meta: reply } : p.status === 'error' ? { meta: '失败' } : {}),
         })
       } else if (payload.type === 'permission') {
-        steps.push({
+        const subject = permissionSubject(
+          payload.tool,
+          payload.input,
+          session.workdir,
+          payload.patterns,
+        )
+        if (p.status === 'pending' && running) {
+          cards.push({
+            kind: 'permission',
+            id: p.id,
+            requestId: payload.requestId,
+            tool: payload.tool,
+            subject,
+            always: payload.always,
+          })
+        } else if (
+          !payload.callId ||
+          !parts.some((x) => x.payload.type === 'tool' && x.payload.callId === payload.callId)
+        ) {
+          // 没有对应工具步骤的（拒绝后工具没跑、过期的）单独记一步
+          steps.push({
+            id: p.id,
+            kind: describeTool(
+              { type: 'tool', callId: '', name: payload.tool, input: payload.input },
+              session.workdir,
+            ).kind,
+            detail: subject,
+            state: p.status === 'reject' ? 'error' : 'done',
+            meta: REPLY_META[p.status ?? ''] ?? '没有确认',
+          })
+        }
+      } else if (payload.type === 'question') {
+        cards.push({
+          kind: 'question',
           id: p.id,
-          kind: '等你确认',
-          detail: str((payload.input as Record<string, unknown>)?.command) || payload.tool,
-          state: p.status === 'pending' ? 'running' : 'done',
-          ...(p.status && p.status !== 'pending'
-            ? { meta: p.status === 'reject' ? '已拒绝' : '已允许' }
-            : {}),
+          questionId: payload.questionId,
+          question: payload.question,
+          options: payload.options,
+          ...(payload.assumption ? { assumption: payload.assumption } : {}),
+          blocking: payload.blocking,
+          // 不阻塞的提问轮次结束（甚至应用退出）后还能回答，不显示成过期
+          state:
+            payload.answer !== undefined
+              ? 'answered'
+              : p.status === 'expired' && payload.blocking
+                ? 'expired'
+                : 'pending',
+          ...(payload.answer !== undefined ? { answer: payload.answer } : {}),
         })
       } else if (payload.type === 'error') error = payload.message
     })
@@ -194,11 +308,39 @@ export function deriveBlocks(
         filesChanged: files.size,
       })
     }
+    blocks.push(...cards)
+    // 重试条：最近更新的 part 是重试，说明还没恢复。按更新时间看，不按 seq：
+    // 重试后接着写的正文复用原来的 part，seq 还在重试之前
+    // 确认和提问的更新是本地回复造成的，不代表内核恢复了：它们只看出现的时间
+    const kernelAt = (p: PartView) =>
+      p.type === 'question' || p.type === 'permission' ? p.createdAt : p.updatedAt
+    const lastPart = parts.reduce<PartView | undefined>(
+      (a, p) => (!a || kernelAt(p) >= kernelAt(a) ? p : a),
+      undefined,
+    )
+    const retrying = running && lastPart?.payload.type === 'retry'
+    if (retrying && lastPart?.payload.type === 'retry') {
+      const { attempt, message, nextAt } = lastPart.payload
+      blocks.push({ kind: 'retry', id: lastPart.id, attempt, message, nextAt })
+    }
     const text = answer.join('')
     if (text) blocks.push({ kind: 'text', id: `${m.id}:text`, text, streaming: running })
-    if (error) blocks.push({ kind: 'error', id: `${m.id}:error`, message: error })
-    // 状态行：这一轮还在跑，而且最近 2 秒没有新内容（等模型首字、工具在跑）
-    if (running) {
+    if (error) {
+      blocks.push({
+        kind: 'error',
+        id: `${m.id}:error`,
+        message: error,
+        last: m.id === lastAssistant,
+        ...(parts.every((p) => p.type === 'error') ? { resend: lastUserText } : {}),
+      })
+    }
+    // 状态行：这一轮还在跑，而且最近 2 秒没有新内容（等模型首字、工具在跑）；
+    // 在等你确认 / 回答、在重试时不显示
+    const waiting = cards.some(
+      (c) =>
+        c.kind === 'permission' || (c.kind === 'question' && c.blocking && c.state === 'pending'),
+    )
+    if (running && !waiting && !retrying) {
       const last = Math.max(m.createdAt, ...parts.map((p) => p.updatedAt))
       const runningStep = steps.find((s) => s.state === 'running')
       if (now - last > 2_000 || parts.length === 0) {

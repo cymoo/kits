@@ -42,6 +42,16 @@ export function useAppInfo() {
   })
 }
 
+// 家目录下的路径写成 ~/…（和原型一致），完整路径放 title 里
+export function useHomeLabel(): (dir: string) => string {
+  const home = useAppInfo().data?.homeDir
+  return (dir) => {
+    if (!home) return dir
+    const sep = dir.includes('\\') && !dir.includes('/') ? '\\' : '/'
+    return dir === home ? '~' : dir.startsWith(home + sep) ? `~${dir.slice(home.length)}` : dir
+  }
+}
+
 // 主进程推来的设置变化（别的窗口改的、文件被重新读的）直接写进缓存
 export function useSettingsSync() {
   const client = useQueryClient()

@@ -60,6 +60,57 @@
 
 ### 已知问题
 
-- 等确认的会话在这一版没有确认入口（PR8），用真实内核时遇到要确认的命令只能停止。Mock 场景里避开了。
+- 等确认的会话在这一版没有确认入口（PR8 已补上）。
 - 会话的标题先用任务的前 40 个字，第一轮完成后改成内核标题在 PR15 做历史页时一起看。
 - 代码块没有高亮（PR9 加 shiki）。
+
+## 2026-11-04　对话里的卡片：命令确认、Agent 提问、重试条、出错卡片、运行中排队
+
+> 日期：2026-11-04　PR：见本分支 `feat/session-cards`　作者：Claude Code
+
+### 原始需求
+
+phase1-implementation PR8：会话里 Agent 要你动手的地方都在对话流里给卡片，照原型 `designs/app/session.html`（`?s=permission`、`?s=question`、`?s=error`）。
+
+做到什么程度算完：执行前确认的命令能允许一次（⌘↵）、本会话允许（带规则）、拒绝并写原因（Esc）；`ask_user` 的提问能点选项或自己写，阻塞的提问 Agent 等回答，不阻塞的回答作为下一条消息发过去；网关断开时有重试条，可以“不等了”；内核退出或出错时有出错卡片，能“继续这一轮”、复制诊断信息、打开内核日志；Agent 运行中输入框可以继续说，消息在这一轮结束后发出。
+
+### 怎么验收
+
+用 Mock 内核，不需要模型。每条命令启动一次应用（`pnpm --filter @kits/desktop dev`，或 `pnpm build` 后直接跑 E2E）：
+
+1. `KITS_KERNEL=mock KITS_MOCK_SCENARIO=permission`：首页发任意任务。对话里出现黄色卡片“执行命令前需要你确认”，黑底代码块里是 `$ uv run pytest tests/points -q`，工作目录写成 `~/…`；顶栏是“等你确认”。按 ⌘↵（Windows 是 Ctrl+↵），卡片消失，最后出现“12 个测试全部通过”，状态“已完成”。点开“第 1 轮 · 工作过程”，“执行命令”一行标“已允许”。
+2. 同一场景再来一次，按 Esc：卡片里出现原因输入框并已聚焦，填“先别跑”回车。卡片消失，Agent 回“好的，不跑测试了…”，工作过程里这条命令标“已拒绝”。
+3. 同一场景，输入框里写“顺便看下日志”回车：输入框上方出现虚线框“这一轮结束后发送”。点“允许一次”，这一轮结束后自动出现第 2 轮，用户消息是“顺便看下日志”。
+4. `KITS_MOCK_SCENARIO=question`：出现蓝色卡片“Agent 提问 · 在哪个环境复现的？”，右上角“Agent 在等你回答”，顶栏“等你回答”；“测试环境”一项标“Agent 的假设”。点“预发环境”，卡片变成“已回答：预发环境”，Agent 接着说“明白了，按这个环境查网关日志”。
+5. `KITS_MOCK_SCENARIO=retry KITS_MOCK_SPEED=5`：出现黄色重试条“模型网关断开，正在重试 · 第 1 次 · N 秒后重试”，点开看到原因 `Connection reset by server`；点“不等了，停在这里”，状态变“已停止”。
+6. `KITS_MOCK_SCENARIO=crash`：出现红色卡片“这一轮没有完成”，里面是退出码和 panic 信息。点“复制诊断信息”，剪贴板里有 kits 版本、内核、模型、会话 id、工作目录和错误；点“打开内核日志”打开日志目录；点“继续这一轮”出现第 2 轮，用户消息“继续”，旧的出错卡片不再有按钮。没配网关就发任务（这一轮还没发到内核就失败了）：出错卡片的按钮是“重新发送”，配好后点它把原任务再发一次，而不是只发“继续”。
+
+### 主要改动
+
+- `packages/core`：part 新增 `question` 类型；`SessionSummary.queued`（排队的消息，不落库）；IPC 新增 `session.respondPermission`、`session.answerQuestion`；`app.info` 多给 `homeDir`。
+- `apps/desktop/src/main/sessions/`：
+  - `thread.ts`：`question / answer`；有未回复的确认或阻塞提问时会话保持 waiting；这一轮结束时没回复的确认、阻塞提问标成 `expired`（不阻塞的提问之后还能回答）。
+  - `session-service.ts`：`respondPermission`（转给内核、更新 part、写 `permission_log`）；`askUser` 接到 kits 工具服务——阻塞的提问等 `answerQuestion`，不阻塞的直接按假设返回，回答作为下一条消息“关于“…”：…”发出；运行中 `prompt` 进队列，这一轮结束后合成一条发出；停止清空队列并让在等的提问返回。
+  - `session-store.ts`：`questionPart`、`logPermission`。
+- `apps/desktop/src/renderer/src/`：
+  - `session/thread/derive.ts`：新块 `permission`（待确认）、`question`、`retry`（最后一个 part 是重试时）、出错块带 `last`；回复过的确认标在对应的工具步骤上（已允许 / 本会话允许 / 已拒绝）；`ask_user` 不再作为步骤出现；等确认、等回答、重试时不显示状态行。
+  - `session/thread/Cards.tsx`：四种卡片，样子照原型。同时有几张待确认卡片时只有第一张响应 ⌘↵ / Esc；焦点在底部输入框时不抢快捷键。按钮点下去到主进程返回前不能再点，出错时卡片上提示。
+  - `pages/session/SessionPage.tsx`：渲染卡片；顶栏在等回答时写“等你回答”；输入框运行中也能发，排队的消息显示在输入框上方。
+  - `index.css`：卡片用的颜色令牌（warn / accent / danger 的描边、底色、图标底、深色字，代码块底色），深色值先占位（PR17 定稿）。
+- 原型没画到、按风格补的：阻塞提问的“Agent 在等你回答”；过期提问的灰色状态；排队消息的虚线框；出错卡片没有原型里“用 OpenCode 继续”（PR19 有两个内核后再加）。
+
+### 测试
+
+- 单元测试：`thread.test.ts` 补 4 个（阻塞提问进出 waiting、不阻塞的不等、还有待确认时回答后仍 waiting、结束时过期）；`session-service.test.ts` 补 9 个（回复权限、写日志、拒绝带原因、阻塞提问回答后继续、停止时提问过期、不阻塞的回答作为下一条消息、排队后合并发送、停止清空队列、内核启动期间发的消息排队）；`derive.test.ts` 补 8 个（待确认卡片、回复标到步骤、拒绝后没工具步骤、提问代替步骤、重试条出现和消失、只有最后一轮能继续、`permissionSubject`）。
+- E2E：`session-cards.spec.ts`（6 个）：⌘↵ 允许、Esc 拒绝写原因、回答阻塞提问、重试条“不等了”、出错后继续、运行中排队。会话类 E2E 的准备挪到 `e2e/tests/session.ts` 共用。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 重试条没有原型里的“立即重试”：OpenCode 没有跳过等待的接口，只能“不等了”停下。
+- 本会话允许后，同一会话里规则命中的命令不再问；规则只存在内核会话里，界面上还没有地方查看或撤销（原型右侧“本会话的允许规则”在 PR9 面板里做）。
+- 侧栏的状态只分“等确认”，等回答的会话在侧栏也显示“等确认”。
+- “本会话允许”的规则由内核给（OpenCode 的 `always`），内核没给时不显示这个按钮。

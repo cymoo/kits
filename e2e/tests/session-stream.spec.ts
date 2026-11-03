@@ -1,32 +1,9 @@
-import { mkdirSync, realpathSync, rmSync } from 'node:fs'
-import path from 'node:path'
-import { expect, type Page, test } from '@playwright/test'
+import { rmSync } from 'node:fs'
+import { expect, test } from '@playwright/test'
 import { launchApp, mod } from './app'
+import { prepare } from './session'
 
 // 会话主流程（PR7）：首页输入任务 → 新建会话 → 流式回复 → 完成；停止；侧栏列表。内核用 Mock（不调模型）。
-
-async function prepare(page: Page, configDir: string) {
-  const workdir = path.join(path.dirname(configDir), 'member-svc')
-  mkdirSync(workdir, { recursive: true })
-  await page.evaluate(
-    (dir) =>
-      window.kits.settings.update({
-        gateways: [
-          {
-            id: 'corp',
-            name: '公司网关',
-            baseUrl: 'http://127.0.0.1:9/v1',
-            enabled: true,
-            models: [{ id: 'coder-main', note: '', contextWindow: 128000, toolCall: true }],
-          },
-        ],
-        defaultModel: 'corp/coder-main',
-        workdirs: [{ path: dir, lastUsedAt: 0 }],
-      }),
-    workdir,
-  )
-  return realpathSync(workdir)
-}
 
 test('streams a turn from the home page to done', async () => {
   const { page, configDir, close } = await launchApp({

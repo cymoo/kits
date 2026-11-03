@@ -19,6 +19,8 @@ export interface SessionSummary {
   createdAt: number
   updatedAt: number
   lastError: string | null
+  // 运行中发的消息，这一轮结束后一起发出去（不落库）
+  queued?: string[]
 }
 
 export interface MessageView {
@@ -57,6 +59,16 @@ export type PartPayload =
       callId?: string
       reply?: PermissionReply
       message?: string
+    }
+  | {
+      // ask_user：blocking 时 Agent 在等，不阻塞时它先按 assumption 做，回答作为下一条消息发过去
+      type: 'question'
+      questionId: string
+      question: string
+      options: string[]
+      assumption?: string
+      blocking: boolean
+      answer?: string
     }
   | { type: 'retry'; attempt: number; message: string; nextAt: number }
   | { type: 'compaction'; summary: string }

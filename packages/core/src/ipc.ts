@@ -40,6 +40,8 @@ export interface AppInfo {
   // 给人看的写法：家目录换成 ~（~/.kits/）
   configDirLabel: string
   userDataDir: string
+  // 家目录，界面上把路径缩写成 ~/…
+  homeDir: string
 }
 
 export type GatewayTestResult =
@@ -103,6 +105,11 @@ export const ipcContract = {
     get: method<string, SessionDetail | null>(),
     prompt: method<{ id: string; text: string }, void>(),
     abort: method<string, void>(),
+    respondPermission: method<
+      { id: string; requestId: string; reply: 'once' | 'always' | 'reject'; message?: string },
+      void
+    >(),
+    answerQuestion: method<{ id: string; questionId: string; answer: string }, void>(),
   },
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用

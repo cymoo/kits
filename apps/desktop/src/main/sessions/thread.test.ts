@@ -86,6 +86,42 @@ describe('TurnRecorder', () => {
     expect(replied.parts[0]?.status).toBe('once')
   })
 
+  it('waits on a blocking question until it is answered', () => {
+    const r = recorder()
+    const asked = r.question('q1', { question: '哪个环境？', options: ['测试'], blocking: true })
+    expect(asked.status).toBe('waiting')
+    expect(asked.parts[0]).toMatchObject({ type: 'question', status: 'pending' })
+    const answered = r.answer('q1', '测试')
+    expect(answered.status).toBe('running')
+    expect(answered.parts[0]).toMatchObject({ status: 'answered', payload: { answer: '测试' } })
+  })
+
+  it('does not wait on a non-blocking question', () => {
+    const r = recorder()
+    expect(r.question('q1', { question: '哪个环境？', blocking: false }).status).toBeUndefined()
+  })
+
+  it('stays waiting while a permission is still pending after a question is answered', () => {
+    const r = recorder()
+    r.apply({
+      type: 'permission-request',
+      requestId: 'per_1',
+      tool: 'bash',
+      input: {},
+      patterns: [],
+      always: [],
+    })
+    r.question('q1', { question: '哪个环境？', blocking: true })
+    expect(r.answer('q1', '测试').status).toBe('waiting')
+  })
+
+  it('expires pending permissions and questions when the turn ends', () => {
+    const r = recorder()
+    r.question('q1', { question: '哪个环境？', blocking: true })
+    const done = r.apply({ type: 'done', reason: 'aborted' })
+    expect(done.parts).toEqual([expect.objectContaining({ type: 'question', status: 'expired' })])
+  })
+
   it('adds up usage on the message', () => {
     const r = recorder()
     const usage = {

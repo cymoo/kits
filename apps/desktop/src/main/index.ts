@@ -143,6 +143,11 @@ app.whenReady().then(() => {
     registry: tools.registry,
     push,
   })
+  // 提问交给会话服务；产出和记忆在 PR10、PR16 接上
+  tools.setHandlers({
+    ...tools.current,
+    askUser: (input, ctx) => sessions.askUser(input, ctx),
+  })
   // 最近用过的工作目录放在最前面，最多记 10 个
   const rememberWorkdir = (dir: string) => {
     const rest = config.getSettings().workdirs.filter((w) => w.path !== dir)
@@ -161,6 +166,7 @@ app.whenReady().then(() => {
           node: process.versions.node,
           configDir: config.paths.dir,
           configDirLabel: homeLabel(config.paths.dir),
+          homeDir: os.homedir(),
           userDataDir: platform.userDataDir,
         }),
         openExternal: (url) => platform.openExternal(url),
@@ -182,6 +188,8 @@ app.whenReady().then(() => {
         get: (id) => sessions.get(id),
         prompt: ({ id, text }) => sessions.prompt(id, text),
         abort: (id) => sessions.abort(id),
+        respondPermission: (input) => sessions.respondPermission(input),
+        answerQuestion: (input) => sessions.answerQuestion(input),
       },
       workdir: {
         pick: async () => {
