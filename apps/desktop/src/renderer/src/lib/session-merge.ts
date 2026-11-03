@@ -15,16 +15,14 @@ function upsert<T extends { id: string }>(list: T[], item: T, keep: (old: T) => 
   return copy
 }
 
-// 会话列表的快照回来时，查询期间推来的更新可能比快照新：按 updatedAt 取新的，快照里没有的（刚建的）也留着
-export function mergeSessionList(
+// 会话列表的快照回来时，把查询期间收到的推送按顺序重放上去：推送一定比发请求时新，
+// 不靠时间戳比较（同一毫秒里的旧快照和新推送分不出先后）
+export function replaySessionList(
   fresh: SessionSummary[],
-  cached: SessionSummary[] | undefined,
+  pushes: SessionSummary[],
 ): SessionSummary[] {
   const byId = new Map(fresh.map((s) => [s.id, s]))
-  for (const c of cached ?? []) {
-    const f = byId.get(c.id)
-    if (!f || c.updatedAt > f.updatedAt) byId.set(c.id, c)
-  }
+  for (const p of pushes) byId.set(p.id, p)
   return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt)
 }
 

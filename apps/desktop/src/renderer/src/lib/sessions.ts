@@ -12,8 +12,8 @@ import {
   mergeMessage,
   mergePart,
   mergeSession,
-  mergeSessionList,
   type Reducer,
+  replaySessionList,
 } from './session-merge'
 
 // 会话数据：列表走 TanStack Query，单个会话的对话流放在下面这个小仓库里——
@@ -21,16 +21,21 @@ import {
 
 export const sessionKeys = { list: ['sessions'] as const }
 
+// 列表请求在路上时收到的 session.changed：快照回来后重放上去，后台会话做完的状态不会被旧快照盖回运行中
+const listRecorders = new Set<SessionSummary[]>()
+
 export function useSessions() {
-  const client = useQueryClient()
   return useQuery({
     queryKey: sessionKeys.list,
-    // 查询期间推来的更新（比如后台会话做完了）比列表快照新，合并时不被盖掉
-    queryFn: async () =>
-      mergeSessionList(
-        await kits.session.list(),
-        client.getQueryData<SessionSummary[]>(sessionKeys.list),
-      ),
+    queryFn: async () => {
+      const pushes: SessionSummary[] = []
+      listRecorders.add(pushes)
+      try {
+        return replaySessionList(await kits.session.list(), pushes)
+      } finally {
+        listRecorders.delete(pushes)
+      }
+    },
   })
 }
 
@@ -40,6 +45,7 @@ export function useSessionListSync() {
   useEffect(
     () =>
       kits.on('session.changed', (s: SessionSummary) => {
+        for (const r of listRecorders) r.push(s)
         client.setQueryData<SessionSummary[]>(sessionKeys.list, (list) => {
           const rest = (list ?? []).filter((x) => x.id !== s.id)
           return [s, ...rest].sort((a, b) => b.updatedAt - a.updatedAt)
