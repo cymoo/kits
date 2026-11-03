@@ -475,7 +475,7 @@ tr:last-child td { border-bottom: 0; }
       out: ['公司 LLM 网关地址和 key（存系统钥匙串），各 Agent 用哪个模型', 'Agent 编辑：提示词、工具开关、可选的产出格式', '内核状态、重启、日志、一键诊断', '首次引导三步：网关 → 工作目录 → 导入 MCP'],
       done: '引导每一步失败都能看到原因和处理办法。' },
     { id: 'M6', name: '测试工作台', track: 'test', cx: '中', effort: 6, start: 3, end: 5, deps: ['M3'],
-      goal: '测试四个环节的公共框架，照原型 task.html 做。',
+      goal: '测试四个环节的公共框架；原型第 3 周在 designs/explore 里画，评审后并入 designs/app。',
       out: ['测试任务：新建任务，侧栏里看每一步的进度', '步骤编排：全选或只选几步，步骤之间“暂停审核 / 自动继续”', '跳过前一步时，从已有产出取输入（历史分析、已有用例、历史执行）', '每一步实际在会话里跑，工作台只管收集输入、展示结果'],
       done: '用 mock Agent 跑通四步编排，暂停、继续、重跑单步都正常。' },
     { id: 'M7', name: '测试设计与用例开发', track: 'test', cx: '高', effort: 12, start: 1, end: 6, prep: 2, deps: ['M4', 'M6'],
