@@ -30,6 +30,28 @@ export interface AppInfo {
   userDataDir: string
 }
 
+export type GatewayTestResult =
+  | { ok: true; latencyMs: number; models: string[] }
+  | { ok: false; latencyMs: number; error: string }
+
+export interface GatewayTestInput {
+  baseUrl: string
+  // 不传就用已保存的 `gateway:<gatewayId>` 密钥（设置页里改地址后重测，不用重填 key）
+  apiKey?: string
+  gatewayId?: string
+}
+
+export type KernelName = 'opencode' | 'codeagent'
+
+export interface KernelInfo {
+  id: KernelName
+  installed: boolean
+  // `<binary> --version` 的输出，取不到为 null
+  version: string | null
+  binary: string | null
+  logsDir: string
+}
+
 // 设置的局部更新：顶层字段整体替换，general 按字段合并
 export type SettingsPatch = Partial<Omit<Settings, 'version' | 'general'>> & {
   general?: Partial<GeneralSettings>
@@ -46,6 +68,13 @@ export const ipcContract = {
     update: method<SettingsPatch, Settings>(),
     // settings.json 读不了时的原因（界面提示用），正常为 null
     loadError: method<undefined, string | null>(),
+  },
+  gateway: {
+    test: method<GatewayTestInput, GatewayTestResult>(),
+  },
+  kernel: {
+    status: method<undefined, KernelInfo[]>(),
+    openLogs: method<KernelName, void>(),
   },
   secrets: {
     set: method<{ key: string; value: string }, void>(),

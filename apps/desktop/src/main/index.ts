@@ -1,10 +1,14 @@
+import { mkdirSync } from 'node:fs'
 import path from 'node:path'
+import { gatewaySecretKey } from '@kits/core'
 import { app, BrowserWindow } from 'electron'
 import { ConfigService } from './config/config-service'
 import { resolveConfigDir } from './config/paths'
 import { SecretStore } from './config/secrets'
 import { openDatabase } from './db'
+import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc } from './ipc/register'
+import { kernelInfo, kernelLogsDir } from './kernel/kernel-info'
 import { createElectronPlatform } from './platform'
 
 // 主进程入口：读配置、打开数据库、注册 IPC、开窗口。会话、内核等按模块往里加。
@@ -77,6 +81,21 @@ app.whenReady().then(() => {
       get: () => config.getSettings(),
       update: (patch) => config.updateSettings(patch),
       loadError: () => config.loadError ?? null,
+    },
+    gateway: {
+      test: ({ baseUrl, apiKey, gatewayId }) => {
+        const key = apiKey ?? (gatewayId ? secrets.get(gatewaySecretKey(gatewayId)) : undefined)
+        return testGateway(key ? { baseUrl, apiKey: key } : { baseUrl })
+      },
+    },
+    kernel: {
+      status: () =>
+        kernelInfo({ userDataDir: platform.userDataDir, resourcesPath: platform.resourcesPath }),
+      openLogs: async (id) => {
+        const dir = kernelLogsDir(platform.userDataDir, id)
+        mkdirSync(dir, { recursive: true })
+        await platform.openPath(dir)
+      },
     },
     secrets: {
       set: ({ key, value }) => secrets.set(key, value),

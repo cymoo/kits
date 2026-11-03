@@ -1,0 +1,78 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { expect, test } from '@playwright/test'
+import { launchApp } from './app'
+import { startFakeGateway } from './gateway'
+
+// 设置 · 内核与模型（PR5）：添加网关、测试连接、选默认模型；密钥不进 settings.json。
+
+test('adds a gateway, picks the default model and keeps the key out of settings.json', async () => {
+  const gw = await startFakeGateway(['deepseek-v4-pro', 'qwen-coder'])
+  const { page, configDir, close } = await launchApp()
+  try {
+    await page.goto(`${page.url().split('#')[0]}#/settings/model`)
+    await page.getByRole('button', { name: '添加网关' }).click()
+    await page.getByLabel('名称').fill('公司网关')
+    await page.getByLabel('地址').fill(gw.baseUrl)
+    await page.getByLabel('API Key').fill('wrong')
+    await page.getByRole('button', { name: '测试并添加' }).click()
+    await expect(page.getByRole('status')).toContainText('鉴权失败')
+
+    await page.getByLabel('API Key').fill(gw.key)
+    await page.getByRole('button', { name: '测试并添加' }).click()
+    const card = page.getByTestId('gateway-localhost')
+    await expect(card).toContainText('公司网关')
+
+    await card.getByRole('button', { name: /公司网关/ }).click()
+    await expect(card.getByRole('radio', { name: /deepseek-v4-pro/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await card.getByRole('radio', { name: /qwen-coder/ }).click()
+    await expect(card.getByRole('radio', { name: /qwen-coder/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+
+    await card.getByRole('button', { name: '测试', exact: true }).click()
+    await expect(card.getByRole('status')).toContainText('连接正常')
+
+    const text = readFileSync(path.join(configDir, 'settings.json'), 'utf8')
+    const saved = JSON.parse(text)
+    expect(saved.defaultModel).toBe('localhost/qwen-coder')
+    expect(saved.gateways[0]).toMatchObject({
+      id: 'localhost',
+      name: '公司网关',
+      baseUrl: gw.baseUrl,
+    })
+    expect(text).not.toContain(gw.key)
+    expect(await page.evaluate(() => window.kits.secrets.has('gateway:localhost'))).toBe(true)
+  } finally {
+    await close()
+    await gw.close()
+  }
+})
+
+test('sets up the first gateway in onboarding step 1', async () => {
+  const gw = await startFakeGateway(['m1', 'm2'])
+  const { page, configDir, close } = await launchApp()
+  try {
+    await page.goto(`${page.url().split('#')[0]}#/onboarding`)
+    await page.getByLabel('网关地址').fill(gw.baseUrl)
+    await page.getByLabel('API Key').fill(gw.key)
+    await page.getByRole('button', { name: '测试连接' }).click()
+    await expect(page.getByRole('status')).toContainText('2 个模型')
+    await page.getByRole('radio', { name: 'm2' }).click()
+    await expect(page.getByRole('radio', { name: 'm2' })).toHaveAttribute('aria-checked', 'true')
+    await page.getByRole('button', { name: '下一步' }).click()
+    await expect(page.getByRole('button', { name: /工作目录/ })).toHaveAttribute(
+      'aria-current',
+      'step',
+    )
+    const saved = JSON.parse(readFileSync(path.join(configDir, 'settings.json'), 'utf8'))
+    expect(saved.defaultModel).toBe('localhost/m2')
+  } finally {
+    await close()
+    await gw.close()
+  }
+})
