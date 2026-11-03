@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { builtinAssistant, type KernelEvent, parseMcpFile, parseSettings } from '@kits/core'
@@ -28,11 +29,21 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
 
   beforeAll(async () => {
     root = mkdtempSync(path.join(os.tmpdir(), 'kits-adapter-'))
-    workdir = path.join(root, 'work')
+    // macOS 的临时目录在 /var 下，它是 /private/var 的软链接：内核按真实路径判断目录内外，这里也用真实路径。
+    // diff 靠内核的快照，工作目录是 git 仓库时才有
+    workdir = path.join(realpathSync(root), 'work')
     mkdirSync(workdir)
+    execFileSync('git', ['init', '-q'], { cwd: workdir })
     mocks.ok = await startMockModel()
     mocks.flaky = await startMockModel({ failFirst: 1 })
     mocks.slow = await startMockModel({ firstByteDelayMs: 30_000 })
+    // 写一个新文件，用来看 diff 的映射
+    mocks.writer = await startMockModel({
+      toolCall: {
+        name: 'write',
+        arguments: { filePath: path.join(workdir, 'hello.txt'), content: 'hi\n' },
+      },
+    })
     mocks.chain = await startMockModel({
       toolCall: {
         name: 'bash',
@@ -52,7 +63,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       mcp,
       skills: [],
       instructions: [],
-      gatewayKeys: { ok: 'k', flaky: 'k', slow: 'k', chain: 'k' },
+      gatewayKeys: { ok: 'k', flaky: 'k', slow: 'k', chain: 'k', writer: 'k' },
       lookupVar: () => undefined,
     })
     if (!result.ok) throw new Error(JSON.stringify(result.problems))
@@ -173,6 +184,16 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     })
     // 一次请求列出拆开后的每条命令，有一条不在白名单就整体询问
     expect(asked).toEqual([['ls', 'touch kits-chain.txt']])
+  }, 60_000)
+
+  it('maps the diff of a file the agent wrote', async () => {
+    const s = await session('writer')
+    await run(s, '建一个 hello.txt', (e) => kernel.respondPermission(s, e.requestId, 'once'))
+    const diff = await kernel.diff(s)
+    expect(diff).toEqual([
+      expect.objectContaining({ path: 'hello.txt', status: 'added', additions: 1, deletions: 0 }),
+    ])
+    expect(diff[0]?.patch).toContain('+hi')
   }, 60_000)
 
   it('reads back the session messages and an empty diff', async () => {

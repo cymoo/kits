@@ -489,17 +489,34 @@ export class OpencodeFamilyKernel implements AgentKernel {
     )
   }
 
+  // 1.19.5 的 GET /session/{id}/diff 不带 messageID 时返回空；每一轮的改动记在那一轮用户消息的 summary.diffs 上，
+  // 这里按轮收集（契约测试实测），改动面板按 messageId 分组
   async diff(session: KernelSession): Promise<FileDiff[]> {
-    const raw = await this.request<
-      { file?: string; patch?: string; additions?: number; deletions?: number; status?: string }[]
-    >('GET', `/session/${session.id}/diff`, session.workdir)
-    return (raw ?? []).map((d) => ({
-      path: d.file ?? '',
-      status: d.status === 'added' || d.status === 'deleted' ? d.status : 'modified',
-      additions: d.additions ?? 0,
-      deletions: d.deletions ?? 0,
-      patch: d.patch ?? '',
-    }))
+    const messages = await this.messages(session)
+    return messages.flatMap((m) => {
+      const info = m.info as {
+        id?: string
+        role?: string
+        summary?: {
+          diffs?: {
+            file?: string
+            patch?: string
+            additions?: number
+            deletions?: number
+            status?: string
+          }[]
+        }
+      }
+      if (info.role !== 'user') return []
+      return (info.summary?.diffs ?? []).map((d) => ({
+        path: d.file ?? '',
+        status: d.status === 'added' || d.status === 'deleted' ? d.status : ('modified' as const),
+        additions: d.additions ?? 0,
+        deletions: d.deletions ?? 0,
+        patch: d.patch ?? '',
+        ...(info.id ? { messageId: info.id } : {}),
+      }))
+    })
   }
 
   async summarize(session: KernelSession): Promise<void> {
