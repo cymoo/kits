@@ -465,7 +465,7 @@ class Component extends DCLogic {
       this.state = Object.assign(base, { title: q ? q.replace(/[，。,].*$/, '').slice(0, 20) : '积分兑换优惠券 R-1024', request, data: 'points', steps: inferSteps(request), status, started: false });
     }
     document.title = this.state.title;
-    document.addEventListener('kitty-send', (e) => { if (e.detail.key === 'task') this.onSend(e.detail.text); });
+    document.addEventListener('kits-send', (e) => { if (e.detail.key === 'task') this.onSend(e.detail.text); });
     setInterval(() => this.tick(), 300);
   }
 
@@ -720,7 +720,7 @@ class Component extends DCLogic {
       start: () => this.start(),
       continueFlow: () => this.continueFlow(),
       thread,
-      suggestions: finished && !s.extra.length ? nextSteps.map((text) => ({ text, pick: () => window.kittyFill('task', text) })) : null,
+      suggestions: finished && !s.extra.length ? nextSteps.map((text) => ({ text, pick: () => window.kitsFill('task', text) })) : null,
       panelTabs: arts.map((k) => ({ label: META[k].art, on: panel === k, pick: () => set({ panel: k }) })),
       pv
     };

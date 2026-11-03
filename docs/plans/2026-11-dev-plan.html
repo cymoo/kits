@@ -184,7 +184,7 @@ tr:last-child td { border-bottom: 0; }
 
 <div class="shell">
   <nav class="toc" aria-label="目录">
-    <div class="brand"><span class="k">k</span><span style="font-weight:700">kitty 开发计划</span></div>
+    <div class="brand"><span class="k">k</span><span style="font-weight:700">kits 开发计划</span></div>
     <a href="#goals">目标</a>
     <a href="#gantt">排期</a>
     <a href="#modules">模块</a>
@@ -198,7 +198,7 @@ tr:last-child td { border-bottom: 0; }
   <main>
     <header class="hero">
       <div>
-        <div class="eyebrow">kitty · 2026-11-03 → 12-11</div>
+        <div class="eyebrow">kits · 2026-11-03 → 12-11</div>
         <h1 style="margin-top:6px">AI统一测试平台开发计划</h1>
       </div>
       <p class="lede">打造统一的 AI 测试作业平台，测试设计、用例开发、测试执行和结果分析都在一个工具里完成。<br>先把通用的 Agent 能力做扎实，再按部门的实际做法把测试各环节接进来。</p>
@@ -347,7 +347,7 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>界面</td><td>React 19 + TypeScript + Vite；Tailwind CSS + Radix UI；TanStack Table</td><td>和原型一致，按原型自己画，不套组件库。用例审核这种大表格用 TanStack Table，只要表格逻辑。</td></tr>
             <tr><td>状态</td><td>zustand + TanStack Query</td><td>会话是高频事件流，用 zustand 在 IPC 回调里直接写；设置页是“请求 + 缓存”，交给 Query。</td></tr>
             <tr><td>Agent 内核</td><td>CodeAgent（默认）/ OpenCode，经 <code>AgentKernel</code> 适配器</td><td>两者同源，只调公共接口，差异收在方言层。OpenCode 开源，能断点，CI 用它加 mock 模型跑契约测试。</td></tr>
-            <tr><td>kitty 工具</td><td><code>@modelcontextprotocol/sdk</code> + zod，本机 MCP 服务</td><td><code>ask_user</code>、<code>submit_output</code> 定义一次，两个内核都通过 MCP 调用；结构化产出按 Agent 上配的 JSON Schema 校验。</td></tr>
+            <tr><td>kits 工具</td><td><code>@modelcontextprotocol/sdk</code> + zod，本机 MCP 服务</td><td><code>ask_user</code>、<code>submit_output</code> 定义一次，两个内核都通过 MCP 调用；结构化产出按 Agent 上配的 JSON Schema 校验。</td></tr>
             <tr><td>本地存储</td><td>SQLite（better-sqlite3）+ Drizzle；Electron safeStorage</td><td>会话、产出、AI 原稿和人工修改、token 用量从第一天就记；以后上服务端，schema 可以平移到 Postgres。</td></tr>
             <tr><td>文档转换</td><td>mammoth（Word）、pdfjs-dist（PDF）</td><td>需求附件先转 Markdown 再进上下文，纯 JS，不需要系统依赖。图片直接走模型的视觉输入。</td></tr>
             <tr><td>测试结果</td><td>JUnit XML 解析</td><td>各组执行器不一样，只约定报告格式，执行命令由用户配置。</td></tr>
@@ -363,7 +363,7 @@ tr:last-child td { border-bottom: 0; }
       <div class="sec-head"><h2>开发约定</h2><p>人主要管两头：需求和验收。中间的原型、代码、文档、测试尽量交给 AI。</p></div>
       <div class="flow">
         <div class="step human"><span class="who">人</span><h4>需求</h4><p>写清楚要什么、做到什么程度算完，附上原型页面。</p></div>
-        <div class="step"><span class="who">AI</span><h4>改原型</h4><p>界面改动先改 <code>designs/prototype</code>，看过没问题再写页面。</p></div>
+        <div class="step"><span class="who">AI</span><h4>改原型</h4><p>界面改动先改 <code>designs/app</code>，看过没问题再写页面。</p></div>
         <div class="step"><span class="who">AI</span><h4>开发</h4><p>加载 <code>.agents/</code> 里的技能，照原型实现。</p></div>
         <div class="step"><span class="who">AI</span><h4>交付说明 + 测试</h4><p>说明改了什么、怎么验收；UT 和 E2E 一起提交。</p></div>
         <div class="step human"><span class="who">人</span><h4>验收</h4><p>按交付说明验收。有问题改需求或说明，让 AI 重做。</p></div>
@@ -371,7 +371,7 @@ tr:last-child td { border-bottom: 0; }
       <div class="rules">
         <div class="rule"><h4>交付说明</h4><p>每个 PR 附一份 <code>docs/delivery/&lt;模块&gt;.md</code>：原始需求、怎么验收、主要改动、新增依赖、已知问题。验收的人看这份文档，不用通读代码。</p></div>
         <div class="rule"><h4>测试跟着代码走</h4><p>UT 用 Vitest，覆盖配置转换、schema 校验、事件映射；E2E 用 Playwright，覆盖主流程。没有测试的 PR 不合，CI 不绿不 demo。</p></div>
-        <div class="rule"><h4>技能统一放 <code>.agents/</code></h4><p>开发 kitty 用的技能和 Agent 定义放在仓库根目录，所有人用同一套，改动走 PR。</p><pre>.agents/
+        <div class="rule"><h4>技能统一放 <code>.agents/</code></h4><p>开发 kits 用的技能和 Agent 定义放在仓库根目录，所有人用同一套，改动走 PR。</p><pre>.agents/
 ├── skills/
 │   ├── delivery-doc/      交付说明模板
 │   ├── prototype-first/   先改原型
@@ -468,7 +468,7 @@ tr:last-child td { border-bottom: 0; }
       done: 'E2E 覆盖“新建 → 流式回复 → 确认命令 → 回滚 → 导出”。' },
     { id: 'M4', name: 'MCP、技能与记忆', track: 'base', cx: '中', effort: 8, start: 2, end: 4, deps: ['M2'],
       goal: '扩展能力配一次，两个内核都能用。',
-      out: ['MCP：stdio 和 HTTP，粘贴 mcpServers 配置，测试连接，按工具设允许 / 询问 / 拒绝，看日志', '本机 MCP 服务提供 kitty 自己的工具：ask_user、submit_output', '技能：SKILL.md，内置 / 项目 / 个人三级目录，开关和预览', '记忆：项目级用 AGENTS.md，个人偏好跨项目保留；Agent 提议写入，用户确认', '对应的设置页'],
+      out: ['MCP：stdio 和 HTTP，粘贴 mcpServers 配置，测试连接，按工具设允许 / 询问 / 拒绝，看日志', '本机 MCP 服务提供 kits 自己的工具：ask_user、submit_output', '技能：SKILL.md，内置 / 项目 / 个人三级目录，开关和预览', '记忆：项目级用 AGENTS.md，个人偏好跨项目保留；Agent 提议写入，用户确认', '对应的设置页'],
       done: '粘贴一份现有的 MCP 配置能直接用；同一个技能两个内核都能加载。' },
     { id: 'M5', name: '模型配置与首次引导', track: 'base', cx: '低', effort: 4, start: 3, end: 4, deps: ['M1', 'M2'],
       goal: '新机器装上后十分钟内能开始用。',

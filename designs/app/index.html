@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>kitty</title>
+<title>kits</title>
 <script src="./runtime.js"></script>
 <script src="./shell.js"></script>
 </head>
@@ -39,7 +39,7 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     // 原型：和测试有关的任务进入测试任务页，其他进入普通会话
-    document.addEventListener('kitty-send', (e) => {
+    document.addEventListener('kits-send', (e) => {
       const text = e.detail.text;
       location.href = /测试|用例|回归|冒烟|失败|R-\d+/.test(text) ? 'task.html?q=' + encodeURIComponent(text) : 'session.html';
     });
@@ -50,7 +50,7 @@ class Component extends DCLogic {
         '为需求 R-1024 设计用例并执行',
         '跑一遍积分模块回归，分析失败原因',
         '分析昨晚 CI 的失败'
-      ].map((text) => ({ text, pick: () => window.kittyFill('home', text) }))
+      ].map((text) => ({ text, pick: () => window.kitsFill('home', text) }))
     };
   }
 }

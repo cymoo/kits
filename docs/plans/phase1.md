@@ -1,4 +1,4 @@
-# Kaise 第一阶段方案：先打通通用的 Agent 流程
+# kits 第一阶段方案：先打通通用的 Agent 流程
 
 > 版本：v0.3（草案）　日期：2026-11-01　状态：待评审
 >
@@ -8,7 +8,7 @@
 >
 > v0.3 的变化：用例的样子还没定，第一阶段先做通用的 Agent 应用、打通通用流程；测试相关的功能（内置的用例设计 Agent、用例格式、用例审核等）放到第二阶段，界面上也不再放占位页。
 >
-> 界面原型：[designs/prototype](../designs/prototype/index.html)，已按 v0.3 改为通用版本。
+> 界面原型：[designs/app](../../designs/app/index.html)，已按 v0.3 改为通用版本。
 
 ## 1. 结论
 
@@ -16,7 +16,7 @@
 - **最终做面向测试的 Agent，不做全功能的 coding agent 产品**：第二阶段起，内置 Agent、技能和界面逐步围绕测试来做；Agent 通用的功能都要有（对话、技能、MCP、读文件和搜索、向用户提问、自定义 Agent）；**编辑文件、执行命令等编码能力默认开启**，靠权限确认和工作目录限制控制风险（4.5 节）；结构化输出是可选项，不是必需的。
 - **第一阶段只做通用功能**：会话、MCP、技能、Agent 配置、内核和模型设置、改动查看和回滚、结果导出。用例设计、审核、测试编写、执行、分析都放到后面（原型里已经画出这几个页面，用于讨论第二阶段的设计）。
 - **不需要服务端**。以后会有一个只展示统计信息的服务端，计划用 [lovia](https://github.com/cymoo/lovia) 搭建，第一阶段不做，只先定好上报哪些内容（第 7 节）。
-- **不做 `pytest-kaise` 插件**。用户可能有自己的测试执行器，以后做执行时再定关联方式。
+- **不做 `pytest-kits` 插件**。用户可能有自己的测试执行器，以后做执行时再定关联方式。
 - **Agent 内核**：默认 CodeAgent，OpenCode 用于本地调试和兜底，两者共用一个适配器，只用它们共有的接口（4.3 节）。第一阶段不做 AI SDK 内核，`AgentKernel` 接口保留。
 - **结构化输出可选**：默认产出就是 Agent 的回复文本（Markdown）。Agent 设置了“输出格式”（JSON Schema）时才按格式提交结构化结果。第一阶段不内置任何业务格式。
 
@@ -65,8 +65,8 @@ flowchart LR
   subgraph Main["主进程（Node）"]
     KM[内核管理<br/>AgentKernel 接口]
     OC[OpenCode 系适配器<br/>公共接口 + 方言层]
-    TOOLS[Kaise 工具<br/>submit_output / ask_user]
-    LMCP[本机 MCP 服务<br/>把 Kaise 工具提供给内核]
+    TOOLS[kits 工具<br/>submit_output / ask_user]
+    LMCP[本机 MCP 服务<br/>把 kits 工具提供给内核]
     DB[(SQLite<br/>会话 / 产出 / 记录)]
   end
   subgraph Kernel["内核子进程（二选一）"]
@@ -117,12 +117,12 @@ type KernelEvent =
 
 ### 4.2 所有配置只写一份，按内核转换
 
-| 资产 | Kaise 的格式 | 转换到 CodeAgent / OpenCode |
+| 资产 | kits 的格式 | 转换到 CodeAgent / OpenCode |
 |---|---|---|
-| Agent 配置 | `agents/*.md`：提示词、模型、可用工具 | 生成内核配置里的 `agent` 字段，写入 Kaise 为内核准备的配置目录（4.3 节） |
+| Agent 配置 | `agents/*.md`：提示词、模型、可用工具 | 生成内核配置里的 `agent` 字段，写入 kits 为内核准备的配置目录（4.3 节） |
 | 技能 | 标准 `SKILL.md` | 内核原生支持；复制或链接到配置目录下内核约定的技能目录 |
 | 用户配置的 MCP | 一份 `mcp.json` | 转成内核配置里的 `mcp` 字段 |
-| Kaise 工具 | 用 zod 定义一次 | 主进程在本机起一个 MCP 服务提供 |
+| kits 工具 | 用 zod 定义一次 | 主进程在本机起一个 MCP 服务提供 |
 | 权限（允许 / 询问 / 拒绝） | 每个工具一条规则 | 转成内核配置里的 `permission` 规则；询问通过 `permission.asked` 事件推给界面 |
 | 会话记录 | 统一格式，存 SQLite | 映射内核的 SSE 事件 |
 
@@ -143,14 +143,14 @@ interface KernelDialect {
 | 启动和就绪 | 端口 0，读 stdout 的 ready JSON | 指定空闲端口，轮询 `/global/health` |
 | 路径前缀 | `/api/v1` | 无 |
 | 鉴权 | Bearer token | Basic Auth |
-| 配置注入 | `--config-dir` 指向 Kaise 生成的目录 | 环境变量指向 Kaise 生成的目录或文件 |
+| 配置注入 | `--config-dir` 指向 kits 生成的目录 | 环境变量指向 kits 生成的目录或文件 |
 | 权限回复 | `POST /permission/:id/reply` | 按锁定版本选新接口或旧接口【待实测】 |
 
 第一阶段用到的公共接口：健康检查、会话的创建 / 获取 / 删除 / 状态、`prompt_async`、`abort`、消息列表、`diff`、`revert` / `unrevert`、权限回复、`GET /event` 事件流，以及 Agent、命令、MCP、模型的列表接口。编码能力默认开启后，执行命令要频繁确认，权限回复是会话中的常用操作。完成判定用 `session.idle` 加 `GET /session/status` 轮询兜底，两边都支持。CodeAgent 独有的能力（`prompt.completed` 事件、工作区、`permission_mode`、问答接口）第一阶段不用。注意 CodeAgent 的 spec 里没有 `unrevert` 接口，取消回滚要等导出 OpenAPI 后确认；没有的话界面上不提供“取消回滚”，以后需要时按 `capabilities` 接入。
 
 OpenCode 在这里有两个用处：
 
-- **本地调试**：开源，可以看源码、加日志、断点，问题能分清是 Kaise 的还是内核的；CI 里用 OpenCode 加一个 mock 模型跑契约测试，不依赖闭源二进制。
+- **本地调试**：开源，可以看源码、加日志、断点，问题能分清是 kits 的还是内核的；CI 里用 OpenCode 加一个 mock 模型跑契约测试，不依赖闭源二进制。
 - **兜底**：CodeAgent 的离线运行、登录或分发出问题时，换成 OpenCode 不用改上层代码。
 
 ### 4.4 为什么第一阶段不做 AI SDK 内核
@@ -177,13 +177,13 @@ v0.1 计划同时实现 AI SDK 作为第二个内核，现在改为不做：
 | LSP | `lsp` | allow；只用本机已安装的语言服务，关闭自动下载 |
 | 联网 | `webfetch`、`websearch` | deny；只用内网模型，防止代码和需求外泄；需要时可在 Agent 上单独打开 |
 | 死循环检测 | `doom_loop` | ask |
-| 内核的提问工具 | `question` | deny，改用 Kaise 的 `ask_user` |
-| Kaise 工具（本机 MCP） | `submit_output`：提交结构化结果，按 Agent 的 JSON Schema 校验，不合格把错误返回给模型让它改。只有 Agent 设置了输出格式时才提供这个工具 | allow |
+| 内核的提问工具 | `question` | deny，改用 kits 的 `ask_user` |
+| kits 工具（本机 MCP） | `submit_output`：提交结构化结果，按 Agent 的 JSON Schema 校验，不合格把错误返回给模型让它改。只有 Agent 设置了输出格式时才提供这个工具 | allow |
 | | `ask_user`：向用户提问，可标记是否阻塞；不阻塞时 Agent 按假设继续 | allow |
 | 用户配置的 MCP | 读取类工具 | allow |
 | | 写入类工具（比如往外部平台写数据） | ask，执行前弹出确认卡片 |
 
-提问用 Kaise 自己的 `ask_user`，不用内核的 `question` 工具：OpenCode 的官方文档没有列出问答接口，自己的工具在两个内核上行为一致。
+提问用 kits 自己的 `ask_user`，不用内核的 `question` 工具：OpenCode 的官方文档没有列出问答接口，自己的工具在两个内核上行为一致。
 
 ### 4.6 结构化输出是可选的
 
@@ -287,7 +287,7 @@ v0.1 计划同时实现 AI SDK 作为第二个内核，现在改为不做：
 
 ## 8. 界面
 
-原型（产品名 kitty）在 [designs/prototype](../designs/prototype/index.html)，用浏览器直接打开 `index.html` 即可，页面之间可以点击跳转，主要控件可以交互。
+原型在 [designs/app](../../designs/app/index.html)，用浏览器直接打开 `index.html` 即可，页面之间可以点击跳转，主要控件可以交互。
 
 | 页面 | 文件 | 内容 |
 |---|---|---|
@@ -330,7 +330,7 @@ v0.1 计划同时实现 AI SDK 作为第二个内核，现在改为不做：
 
 1. **模型**：候选型号经公司网关的工具调用是否稳定（PoC 第一项，不过的话方案要调整）。
 2. **用例格式**：向用例管理平台要一份导入模板或 API 字段说明。
-3. **CodeAgent**：能否不登录、完全离线运行；能否关闭 AI Market 和账户相关的联网功能；能否随 Kaise 安装包一起分发（许可）；配置目录里 OpenCode 风格和 Claude Code 风格的配置以哪个为准。详见 [API 对比](https://github.com/cymoo/kaise/blob/main/docs/codeagent-vs-opencode-api.md) 第 7 节。
+3. **CodeAgent**：能否不登录、完全离线运行；能否关闭 AI Market 和账户相关的联网功能；能否随 kits 安装包一起分发（许可）；配置目录里 OpenCode 风格和 Claude Code 风格的配置以哪个为准。详见 [API 对比](https://github.com/cymoo/kaise/blob/main/docs/codeagent-vs-opencode-api.md) 第 7 节。
 4. **OpenCode 分发**：作为调试和兜底内核，二进制能否随应用打包，是否通过公司安全扫描（含 Bun 运行时）。
 5. **桌面应用分发**：macOS 公证和 Windows 签名用哪个证书；内网自动更新放在哪里。
 6. **MCP 服务**：需求平台、用例平台是否已有 MCP 服务，没有的话由谁来写。

@@ -1,20 +1,27 @@
-# kitty 开发约定
+# kits 开发约定
 
-本仓库是 **kitty** 的代码仓：一个本地运行的 AI 测试作业平台（Electron 桌面应用），测试设计、用例开发、测试执行、结果分析都在一个工具里完成。产品叫 kitty，仓库叫 kits。
+本仓库是 **kits** 的代码仓：一个本地运行的 AI 测试作业平台（Electron 桌面应用），测试设计、用例开发、测试执行、结果分析都在一个工具里完成。
 
-这份文件是给所有协作者和所有 AI 编码工具（Claude Code、Cursor、Codex 等）看的。先读它，再读 `docs/plan-2026-11.html`（当前开发计划，含技术栈和排期）。
+这份文件是给所有协作者和所有 AI 编码工具（Claude Code、Cursor、Codex 等）看的。先读它，再读 [docs/plans/2026-11-dev-plan.html](docs/plans/2026-11-dev-plan.html)（当前开发计划，含技术栈和排期）。
 
-## 文档在哪
+## 仓库结构
 
-| 文档 | 内容 |
-|---|---|
-| [docs/plan-2026-11.html](docs/plan-2026-11.html) | 六周开发计划：目标、模块、逐周计划、技术栈、开发约定、风险。**当前执行的计划。** |
-| [docs/phase1-plan.md](docs/phase1-plan.md) | 第一阶段方案：架构、内核接口、配置转换、权限模型、数据记录。技术决策的依据。 |
-| [docs/codeagent-spec.md](docs/codeagent-spec.md) | CodeAgent SDK 规格（HTTP + SSE 接口、事件类型）。接内核时对照它，和实际行为不一致的地方记到核对清单里。 |
-| [designs/prototype/](designs/prototype/index.html) | 界面原型。浏览器直接打开，或 `python3 -m http.server 8765 --directory designs/prototype`。 |
-| `docs/delivery/` | 每个模块的交付说明（见下文）。 |
+```
+AGENTS.md                 本文件
+README.md
+.agents/skills/           开发用的技能（所有工具共用，改动走 PR）
+.claude/skills/           指向 .agents/skills 的软链接，给 Claude Code 用
+.claude/launch.json       原型和文档的本地预览配置
+designs/                  原型，见 designs/README.md
+  app/                    产品原型，当前要实现的样子
+  explore/                探索性画板，YYYY-MM-DD-<slug>/
+docs/                     文档，见 docs/README.md
+  plans/                  计划和方案
+  references/             外部资料的本地副本（SDK 规格等）
+  delivery/               交付说明，一个模块一份
+```
 
-更早的方案文档（完整平台设计、MVP 方案、OpenCode 评估、API 对比、原型评审）留在 [cymoo/kaise](https://github.com/cymoo/kaise)，已被上面的方案取代，只作参考。
+工程骨架（`apps/`、`packages/`、`e2e/`、`evals/`）在第一周搭起来后补到这里。文档和原型的命名规则分别在 [docs/README.md](docs/README.md) 和 [designs/README.md](designs/README.md)。
 
 ## 开发流程
 
@@ -32,14 +39,14 @@
 
 界面改动先改原型，看过没问题再写页面。不要跳过原型直接改代码，也不要让代码和原型长期不一致。
 
-- 现有原型在 `designs/prototype/`，是几个可交互的 HTML 页面（`runtime.js` 是它们的极简运行时，只为原型服务）。改现有页面就改这里。
-- 新页面、新流程的探索用 `.agents/skills/claude-design` 技能：在 `designs/<slug>/` 下建一个画板，本地编辑器里可以并排看多个页面、改文案、留评论。评审通过后再并入 `designs/prototype/` 或直接实现。
+- 产品原型在 `designs/app/`，只有一份，改现有页面就改这里。
+- 新页面、新流程先在 `designs/explore/<YYYY-MM-DD>-<slug>/` 里用 `.agents/skills/claude-design` 技能画画板，本地编辑器里可以并排看多个页面、改文案、留评论。评审通过后并入 `designs/app/`。
 - 原型只画必要的状态（空、加载、正常、出错），不堆功能。原型评审的结论写回需求。
 
 ### 3. 开发
 
 - 加载 `.agents/skills/` 里的技能，照原型实现。原型没有画到的，按原型的风格补，并在交付说明里写明。
-- 技术栈以 `docs/plan-2026-11.html` 的“技术栈”为准：Electron + electron-vite，React 19 + TypeScript，Tailwind CSS + Radix UI，zustand + TanStack Query，SQLite（better-sqlite3）+ Drizzle，pnpm workspace + Turborepo，Biome，Vitest，Playwright。
+- 技术栈以开发计划的“技术栈”一节为准：Electron + electron-vite，React 19 + TypeScript，Tailwind CSS + Radix UI，zustand + TanStack Query，SQLite（better-sqlite3）+ Drizzle，pnpm workspace + Turborepo，Biome，Vitest，Playwright。
 - 几条原则：
   - 不自研 Agent 内核。CodeAgent 和 OpenCode 经同一个 `AgentKernel` 适配器接入，只调两者共有的接口，差异收在方言层。
   - 配置只写一份，按内核转换。Agent、技能、产出格式都是配置，不写死在代码里。
@@ -86,21 +93,6 @@ UT 和 E2E 和代码一起提交，不另外排期。没有测试的 PR 不合�
 - AI 生成的提交保留工具自带的署名行（如 `Co-Authored-By`），方便事后统计采纳率。
 - 不提交生成物（`dist/`、`out/`、`coverage/`）、密钥和本机配置。
 
-## 仓库结构
-
-```
-AGENTS.md                 本文件
-README.md
-.agents/skills/           开发用的技能（所有工具共用，改动走 PR）
-.claude/skills/           指向 .agents/skills 的软链接，给 Claude Code 用
-.claude/launch.json       原型和文档的本地预览配置
-designs/prototype/        界面原型
-docs/                     方案、计划、SDK 规格
-docs/delivery/            交付说明
-```
-
-工程骨架（`apps/`、`packages/`、`e2e/`、`evals/`）在第一周搭起来后补到这里。
-
 ## 技能
 
 - 技能遵循 [Agent Skills](https://agentskills.io) 规范（目录 + `SKILL.md`），放在 `.agents/skills/`，来源和版本记在 [.agents/skills/README.md](.agents/skills/README.md)。
@@ -109,6 +101,6 @@ docs/delivery/            交付说明
 
 ## 写作约定
 
-- 文档和注释用中文，代码标识符、提交信息、日志用英文。
-- 产品名写 `kitty`（小写），仓库名 `kits`。
+- 文档和注释用中文，代码标识符、文件名、提交信息、日志用英文。
+- 产品名和仓库名都是 `kits`（小写）。
 - 文档写结论和理由，不写过程；状态、日期放在文首。

@@ -79,9 +79,9 @@
       }
       if (node.nodeType !== Node.ELEMENT_NODE) continue
       const tag = node.localName
-      if (window.kittyTags && window.kittyTags[tag]) {
+      if (window.kitsTags && window.kitsTags[tag]) {
         // 共用组件（shell.js 里的侧栏、输入框），每次渲染放回同一个节点，里面的状态不会丢
-        out.appendChild(window.kittyTags[tag](node))
+        out.appendChild(window.kitsTags[tag](node))
       } else if (tag === 'sc-if') {
         if (hole(node.getAttribute('value'), scope)) render(node, scope, out)
       } else if (tag === 'sc-for') {

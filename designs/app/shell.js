@@ -243,7 +243,7 @@
     nav.className = 'kn'
     nav.setAttribute('aria-label', '主导航')
     let collapsed = false
-    try { collapsed = localStorage.getItem('kitty.nav.collapsed') === '1' } catch (e) {}
+    try { collapsed = localStorage.getItem('kits.nav.collapsed') === '1' } catch (e) {}
     nav.dataset.collapsed = String(collapsed)
     const here = location.pathname.split('/').pop() + location.search
     // 刚从首页发起的测试任务还不在列表里，临时放在最上面
@@ -254,7 +254,7 @@
         <span style="flex:1"></span>
         <button type="button" class="kn-icon" data-act="collapse" aria-label="折叠侧栏" title="折叠侧栏 ⌘B">${svg('side', 15)}</button>
       </div>
-      <a class="kn-brand" href="index.html"><span class="kn-logo">${cat}</span><span>kitty</span></a>
+      <a class="kn-brand" href="index.html"><span class="kn-logo">${cat}</span><span>kits</span></a>
       <div style="display:flex;flex-direction:column;gap:1px">
         <a class="kn-item${active === 'new' ? ' on' : ''}" href="index.html" title="新对话">${svg('edit')}<span class="kn-label">新对话</span><span class="kn-kbd">⌘N</span></a>
         <button type="button" class="kn-item" title="搜索">${svg('search')}<span class="kn-label">搜索</span><span class="kn-kbd">⌘K</span></button>
@@ -281,7 +281,7 @@
         close()
         const v = nav.dataset.collapsed !== 'true'
         nav.dataset.collapsed = String(v)
-        try { localStorage.setItem('kitty.nav.collapsed', v ? '1' : '0') } catch (err) {}
+        try { localStorage.setItem('kits.nav.collapsed', v ? '1' : '0') } catch (err) {}
         return
       }
       open(t.dataset.pop, t)
@@ -294,7 +294,7 @@
   }
 
   // ---------- 输入框 ----------
-  // <k-composer key="home" placeholder="…" rows="3"> ；发送时在 document 上派发 kitty-send 事件
+  // <k-composer key="home" placeholder="…" rows="3"> ；发送时在 document 上派发 kits-send 事件
   const composers = {}
   function buildComposer(key, placeholder, rows) {
     const box = document.createElement('div')
@@ -318,7 +318,7 @@
       if (!text) return
       ta.value = ''
       grow()
-      document.dispatchEvent(new CustomEvent('kitty-send', { detail: { key, text } }))
+      document.dispatchEvent(new CustomEvent('kits-send', { detail: { key, text } }))
     }
     ta.addEventListener('input', grow)
     ta.addEventListener('keydown', (e) => {
@@ -336,7 +336,7 @@
   let styled = false
   const style = () => { if (!styled) { styled = true; document.head.insertAdjacentHTML('beforeend', `<style>${CSS}</style>`) } }
 
-  window.kittyTags = {
+  window.kitsTags = {
     'k-nav': (node) => { style(); return nav || buildNav(node.getAttribute('active')) },
     'k-composer': (node) => {
       style()
@@ -345,5 +345,5 @@
     }
   }
   // 页面里的建议按钮用它把文字放进输入框
-  window.kittyFill = (key, text) => { if (composers[key]) composers[key].fill(text) }
+  window.kitsFill = (key, text) => { if (composers[key]) composers[key].fill(text) }
 })()
