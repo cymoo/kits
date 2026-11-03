@@ -177,13 +177,106 @@ describe('MockKernel', () => {
   })
 
   it('stops waiting for an unanswered blocking question on abort', async () => {
+    let asked = () => {}
+    const called = new Promise<void>((r) => {
+      asked = r
+    })
     const { kernel, session } = await start({
       scenario: 'question',
-      tools: { askUser: () => new Promise(() => {}), onOutput: async () => {} },
+      tools: {
+        askUser: () => {
+          asked()
+          return new Promise(() => {})
+        },
+        onOutput: async () => {},
+      },
+    })
+    // 等 askUser 真的被调用（已经在等回答）再停
+    void called.then(() => kernel.abort(session))
+    const events = await collect(kernel, session)
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+  })
+
+  it('does not hand over output when the turn is stopped at the submit_output call', async () => {
+    let outputs = 0
+    const { kernel, session } = await start({
+      scenario: 'output-structured',
+      tools: {
+        askUser: async () => ({ answered: false }),
+        onOutput: async () => {
+          outputs += 1
+        },
+      },
     })
     const events = await collect(kernel, session, (e) =>
-      e.type === 'tool-start' && e.name === 'kits_ask_user' ? kernel.abort(session) : undefined,
+      e.type === 'tool-start' && e.name === 'kits_submit_output'
+        ? kernel.abort(session)
+        : undefined,
     )
     expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+    expect(outputs).toBe(0)
+  })
+
+  it('ends every running turn when the simulated process crashes and notifies the exit once', async () => {
+    const kernel = new MockKernel({
+      speed: 0,
+      scenario: {
+        name: 'permission',
+        steps: [
+          {
+            permission: {
+              requestId: 'per_1',
+              tool: 'bash',
+              input: {},
+              patterns: [],
+              always: [],
+              callId: 'c1',
+            },
+            allow: [{ crash: 'boom' }],
+            reject: [],
+          },
+        ],
+      },
+    })
+    await kernel.start()
+    const opts = { workdir: '/w', agent: 'assistant', permission: [] }
+    const a = await kernel.createSession(opts)
+    const b = await kernel.createSession(opts)
+    const exits: KernelExit[] = []
+    kernel.onExit((e) => exits.push(e))
+    const asked = { a: false, b: false }
+    const both = Promise.all([
+      collect(kernel, a, async (e) => {
+        if (e.type !== 'permission-request') return
+        asked.a = true
+        while (!asked.b) await new Promise((r) => setTimeout(r, 5))
+        await kernel.respondPermission(a, 'per_1', 'once')
+      }),
+      collect(kernel, b, (e) => {
+        if (e.type === 'permission-request') asked.b = true
+      }),
+    ])
+    const [ea, eb] = await both
+    expect(ea.at(-1)).toMatchObject({ type: 'done', reason: 'error' })
+    expect(eb.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'error',
+      error: expect.stringContaining('boom'),
+    })
+    expect(exits).toHaveLength(1)
+  })
+
+  it('ends the turn with an error when an injected handler throws', async () => {
+    const { kernel, session } = await start({
+      scenario: 'question',
+      tools: {
+        askUser: async () => {
+          throw new Error('保存失败')
+        },
+        onOutput: async () => {},
+      },
+    })
+    const events = await collect(kernel, session)
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'error', error: '保存失败' })
   })
 })
