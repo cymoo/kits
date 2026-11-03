@@ -89,6 +89,8 @@ export interface KernelDialect {
   // 把配置转换的结果写进 configDir；env 不落盘，由调用方放进 KernelConfig.env
   writeConfig(dir: string, generated: GeneratedFiles): Promise<void>
   permissionReplyPath(requestId: string, sessionId: string): string
+  // 列出待处理权限请求的接口（断线补齐用）
+  readonly permissionListPath: string
 }
 
 export interface SpawnedKernel {

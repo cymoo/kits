@@ -30,6 +30,9 @@ export interface OpencodeFamilyOptions {
 
 type Listener = { onEvent(event: unknown): void; onReconnect(): void }
 
+// 状态探测的超时：内核连着但不回数据时，探测不能一直挂着
+const STATUS_TIMEOUT_MS = 5_000
+
 // 一个工作目录一条事件流，有订阅时连着，没订阅就断开
 class EventHub {
   private listeners = new Set<Listener>()
@@ -46,7 +49,13 @@ class EventHub {
   async subscribe(listener: Listener): Promise<() => void> {
     this.listeners.add(listener)
     if (!this.controller) this.connected = this.run()
-    await this.connected
+    try {
+      await this.connected
+    } catch (e) {
+      // 连不上就把这次的订阅撤掉，不然残留的监听会让连接一直不关
+      this.listeners.delete(listener)
+      throw e
+    }
     return () => {
       this.listeners.delete(listener)
       if (this.listeners.size === 0) {
@@ -201,9 +210,11 @@ export class OpencodeFamilyKernel implements AgentKernel {
     route: string,
     workdir: string,
     body?: unknown,
+    timeoutMs?: number,
   ): Promise<T> {
     const res = await fetch(this.url(route, workdir), {
       method,
+      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
       headers: {
         ...this.kernel.headers,
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
@@ -254,22 +265,52 @@ export class OpencodeFamilyKernel implements AgentKernel {
       for (const e of events) queue.push(e)
       if (mapper.done) queue.close()
     }
-    // 消息时间戳由内核打，留一点余量防两边时钟抖动
-    const since = Date.now() - 1_000
     const hub = this.hub(session.workdir)
+
+    // 断线补齐：拉一次消息快照和待处理的权限请求，补上没发过的部分。
+    // 补齐期间收到的实时事件先攒着、补完再按顺序映射；其中的正文增量直接丢掉，
+    // 快照里已经有它们（之后还会有带整段正文的 message.part.updated 兜底），不然会和快照重复。
+    // 这一轮开始前就有的消息按 id 排除，不靠时间窗口。
+    const known = new Set<string>()
+    let recovering: Promise<void> | undefined
+    let buffered: unknown[] = []
+    const recover = (): Promise<void> => {
+      recovering ??= (async () => {
+        try {
+          const [messages, pending] = await Promise.all([
+            this.messages(session),
+            this.pendingPermissions(session),
+          ])
+          emit(
+            mapper.backfill((messages as RawMessage[]).filter((m) => !known.has(m.info.id ?? ''))),
+          )
+          emit(mapper.permissions(pending))
+        } catch {
+          // 补齐失败不影响后续事件
+        } finally {
+          const events = buffered
+          buffered = []
+          recovering = undefined
+          for (const event of events) emit(mapper.map(event))
+        }
+      })()
+      return recovering
+    }
+
     let timer: ReturnType<typeof setInterval> | undefined
     let unsubscribe: (() => void) | undefined
     try {
       try {
+        for (const m of await this.messages(session).catch(() => [])) {
+          if (m.info.id) known.add(m.info.id)
+        }
         unsubscribe = await hub.subscribe({
-          onEvent: (event) => emit(mapper.map(event)),
-          onReconnect: () => {
-            this.messages(session)
-              .then((messages) => emit(mapper.backfill(messages as RawMessage[], since)))
-              .catch(() => {
-                // 补齐失败不影响后续事件
-              })
+          onEvent: (event) => {
+            if (!recovering) emit(mapper.map(event))
+            else if ((event as { type?: string }).type !== 'message.part.delta')
+              buffered.push(event)
           },
+          onReconnect: () => void recover(),
         })
         const model = session.model ? parseModelRef(session.model) : undefined
         await this.request('POST', `/session/${session.id}/prompt_async`, session.workdir, {
@@ -278,30 +319,50 @@ export class OpencodeFamilyKernel implements AgentKernel {
           parts: composeText(input),
         })
       } catch (e) {
-        // 连不上内核或发消息失败：照样以 done 结束这一轮，界面显示出错卡片
-        yield* mapper.finish('error', e instanceof Error ? e.message : String(e))
+        // 连不上内核或发消息失败：照样以 done 结束这一轮，界面显示出错卡片。
+        // 进程退出时 handleExit 可能已经把 done 放进队列，所以统一从队列里取
+        emit(mapper.finish('error', e instanceof Error ? e.message : String(e)))
+        yield* queue
         return
       }
 
       let sawBusy = false
       let idlePolls = 0
+      let polling = false
+      let lastStatusAt = Date.now()
+      const checkStall = () => {
+        if (Date.now() - Math.max(hub.lastEventAt, lastStatusAt) > this.stall) {
+          emit(mapper.finish('error', '内核没有响应：事件流和状态接口都没有回应'))
+        }
+      }
       timer = setInterval(() => {
-        this.request<Record<string, { type?: string }>>('GET', '/session/status', session.workdir)
+        // 上一次探测还没回来就不再发，只看是不是卡死了
+        if (polling) return checkStall()
+        polling = true
+        this.request<Record<string, { type?: string }>>(
+          'GET',
+          '/session/status',
+          session.workdir,
+          undefined,
+          STATUS_TIMEOUT_MS,
+        )
           .then((status) => {
+            lastStatusAt = Date.now()
             const type = status?.[session.id]?.type
             if (type === 'busy' || type === 'retry') {
               sawBusy = true
               idlePolls = 0
               return
             }
-            // idle 的会话不一定出现在列表里
+            // idle 的会话不一定出现在列表里；session.idle 可能丢在断线里，收尾前先补齐
             idlePolls += 1
-            if (sawBusy || idlePolls >= 2) emit(mapper.finish('completed'))
-          })
-          .catch(() => {
-            if (Date.now() - hub.lastEventAt > this.stall) {
-              emit(mapper.finish('error', '内核没有响应：事件流和状态接口都没有回应'))
+            if (sawBusy || idlePolls >= 2) {
+              void recover().then(() => emit(mapper.finish('completed')))
             }
+          })
+          .catch(checkStall)
+          .finally(() => {
+            polling = false
           })
       }, this.poll)
       timer.unref?.()
@@ -315,6 +376,16 @@ export class OpencodeFamilyKernel implements AgentKernel {
       unsubscribe?.()
       this.active.delete(session.id)
     }
+  }
+
+  // 还在等回复的权限请求（GET /permission，整个实例的），按会话过滤
+  private async pendingPermissions(session: KernelSession): Promise<unknown[]> {
+    const list = await this.request<{ sessionID?: string }[]>(
+      'GET',
+      this.dialect.permissionListPath,
+      session.workdir,
+    )
+    return (list ?? []).filter((p) => p.sessionID === session.id)
   }
 
   async respondPermission(
@@ -357,12 +428,19 @@ export class OpencodeFamilyKernel implements AgentKernel {
   }
 
   async summarize(session: KernelSession): Promise<void> {
-    const model = session.model ? parseModelRef(session.model) : undefined
-    if (!model) throw new Error('summarize needs the session model')
-    await this.request('POST', `/session/${session.id}/summarize`, session.workdir, {
-      providerID: model.gateway,
-      modelID: model.model,
-    })
+    const ref = session.model ? parseModelRef(session.model) : undefined
+    let model = ref ? { providerID: ref.gateway, modelID: ref.model } : undefined
+    if (!model) {
+      // 用默认模型建的会话：取最近一条回复实际用的模型
+      const info = (await this.messages(session))
+        .map((m) => m.info as { role?: string; providerID?: string; modelID?: string })
+        .filter((i) => i.role === 'assistant' && i.providerID && i.modelID)
+        .at(-1)
+      if (info?.providerID && info.modelID)
+        model = { providerID: info.providerID, modelID: info.modelID }
+    }
+    if (!model) throw new Error('这个会话还没有回复过，不知道用哪个模型压缩')
+    await this.request('POST', `/session/${session.id}/summarize`, session.workdir, model)
   }
 
   async messages(session: KernelSession): Promise<KernelMessage[]> {

@@ -6,9 +6,11 @@ export function createSseParser(onData: (data: string) => void): (chunk: string)
   let data: string[] = []
   return (chunk) => {
     buffer += chunk
-    const lines = buffer.split(/\r\n|\r|\n/)
+    // CRLF 可能被切在两块之间：结尾的 \r 先不当换行，等下一块看后面是不是 \n
+    const held = buffer.endsWith('\r') ? '\r' : ''
+    const lines = (held ? buffer.slice(0, -1) : buffer).split(/\r\n|\r|\n/)
     // 最后一段可能是半行，留到下次
-    buffer = lines.pop() ?? ''
+    buffer = (lines.pop() ?? '') + held
     for (const line of lines) {
       if (line === '') {
         if (data.length > 0) onData(data.join('\n'))

@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync, statSync } from 'node:fs'
 import { parseSettings, type Settings } from '@kits/core'
 import { applySettingsPatch, type SettingsPatch } from '@kits/core/ipc'
 import { writeFileAtomic } from './atomic'
@@ -19,6 +19,8 @@ export class ConfigService {
   readonly paths: ConfigPaths
   private settings: Settings
   private broken = false
+  // 上次读到的文件修改时间；人在编辑器里改了之后，下次读写前重新加载
+  private mtime = 0
   loadError: string | undefined
 
   constructor(private readonly options: ConfigServiceOptions) {
@@ -26,7 +28,16 @@ export class ConfigService {
     this.settings = this.readSettings()
   }
 
+  private fileMtime(): number {
+    try {
+      return statSync(this.paths.settings).mtimeMs
+    } catch {
+      return 0
+    }
+  }
+
   private readSettings(): Settings {
+    this.mtime = this.fileMtime()
     if (!existsSync(this.paths.settings)) return parseSettings({})
     try {
       const settings = parseSettings(JSON.parse(readFileSync(this.paths.settings, 'utf8')))
@@ -41,16 +52,26 @@ export class ConfigService {
   }
 
   getSettings(): Settings {
+    this.reloadIfChanged()
     return this.settings
   }
 
-  // 人在编辑器里改了文件之后调用（设置页打开时、窗口重新获得焦点时）
   reload(): Settings {
     this.settings = this.readSettings()
     return this.settings
   }
 
+  // 文件被人改过就重新读，并通知界面（窗口重新获得焦点时、每次读写设置前调用）
+  reloadIfChanged(): boolean {
+    if (this.fileMtime() === this.mtime) return false
+    this.reload()
+    this.options.onSettingsChanged?.(this.settings)
+    return true
+  }
+
   updateSettings(patch: SettingsPatch): Settings {
+    // 先读一遍磁盘上的最新内容，补丁打在它上面，不用旧缓存覆盖手改的内容
+    this.reloadIfChanged()
     // 补丁也要过一遍 schema，坏值不落盘
     const next = parseSettings(applySettingsPatch(this.settings, patch))
     if (this.broken && existsSync(this.paths.settings)) {
@@ -60,6 +81,7 @@ export class ConfigService {
       this.loadError = undefined
     }
     writeFileAtomic(this.paths.settings, `${JSON.stringify(next, null, 2)}\n`)
+    this.mtime = this.fileMtime()
     this.settings = next
     this.options.onSettingsChanged?.(next)
     return next

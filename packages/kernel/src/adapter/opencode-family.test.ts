@@ -3,9 +3,9 @@ import type { AddressInfo } from 'node:net'
 import type { KernelEvent } from '@kits/core'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { KernelDialect, KernelSession } from '../kernel'
-import { OpencodeFamilyKernel } from './opencode-family'
+import { OpencodeFamilyKernel, type OpencodeFamilyOptions } from './opencode-family'
 
-// 用一个最小的假内核测适配器自己的逻辑：session.idle 丢了靠轮询收尾、事件流断了重连并补齐。
+// 用一个最小的假内核测适配器自己的逻辑：session.idle 丢了靠轮询收尾、事件流断了重连并补齐、卡死判定。
 // 真实内核的行为由 opencode-family.contract.test.ts 覆盖。
 
 interface Fake {
@@ -14,10 +14,17 @@ interface Fake {
   streams: ServerResponse[]
   // 一共连过几次（断线重连后加一）
   connections: number
-  // GET /session/status 返回的状态
+  // GET /session/status 返回的状态；hangStatus 时不回
   status: Record<string, { type: string }>
+  hangStatus: boolean
+  // GET /session/{id}/message 的内容，和回之前等多久
   messages: unknown[]
+  messagesDelayMs: number
+  messageRequests: number
+  // GET /permission
+  permissions: unknown[]
   promptCount: number
+  summarizeBody: unknown
   close(): Promise<void>
 }
 
@@ -26,10 +33,15 @@ async function startFake(): Promise<Fake> {
     streams: [],
     connections: 0,
     status: {},
+    hangStatus: false,
     messages: [],
+    messagesDelayMs: 0,
+    messageRequests: 0,
+    permissions: [],
     promptCount: 0,
+    summarizeBody: undefined,
   }
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://x')
     if (url.pathname === '/event') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream' })
@@ -51,8 +63,23 @@ async function startFake(): Promise<Fake> {
       res.writeHead(204).end()
       return
     }
-    if (url.pathname === '/session/status') return json(fake.status)
-    if (url.pathname.endsWith('/message')) return json(fake.messages)
+    if (url.pathname === '/session/status') {
+      if (fake.hangStatus) return
+      return json(fake.status)
+    }
+    if (url.pathname.endsWith('/message')) {
+      fake.messageRequests += 1
+      const snapshot = fake.messages
+      if (fake.messagesDelayMs) await new Promise((r) => setTimeout(r, fake.messagesDelayMs))
+      return json(snapshot)
+    }
+    if (url.pathname === '/permission') return json(fake.permissions)
+    if (url.pathname.endsWith('/summarize')) {
+      const chunks: Buffer[] = []
+      for await (const c of req) chunks.push(c as Buffer)
+      fake.summarizeBody = JSON.parse(Buffer.concat(chunks).toString())
+      return json(true)
+    }
     res.writeHead(404).end()
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
@@ -72,22 +99,28 @@ function send(fake: Fake, type: string, properties: Record<string, unknown>) {
 }
 
 const until = async (cond: () => boolean) => {
-  for (let i = 0; i < 200 && !cond(); i++) await new Promise((r) => setTimeout(r, 10))
+  for (let i = 0; i < 300 && !cond(); i++) await new Promise((r) => setTimeout(r, 10))
+  if (!cond()) throw new Error('condition not met')
 }
 
 let fake: Fake
 let kernel: OpencodeFamilyKernel
 
-async function setup(): Promise<KernelSession> {
+async function setup(options: OpencodeFamilyOptions = {}): Promise<KernelSession> {
   fake = await startFake()
   const dialect: KernelDialect = {
     id: 'opencode',
     apiPrefix: '',
+    permissionListPath: '/permission',
     spawn: async () => ({ baseUrl: fake.url, headers: {}, close: async () => {} }),
     writeConfig: async () => {},
     permissionReplyPath: (id) => `/permission/${id}/reply`,
   }
-  kernel = new OpencodeFamilyKernel(dialect, { pollIntervalMs: 50, reconnectDelayMs: 20 })
+  kernel = new OpencodeFamilyKernel(dialect, {
+    pollIntervalMs: 50,
+    reconnectDelayMs: 20,
+    ...options,
+  })
   await kernel.start({ binary: '', configDir: '', dataDir: '', env: {} })
   return kernel.createSession({ workdir: '/w', agent: 'assistant', permission: [] })
 }
@@ -110,6 +143,32 @@ async function collect(
   return events
 }
 
+const text = (events: KernelEvent[]) =>
+  events.flatMap((e) => (e.type === 'text-delta' ? [e.text] : [])).join('')
+
+const assistant = { sessionID: 'ses_1', info: { id: 'msg_a', role: 'assistant' } }
+const delta = (d: string) => ({
+  sessionID: 'ses_1',
+  messageID: 'msg_a',
+  partID: 'prt_1',
+  field: 'text',
+  delta: d,
+})
+const snapshot = (body: string) => [
+  {
+    info: { id: 'msg_a', role: 'assistant', time: { created: Date.now() } },
+    parts: [{ id: 'prt_1', messageID: 'msg_a', type: 'text', text: body }],
+  },
+]
+
+// 断开事件流，等适配器重连上
+async function reconnect(seen: KernelEvent[], waitDelta = true) {
+  if (waitDelta) await until(() => seen.some((e) => e.type === 'text-delta'))
+  const before = fake.connections
+  for (const stream of fake.streams) stream.destroy()
+  await until(() => fake.connections > before)
+}
+
 describe('OpencodeFamilyKernel', () => {
   it('completes by polling when session.idle never arrives', async () => {
     const s = await setup()
@@ -128,35 +187,109 @@ describe('OpencodeFamilyKernel', () => {
     fake.status = { ses_1: { type: 'busy' } }
     const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
       await until(() => fake.promptCount === 1)
-      send(fake, 'message.updated', {
-        sessionID: 'ses_1',
-        info: { id: 'msg_a', role: 'assistant' },
-      })
-      send(fake, 'message.part.delta', {
-        sessionID: 'ses_1',
-        messageID: 'msg_a',
-        partID: 'prt_1',
-        field: 'text',
-        delta: '前半',
-      })
-      // 等客户端真的收到前半段再断，不然断开时没发出去的数据会丢，测的就不是补齐了
-      await until(() => seen.some((e) => e.type === 'text-delta'))
+      send(fake, 'message.updated', assistant)
+      send(fake, 'message.part.delta', delta('前半'))
       // 断线期间内核把后半段写完了
-      fake.messages = [
-        {
-          info: { id: 'msg_a', role: 'assistant', time: { created: Date.now() } },
-          parts: [{ id: 'prt_1', messageID: 'msg_a', type: 'text', text: '前半后半' }],
-        },
-      ]
-      const before = fake.connections
-      for (const stream of fake.streams) stream.destroy()
-      await until(() => fake.connections > before)
-      await until(() => seen.filter((e) => e.type === 'text-delta').length >= 2)
+      fake.messages = snapshot('前半后半')
+      await reconnect(seen)
+      await until(() => text(seen) === '前半后半')
       send(fake, 'session.idle', { sessionID: 'ses_1' })
     })
-    const text = events.flatMap((e) => (e.type === 'text-delta' ? [e.text] : [])).join('')
-    expect(text).toBe('前半后半')
+    expect(text(events)).toBe('前半后半')
     expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+  })
+
+  it('keeps live events in order while a slow snapshot is loading', async () => {
+    const s = await setup()
+    fake.status = { ses_1: { type: 'busy' } }
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      send(fake, 'message.updated', assistant)
+      send(fake, 'message.part.delta', delta('ab'))
+      // 快照是 abcdef（断线漏了 cd，ef 在补齐期间实时到达），快照要过一会儿才回
+      fake.messages = snapshot('abcdef')
+      fake.messagesDelayMs = 200
+      await reconnect(seen)
+      send(fake, 'message.part.delta', delta('ef'))
+      send(fake, 'session.idle', { sessionID: 'ses_1' })
+    })
+    expect(text(events)).toBe('abcdef')
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+  })
+
+  it('backfills before finishing when the poll sees idle during a disconnect', async () => {
+    const s = await setup({ reconnectDelayMs: 400 })
+    fake.status = { ses_1: { type: 'busy' } }
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      send(fake, 'message.updated', assistant)
+      send(fake, 'message.part.delta', delta('前半'))
+      await until(() => seen.some((e) => e.type === 'text-delta'))
+      // 断开后内核做完了，重连还要等 400 ms，轮询先看到 idle
+      fake.messages = snapshot('前半后半')
+      for (const stream of fake.streams) stream.destroy()
+      fake.status = {}
+    })
+    expect(text(events)).toBe('前半后半')
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+  })
+
+  it('does not replay messages of the previous turn after a reconnect', async () => {
+    const s = await setup()
+    // 上一轮的回复已经在内核里了
+    fake.messages = [
+      {
+        info: { id: 'msg_old', role: 'assistant', time: { created: Date.now() } },
+        parts: [{ id: 'prt_old', messageID: 'msg_old', type: 'text', text: '上一轮' }],
+      },
+    ]
+    fake.status = { ses_1: { type: 'busy' } }
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      send(fake, 'message.updated', assistant)
+      send(fake, 'message.part.delta', delta('这一轮'))
+      fake.messages = [...fake.messages, ...snapshot('这一轮')]
+      await reconnect(seen)
+      await until(() => fake.messageRequests >= 2)
+      send(fake, 'session.idle', { sessionID: 'ses_1' })
+    })
+    expect(text(events)).toBe('这一轮')
+  })
+
+  it('recovers a permission request that was asked while disconnected', async () => {
+    const s = await setup()
+    fake.status = { ses_1: { type: 'busy' } }
+    const asked = {
+      id: 'per_1',
+      sessionID: 'ses_1',
+      permission: 'bash',
+      patterns: ['npm test'],
+      metadata: { command: 'npm test' },
+      always: ['npm *'],
+    }
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      fake.permissions = [asked, { ...asked, id: 'per_other', sessionID: 'ses_2' }]
+      await reconnect(seen, false)
+      await until(() => seen.some((e) => e.type === 'permission-request'))
+      // 实时事件后到也不会重复
+      send(fake, 'permission.asked', asked)
+      send(fake, 'session.idle', { sessionID: 'ses_1' })
+    })
+    expect(events.filter((e) => e.type === 'permission-request')).toEqual([
+      expect.objectContaining({ requestId: 'per_1', tool: 'bash' }),
+    ])
+  })
+
+  it('reports a stall when neither the event stream nor the status endpoint answers', async () => {
+    const s = await setup({ stallTimeoutMs: 200 })
+    fake.hangStatus = true
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {})
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'error',
+      error: expect.stringContaining('没有响应'),
+    })
   })
 
   it('ends the turn with an error when the kernel cannot be reached', async () => {
@@ -166,5 +299,15 @@ describe('OpencodeFamilyKernel', () => {
     for await (const e of kernel.prompt(s, { text: 'hi' })) events.push(e)
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({ type: 'done', reason: 'error' })
+  })
+
+  it('summarizes a session on the default model with the model of its last reply', async () => {
+    const s = await setup()
+    fake.messages = [
+      { info: { id: 'm1', role: 'assistant', providerID: 'corp', modelID: 'm-1' }, parts: [] },
+      { info: { id: 'm2', role: 'user' }, parts: [] },
+    ]
+    await kernel.summarize(s)
+    expect(fake.summarizeBody).toEqual({ providerID: 'corp', modelID: 'm-1' })
   })
 })

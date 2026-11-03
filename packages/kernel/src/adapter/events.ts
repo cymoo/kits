@@ -46,8 +46,10 @@ const ALIASES: Record<string, string> = {
 
 export interface OpencodeEventMapper {
   map(event: unknown): KernelEvent[]
-  // 断线重连后用 GET /session/{id}/message 的结果补齐；since 之前创建的消息属于之前的轮次，跳过
-  backfill(messages: RawMessage[], since: number): KernelEvent[]
+  // 断线重连后用 GET /session/{id}/message 的结果补齐（调用方先去掉这一轮之前就有的消息）
+  backfill(messages: RawMessage[]): KernelEvent[]
+  // 断线重连后用 GET /permission 的结果补上漏掉的权限请求，按 requestId 去重
+  permissions(pending: unknown[]): KernelEvent[]
   // 调了 abort 之后收到的结束事件都算 aborted
   markAborted(): void
   // 适配器自己判定结束（轮询兜底、卡死）时调用；已经结束就返回空
@@ -71,6 +73,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
   const emitted = new Map<string, number>()
   const toolPhase = new Map<string, 'started' | 'ended'>()
   const usageSent = new Set<string>()
+  const permissionsSent = new Set<string>()
   let lastRetry = ''
   let aborted = false
   let done = false
@@ -186,7 +189,8 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
         return text(partId, kind === 'reasoning' ? 'reasoning' : 'text', undefined, p.delta)
       }
       case 'permission.asked': {
-        if (p.sessionID !== sessionId) return []
+        if (p.sessionID !== sessionId || permissionsSent.has(String(p.id))) return []
+        permissionsSent.add(String(p.id))
         const tool = p.tool as { callID?: string } | undefined
         return [
           {
@@ -244,10 +248,14 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
 
   return {
     map,
-    backfill(messages, since) {
+    permissions(pending) {
+      return pending.flatMap((p) =>
+        map({ type: 'permission.asked', properties: p as Record<string, unknown> }),
+      )
+    },
+    backfill(messages) {
       const out: KernelEvent[] = []
       for (const m of messages) {
-        if (num(m.info.time?.created) < since) continue
         out.push(
           ...map({ type: 'message.updated', properties: { sessionID: sessionId, info: m.info } }),
         )

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readFileSync } from 'node:fs'
 import { writeFileAtomic } from './atomic'
 
 // 密钥表（phase1-implementation 2.3 节）：{userData}/secrets.json，值用系统钥匙串加密（Electron safeStorage）。
@@ -13,16 +13,41 @@ export interface Encryptor {
 
 type Stored = { enc: 'safe' | 'plain'; data: string }
 
+function isStore(v: unknown): v is Record<string, Stored> {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return false
+  return Object.values(v).every(
+    (x) =>
+      typeof x === 'object' &&
+      x !== null &&
+      ((x as Stored).enc === 'safe' || (x as Stored).enc === 'plain') &&
+      typeof (x as Stored).data === 'string',
+  )
+}
+
 export class SecretStore {
-  private values: Record<string, Stored>
+  private values: Record<string, Stored> = {}
+  // 文件坏了或读不了时的原因；坏文件备份成 secrets.json.broken-<时间>，从空表开始，不让应用打不开
+  readonly loadError: string | undefined
 
   constructor(
     private readonly file: string,
     private readonly encryptor: Encryptor,
+    now: () => number = Date.now,
   ) {
-    this.values = existsSync(file)
-      ? (JSON.parse(readFileSync(file, 'utf8')) as Record<string, Stored>)
-      : {}
+    if (!existsSync(file)) return
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+      if (!isStore(parsed)) throw new Error('格式不对')
+      this.values = parsed
+    } catch (e) {
+      const stamp = new Date(now()).toISOString().replace(/[:.]/g, '-')
+      try {
+        copyFileSync(file, `${file}.broken-${stamp}`)
+      } catch {
+        // 备份失败也不拦启动
+      }
+      this.loadError = `${file} 读取失败（${e instanceof Error ? e.message : String(e)}），已备份，需要重新填写密钥`
+    }
   }
 
   get encrypted(): boolean {
@@ -40,7 +65,12 @@ export class SecretStore {
     const stored = this.values[key]
     if (!stored) return undefined
     const buf = Buffer.from(stored.data, 'base64')
-    return stored.enc === 'safe' ? this.encryptor.decrypt(buf) : buf.toString('utf8')
+    try {
+      return stored.enc === 'safe' ? this.encryptor.decrypt(buf) : buf.toString('utf8')
+    } catch {
+      // 换了机器或钥匙串被重置，解不开就当没有
+      return undefined
+    }
   }
 
   has(key: string): boolean {
@@ -54,6 +84,6 @@ export class SecretStore {
   }
 
   private save(): void {
-    writeFileAtomic(this.file, `${JSON.stringify(this.values, null, 2)}\n`)
+    writeFileAtomic(this.file, `${JSON.stringify(this.values, null, 2)}\n`, 0o600)
   }
 }
