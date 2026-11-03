@@ -1,4 +1,5 @@
 import { mkdirSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { gatewaySecretKey } from '@kits/core'
@@ -27,6 +28,13 @@ if (process.env.KITS_USER_DATA_DIR) {
 }
 
 let shutdown: (() => Promise<void>) | undefined
+
+// 家目录下的路径写成 ~/…，结尾带 /，和原型一致
+function homeLabel(dir: string): string {
+  const home = os.homedir()
+  const shown = dir === home || dir.startsWith(home + path.sep) ? `~${dir.slice(home.length)}` : dir
+  return shown.endsWith(path.sep) ? shown : `${shown}${path.sep}`
+}
 
 function migrationsFolder(): string {
   return app.isPackaged
@@ -104,6 +112,7 @@ app.whenReady().then(() => {
           electron: process.versions.electron,
           node: process.versions.node,
           configDir: config.paths.dir,
+          configDirLabel: homeLabel(config.paths.dir),
           userDataDir: platform.userDataDir,
         }),
         openExternal: (url) => platform.openExternal(url),

@@ -42,7 +42,13 @@ function NavItem({
   const title = kbd ? `${label} ${kbd}` : label
   if (to) {
     return (
-      <NavLink to={to} end className={({ isActive }) => cls(active ?? isActive)} title={title}>
+      // 只有首页要精确匹配；设置下的各分区（/settings/model）也算在“设置”里
+      <NavLink
+        to={to}
+        end={to === '/'}
+        className={({ isActive }) => cls(active ?? isActive)}
+        title={title}
+      >
         {body}
       </NavLink>
     )

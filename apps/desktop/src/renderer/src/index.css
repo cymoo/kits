@@ -76,6 +76,14 @@
   color-scheme: dark;
 }
 
+/*
+ * Tailwind 的间距单位默认是 0.25rem（16px 基准下 4px）。这里 html 的基准是 12 / 13 / 14px，
+ * 按 13px 基准定成 4px，原型里的 32px 高、8px 间距在默认字号下一致，切换界面大小时跟着等比缩放。
+ */
+@theme {
+  --spacing: calc(4rem / 13);
+}
+
 @theme inline {
   --color-bg: var(--k-bg);
   --color-raised: var(--k-bg-raised);

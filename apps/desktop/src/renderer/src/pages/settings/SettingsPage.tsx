@@ -44,7 +44,7 @@ export function SettingsPage() {
           data-testid="settings-footer"
         >
           {info.data
-            ? t('settings.footer', { version: info.data.version, dir: info.data.configDir })
+            ? t('settings.footer', { version: info.data.version, dir: info.data.configDirLabel })
             : ''}
         </span>
       </nav>
