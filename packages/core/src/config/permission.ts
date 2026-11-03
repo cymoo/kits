@@ -160,10 +160,17 @@ function set(target: PermissionSet, key: string, value: PermissionValue): void {
   target[key] = value
 }
 
+// 给一个工具加模式规则。这个工具的规则会挪到末尾，挪之前先把前面所有匹配它的规则（包括 `*` 这类通配键）
+// 按顺序折进它自己的模式表，这样挪动不改变其他输入的结果，只有新加的模式生效。
 function setPattern(target: PermissionSet, key: string, pattern: string, level: PermissionLevel) {
-  const current = target[key]
-  const rules: Record<string, PermissionLevel> =
-    current === undefined ? {} : typeof current === 'string' ? { '*': current } : { ...current }
+  const rules: Record<string, PermissionLevel> = {}
+  for (const [k, value] of Object.entries(target)) {
+    if (!matchPattern(k, key)) continue
+    for (const [p, l] of Object.entries(typeof value === 'string' ? { '*': value } : value)) {
+      delete rules[p]
+      rules[p] = l
+    }
+  }
   delete rules[pattern]
   rules[pattern] = level
   set(target, key, rules)
@@ -190,7 +197,6 @@ export function resolvePermissions(input: ResolvePermissionsInput): PermissionSe
     if (isWriteTool(tool) || level === 'ask') writeKeys.add(key)
     set(result, key, level)
   }
-  set(result, mcpToolKey(KITS_MCP_SERVER, '*'), 'allow')
 
   // 会话模式
   if (mode === 'read') {
@@ -214,5 +220,7 @@ export function resolvePermissions(input: ResolvePermissionsInput): PermissionSe
       if (level === 'deny' || mode === 'ask') setPattern(result, key, pattern, level)
     }
   }
+  // kits 自己的工具（提问、提交产出、记忆）放在最后，Agent 写了 `'*': deny` 也照样能用
+  set(result, mcpToolKey(KITS_MCP_SERVER, '*'), 'allow')
   return result
 }

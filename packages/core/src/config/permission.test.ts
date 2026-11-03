@@ -130,9 +130,31 @@ describe('resolvePermissions', () => {
     expect(result.bash).toEqual({ '*': 'allow', 'rm *': 'deny' })
   })
 
-  it('always allows the kits tools', () => {
-    const result = resolvePermissions({ mode: 'read', agent: {} })
-    expect(result['kits_*']).toBe('allow')
+  it('always allows the kits tools, even after an agent wildcard deny', () => {
+    const result = resolvePermissions({ mode: 'read', agent: { '*': 'deny' } })
+    expect(effectiveLevel(result, 'kits_ask_user', '*')).toBe('allow')
+    expect(effectiveLevel(result, 'kits_submit_output', '*')).toBe('allow')
+    expect(effectiveLevel(result, 'bash', 'ls')).toBe('deny')
+  })
+
+  it('keeps an agent wildcard deny when the agent also adds command patterns', () => {
+    for (const mode of ['ask', 'auto'] as const) {
+      const result = resolvePermissions({
+        mode,
+        agent: { '*': 'deny', bash: { 'rm *': 'deny' } },
+      })
+      expect(effectiveLevel(result, 'bash', 'touch unexpected.txt')).toBe('deny')
+      expect(effectiveLevel(result, 'bash', 'rm -rf x')).toBe('deny')
+    }
+  })
+
+  it('lets agent command patterns override an earlier wildcard deny in ask mode', () => {
+    const result = resolvePermissions({
+      mode: 'ask',
+      agent: { '*': 'deny', bash: { 'git *': 'allow' } },
+    })
+    expect(effectiveLevel(result, 'bash', 'git log')).toBe('allow')
+    expect(effectiveLevel(result, 'bash', 'touch x')).toBe('deny')
   })
 })
 
