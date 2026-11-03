@@ -199,7 +199,11 @@ export function basePermissions(input: Omit<ResolvePermissionsInput, 'agent'>): 
     result.edit = 'deny'
     result.bash = bashRules('deny')
     result.external_directory = 'deny'
-    for (const key of writeKeys) result[key] = 'deny'
+    // 删掉再追加到末尾：用户可能配了 `wiki.*: allow` 这样的通配，只读的拒绝要排在它后面
+    for (const key of writeKeys) {
+      delete result[key]
+      result[key] = 'deny'
+    }
   } else if (mode === 'auto') {
     result.edit = 'allow'
     result.bash = bashRules('allow')

@@ -110,6 +110,14 @@ describe('resolvePermissions', () => {
     expect(level({ mode: 'read', mcp: m }, 'wiki_sync')).toBe('deny')
   })
 
+  it('keeps read mode write denies after an mcp wildcard allow', () => {
+    const m = { servers: ['wiki'], rules: { 'wiki.*': 'allow' as const } }
+    expect(level({ mode: 'read', mcp: m }, 'wiki_create_page')).toBe('deny')
+    expect(level({ mode: 'read', mcp: m }, 'wiki_get_page')).toBe('allow')
+    // ask 模式下用户的通配 allow 是明确的选择，照用户的
+    expect(level({ mode: 'ask', mcp: m }, 'wiki_create_page')).toBe('allow')
+  })
+
   it('allows bash and edit but still asks for outside dirs and mcp writes in auto mode', () => {
     expect(level({ mode: 'auto', mcp }, 'bash', 'rm -rf build')).toBe('allow')
     expect(level({ mode: 'auto', mcp }, 'edit')).toBe('allow')

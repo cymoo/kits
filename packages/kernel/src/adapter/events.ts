@@ -31,6 +31,8 @@ interface RawMessageInfo {
   role?: string
   time?: { created?: number; completed?: number }
   cost?: number
+  // 这一步失败时内核写在消息上的错误（断线期间的 session.error 靠它补回来）
+  error?: unknown
   tokens?: { input?: number; output?: number; cache?: { read?: number; write?: number } }
 }
 
@@ -75,6 +77,8 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
   const usageSent = new Set<string>()
   const permissionsSent = new Set<string>()
   let lastRetry = ''
+  // 助手消息上带的错误：轮询收尾时按出错结束，不当成功
+  let messageError: string | undefined
   let aborted = false
   let done = false
 
@@ -138,6 +142,10 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
   function onMessage(info: RawMessageInfo): KernelEvent[] {
     if (!info.id) return []
     if (info.role) roles.set(info.id, info.role)
+    if (info.role === 'assistant' && info.error) {
+      if ((info.error as { name?: string }).name === 'MessageAbortedError') aborted = true
+      else messageError = errorMessage(info.error)
+    }
     if (info.role !== 'assistant' || !info.time?.completed || usageSent.has(info.id)) return []
     usageSent.add(info.id)
     const t = info.tokens ?? {}
@@ -158,6 +166,9 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
   function finish(reason: DoneReason, error?: string): KernelEvent[] {
     if (done) return []
     done = true
+    if (reason === 'completed' && !aborted && messageError !== undefined) {
+      return [{ type: 'done', reason: 'error', error: messageError }]
+    }
     const final = aborted ? 'aborted' : reason
     return [
       final === 'error' && error !== undefined

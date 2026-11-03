@@ -56,12 +56,13 @@ function AddGatewayForm({ onDone }: { onDone(): void }) {
   const keyHint = useKeyHint()
   // 点了“取消”或表单收起后，还在路上的测试回来也不再保存
   const alive = useRef(true)
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // StrictMode 开发时会 setup → cleanup → setup，这里要重新置回
+    alive.current = true
+    return () => {
       alive.current = false
-    },
-    [],
-  )
+    }
+  }, [])
   const submit = async () => {
     const r = await test.mutateAsync({ baseUrl, ...(apiKey ? { apiKey } : {}) })
     if (!alive.current) return
@@ -316,6 +317,8 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                   <label className="flex items-center gap-1 text-[0.923rem] text-fg-label">
                     <span>{t('model.context')}</span>
                     <input
+                      // 存下来的值变了（比如手改了 settings.json）就重建输入框，旧的显示值不会被当成编辑存回去
+                      key={m.contextWindow}
                       type="number"
                       min={1}
                       aria-label={t('model.contextOf', { model: m.id })}
