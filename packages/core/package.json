@@ -5,7 +5,8 @@
   "description": "kits 的共享层：统一配置模型、事件类型、本机 MCP 工具",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./ipc": "./src/ipc.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
