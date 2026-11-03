@@ -26,7 +26,7 @@ export function OutputPanel({
   const latest = outputs.at(-1)
   const [picked, setPicked] = useState<string>()
   const current = outputs.find((o) => o.id === picked) ?? latest
-  const [notice, setNotice] = useState<{ path: string } | { copied: true }>()
+  const [notice, setNotice] = useState<{ path: string } | { copied: true } | { error: string }>()
   const editor = useRef<EditorHandle>(null)
 
   if (!current) {
@@ -46,14 +46,20 @@ export function OutputPanel({
   const content = current.edited ?? current.aiDraft
   // 导出前先把编辑框里还没存的改动存掉，导出的是最新内容
   const exportAs = async (format: 'markdown' | 'json') => {
-    await editor.current?.flush()
-    const { path } = await kits.output.export({ id: current.id, format })
-    setNotice({ path })
+    try {
+      await editor.current?.flush()
+      const { path } = await kits.output.export({ id: current.id, format })
+      setNotice({ path })
+    } catch (e) {
+      setNotice({ error: e instanceof Error ? e.message : String(e) })
+    }
   }
   const copy = async () => {
-    const text = editor.current?.value() ?? content
+    // 回复正文复制编辑框里的最新内容；结构化结果一律按 JSON 复制（结果本身是字符串也要带引号）
     await navigator.clipboard.writeText(
-      typeof text === 'string' ? text : JSON.stringify(text, null, 2),
+      current.kind === 'text'
+        ? (editor.current?.value() ?? current.edited ?? current.aiDraft)
+        : JSON.stringify(content, null, 2),
     )
     setNotice({ copied: true })
   }
@@ -109,10 +115,17 @@ export function OutputPanel({
       </div>
       {notice ? (
         <div
-          role="status"
-          className="flex shrink-0 items-center gap-2 border-line-soft border-b bg-ok-bg/50 px-3 py-1.5 text-[0.923rem] text-ok"
+          role={'error' in notice ? 'alert' : 'status'}
+          className={cx(
+            'flex shrink-0 items-center gap-2 border-line-soft border-b px-3 py-1.5 text-[0.923rem]',
+            'error' in notice ? 'bg-danger-bg/60 text-danger' : 'bg-ok-bg/50 text-ok',
+          )}
         >
-          {'path' in notice ? (
+          {'error' in notice ? (
+            <span className="min-w-0 flex-1">
+              {t('output.exportFailed', { error: notice.error })}
+            </span>
+          ) : 'path' in notice ? (
             <>
               <span className="min-w-0 flex-1 truncate" title={notice.path}>
                 {t('output.exported', { path: notice.path.split(/[\\/]/).pop() ?? '' })}
@@ -167,50 +180,62 @@ function TextEditor({
   const latest = useRef(text)
   latest.current = text
 
-  // 最近一次存出去的内容：主进程推回来的是它就不动编辑框，免得把正在打的字盖掉
-  const sent = useRef<string | null>(null)
-  // 还原为原稿等从外面改的：编辑框跟着换
+  // 推回来的更新：自己还有没存的改动（定时器在等）或保存在路上时，都是自己的回执，不动编辑框，
+  // 免得旧回执盖掉刚打的字；空闲时才跟着换（还原为原稿、AI 交了新原稿）
+  const inflight = useRef(0)
   useEffect(() => {
-    if (output.edited !== null && output.edited === sent.current) return
+    if (timer.current || inflight.current > 0) return
     const incoming = output.edited ?? output.aiDraft
     if (incoming !== latest.current) setText(incoming)
   }, [output.edited, output.aiDraft])
 
-  // 保存一个接一个排队，先发的先落地；还原时等它们都完了再存 null
+  // 保存一个接一个排队，先发的先落地。保存失败不吞掉：底部说没存上，导出前的 flush 也会失败，下一次输入再重试
+  const [saveError, setSaveError] = useState<string>()
   const chain = useRef<Promise<void>>(Promise.resolve())
-  const save = (value: string) => {
-    sent.current = value
+  const save = (value: string): Promise<void> => {
+    inflight.current += 1
     setSaving(true)
-    chain.current = chain.current
+    const run = chain.current
+      .catch(() => {})
       .then(() => kits.output.save({ id: output.id, edited: value }))
+      .then(() => undefined)
+    chain.current = run
+    run
       .then(
-        () => setSaving(false),
-        () => setSaving(false),
+        () => setSaveError(undefined),
+        (e) => setSaveError(e instanceof Error ? e.message : String(e)),
       )
-    return chain.current
+      .finally(() => {
+        inflight.current -= 1
+        if (inflight.current === 0) setSaving(false)
+      })
+    return run
   }
   useImperativeHandle(handle, () => ({
     async flush() {
       if (timer.current) {
         clearTimeout(timer.current)
         timer.current = undefined
-        await save(latest.current)
+        void save(latest.current)
       }
+      // 最后一次保存失败就让导出也失败
       await chain.current
     },
     async discard() {
       if (timer.current) clearTimeout(timer.current)
       timer.current = undefined
-      await chain.current
+      await chain.current.catch(() => {})
     },
     value: () => latest.current,
   }))
-  // 离开时没存的先存
+  // 离开时没存的先存，也排在保存链后面，不会被前面还没落地的旧保存盖掉
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在换产出、卸载时收尾
   useEffect(
     () => () => {
       if (timer.current) {
         clearTimeout(timer.current)
-        void kits.output.save({ id: output.id, edited: latest.current })
+        timer.current = undefined
+        void save(latest.current)
       }
     },
     [output.id],
@@ -245,8 +270,8 @@ function TextEditor({
               ? t('output.editsUnknown')
               : t('output.edits', { n: edits })}
         </span>
-        <span className={cx(saving && 'text-fg-muted')}>
-          {saving ? t('output.saving') : t('output.saved')}
+        <span className={cx(saving && 'text-fg-muted', saveError && 'text-danger')}>
+          {saveError ? t('output.saveFailed') : saving ? t('output.saving') : t('output.saved')}
         </span>
       </div>
     </>

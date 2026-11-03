@@ -158,6 +158,8 @@ const zhCN = {
   'output.editHint': '直接改，自动保存；导出的是改过的版本',
   'output.saving': '保存中…',
   'output.saved': '自动保存',
+  'output.saveFailed': '没保存上，再改一下会重试',
+  'output.exportFailed': '导出失败：{error}',
   'output.readOnly': '结构化结果这一版只能看和导出',
   'output.turn': '第 {n} 轮',
   'summary.output': '产出',
