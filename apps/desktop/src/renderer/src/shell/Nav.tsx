@@ -70,7 +70,8 @@ export function Nav({ forceCollapsed = false }: { forceCollapsed?: boolean }) {
       aria-label={t('nav.label')}
       data-collapsed={collapsed}
       className={cx(
-        'flex h-full min-w-0 shrink-0 flex-col gap-1.5 overflow-hidden border-line border-r bg-muted px-2 pb-2 transition-[width] duration-150',
+        // 宽度动画期间文字不换行，展开 / 收起时不会挤成好几行
+        'flex h-full min-w-0 shrink-0 flex-col gap-1.5 overflow-hidden whitespace-nowrap border-line border-r bg-muted px-2 pb-2 transition-[width] duration-150',
         collapsed ? 'w-14 items-center' : 'w-[232px]',
         // macOS 隐藏了标题栏，左上角的红绿灯占了约 40px 高，内容从它下面开始
         isMac ? 'pt-11' : 'pt-3',

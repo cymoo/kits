@@ -170,7 +170,11 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
     setUrlEdited(false)
     await runTest(url)
   }
-  const statusDot = !gateway.enabled ? 'bg-[#D4D4D8]' : result?.ok === false ? 'bg-danger' : 'bg-ok'
+  const statusDot = !gateway.enabled
+    ? 'bg-line-strong'
+    : result?.ok === false
+      ? 'bg-danger'
+      : 'bg-ok'
 
   return (
     <div

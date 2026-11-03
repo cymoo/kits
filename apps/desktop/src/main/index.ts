@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, realpathSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { gatewaySecretKey } from '@kits/core'
+import { defaultPermissions, gatewaySecretKey, readonlyCommandPatterns } from '@kits/core'
 import type { KernelName } from '@kits/core/ipc'
 import { app, BrowserWindow, shell } from 'electron'
 import { AgentService } from './agents/agent-service'
@@ -22,6 +22,7 @@ import { createElectronPlatform } from './platform'
 import { SessionService } from './sessions/session-service'
 import { SessionStore } from './sessions/session-store'
 import { KitsToolHost } from './tools/kits-tool-host'
+import { inspectWorkdir } from './workdir/inspect'
 
 // 主进程入口：读配置、打开数据库、注册 IPC、开窗口。会话、内核等按模块往里加。
 
@@ -218,12 +219,25 @@ app.whenReady().then(() => {
           node: process.versions.node,
           configDir: config.paths.dir,
           configDirLabel: homeLabel(config.paths.dir),
+          skipOnboarding: process.env.KITS_SKIP_ONBOARDING === '1',
           homeDir: os.homedir(),
           userDataDir: platform.userDataDir,
         }),
         openExternal: (url) => platform.openExternal(url),
         openPath: (target) => platform.openPath(target),
         revealPath: (target) => platform.revealPath(target),
+        permissionDefaults: () => ({
+          // 按模式写的规则（bash 的白名单）显示通配那一档
+          tools: Object.fromEntries(
+            Object.entries(defaultPermissions).map(([tool, v]) => [
+              tool,
+              typeof v === 'string' ? v : (v['*'] ?? 'ask'),
+            ]),
+          ),
+          readonlyCommands: [
+            ...new Set(readonlyCommandPatterns.map((p) => p.replace(/\s*\*$/, ''))),
+          ],
+        }),
       },
       settings: {
         get: () => config.getSettings(),
@@ -314,6 +328,7 @@ app.whenReady().then(() => {
         search: ({ workdir, query }) => files.search(workdir, query),
       },
       workdir: {
+        inspect: (dir) => inspectWorkdir(realpathSync(dir)),
         pick: async () => {
           const dir = await platform.pickDirectory()
           if (dir) rememberWorkdir(dir)

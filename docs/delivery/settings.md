@@ -53,3 +53,51 @@
 - 内核状态现在只有“装没装、版本”，运行状态（启动中 / 运行中 / 出错 / 待重启）随 PR6 的 KernelManager 加进这张卡片。
 - “查看生成的配置”（原型“内核联网”一行的链接）在 PR14 做 `agents.preview` 时一起做。
 - 首次启动自动进引导、完成后写 `onboardingDone` 在 PR17。
+
+## 2026-11-04　设置 · 通用、权限、数据与隐私；深色主题；首次引导第 2 步和首次启动门控
+
+> 日期：2026-11-04　PR：见本分支 `feat/settings-general`　作者：Claude Code
+
+### 原始需求
+
+phase1-implementation PR17（6.2 节主题、6.3 节 `#general` / `#perm` / `#privacy`、`onboarding.html` 第 2 步）：`#general` 主题（深色先补原型）、界面和代码字号、字体、启动行为、通知开关、快捷键表；`#perm` / `#privacy` 说明页；首次引导第 2 步（`workdir.inspect`）和首次启动门控。
+
+做到什么程度算完：通用设置每一项改了立刻生效并写进 `settings.json`；深色主题在原型里能预览、代码里和原型一致；第一次打开（没配网关）进引导，第 2 步选目录后列出发现了什么，完成或跳过后不再进来。
+
+### 怎么验收
+
+1. 原型：`designs/app/` 任一页加 `?theme=dark`（比如 `session.html?s=permission&theme=dark`），整页变深色；命令、diff 这类代码块比底色更深；设置页“通用”的主题选项也能切。**深色配色请评审**：意见改 `designs/app/theme.js` 的映射表和 `apps/desktop/src/renderer/src/index.css` 的深色令牌（两边值一样）。
+2. 设置 → 通用：主题选“深色”整个应用立刻变深，“跟随系统”随系统切；界面字号小 / 标准 / 大（12 / 13 / 14px 基准，间距等比缩放）；侧栏“只留图标”后侧栏收成图标栏（⌘B 还能临时切）；界面字体、代码字体下拉只列本机装了的，下面有预览；代码字号 11～14px；“启动时”选“上次的会话”下次启动直接打开最近的会话；三个通知开关写进 `settings.json`（通知本身在 PR18）；快捷键表。
+3. 设置 → 权限：三种默认权限模式（新会话的输入框默认选中它），默认权限表，自动允许的只读命令；底部链到 Agent 页和 MCP 页改细则。
+4. 设置 → 数据与隐私：配置、会话数据库、附件、导出、内核数据各在哪（“在文件夹中显示”），记了什么、什么会出这台电脑。
+5. 删掉 `~/.kits/settings.json` 再启动：进首次引导。第 2 步没选目录时是一个大的“选择一个代码仓库目录”按钮；选了之后显示路径、Git 分支和工作区状态（不是 Git 仓库也说明），“在这个目录里发现”列出 AGENTS.md、项目技能、项目 Agent、项目记忆、项目类型和猜的测试命令。第 3 步“完成”或“先跳过”回首页，`onboardingDone: true`，之后启动不再进引导。已经配过网关的老用户不会被拉进引导。
+
+### 主要改动
+
+- 原型：`designs/app/theme.js`（深色预览）、各页引入它，设置页主题选项接上；`designs/README.md` 写了用法。
+- `apps/desktop/src/renderer/src/`：
+  - `pages/settings/general/GeneralSection.tsx`、`perm/PermSection.tsx`、`privacy/PrivacySection.tsx`，路由进 `SettingsPage`。
+  - `lib/fonts.ts`：量文字宽度判断本机装了哪些候选字体（浏览器不给字体列表）。
+  - `app/use-appearance.ts`：外观（主题、字号、字体）在外壳和首次引导里都生效。
+  - `shell/Layout.tsx`：侧栏跟着设置；启动时只做一次的跳转（首次引导 / 打开上次的会话）。
+  - `pages/onboarding/OnboardingPage.tsx`：第 2 步 `WorkdirStep`；完成、跳过都记 `onboardingDone`。
+  - `ui/Switch.tsx`、`ui/Menu.tsx`、模型页的状态点：写死的浅灰换成令牌，深色下不刺眼；侧栏宽度动画时文字不换行。
+  - `index.css`：深色令牌定稿（和原型一致）。
+- `apps/desktop/src/main/`：`workdir/inspect.ts`（Git 分支和改动数、AGENTS.md / CLAUDE.md、项目技能、项目 Agent、项目记忆、按构建文件猜项目类型和测试命令；只读）；IPC `workdir.inspect`、`app.permissionDefaults`；`app.info` 多了 `skipOnboarding`（`KITS_SKIP_ONBOARDING=1`，E2E 默认带上）。
+- 原型没画到、按风格补的：权限页和数据与隐私页（原型只有一句占位）；字体预览行；引导第 2 步“没发现什么”的提示和非 Git 仓库的说明。
+
+### 测试
+
+- E2E：`settings-general.spec.ts`（3 个）：切深色、大字号、代码字号、通知开关立刻生效并写进 settings.json；权限页改默认模式、数据与隐私页列出位置；首次启动进引导、第 2 步列出目录里发现的东西、跳过后记 onboardingDone。`e2e/tests/app.ts` 默认 `KITS_SKIP_ONBOARDING=1`，原有用例不受门控影响。
+- 截图：`e2e/test-results/settings-general-dark.png`、`home-dark.png`、`onboarding-workdir.png`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- **深色配色没经过人评审**：按方案应先评审原型再写代码，这次两边一起改了，评审有意见两处一起调。
+- 界面语言只有中文（英文选项以后加）。
+- 字体检测只在候选列表里挑（常见的中英文界面字体和等宽字体），列表外的字体要手改 `settings.json` 的 `uiFont` / `codeFont`。
+- 数据与隐私页还没有“导出评测数据（JSONL）”，方案里也没排进第一阶段的 PR。

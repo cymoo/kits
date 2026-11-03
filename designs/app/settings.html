@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>设置</title>
 <script src="./runtime.js"></script>
+<script src="./theme.js"></script>
 <script src="./shell.js"></script>
 </head>
 <body>
@@ -70,7 +71,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
             <div role="radiogroup" aria-label="主题" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
               <sc-for list="{{themes}}" as="t">
                 <button type="button" role="radio" aria-checked="{{t.on}}" onClick="{{t.pick}}" class="k-opt" style="{{t.style}}">
-                  <span aria-hidden="true" style="{{t.preview}}"><span style="{{t.pvSide}}"></span><span style="display: flex; flex-direction: column; gap: 4px; flex: 1; padding: 8px"><span style="{{t.pvLine1}}"></span><span style="{{t.pvLine2}}"></span><span style="{{t.pvCard}}"></span></span></span>
+                  <span aria-hidden="true" data-theme-keep style="{{t.preview}}"><span style="{{t.pvSide}}"></span><span style="display: flex; flex-direction: column; gap: 4px; flex: 1; padding: 8px"><span style="{{t.pvLine1}}"></span><span style="{{t.pvLine2}}"></span><span style="{{t.pvCard}}"></span></span></span>
                   <span style="display: flex; align-items: center; gap: 6px; width: 100%; padding: 0 2px"><span style="font-weight: 500; flex: 1; text-align: left">{{t.label}}</span><span style="{{t.tick}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></span></span>
                 </button>
               </sc-for>
@@ -307,7 +308,7 @@ class Component extends DCLogic {
     });
     const themes = [['light', '浅色', pv('#FFFFFF', '#F1F0EC', '#D9D8D2', '#F1F4FF', '#E5E4DF')], ['dark', '深色', pv('#1B1B1F', '#26262B', '#44444C', '#2A2F4A', '#33333A')], ['system', '跟随系统', pv('#FFFFFF', '#F1F0EC', '#D9D8D2', '#F1F4FF', '#E5E4DF', 'linear-gradient(100deg, #FFFFFF 50%, #1B1B1F 50%)')]].map(([id, label, p]) => {
       const on = s.theme === id;
-      return { label, on, pick: () => this.setState({ theme: id }), ...p,
+      return { label, on, pick: () => { this.setState({ theme: id }); window.kitsTheme && window.kitsTheme.set(id) }, ...p,
         style: 'display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid ' + (on ? '#3659E3' : '#E5E4DF') + '; border-radius: 12px; background: ' + (on ? '#F7F8FF' : '#FFFFFF') + '; font: inherit; color: #1B1B1F; cursor: pointer',
         tick: 'width: 16px; height: 16px; border-radius: 50%; background: #3659E3; color: #FFFFFF; display: flex; align-items: center; justify-content: center; ' + (on ? '' : 'visibility: hidden') };
     });

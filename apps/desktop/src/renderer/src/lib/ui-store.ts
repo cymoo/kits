@@ -32,6 +32,7 @@ interface UiState {
   // 要填进首页输入框的话（首页建议、⌘K 的“新会话：…”）；n 每次递增，同一句话点两次也会再填
   homeDraft: { text: string; n: number } | undefined
   toggleNav(): void
+  setNavCollapsed(collapsed: boolean): void
   setPaletteOpen(open: boolean): void
   setPanel(mode: PanelMode): void
   fillHome(text: string): void
@@ -52,6 +53,14 @@ export const useUi = create<UiState>((set, get) => ({
       // 存不了就只在本次生效
     }
     set({ panel: mode })
+  },
+  setNavCollapsed(collapsed) {
+    try {
+      localStorage.setItem(NAV_KEY, collapsed ? '1' : '0')
+    } catch {
+      // 存不了就只在本次生效
+    }
+    set({ navCollapsed: collapsed })
   },
   toggleNav() {
     const next = !get().navCollapsed
