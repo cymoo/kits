@@ -13,6 +13,7 @@ import type {
   PartView,
   SessionActivity,
   SessionDetail,
+  SessionSearchHit,
   SessionSummary,
 } from './session'
 import type { SkillOverview, SkillSource } from './skill-view'
@@ -116,6 +117,10 @@ export const ipcContract = {
     create: method<CreateSessionInput, SessionSummary>(),
     list: method<undefined, SessionSummary[]>(),
     get: method<string, SessionDetail | null>(),
+    // 标题和正文全文搜索，最多 20 条
+    search: method<string, SessionSearchHit[]>(),
+    // 删会话：记录、附件都删掉；还在跑的要先停止
+    remove: method<string, void>(),
     prompt: method<{ id: string; text: string; attachments?: AttachmentInput[] }, void>(),
     abort: method<string, void>(),
     respondPermission: method<

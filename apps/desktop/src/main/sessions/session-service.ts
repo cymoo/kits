@@ -13,6 +13,7 @@ import type {
   OutputView,
   PartView,
   PushEvents,
+  SessionSearchHit,
   SessionSummary,
   ToolCallRegistry,
 } from '@kits/core'
@@ -439,7 +440,25 @@ export class SessionService {
 
   private saveMessage(m: MessageView): void {
     this.deps.store.saveMessage(m)
+    // 搜索索引：用户发了消息、一轮回复结束时更新（回复的正文增量这时已经落库）
+    if (m.role === 'user' || m.completedAt !== null) this.deps.store.reindex(m.sessionId)
     this.deps.push('session.message', m)
+  }
+
+  search(query: string): SessionSearchHit[] {
+    return this.deps.store.search(query).flatMap((hit) => {
+      const session = this.deps.store.session(hit.id)
+      return session ? [{ ...hit, session: this.view(session) }] : []
+    })
+  }
+
+  // 还在跑（或在等确认、排着队）的会话不删：先停止，免得删到一半内核还在往里写
+  remove(id: string): void {
+    if (this.running.has(id) || this.queues.get(id)?.length)
+      throw new Error('会话还在运行，先停止再删')
+    this.deps.store.remove(id)
+    this.mcpOff.delete(id)
+    rmSync(path.join(this.deps.attachmentsDir, id), { recursive: true, force: true })
   }
 
   private startTurn(

@@ -636,6 +636,28 @@ describe('SessionService skills', () => {
   })
 })
 
+describe('SessionService search and remove', () => {
+  it('indexes the user message and the reply once the turn is done', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const [hit] = service.search('幂等校验')
+    expect(hit?.session.id).toBe(s.id)
+  })
+
+  it('refuses to remove a session that is still running', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    expect(() => service.remove(s.id)).toThrow(/先停止/)
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+    await vi.waitFor(() => expect(service.isRunning(s.id)).toBe(false))
+    service.remove(s.id)
+    expect(store.session(s.id)).toBeUndefined()
+  })
+})
+
 describe('exportName', () => {
   it('drops characters that cannot go into a file name and adds the turn when there are several', () => {
     const at = new Date(2026, 10, 4).getTime()
