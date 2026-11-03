@@ -176,7 +176,7 @@ app.whenReady().then(() => {
           // 用真实路径：macOS 的 /var 等是软链接，内核按真实路径判断目录内外
           const workdir = realpathSync(input.workdir)
           rememberWorkdir(workdir)
-          return sessions.create({ ...input, workdir })
+          return sessions.create({ ...input, workdir, kernel: kernelName(input.kernel) })
         },
         list: () => sessions.list(),
         get: (id) => sessions.get(id),
