@@ -1,10 +1,11 @@
 import path from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { pathToFileURL } from 'node:url'
+import { app, BrowserWindow, shell } from 'electron'
 import { ConfigService } from './config/config-service'
 import { resolveConfigDir } from './config/paths'
 import { SecretStore } from './config/secrets'
 import { openDatabase } from './db'
-import { push, registerIpc } from './ipc/register'
+import { push, registerIpc, trustedUrl } from './ipc/register'
 import { createElectronPlatform } from './platform'
 
 // 主进程入口：读配置、打开数据库、注册 IPC、开窗口。会话、内核等按模块往里加。
@@ -25,7 +26,15 @@ function migrationsFolder(): string {
     : path.resolve(import.meta.dirname, '../../drizzle')
 }
 
-function createWindow(): void {
+function rendererEntry(): string {
+  return !app.isPackaged && process.env.ELECTRON_RENDERER_URL
+    ? process.env.ELECTRON_RENDERER_URL
+    : pathToFileURL(path.join(import.meta.dirname, '../renderer/index.html')).href
+}
+
+const isTrusted = trustedUrl(rendererEntry())
+
+function createWindow(onFocus: () => void): void {
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -40,12 +49,16 @@ function createWindow(): void {
       contextIsolation: true,
     },
   })
-
-  if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
-    void win.loadURL(process.env.ELECTRON_RENDERER_URL)
-  } else {
-    void win.loadFile(path.join(import.meta.dirname, '../renderer/index.html'))
-  }
+  // 窗口只显示应用自己的页面：站外链接交给系统浏览器，不在窗口里打开、不让页面跳走
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.webContents.on('will-navigate', (event, url) => {
+    if (!isTrusted(url)) event.preventDefault()
+  })
+  win.on('focus', onFocus)
+  void win.loadURL(rendererEntry())
 }
 
 app.whenReady().then(() => {
@@ -60,35 +73,40 @@ app.whenReady().then(() => {
     platform.encryptor,
   )
 
-  registerIpc({
-    app: {
-      info: () => ({
-        version: platform.version,
-        os: platform.os,
-        electron: process.versions.electron,
-        node: process.versions.node,
-        configDir: config.paths.dir,
-        userDataDir: platform.userDataDir,
-      }),
-      openExternal: (url) => platform.openExternal(url),
-      openPath: (target) => platform.openPath(target),
+  registerIpc(
+    {
+      app: {
+        info: () => ({
+          version: platform.version,
+          os: platform.os,
+          electron: process.versions.electron,
+          node: process.versions.node,
+          configDir: config.paths.dir,
+          userDataDir: platform.userDataDir,
+        }),
+        openExternal: (url) => platform.openExternal(url),
+        openPath: (target) => platform.openPath(target),
+      },
+      settings: {
+        get: () => config.getSettings(),
+        update: (patch) => config.updateSettings(patch),
+        loadError: () => config.loadError ?? secrets.loadError ?? null,
+      },
+      secrets: {
+        set: ({ key, value }) => secrets.set(key, value),
+        has: (key) => secrets.has(key),
+        remove: (key) => secrets.remove(key),
+      },
     },
-    settings: {
-      get: () => config.getSettings(),
-      update: (patch) => config.updateSettings(patch),
-      loadError: () => config.loadError ?? null,
-    },
-    secrets: {
-      set: ({ key, value }) => secrets.set(key, value),
-      has: (key) => secrets.has(key),
-      remove: (key) => secrets.remove(key),
-    },
-  })
+    isTrusted,
+  )
 
-  createWindow()
+  // 窗口回到前台时看一眼 settings.json 有没有被人改过
+  const onFocus = () => void config.reloadIfChanged()
+  createWindow(onFocus)
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(onFocus)
   })
 })
 

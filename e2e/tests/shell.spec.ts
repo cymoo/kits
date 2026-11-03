@@ -70,3 +70,21 @@ test('warns about a broken settings file on the settings page', async () => {
     await close()
   }
 })
+
+test('opens the command palette with an empty query after running an action', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await page.keyboard.press(`${mod}+K`)
+    await page.keyboard.type('内核')
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('dialog', { name: '搜索和跳转' })).toBeHidden()
+    await page.keyboard.press(`${mod}+K`)
+    const input = page.getByRole('combobox', { name: '搜索' })
+    await expect(input).toHaveValue('')
+    await expect(input).toHaveAttribute('aria-activedescendant', 'palette-new')
+  } finally {
+    await close()
+  }
+})
