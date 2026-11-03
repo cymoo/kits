@@ -1,4 +1,4 @@
-import type { KernelEvent, PermissionReply, PermissionSet } from '@kits/core'
+import type { KernelEvent, PermissionReply, PermissionRule } from '@kits/core'
 
 // 内核接口放在“会话”这一层：输入一份 Agent 配置和一句话，输出统一格式的事件流（phase1 方案 4.1 节）。
 // 会话用 KernelSession 整个传进来（id + 工作目录 + Agent + 模型），适配器不记会话：
@@ -32,8 +32,8 @@ export interface CreateSessionOptions {
   agent: string
   model?: string
   title?: string
-  // 按会话模式解析好的完整权限（agentPermissions 的结果）
-  permission: PermissionSet
+  // 按会话模式解析好的完整权限（agentPermissions 的结果，有顺序，后面的优先）
+  permission: PermissionRule[]
 }
 
 export interface UserInput {

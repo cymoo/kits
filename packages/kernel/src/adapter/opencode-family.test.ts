@@ -24,6 +24,7 @@ interface Fake {
 async function startFake(): Promise<Fake> {
   const fake: Omit<Fake, 'url' | 'close'> = {
     streams: [],
+    connections: 0,
     status: {},
     messages: [],
     promptCount: 0,
@@ -88,7 +89,7 @@ async function setup(): Promise<KernelSession> {
   }
   kernel = new OpencodeFamilyKernel(dialect, { pollIntervalMs: 50, reconnectDelayMs: 20 })
   await kernel.start({ binary: '', configDir: '', dataDir: '', env: {} })
-  return kernel.createSession({ workdir: '/w', agent: 'assistant', permission: {} })
+  return kernel.createSession({ workdir: '/w', agent: 'assistant', permission: [] })
 }
 
 afterEach(async () => {
