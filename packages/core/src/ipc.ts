@@ -4,6 +4,7 @@ import type {
   CreateSessionInput,
   FileDiffView,
   MessageView,
+  OutputView,
   PartView,
   SessionActivity,
   SessionDetail,
@@ -116,6 +117,14 @@ export const ipcContract = {
     // 这个会话每轮改了的文件
     diffs: method<string, FileDiffView[]>(),
   },
+  output: {
+    // 这个会话每轮的产出
+    list: method<string, OutputView[]>(),
+    // 自动保存人工修改；null 表示还原为 AI 原稿
+    save: method<{ id: string; edited: unknown | null }, OutputView>(),
+    // 写到 {userData}/exports/，返回文件路径
+    export: method<{ id: string; format: 'markdown' | 'json' }, { path: string }>(),
+  },
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用
     pick: method<undefined, string | null>(),
@@ -167,6 +176,8 @@ export interface PushEvents {
   'session.activity': SessionActivity
   // 一轮结束后内核算出了新的改动
   'session.diffs': { sessionId: string; files: FileDiffView[] }
+  // 一轮的产出有了（回复正文、submit_output）或者被改了
+  'session.output': OutputView
 }
 export type PushChannel = keyof PushEvents
 export const pushChannels: PushChannel[] = [
@@ -177,6 +188,7 @@ export const pushChannels: PushChannel[] = [
   'session.part',
   'session.activity',
   'session.diffs',
+  'session.output',
 ]
 
 export function channelName(domain: string, method: string): string {

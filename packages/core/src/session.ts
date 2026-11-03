@@ -120,6 +120,19 @@ export interface FileDiffView {
   patch: string
 }
 
+// 一轮的产出（产出面板）。AI 原稿和人工修改分开存，导出评测数据时用
+export type OutputView = {
+  id: string
+  sessionId: string
+  turn: number
+  editedAt: number | null
+  exportedAt: number | null
+  exportFormat: 'markdown' | 'json' | null
+} & (
+  | { kind: 'text'; aiDraft: string; edited: string | null }
+  | { kind: 'structured'; aiDraft: unknown; edited: unknown | null }
+)
+
 // 内核报告的忙闲（状态行用），不落库
 export interface SessionActivity {
   sessionId: string

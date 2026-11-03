@@ -142,11 +142,14 @@ app.whenReady().then(() => {
     loadMcp: () => loadMcp(config),
     registry: tools.registry,
     push,
+    exportsDir: path.join(platform.userDataDir, 'exports'),
   })
-  // 提问交给会话服务；产出和记忆在 PR10、PR16 接上
+  // 提问、产出交给会话服务；记忆在 PR16 接上
   tools.setHandlers({
     ...tools.current,
     askUser: (input, ctx) => sessions.askUser(input, ctx),
+    outputSchema: (ctx) => sessions.outputSchema(ctx),
+    onOutput: (output, ctx) => sessions.onOutput(output, ctx),
   })
   // 最近用过的工作目录放在最前面，最多记 10 个
   const rememberWorkdir = (dir: string) => {
@@ -192,6 +195,11 @@ app.whenReady().then(() => {
         respondPermission: (input) => sessions.respondPermission(input),
         answerQuestion: (input) => sessions.answerQuestion(input),
         diffs: (id) => sessions.diffs(id),
+      },
+      output: {
+        list: (id) => sessions.outputs(id),
+        save: (input) => sessions.saveOutput(input),
+        export: (input) => sessions.exportOutput(input),
       },
       workdir: {
         pick: async () => {

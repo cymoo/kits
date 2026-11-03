@@ -1,6 +1,7 @@
 import type {
   FileDiffView,
   MessageView,
+  OutputView,
   PartView,
   SessionActivity,
   SessionDetail,
@@ -154,6 +155,27 @@ export function useSessionDiffs(id: string | undefined) {
   return useQuery({
     queryKey: ['session', id, 'diffs'],
     queryFn: () => (id ? kits.session.diffs(id) : Promise.resolve([])),
+    enabled: !!id,
+  })
+}
+
+// 会话每轮的产出（产出面板、总结卡片）。一轮结束、submit_output、自动保存后主进程推过来
+export function useSessionOutputs(id: string | undefined) {
+  const client = useQueryClient()
+  useEffect(
+    () =>
+      kits.on('session.output', (output) =>
+        client.setQueryData<OutputView[]>(['session', output.sessionId, 'outputs'], (list) =>
+          [...(list ?? []).filter((o) => o.id !== output.id), output].sort(
+            (a, b) => a.turn - b.turn,
+          ),
+        ),
+      ),
+    [client],
+  )
+  return useQuery({
+    queryKey: ['session', id, 'outputs'],
+    queryFn: () => (id ? kits.output.list(id) : Promise.resolve([])),
     enabled: !!id,
   })
 }

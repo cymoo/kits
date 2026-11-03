@@ -1,6 +1,7 @@
 import type {
   FileDiffView,
   MessageView,
+  OutputView,
   PartPayload,
   PartView,
   PermissionMode,
@@ -14,6 +15,8 @@ import {
   diffs,
   type MessageRecord,
   messages,
+  type OutputRecord,
+  outputs,
   type PartRecord,
   parts,
   permissionLog,
@@ -73,6 +76,25 @@ export function toPart(r: PartRecord): PartView {
     createdAt: r.createdAt.getTime(),
     updatedAt: r.updatedAt.getTime(),
   }
+}
+
+export function toOutput(r: OutputRecord): OutputView {
+  const base = {
+    id: r.id,
+    sessionId: r.sessionId,
+    turn: r.turn,
+    editedAt: r.editedAt?.getTime() ?? null,
+    exportedAt: r.exportedAt?.getTime() ?? null,
+    exportFormat: (r.exportFormat as OutputView['exportFormat']) ?? null,
+  }
+  return r.kind === 'structured'
+    ? { ...base, kind: 'structured', aiDraft: r.aiDraft, edited: r.edited ?? null }
+    : {
+        ...base,
+        kind: 'text',
+        aiDraft: typeof r.aiDraft === 'string' ? r.aiDraft : '',
+        edited: typeof r.edited === 'string' ? r.edited : null,
+      }
 }
 
 export class SessionStore {
@@ -213,6 +235,64 @@ export class SessionStore {
         .onConflictDoUpdate({ target: diffs.id, set: { ...d } })
         .run()
     }
+  }
+
+  outputs(sessionId: string): OutputView[] {
+    return this.db
+      .select()
+      .from(outputs)
+      .where(eq(outputs.sessionId, sessionId))
+      .orderBy(asc(outputs.turn))
+      .all()
+      .map(toOutput)
+  }
+
+  output(id: string): OutputView | undefined {
+    const r = this.db.select().from(outputs).where(eq(outputs.id, id)).get()
+    return r ? toOutput(r) : undefined
+  }
+
+  // AI 交了新的原稿（这一轮的回复正文，或者 submit_output 又交了一次）：人工修改作废
+  saveDraft(input: {
+    sessionId: string
+    turn: number
+    kind: OutputView['kind']
+    aiDraft: unknown
+  }): OutputView {
+    const values = {
+      id: `${input.sessionId}:${input.turn}`,
+      sessionId: input.sessionId,
+      turn: input.turn,
+      kind: input.kind,
+      aiDraft: input.aiDraft,
+      edited: null,
+      editedAt: null,
+    }
+    this.db
+      .insert(outputs)
+      .values(values)
+      .onConflictDoUpdate({ target: outputs.id, set: values })
+      .run()
+    return this.output(values.id) as OutputView
+  }
+
+  // 人工修改；null 表示还原为 AI 原稿
+  saveEdited(id: string, edited: unknown | null, at: number): OutputView | undefined {
+    this.db
+      .update(outputs)
+      .set({ edited, editedAt: edited === null ? null : new Date(at) })
+      .where(eq(outputs.id, id))
+      .run()
+    return this.output(id)
+  }
+
+  markExported(id: string, format: 'markdown' | 'json', at: number): OutputView | undefined {
+    this.db
+      .update(outputs)
+      .set({ exportedAt: new Date(at), exportFormat: format })
+      .where(eq(outputs.id, id))
+      .run()
+    return this.output(id)
   }
 
   // 某个会话里的提问 part（回答不阻塞的提问时用）

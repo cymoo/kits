@@ -1,0 +1,1 @@
+ALTER TABLE `outputs` ADD `turn` integer DEFAULT 0 NOT NULL;
