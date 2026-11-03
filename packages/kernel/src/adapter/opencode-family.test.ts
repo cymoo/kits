@@ -349,6 +349,20 @@ describe('OpencodeFamilyKernel', () => {
     expect(exits).toHaveLength(1)
   })
 
+  it('ends the turn when the process exits before the first event arrives', async () => {
+    const s = await setup({ setupTimeoutMs: 5_000 })
+    fake.silentStream = true
+    const started = Date.now()
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+      await until(() => fake.streams.length === 1)
+      exitListener?.({ code: 1, signal: null, tail: 'panic: early' })
+    })
+    expect(events.at(-1)).toMatchObject({ type: 'done', reason: 'error' })
+    expect(events.at(-1)).toMatchObject({ error: expect.stringContaining('panic: early') })
+    // 不用等建连超时
+    expect(Date.now() - started).toBeLessThan(2_000)
+  })
+
   it('does not submit the turn when abort comes while it is still preparing', async () => {
     const s = await setup()
     // 读历史消息要 200 ms，期间用户点了停止
