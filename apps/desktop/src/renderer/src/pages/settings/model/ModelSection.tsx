@@ -436,6 +436,22 @@ function KernelCard() {
           )
         })}
       </RadioGroup.Root>
+      {/* 没装的内核：说清楚怎么装上（打包后随安装包带；开发和内网自建时用环境变量指过去） */}
+      {(status.data ?? [])
+        .filter((k) => !k.installed)
+        .map((k) => (
+          <p
+            key={k.id}
+            data-testid={`kernel-missing-${k.id}`}
+            className="mx-[18px] mt-0 mb-3 rounded-[10px] bg-bg px-3.5 py-2.5 text-[0.923rem] text-fg-muted leading-[1.6]"
+          >
+            {t('model.installHint', {
+              name: KERNEL_TEXT[k.id].name,
+              env: k.id === 'codeagent' ? 'KITS_CODEAGENT_BIN' : 'KITS_OPENCODE_BIN',
+              dir: `resources/bin/${k.id}/`,
+            })}
+          </p>
+        ))}
       {currentInfo && (currentInfo.state === 'error' || currentInfo.problems.length > 0) ? (
         <div
           role="alert"

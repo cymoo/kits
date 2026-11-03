@@ -577,6 +577,8 @@ const zhCN = {
   'model.kernelNote': '新会话用哪个内核；已开始的会话不换',
   'model.kernelDefault': '默认内核',
   'model.notInstalled': '未安装',
+  'model.installHint':
+    '{name} 没找到：安装包里会带上；开发或自己装的，把环境变量 {env} 指到它的可执行文件（Windows 上的 .exe 或 .cmd），或者放到 {dir} 下，重启 kits 生效。',
   'model.network': '内核联网',
   'model.networkNote': '自动更新、分享、模型目录、LSP 下载都已关闭；内核只监听本机地址。',
   'model.logs': '内核日志',
