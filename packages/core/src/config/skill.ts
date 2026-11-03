@@ -39,3 +39,12 @@ export function resolveSkills(lists: SkillInfo[][], disabled: string[]): Resolve
   const off = new Set(disabled)
   return mergeBySource(...lists).map((s) => ({ ...s, enabled: !off.has(s.name) }))
 }
+
+// 输入框里 `/技能名 后面的话`：发给内核时改成明确让 Agent 先加载这个技能（两个内核都认 skill 工具），
+// 界面上的用户消息照原样显示。不是启用的技能名就原样发
+export function skillPrompt(text: string, enabled: string[]): string {
+  const m = /^\/([A-Za-z0-9][\w-]*)(?:\s+([\s\S]*))?$/.exec(text.trim())
+  if (!m?.[1] || !enabled.includes(m[1])) return text
+  const rest = m[2]?.trim()
+  return `使用技能 ${m[1]}：先用 skill 工具加载它，再按里面的说明做。${rest ? `\n\n${rest}` : ''}`
+}

@@ -25,6 +25,8 @@ export interface KernelRuntimeDeps {
   tools: KitsToolHost
   onStatus: ConstructorParameters<typeof KernelManager>[0]['onStatus']
   env?: NodeJS.ProcessEnv
+  // resources/builtin：内置技能
+  builtinDir?: string
 }
 
 function mockScenario(env: NodeJS.ProcessEnv): MockScenarioName {
@@ -73,6 +75,7 @@ export function createKernelManager(deps: KernelRuntimeDeps): KernelManager {
       secrets: deps.secrets,
       kitsTools: { url: tools.url, token: tools.token },
       env,
+      ...(deps.builtinDir ? { builtinDir: deps.builtinDir } : {}),
     })
     if (!generated.ok) return { ok: false, problems: generated.problems }
     await opencodeDialect.writeConfig(dirs.config, generated.files)

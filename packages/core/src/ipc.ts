@@ -14,6 +14,7 @@ import type {
   SessionDetail,
   SessionSummary,
 } from './session'
+import type { SkillOverview, SkillSource } from './skill-view'
 
 // 渲染进程的 tsconfig 不带 Node 类型，不能引 @kits/core 的入口（里面有 node:fs），要用的类型从这里转出去
 export type { Gateway, GatewayModel } from './config/gateway'
@@ -21,6 +22,7 @@ export type { PermissionLevel, PermissionMode } from './config/permission'
 export type { GeneralSettings, Settings } from './config/settings'
 export type * from './mcp-view'
 export type * from './session'
+export type * from './skill-view'
 
 // IPC 契约（phase1-implementation 5.5 节）：一个对象字面量声明所有通道的入参和返回值。
 // preload 按它生成 window.kits.<域>.<方法>，主进程 ipc/register.ts 按它逐个 handle，类型不一致编译就报错。
@@ -141,6 +143,14 @@ export const ipcContract = {
     // level 为 null 回到默认
     setPermission: method<{ server: string; tool: string; level: PermissionLevel | null }, void>(),
     test: method<string, McpTestResult>(),
+  },
+  skills: {
+    // 给了工作目录就把项目技能也列上
+    list: method<{ workdir?: string }, SkillOverview>(),
+    // 关掉的技能记在 settings.json 的 skillsDisabled 里
+    setEnabled: method<{ name: string; enabled: boolean }, void>(),
+    // 打开某个来源的技能目录（没有就先建）
+    openDir: method<{ source: SkillSource; workdir?: string }, void>(),
   },
   files: {
     // 输入框 @ 菜单：工作目录里按路径匹配的文件（相对路径），最多 30 个
