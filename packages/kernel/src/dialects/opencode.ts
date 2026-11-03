@@ -199,6 +199,10 @@ export const opencodeDialect: KernelDialect = {
     const baseUrl = `http://127.0.0.1:${port}`
     try {
       await waitForHealth(baseUrl, headers, child, () => stderr, READY_TIMEOUT_MS)
+      // 健康检查刚通过进程就退了：那时还没有退出监听，通知会丢，按启动失败处理
+      if (child.exitCode !== null || child.signalCode !== null) {
+        throw new Error(`opencode 启动后马上退出了\n${tail(stderr)}`)
+      }
     } catch (e) {
       await close()
       throw e

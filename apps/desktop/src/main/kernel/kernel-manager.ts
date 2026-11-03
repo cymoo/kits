@@ -183,6 +183,13 @@ export class KernelManager {
   // 设置页点“重启”：有轮次在跑就标“待重启”，等最后一轮结束；直接关掉会让在跑的轮次收不到结束事件
   async requestRestart(id: KernelName): Promise<void> {
     const slot = this.slot(id)
+    // 正在启动：记下重启意图（和启动途中改了配置一样），启动完再按“有轮次就等”的规则处理，不会被 running 状态盖掉
+    if (slot.starting) {
+      slot.dirty = true
+      return
+    }
+    // 启动还排在队列里没开始：它会按现在的配置起，本身就是一次“重启”
+    if (!slot.kernel && slot.pending) return
     if (slot.runs > 0) {
       this.setStatus(slot, { state: 'restart-pending' })
       return

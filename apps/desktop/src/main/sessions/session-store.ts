@@ -230,11 +230,16 @@ export class SessionStore {
         .where(eq(messages.id, m.id))
         .run()
       const own = this.db.select().from(parts).where(eq(parts.messageId, m.id)).all()
-      this.db
-        .update(parts)
-        .set({ status: 'expired', updatedAt: at })
-        .where(and(eq(parts.messageId, m.id), eq(parts.status, 'pending')))
-        .run()
+      for (const p of own.map(toPart)) {
+        if (p.status !== 'pending') continue
+        // 不阻塞的提问之后还能回答（回答作为下一条消息），保持 pending
+        if (p.payload.type === 'question' && !p.payload.blocking) continue
+        this.db
+          .update(parts)
+          .set({ status: 'expired', updatedAt: at })
+          .where(eq(parts.id, p.id))
+          .run()
+      }
       this.savePart({
         id: `${m.id}:error`,
         messageId: m.id,

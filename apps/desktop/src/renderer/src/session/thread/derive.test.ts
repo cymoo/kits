@@ -1,6 +1,6 @@
 import type { MessageView, PartPayload, PartView, SessionDetail } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { deriveBlocks, describeTool, permissionSubject } from './derive'
+import { deriveBlocks, describeTool, patchTargets, permissionSubject } from './derive'
 
 const session = {
   id: 's1',
@@ -263,7 +263,40 @@ describe('permissionSubject', () => {
   it('shows the command for bash, the relative path for edits and json otherwise', () => {
     expect(permissionSubject('bash', { command: 'ls' }, '/w')).toBe('ls')
     expect(permissionSubject('edit', { filePath: '/w/src/a.py' }, '/w')).toBe('src/a.py')
-    expect(permissionSubject('req_get', { id: 'R-1' }, '/w')).toBe('{"id":"R-1"}')
+    expect(permissionSubject('req_get', { id: 'R-1' }, '/w')).toBe('{\n  "id": "R-1"\n}')
+  })
+
+  it('keeps long parameters whole instead of cutting them', () => {
+    const body = 'x'.repeat(500)
+    expect(permissionSubject('wiki_write', { body }, '/w')).toContain(body)
+  })
+
+  it('falls back to the request patterns when nothing else describes it', () => {
+    expect(permissionSubject('bash', {}, '/w', ['rm -rf build'])).toBe('rm -rf build')
+  })
+})
+
+describe('questions after the app quit', () => {
+  it('keeps a non-blocking question answerable even if it was marked expired', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail(
+        [
+          part(
+            {
+              type: 'question',
+              questionId: 'q',
+              question: '用哪个库？',
+              options: [],
+              blocking: false,
+            },
+            'expired',
+          ),
+        ],
+        { completedAt: 5, finishReason: 'error' },
+      ),
+    )
+    expect(blocks.find((b) => b.kind === 'question')).toMatchObject({ state: 'pending' })
   })
 })
 
@@ -274,5 +307,35 @@ describe('describeTool on windows paths', () => {
     expect(describeTool(p('C:\\repo\\src\\a.ts'), 'C:\\repo').detail).toBe('src/a.ts')
     expect(describeTool(p('C:/repo/src/a.ts'), 'C:\\repo\\').detail).toBe('src/a.ts')
     expect(describeTool(p('D:\\other\\a.ts'), 'C:\\repo').detail).toBe('D:\\other\\a.ts')
+  })
+})
+
+describe('apply_patch', () => {
+  const patchText = [
+    '*** Begin Patch',
+    '*** Update File: /repo/member-svc/src/a.py',
+    '@@',
+    '-x',
+    '+y',
+    '*** Add File: src/b.py',
+    '+z',
+    '*** End Patch',
+  ].join('\n')
+
+  it('reads the target files from the patch text', () => {
+    expect(patchTargets({ patchText }, '/repo/member-svc')).toEqual(['src/a.py', 'src/b.py'])
+  })
+
+  it('counts each patched file once in the work process', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([tool('apply_patch', { patchText }), tool('apply_patch', { patchText })], {
+        completedAt: 5,
+        finishReason: 'completed',
+      }),
+    )
+    const turn = blocks.find((b) => b.kind === 'turn')
+    expect(turn?.kind === 'turn' && turn.filesChanged).toBe(2)
+    expect(turn?.kind === 'turn' && turn.steps[0]?.detail).toBe('src/a.py, src/b.py')
   })
 })

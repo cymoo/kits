@@ -64,3 +64,37 @@ export function MenuRadioItem({ value, children }: { value: string; children: Re
     </M.RadioItem>
   )
 }
+
+// 菜单里的分段选择（输入框“内核与模型”顶上的 OpenCode / CodeAgent）：用菜单自己的单选项，
+// 方向键能走到，选了不关菜单
+export function MenuSegmented<V extends string>({
+  value,
+  onChange,
+  options,
+  label,
+}: {
+  value: V
+  onChange: (v: V) => void
+  options: { value: V; label: string }[]
+  label: string
+}) {
+  return (
+    <M.RadioGroup
+      value={value}
+      onValueChange={(v) => onChange(v as V)}
+      aria-label={label}
+      className="mx-1.5 mt-0.5 mb-1.5 flex gap-0.5 rounded-[7px] bg-muted p-0.5"
+    >
+      {options.map((o) => (
+        <M.RadioItem
+          key={o.value}
+          value={o.value}
+          onSelect={(e) => e.preventDefault()}
+          className="h-6 flex-1 cursor-pointer rounded-[5px] px-2.5 text-center text-[0.923rem] text-fg-muted leading-6 outline-none data-[highlighted]:ring-2 data-[highlighted]:ring-accent/30 data-[state=checked]:bg-raised data-[state=checked]:font-semibold data-[state=checked]:text-fg data-[state=checked]:shadow-[0_1px_2px_rgba(0,0,0,.08)]"
+        >
+          {o.label}
+        </M.RadioItem>
+      ))}
+    </M.RadioGroup>
+  )
+}

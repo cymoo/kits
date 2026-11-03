@@ -69,15 +69,42 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '')
 
 const EDIT_TOOLS = new Set(['edit', 'write', 'apply_patch'])
 
-// 权限请求要确认的东西
-export function permissionSubject(tool: string, input: unknown, workdir: string): string {
+// apply_patch 的参数是 patchText（*** Add / Update / Delete File: <路径>），没有 filePath
+export function patchTargets(input: unknown, workdir: string): string[] {
+  const text = str((input as Record<string, unknown> | undefined)?.patchText)
+  const found = [...text.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map((m) =>
+    rel((m[1] ?? '').trim(), workdir),
+  )
+  return [...new Set(found)]
+}
+
+// 这一步改了哪些文件（工作过程里数“改了 N 个文件”）
+function editedFiles(p: ToolPayload, workdir: string): string[] {
+  if (p.name === 'apply_patch') return patchTargets(p.input, workdir)
+  const file = rel((p.input as Record<string, unknown> | undefined)?.filePath, workdir)
+  return file ? [file] : []
+}
+
+// 权限请求要确认的东西。参数不截断：MCP 写入请求后面的目标、选项也要让人看到（卡片里限高滚动）；
+// 什么都解析不出来时用请求的 patterns 兜底，不让人对着空白授权
+export function permissionSubject(
+  tool: string,
+  input: unknown,
+  workdir: string,
+  patterns: string[] = [],
+): string {
   const i = (input ?? {}) as Record<string, unknown>
-  if (tool === 'bash') return str(i.command)
-  if (EDIT_TOOLS.has(tool) || tool === 'read') return rel(i.filePath, workdir)
-  if (tool === 'webfetch') return str(i.url)
-  if (input === undefined || input === null) return ''
-  const json = JSON.stringify(input)
-  return json === '{}' ? '' : json.length > 200 ? `${json.slice(0, 200)}…` : json
+  const subject =
+    tool === 'bash'
+      ? str(i.command)
+      : EDIT_TOOLS.has(tool) || tool === 'read'
+        ? rel(i.filePath, workdir)
+        : tool === 'webfetch'
+          ? str(i.url)
+          : input === undefined || input === null || JSON.stringify(input) === '{}'
+            ? ''
+            : JSON.stringify(input, null, 2)
+  return subject || patterns.join('\n')
 }
 
 const REPLY_META: Record<string, string> = {
@@ -105,8 +132,9 @@ export function describeTool(p: ToolPayload, workdir: string): { kind: string; d
     case 'bash':
       return { kind: '执行命令', detail: str(input.command) }
     case 'edit':
-    case 'apply_patch':
       return { kind: '修改文件', detail: rel(input.filePath, workdir) }
+    case 'apply_patch':
+      return { kind: '修改文件', detail: patchTargets(p.input, workdir).join(', ') }
     case 'write':
       return { kind: '新建文件', detail: rel(input.filePath, workdir) }
     case 'webfetch':
@@ -185,7 +213,9 @@ export function deriveBlocks(
         }
       } else if (payload.type === 'tool') {
         const { kind, detail: d } = describeTool(payload, session.workdir)
-        if (EDIT_TOOLS.has(payload.name) && p.status === 'completed') files.add(d)
+        if (EDIT_TOOLS.has(payload.name) && p.status === 'completed') {
+          for (const f of editedFiles(payload, session.workdir)) files.add(f)
+        }
         // 提问在对话里有自己的卡片
         if (payload.name === 'kits_ask_user') return
         const reply = REPLY_META[replies.get(payload.callId) ?? '']
@@ -204,7 +234,12 @@ export function deriveBlocks(
           ...(reply ? { meta: reply } : p.status === 'error' ? { meta: '失败' } : {}),
         })
       } else if (payload.type === 'permission') {
-        const subject = permissionSubject(payload.tool, payload.input, session.workdir)
+        const subject = permissionSubject(
+          payload.tool,
+          payload.input,
+          session.workdir,
+          payload.patterns,
+        )
         if (p.status === 'pending' && running) {
           cards.push({
             kind: 'permission',
@@ -239,10 +274,11 @@ export function deriveBlocks(
           options: payload.options,
           ...(payload.assumption ? { assumption: payload.assumption } : {}),
           blocking: payload.blocking,
+          // 不阻塞的提问轮次结束（甚至应用退出）后还能回答，不显示成过期
           state:
             payload.answer !== undefined
               ? 'answered'
-              : p.status === 'expired'
+              : p.status === 'expired' && payload.blocking
                 ? 'expired'
                 : 'pending',
           ...(payload.answer !== undefined ? { answer: payload.answer } : {}),

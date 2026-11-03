@@ -1,9 +1,10 @@
-import type {
-  AskUserInput,
-  AskUserResult,
-  KernelEvent,
-  KitsToolContext,
-  PermissionReply,
+import {
+  type AskUserInput,
+  type AskUserResult,
+  type KernelEvent,
+  type KitsToolContext,
+  type PermissionReply,
+  submitOutput,
 } from '@kits/core'
 import type {
   AgentKernel,
@@ -25,6 +26,8 @@ export interface MockKernelOptions {
   // kits 工具的处理函数（主进程的工具宿主传进来）；不传时提问按不阻塞处理、产出直接丢掉
   tools?: {
     askUser(input: AskUserInput, ctx: KitsToolContext): Promise<AskUserResult>
+    // 和真工具一样先按 Agent 的输出格式校验，不给就当没有输出格式
+    outputSchema?(ctx: KitsToolContext): Record<string, unknown> | undefined
     onOutput(output: unknown, ctx: KitsToolContext): Promise<void>
   }
   // 延迟倍数，E2E 用 0.1 之类加快
@@ -181,8 +184,17 @@ export class MockKernel implements AgentKernel {
           }
           // 拿到 tool-start 就停了：已停止的轮次不再交产出
           if (self.stopped(session.id)) return 'aborted'
-          await self.options.tools?.onOutput(step.output, ctx)
-          yield { type: 'tool-end', callId: step.callId, output: '已提交' }
+          const tools = self.options.tools
+          const submitted = tools
+            ? await submitOutput(
+                { outputSchema: (c) => tools.outputSchema?.(c), onOutput: tools.onOutput },
+                step.output,
+                ctx,
+              )
+            : { ok: true as const }
+          yield submitted.ok
+            ? { type: 'tool-end', callId: step.callId, output: '已提交' }
+            : { type: 'tool-end', callId: step.callId, output: null, error: submitted.error }
         } else if ('retry' in step) {
           yield { type: 'status', state: 'retry' }
           yield {
