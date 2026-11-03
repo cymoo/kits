@@ -190,6 +190,9 @@ importers:
       '@kits/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@modelcontextprotocol/sdk':
+        specifier: 1.32.2
+        version: 1.32.2(@cfworker/json-schema@4.1.4)(supports-color@7.2.0)(zod@4.6.7)
       drizzle-orm:
         specifier: 1.0.0-rc.5
         version: 1.0.0-rc.5(zod@4.6.7)

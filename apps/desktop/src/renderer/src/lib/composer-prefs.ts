@@ -9,6 +9,8 @@ export interface ComposerPrefs {
   permissionMode: PermissionMode | undefined
   kernel: Settings['kernel'] | undefined
   model: string | undefined
+  // 这次不用的 MCP 服务
+  mcpOff: string[]
 }
 
 interface PrefsState extends ComposerPrefs {
@@ -21,6 +23,7 @@ export const usePrefs = create<PrefsState>((set) => ({
   permissionMode: undefined,
   kernel: undefined,
   model: undefined,
+  mcpOff: [],
   set: (patch) => set(patch),
 }))
 
@@ -54,6 +57,7 @@ export function resolvePrefs(
   agentModel?: string,
 ) {
   return {
+    mcpOff: prefs.mcpOff,
     workdir: prefs.workdir ?? settings?.workdirs[0]?.path,
     agent: prefs.agent,
     permissionMode: prefs.permissionMode ?? settings?.permissionMode ?? 'ask',

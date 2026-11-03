@@ -563,6 +563,20 @@ describe('SessionService attachments', () => {
   })
 })
 
+describe('SessionService platforms', () => {
+  it('denies the tools of the platforms turned off for this session', async () => {
+    const { service, waitFor, kernel } = setup('done')
+    const create = vi.spyOn(kernel, 'createSession')
+    const s = await service.create({ ...input, mcpOff: ['wiki'] })
+    await waitFor(s.id, ['done'])
+    expect(create.mock.calls[0]?.[0].permission.at(-1)).toEqual({
+      tool: 'wiki_*',
+      pattern: '*',
+      level: 'deny',
+    })
+  })
+})
+
 describe('exportName', () => {
   it('drops characters that cannot go into a file name and adds the turn when there are several', () => {
     const at = new Date(2026, 10, 4).getTime()

@@ -3,6 +3,7 @@ import { type MessageKey, t } from '../../app/i18n'
 import { useAppInfo, useSettingsLoadError } from '../../lib/kits'
 import { isMac } from '../../lib/shortcuts'
 import { cx } from '../../ui/cx'
+import { McpSection } from './mcp/McpSection'
 import { ModelSection } from './model/ModelSection'
 import { isSettingsSection, settingsSections } from './sections'
 
@@ -60,6 +61,8 @@ export function SettingsPage() {
         ) : null}
         {section === 'model' ? (
           <ModelSection />
+        ) : section === 'mcp' ? (
+          <McpSection />
         ) : (
           <div className="flex max-w-[720px] flex-col gap-1">
             <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">

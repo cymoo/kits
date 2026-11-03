@@ -119,6 +119,8 @@ export function titleOf(text: string): string {
 export class SessionService {
   private running = new Map<string, Running>()
   private queues = new Map<string, Queued[]>()
+  // 建会话时选的“这次不用的 MCP 服务”，第一轮在内核里建会话时用
+  private mcpOff = new Map<string, string[]>()
   private readonly now: () => number
   private readonly id: () => string
   private readonly flushMs: number
@@ -238,6 +240,7 @@ export class SessionService {
       lastError: null,
     }
     this.deps.store.insertSession(session)
+    if (input.mcpOff?.length) this.mcpOff.set(id, input.mcpOff)
     this.deps.push('session.changed', session)
     this.startTurn(session, input.text, staged)
     return session
@@ -502,11 +505,19 @@ export class SessionService {
             agent: session.agent,
             ...(session.model ? { model: session.model } : {}),
             title: session.title,
-            permission: agentPermissions(
-              this.deps.resolveAgent(session.agent),
-              session.permissionMode,
-              this.deps.loadMcp(),
-            ),
+            permission: [
+              ...agentPermissions(
+                this.deps.resolveAgent(session.agent),
+                session.permissionMode,
+                this.deps.loadMcp(),
+              ),
+              // 输入框里关掉的平台：这个会话里它的工具一律不能用（排在最后，最后命中的生效）
+              ...(this.mcpOff.get(session.id) ?? []).map((server) => ({
+                tool: `${server}_*`,
+                pattern: '*',
+                level: 'deny' as const,
+              })),
+            ],
           })
       if (!existing) store.updateSession(session.id, { kernelSessionId: ks.id })
       run.ks = ks

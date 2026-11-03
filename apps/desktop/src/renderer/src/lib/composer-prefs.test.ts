@@ -18,6 +18,7 @@ const prefs = (model: string | undefined) => ({
   permissionMode: undefined,
   kernel: undefined,
   model,
+  mcpOff: [],
 })
 
 describe('resolvePrefs', () => {
