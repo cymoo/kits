@@ -15,7 +15,11 @@ afterEach(() => {
 })
 
 // gate：内核启动卡住，直到调用 open（模拟真实内核冷启动）
-function setup(scenario: MockScenarioName | 'broken', gate?: Promise<void>) {
+function setup(
+  scenario: MockScenarioName | 'broken',
+  gate?: Promise<void>,
+  diffDelays: number[] = [],
+) {
   const db = openDatabase(':memory:', migrations)
   close = db.close
   const store = new SessionStore(db.db)
@@ -50,6 +54,7 @@ function setup(scenario: MockScenarioName | 'broken', gate?: Promise<void>) {
     registry: { register: (...args: unknown[]) => void registered.push(args) },
     push: (channel, payload) => void pushed.push({ channel, payload }),
     flushMs: 5,
+    diffDelays,
   })
   const statusOf = (id: string) => store.session(id)?.status
   const waitFor = (id: string, statuses: SessionStatus[]) =>
@@ -80,7 +85,7 @@ describe('SessionService', () => {
       tokens: { input: 21_400 },
     })
     const types = detail?.parts.map((p) => p.type)
-    expect(types).toEqual(['reasoning', 'tool', 'tool', 'text'])
+    expect(types).toEqual(['reasoning', 'tool', 'tool', 'tool', 'text'])
     const answer = detail?.parts.at(-1)
     expect(answer?.payload).toMatchObject({ text: expect.stringContaining('改好了') })
   })
@@ -343,6 +348,22 @@ describe('SessionStore.markInterrupted', () => {
       type: 'error',
       payload: { message: '应用退出时这一轮还没做完' },
     })
+  })
+})
+
+describe('SessionService diffs', () => {
+  it('stores the files changed in a turn once the kernel has them and pushes them', async () => {
+    const { service, waitFor, pushed } = setup('done', undefined, [0])
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    await vi.waitFor(() => expect(service.diffs(s.id)).toHaveLength(1))
+    expect(service.diffs(s.id)[0]).toMatchObject({
+      turn: 1,
+      path: 'src/points/redeem.py',
+      status: 'modified',
+      additions: 6,
+    })
+    expect(pushed.some((p) => p.channel === 'session.diffs')).toBe(true)
   })
 })
 

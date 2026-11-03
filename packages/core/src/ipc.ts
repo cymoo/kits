@@ -2,6 +2,7 @@ import type { GeneralSettings, Settings } from './config/settings'
 import type {
   AgentSummary,
   CreateSessionInput,
+  FileDiffView,
   MessageView,
   PartView,
   SessionActivity,
@@ -110,6 +111,8 @@ export const ipcContract = {
       void
     >(),
     answerQuestion: method<{ id: string; questionId: string; answer: string }, void>(),
+    // 这个会话每轮改了的文件
+    diffs: method<string, FileDiffView[]>(),
   },
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用
@@ -160,6 +163,8 @@ export interface PushEvents {
   'session.message': MessageView
   'session.part': PartView
   'session.activity': SessionActivity
+  // 一轮结束后内核算出了新的改动
+  'session.diffs': { sessionId: string; files: FileDiffView[] }
 }
 export type PushChannel = keyof PushEvents
 export const pushChannels: PushChannel[] = [
@@ -169,6 +174,7 @@ export const pushChannels: PushChannel[] = [
   'session.message',
   'session.part',
   'session.activity',
+  'session.diffs',
 ]
 
 export function channelName(domain: string, method: string): string {

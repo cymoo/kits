@@ -11,6 +11,8 @@
   --k-bg-muted: #f1f0ec;
   --k-bg-hover: #e9e8e3;
   --k-bg-active: #efeeea;
+  /* 会话页右侧面板、放大时左边的对话栏 */
+  --k-bg-panel: #fbfbf9;
   --k-fg: #1b1b1f;
   --k-fg-muted: #6e6e76;
   --k-fg-subtle: #9a9aa1;
@@ -67,6 +69,7 @@
   --k-bg-muted: #1b1b1e;
   --k-bg-hover: #2a2a2e;
   --k-bg-active: #26262a;
+  --k-bg-panel: #1b1b1e;
   --k-fg: #ececef;
   --k-fg-muted: #a1a1aa;
   --k-fg-subtle: #71717a;
@@ -117,6 +120,7 @@
   --color-muted: var(--k-bg-muted);
   --color-hover: var(--k-bg-hover);
   --color-active: var(--k-bg-active);
+  --color-panel: var(--k-bg-panel);
   --color-fg: var(--k-fg);
   --color-fg-muted: var(--k-fg-muted);
   --color-fg-subtle: var(--k-fg-subtle);

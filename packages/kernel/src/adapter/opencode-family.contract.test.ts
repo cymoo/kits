@@ -196,7 +196,13 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       diff = await kernel.diff(s)
     }
     expect(diff).toEqual([
-      expect.objectContaining({ path: 'hello.txt', status: 'added', additions: 1, deletions: 0 }),
+      expect.objectContaining({
+        path: 'hello.txt',
+        status: 'added',
+        additions: 1,
+        deletions: 0,
+        turn: 1,
+      }),
     ])
     expect(diff[0]?.patch).toContain('+hi')
   }, 60_000)

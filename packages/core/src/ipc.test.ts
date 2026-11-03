@@ -22,6 +22,7 @@ describe('contractEntries', () => {
       ['session', 'abort'],
       ['session', 'respondPermission'],
       ['session', 'answerQuestion'],
+      ['session', 'diffs'],
       ['workdir', 'pick'],
       ['agents', 'list'],
       ['secrets', 'set'],

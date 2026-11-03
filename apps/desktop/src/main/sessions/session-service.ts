@@ -3,6 +3,7 @@ import type {
   AskUserInput,
   AskUserResult,
   CreateSessionInput,
+  FileDiffView,
   KernelEvent,
   KitsToolContext,
   MessageView,
@@ -33,6 +34,8 @@ export interface SessionServiceDeps {
   id?: () => string
   // 正文增量的落库和推送间隔
   flushMs?: number
+  // 一轮结束后隔多久去内核取改动：内核是异步算的，取几次，变了才落库推送
+  diffDelays?: number[]
 }
 
 // 一轮从 startTurn 起就登记：内核冷启动期间也能拦住重复的 prompt、接住停止
@@ -60,15 +63,21 @@ export class SessionService {
   private readonly now: () => number
   private readonly id: () => string
   private readonly flushMs: number
+  private readonly diffDelays: number[]
 
   constructor(private readonly deps: SessionServiceDeps) {
     this.now = deps.now ?? Date.now
     this.id = deps.id ?? randomUUID
     this.flushMs = deps.flushMs ?? 50
+    this.diffDelays = deps.diffDelays ?? [300, 1_500, 4_000]
   }
 
   list(): SessionSummary[] {
     return this.deps.store.list().map((s) => this.view(s))
+  }
+
+  diffs(id: string): FileDiffView[] {
+    return this.deps.store.diffs(id)
   }
 
   get(id: string) {
@@ -338,8 +347,42 @@ export class SessionService {
       this.flush()
       for (const resolve of run.questions.values()) resolve({ answered: false })
       this.running.delete(session.id)
+      if (run.ks) void this.refreshDiffs(session.id, kernel, run.ks)
       kernels.release(session.kernel)
       this.sendQueued(session.id)
+    }
+  }
+
+  // 内核在一轮结束后才把这一轮的改动算出来（OpenCode 写在用户消息的 summary 上），隔几次去取。
+  // 内核按自己的用户消息编号，最后一轮对齐到当前轮次（启动期间停掉的轮次在内核里没有消息）
+  private async refreshDiffs(id: string, kernel: AgentKernel, ks: KernelSession): Promise<void> {
+    let last = JSON.stringify(this.deps.store.diffs(id))
+    for (const delay of this.diffDelays) {
+      await new Promise((r) => setTimeout(r, delay))
+      try {
+        const found = await kernel.diff(ks)
+        const turns = this.deps.store.session(id)?.turns ?? 0
+        const latest = Math.max(0, ...found.map((d) => d.turn ?? 0))
+        const offset = latest > 0 ? turns - latest : 0
+        const files: FileDiffView[] = found
+          .filter((d) => d.path)
+          .map((d) => ({
+            turn: d.turn ? d.turn + offset : turns,
+            path: d.path,
+            status: d.status,
+            additions: d.additions,
+            deletions: d.deletions,
+            patch: d.patch,
+          }))
+        const next = JSON.stringify(files)
+        if (next === last) continue
+        last = next
+        this.deps.store.replaceDiffs(id, files)
+        this.deps.push('session.diffs', { sessionId: id, files })
+      } catch {
+        // 内核重启了、应用在退出：下一轮结束时再取
+        return
+      }
     }
   }
 

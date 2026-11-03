@@ -22,7 +22,16 @@ interface RawPart {
   ignored?: boolean
   tool?: string
   callID?: string
-  state?: { status?: string; input?: unknown; output?: unknown; error?: string; title?: string }
+  state?: {
+    status?: string
+    input?: unknown
+    output?: unknown
+    error?: string
+    title?: string
+    // bash 的 metadata 里有 exit
+    metadata?: Record<string, unknown>
+    time?: { start?: number; end?: number }
+  }
 }
 
 interface RawMessageInfo {
@@ -132,6 +141,12 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
           output: part.state?.output ?? null,
           ...(status === 'error' ? { error: part.state?.error ?? 'tool failed' } : {}),
           ...(part.state?.title ? { title: part.state.title } : {}),
+          ...(typeof part.state?.metadata?.exit === 'number'
+            ? { exitCode: part.state.metadata.exit }
+            : {}),
+          ...(part.state?.time?.start && part.state.time.end
+            ? { durationMs: part.state.time.end - part.state.time.start }
+            : {}),
         })
       }
       return out

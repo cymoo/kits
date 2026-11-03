@@ -61,6 +61,8 @@ export interface FileDiff {
   patch: string
   // 哪一轮（那一轮的用户消息 id）改的；同一个文件可能在几轮里各出现一次
   messageId?: string
+  // 第几轮（内核会话里第几条用户消息，从 1 开始）
+  turn?: number
 }
 
 // 内核存的消息，断线补齐和恢复会话用；parts 的形状随内核走，只有适配器解读

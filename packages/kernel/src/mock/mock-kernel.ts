@@ -133,6 +133,8 @@ export class MockKernel implements AgentKernel {
             callId: step.callId,
             output: step.output,
             ...(step.error ? { error: step.error } : {}),
+            ...(step.exitCode !== undefined ? { exitCode: step.exitCode } : {}),
+            ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
           }
         } else if ('permission' in step) {
           const p = step.permission

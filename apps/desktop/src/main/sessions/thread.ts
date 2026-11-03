@@ -153,6 +153,8 @@ export class TurnRecorder {
                 output: event.output,
                 ...(event.error ? { error: event.error } : {}),
                 ...(event.title ? { title: event.title } : {}),
+                ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
+                ...(event.durationMs !== undefined ? { durationMs: event.durationMs } : {}),
               }),
               event.error ? 'error' : 'completed',
             ),

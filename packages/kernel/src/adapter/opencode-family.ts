@@ -530,6 +530,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
   // 这里按轮收集（契约测试实测），改动面板按 messageId 分组
   async diff(session: KernelSession): Promise<FileDiff[]> {
     const messages = await this.messages(session)
+    let turn = 0
     return messages.flatMap((m) => {
       const info = m.info as {
         id?: string
@@ -545,6 +546,8 @@ export class OpencodeFamilyKernel implements AgentKernel {
         }
       }
       if (info.role !== 'user') return []
+      turn += 1
+      const at = turn
       return (info.summary?.diffs ?? []).map((d) => ({
         path: d.file ?? '',
         status: d.status === 'added' || d.status === 'deleted' ? d.status : ('modified' as const),
@@ -552,6 +555,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
         deletions: d.deletions ?? 0,
         patch: d.patch ?? '',
         ...(info.id ? { messageId: info.id } : {}),
+        turn: at,
       }))
     })
   }

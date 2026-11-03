@@ -1,4 +1,5 @@
 import type {
+  FileDiffView,
   MessageView,
   PartPayload,
   PartView,
@@ -10,6 +11,7 @@ import type {
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { Database } from '../db'
 import {
+  diffs,
   type MessageRecord,
   messages,
   type PartRecord,
@@ -158,6 +160,35 @@ export class SessionStore {
       updatedAt: new Date(p.updatedAt),
     }
     this.db.insert(parts).values(values).onConflictDoUpdate({ target: parts.id, set: values }).run()
+  }
+
+  diffs(sessionId: string): FileDiffView[] {
+    return this.db
+      .select()
+      .from(diffs)
+      .where(eq(diffs.sessionId, sessionId))
+      .orderBy(asc(diffs.turn), asc(diffs.path))
+      .all()
+      .map((r) => ({
+        turn: r.turn,
+        path: r.path,
+        status: r.status as FileDiffView['status'],
+        additions: r.additions,
+        deletions: r.deletions,
+        patch: r.patch,
+      }))
+  }
+
+  // 内核每次给的是整个会话的改动，整份替换
+  replaceDiffs(sessionId: string, list: FileDiffView[]): void {
+    this.db.delete(diffs).where(eq(diffs.sessionId, sessionId)).run()
+    for (const d of list) {
+      this.db
+        .insert(diffs)
+        .values({ id: `${sessionId}:${d.turn}:${d.path}`, sessionId, ...d })
+        .onConflictDoUpdate({ target: diffs.id, set: { ...d } })
+        .run()
+    }
   }
 
   // 某个会话里的提问 part（回答不阻塞的提问时用）

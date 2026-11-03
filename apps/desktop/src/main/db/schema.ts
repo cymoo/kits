@@ -77,6 +77,26 @@ export const parts = sqliteTable(
   (t) => [index('parts_message').on(t.messageId, t.seq)],
 )
 
+// 每轮改了的文件（改动面板）。内核在一轮结束后才异步算出来，会话服务拿到就整份替换
+export const diffs = sqliteTable(
+  'diffs',
+  {
+    // `<会话 id>:<轮次>:<路径>`
+    id: text('id').primaryKey(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    turn: integer('turn').notNull(),
+    path: text('path').notNull(),
+    // added / modified / deleted
+    status: text('status').notNull(),
+    additions: integer('additions').notNull().default(0),
+    deletions: integer('deletions').notNull().default(0),
+    patch: text('patch').notNull().default(''),
+  },
+  (t) => [index('diffs_session').on(t.sessionId, t.turn)],
+)
+
 export const attachments = sqliteTable('attachments', {
   id: text('id').primaryKey(),
   sessionId: text('session_id')
@@ -119,3 +139,4 @@ export const permissionLog = sqliteTable('permission_log', {
 export type SessionRecord = typeof sessions.$inferSelect
 export type MessageRecord = typeof messages.$inferSelect
 export type PartRecord = typeof parts.$inferSelect
+export type DiffRecord = typeof diffs.$inferSelect

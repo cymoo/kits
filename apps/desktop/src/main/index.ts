@@ -183,6 +183,7 @@ app.whenReady().then(() => {
         abort: (id) => sessions.abort(id),
         respondPermission: (input) => sessions.respondPermission(input),
         answerQuestion: (input) => sessions.answerQuestion(input),
+        diffs: (id) => sessions.diffs(id),
       },
       workdir: {
         pick: async () => {
