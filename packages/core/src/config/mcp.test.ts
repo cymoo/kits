@@ -25,6 +25,11 @@ describe('parseMcpConfig', () => {
     expect(servers.a?.type).toBe('http')
   })
 
+  it('rejects an http server whose url is not http or https', () => {
+    expect(() => parseMcpConfig({ mcpServers: { f: { url: 'file:///etc/passwd' } } })).toThrow()
+    expect(() => parseMcpConfig({ mcpServers: { f: { url: 'ftp://a.local/x' } } })).toThrow()
+  })
+
   it('rejects a server with neither command nor url', () => {
     expect(() => parseMcpConfig({ mcpServers: { bad: {} } })).toThrow()
   })

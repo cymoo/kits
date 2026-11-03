@@ -13,7 +13,8 @@ const stdioServerSchema = z.object({
 
 const httpServerSchema = z.object({
   type: z.literal('http'),
-  url: z.url(),
+  // 只支持 Streamable HTTP，file:、ftp: 等协议在这里就拦住
+  url: z.url({ protocol: /^https?$/ }),
   headers: z.record(z.string(), z.string()).default({}),
   enabled: z.boolean().default(true),
 })

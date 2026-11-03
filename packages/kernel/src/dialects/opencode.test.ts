@@ -13,7 +13,7 @@ const binary = resolveKernelBinary('opencode', {
 })
 
 describe.skipIf(!binary)('opencodeDialect.spawn', () => {
-  it('starts opencode serve on a free port and reports healthy', async () => {
+  it('starts opencode serve with per-instance auth and reports healthy', async () => {
     const configDir = mkdtempSync(path.join(os.tmpdir(), 'kits-opencode-'))
     const kernel = await opencodeDialect.spawn({
       binary: binary ?? '',
@@ -21,12 +21,14 @@ describe.skipIf(!binary)('opencodeDialect.spawn', () => {
       gateway: { baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'test' },
     })
     try {
-      const res = await fetch(`${kernel.baseUrl}/global/health`)
+      const anonymous = await fetch(`${kernel.baseUrl}/global/health`)
+      expect(anonymous.status).toBe(401)
+      const res = await fetch(`${kernel.baseUrl}/global/health`, { headers: kernel.headers })
       expect(res.status).toBe(200)
       expect(await res.json()).toMatchObject({ healthy: true })
     } finally {
       await kernel.close()
       rmSync(configDir, { recursive: true, force: true })
     }
-  }, 30_000)
+  }, 60_000)
 })

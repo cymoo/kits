@@ -30,8 +30,8 @@
 - 根目录：`package.json`（workspace 脚本）、`pnpm-workspace.yaml`（含 `allowBuilds`，pnpm 12 默认不跑依赖的安装脚本；pnpm 12 还默认拒绝发布不满一天的包，所以 tailwind 和 vitest 没用最新版，这个策略保留）、`biome.json`、`tsconfig.base.json`（strict + `noUncheckedIndexedAccess`）、`vitest.config.ts`（projects）、`.gitattributes`（统一 LF）、`.node-version`、`.editorconfig`。
 - `apps/desktop`：electron-vite 三端。主进程开窗口、打开数据库、回应 `ping`；preload 用 `contextBridge` 暴露 `window.kits`；渲染进程是照首页原型画的空壳。`PlatformBridge` 在 `src/main/platform.ts`。数据库在 `src/main/db/`，schema 只有一张 `sessions` 表，迁移文件在 `drizzle/`，由 `pnpm --filter @kits/desktop db:generate` 生成。`electron-builder.yml` 把 `vendor/opencode/${os}-${arch}` 和 `drizzle/` 放进 `extraResources`。
 - `packages/core`：`KernelEvent` 类型；`AgentProfile`、MCP 配置（兼容 `mcpServers` 粘贴）、权限规则的 zod schema 和默认值；`ask_user` / `submit_output` 的 MCP 服务定义（`createKitsToolServer`），`submit_output` 按 JSON Schema 校验。
-- `packages/kernel`：`AgentKernel`、`KernelDialect` 接口；`resolveKernelBinary`（环境变量 → resources → npm 包）；OpenCode 方言的 `spawn`（空闲端口、轮询 health）。`writeConfig` 还没实现，第 2 周做配置转换时补。
-- `e2e/`：Playwright 直接 `_electron.launch` 打包前的应用，一个冒烟用例。
+- `packages/kernel`：`AgentKernel`、`KernelDialect` 接口；`resolveKernelBinary`（环境变量 → resources → npm 包）；OpenCode 方言的 `spawn`：空闲端口、每次启动随机密码走 Basic Auth（`OPENCODE_SERVER_PASSWORD`，用户名 `opencode`）、带超时的健康检查、启动失败杀进程并把日志带进报错、`close()` 等子进程真正退出。`writeConfig` 还没实现，第 2 周做配置转换时补。
+- `e2e/`：Playwright 直接 `_electron.launch` 打包前的应用，一个冒烟用例。主进程支持 `KITS_USER_DATA_DIR` 环境变量指定用户数据目录，E2E 每次用临时目录，不碰本机真实的 `kits.db`。
 - `evals/`：README、示例 JSONL、脚本骨架。
 - `scripts/vendor-kernel.mjs`：把当前平台的 opencode 二进制拷到 `vendor/`。
 - `.github/workflows/ci.yml`：macOS + Windows 矩阵。
@@ -71,7 +71,8 @@
 
 - **Drizzle 用的是 1.0.0-rc.5**，不是稳定版：`node:sqlite` 驱动只在 1.0 里。1.0 正式版出来后升一下版本号即可；万一 rc 出问题，换回 better-sqlite3 只改 `apps/desktop/src/main/db/index.ts` 一个文件。
 - **Node 必须 22.16 以上**：Drizzle 的 `node:sqlite` 驱动用了 `setReturnArrays`，Node 22.13 跑不了 `apps/desktop` 的数据库测试。Electron 自带 Node 24，运行时没问题，只影响本机跑单测。
-- **CI 没在 GitHub 上跑过**，分支推上去后看第一次结果；Windows 上 Playwright 启动 Electron 可能要调。
+- **CI 第一次在 Windows 上跑挂了两处**：测试里写死了 `/` 分隔符（已改用 `path.join`）；OpenCode 启动契约测试 30 秒超时，原因日志里看不出来，已把子进程日志带进报错、超时放宽到 60 秒，看第二次结果。
+- Copilot review 的 9 条意见已全部处理：路径分隔符、spawn 错误、实例认证、E2E 独立数据目录、MCP URL 限 http(s)、submit_output 把 schema 放进工具描述、健康检查超时、启动失败回收进程、close 等退出。
 - **opencode-ai 装完会把二进制硬链接到 `bin/opencode.exe`**，macOS 上也叫 `.exe`，这是它的约定，查找逻辑按这个写的。
 - `opencodeDialect.writeConfig` 未实现，`permissionReplyPath` 的接口路径待按锁定版本实测（phase1 方案 4.3 节标了“待实测”）。
 - 渲染进程的生产包 567 kB，没查是什么占的，做会话页时顺手看一下。

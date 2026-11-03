@@ -37,8 +37,12 @@ export function createKitsToolServer(options: KitsToolServerOptions): McpServer 
     server.registerTool(
       'submit_output',
       {
-        description: '提交结构化结果。不符合输出格式时返回错误，请修正后重新提交。',
-        inputSchema: { output: z.unknown() },
+        description: [
+          '提交结构化结果。output 必须符合下面的 JSON Schema，不符合时返回错误，请修正后重新提交。',
+          '',
+          JSON.stringify(schema, null, 2),
+        ].join('\n'),
+        inputSchema: { output: z.unknown().describe('符合工具描述里 JSON Schema 的结果') },
       },
       async ({ output }) => {
         const result = validateOutput(schema, output)

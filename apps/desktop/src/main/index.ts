@@ -6,6 +6,11 @@ import { createElectronPlatform } from './platform'
 
 // 空壳应用：开一个窗口，打开本机数据库，回应 ping。会话、设置等功能按模块往里加。
 
+// E2E 和本地调试可以指定独立的用户数据目录，不碰真实数据。必须在 app ready 之前设置。
+if (process.env.KITS_USER_DATA_DIR) {
+  app.setPath('userData', process.env.KITS_USER_DATA_DIR)
+}
+
 function migrationsFolder(): string {
   return app.isPackaged
     ? path.join(process.resourcesPath, 'drizzle')

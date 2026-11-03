@@ -6,15 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "**",
-      "!designs/**",
-      "!docs/**",
-      "!.agents/**",
-      "!.claude/**",
-      "!**/drizzle/**",
-      "!**/vendor/**"
-    ]
+    "includes": ["**", "!designs", "!docs", "!.agents", "!.claude", "!**/drizzle", "!**/vendor"]
   },
   "formatter": {
     "enabled": true,

@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   binaryFileName,
@@ -20,7 +21,9 @@ describe('kernelBinaryCandidates', () => {
 
   it('looks in the packaged resources dir before the npm package', () => {
     const c = kernelBinaryCandidates('opencode', { ...here, resourcesPath: '/app/Resources' })
-    expect(c[0]).toBe(`/app/Resources/bin/opencode/${binaryFileName('opencode', process.platform)}`)
+    expect(c[0]).toBe(
+      path.join('/app/Resources', 'bin', 'opencode', binaryFileName('opencode', process.platform)),
+    )
     expect(c.some((p) => p.includes('opencode-ai'))).toBe(true)
   })
 
