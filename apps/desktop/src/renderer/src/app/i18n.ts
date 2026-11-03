@@ -107,6 +107,8 @@ const zhCN = {
   'error.head': '这一轮没有完成',
   'error.body': '已经做的改动留在工作目录里。点“继续这一轮”，Agent 会从中断的地方接着做。',
   'error.continue': '继续这一轮',
+  'error.resend': '重新发送',
+  'error.resendBody': '这一轮还没开始就失败了，任务没有发给 Agent。把问题处理好后点“重新发送”。',
   'error.continuePrompt': '继续',
   'error.copy': '复制诊断信息',
   'error.copied': '已复制',
