@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import path from 'node:path'
-import type { KernelInfo, KernelName } from '@kits/core/ipc'
+import type { KernelInfo, KernelName, KernelRuntime } from '@kits/core/ipc'
 import { resolveKernelBinary } from '@kits/kernel'
 
 // 设置页“Agent 内核”卡片用：哪个内核装了、版本、日志目录。进程管理在 KernelManager（PR6）。
@@ -23,9 +23,21 @@ function version(binary: string): Promise<string | null> {
 export async function kernelInfo(options: {
   userDataDir: string
   resourcesPath: string | undefined
+  runtime(id: KernelName): KernelRuntime
+  // KITS_KERNEL=mock：两个内核都当作已装，版本写 mock
+  mock?: boolean
 }): Promise<KernelInfo[]> {
   return Promise.all(
     KERNELS.map(async (id) => {
+      if (options.mock) {
+        return {
+          ...options.runtime(id),
+          installed: true,
+          version: 'mock',
+          binary: null,
+          logsDir: kernelLogsDir(options.userDataDir, id),
+        }
+      }
       const binary =
         resolveKernelBinary(id, {
           platform: process.platform,
@@ -34,7 +46,7 @@ export async function kernelInfo(options: {
           ...(options.resourcesPath ? { resourcesPath: options.resourcesPath } : {}),
         }) ?? null
       return {
-        id,
+        ...options.runtime(id),
         installed: binary !== null,
         version: binary ? await version(binary) : null,
         binary,

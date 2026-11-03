@@ -9,7 +9,9 @@ import { openDatabase } from './db'
 import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc } from './ipc/register'
 import { kernelInfo, kernelLogsDir } from './kernel/kernel-info'
+import { createKernelManager } from './kernel/runtime'
 import { createElectronPlatform } from './platform'
+import { KitsToolHost } from './tools/kits-tool-host'
 
 // 主进程入口：读配置、打开数据库、注册 IPC、开窗口。会话、内核等按模块往里加。
 
@@ -22,6 +24,8 @@ app.setName('kits')
 if (process.env.KITS_USER_DATA_DIR) {
   app.setPath('userData', process.env.KITS_USER_DATA_DIR)
 }
+
+let shutdown: (() => Promise<void>) | undefined
 
 function migrationsFolder(): string {
   return app.isPackaged
@@ -55,14 +59,28 @@ function createWindow(): void {
 app.whenReady().then(() => {
   const platform = createElectronPlatform()
   openDatabase(path.join(platform.userDataDir, 'kits.db'), migrationsFolder())
-  const config = new ConfigService({
-    dir: resolveConfigDir(),
-    onSettingsChanged: (settings) => push('settings.changed', settings),
-  })
   const secrets = new SecretStore(
     path.join(platform.userDataDir, 'secrets.json'),
     platform.encryptor,
   )
+  const tools = new KitsToolHost()
+  // 设置变了要重启内核、内核启动要读设置，两边互相引用
+  let onConfigChanged = () => {}
+  const config = new ConfigService({
+    dir: resolveConfigDir(),
+    onSettingsChanged: (settings) => {
+      push('settings.changed', settings)
+      onConfigChanged()
+    },
+  })
+  const kernels = createKernelManager({
+    platform,
+    config,
+    secrets,
+    tools,
+    onStatus: (status) => push('kernel.status', status),
+  })
+  onConfigChanged = () => kernels.configChanged()
 
   registerIpc({
     app: {
@@ -90,7 +108,13 @@ app.whenReady().then(() => {
     },
     kernel: {
       status: () =>
-        kernelInfo({ userDataDir: platform.userDataDir, resourcesPath: platform.resourcesPath }),
+        kernelInfo({
+          userDataDir: platform.userDataDir,
+          resourcesPath: platform.resourcesPath,
+          runtime: (id) => kernels.status(id),
+          mock: process.env.KITS_KERNEL === 'mock',
+        }),
+      restart: (id) => kernels.restart(id),
       openLogs: async (id) => {
         const dir = kernelLogsDir(platform.userDataDir, id)
         mkdirSync(dir, { recursive: true })
@@ -104,11 +128,21 @@ app.whenReady().then(() => {
     },
   })
 
+  // 退出时关掉内核子进程和工具服务，不留孤儿进程
+  shutdown = async () => {
+    await kernels.dispose()
+    await tools.stop()
+  }
+
   createWindow()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+app.on('will-quit', () => {
+  void shutdown?.()
 })
 
 app.on('window-all-closed', () => {

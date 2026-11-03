@@ -1,8 +1,16 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { createWriteStream, mkdirSync } from 'node:fs'
 import { createServer } from 'node:net'
+import path from 'node:path'
 import { writeGeneratedFiles } from '../generate/write'
-import type { GeneratedFiles, KernelConfig, KernelDialect, SpawnedKernel } from '../kernel'
+import type {
+  GeneratedFiles,
+  KernelConfig,
+  KernelDialect,
+  KernelExit,
+  SpawnedKernel,
+} from '../kernel'
 
 // OpenCode 方言：指定空闲端口启动 `opencode serve`，轮询 /global/health 等待就绪。
 // 每次启动生成随机密码，服务端走 Basic Auth（用户名固定为 opencode），同机其他进程调不了内核接口。
@@ -22,6 +30,13 @@ async function freePort(): Promise<number> {
       )
     })
   })
+}
+
+function openLog(file: string) {
+  mkdirSync(path.dirname(file), { recursive: true })
+  const stream = createWriteStream(file, { flags: 'a' })
+  stream.write(`\n--- ${new Date().toISOString()} opencode serve ---\n`)
+  return stream
 }
 
 function tail(buf: string, lines = 20): string {
@@ -112,15 +127,27 @@ export const opencodeDialect: KernelDialect = {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
+    // 输出只在内存里留最后 64 KB（出错时给 tail 用），完整的写日志文件
     let stderr = ''
-    child.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString()
-    })
-    child.stdout?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString()
+    const log = cfg.logFile ? openLog(cfg.logFile) : undefined
+    const onOutput = (chunk: Buffer) => {
+      stderr = (stderr + chunk.toString()).slice(-65_536)
+      log?.write(chunk)
+    }
+    child.stderr?.on('data', onOutput)
+    child.stdout?.on('data', onOutput)
+
+    let closing = false
+    const exitListeners: ((exit: KernelExit) => void)[] = []
+    child.once('exit', (code, signal) => {
+      log?.end()
+      if (closing) return
+      const exit = { code, signal, tail: tail(stderr) }
+      for (const l of exitListeners) l(exit)
     })
 
     const close = async (): Promise<void> => {
+      closing = true
       if (child.exitCode !== null || child.signalCode !== null) return
       await new Promise<void>((resolve) => {
         child.once('exit', () => resolve())
@@ -140,7 +167,7 @@ export const opencodeDialect: KernelDialect = {
       await close()
       throw e
     }
-    return { baseUrl, headers, close }
+    return { baseUrl, headers, close, onExit: (l) => void exitListeners.push(l) }
   },
 
   async writeConfig(dir: string, generated: GeneratedFiles): Promise<void> {

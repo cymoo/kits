@@ -43,8 +43,16 @@ export interface GatewayTestInput {
 
 export type KernelName = 'opencode' | 'codeagent'
 
-export interface KernelInfo {
+// 内核进程的运行状态（KernelManager 维护）
+export interface KernelRuntime {
   id: KernelName
+  state: 'stopped' | 'starting' | 'running' | 'error' | 'restart-pending'
+  error: string | null
+  // 配置不全时指向设置分区的问题（section: model / mcp / agent）
+  problems: { section: string; target: string; message: string }[]
+}
+
+export interface KernelInfo extends KernelRuntime {
   installed: boolean
   // `<binary> --version` 的输出，取不到为 null
   version: string | null
@@ -75,6 +83,7 @@ export const ipcContract = {
   kernel: {
     status: method<undefined, KernelInfo[]>(),
     openLogs: method<KernelName, void>(),
+    restart: method<KernelName, void>(),
   },
   secrets: {
     set: method<{ key: string; value: string }, void>(),
@@ -110,9 +119,10 @@ export type IpcHandlers = {
 // 主 → 渲染的推送
 export interface PushEvents {
   'settings.changed': Settings
+  'kernel.status': KernelRuntime
 }
 export type PushChannel = keyof PushEvents
-export const pushChannels: PushChannel[] = ['settings.changed']
+export const pushChannels: PushChannel[] = ['settings.changed', 'kernel.status']
 
 export function channelName(domain: string, method: string): string {
   return `${domain}.${method}`
