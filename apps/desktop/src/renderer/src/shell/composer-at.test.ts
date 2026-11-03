@@ -27,6 +27,14 @@ describe('insertAt', () => {
   })
 })
 
+describe('insertAt keeps line breaks', () => {
+  it('does not swallow the newline after the reference', () => {
+    const text = '看下 @red\n第二段'
+    const at = atQuery(text, 7)
+    expect(at && insertAt(text, at, 7, 'src/redeem.py').text).toBe('看下 @src/redeem.py \n第二段')
+  })
+})
+
 describe('formatSize', () => {
   it('uses B, KB and MB', () => {
     expect([formatSize(900), formatSize(12_600), formatSize(1_300_000)]).toEqual([

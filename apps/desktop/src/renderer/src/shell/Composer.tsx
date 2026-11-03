@@ -92,6 +92,7 @@ export function Composer({
   const [error, setError] = useState<string>()
   const area = useRef<HTMLTextAreaElement>(null)
   const picker = useRef<HTMLInputElement>(null)
+  const inputId = big ? 'composer-home' : 'composer-session'
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
   // @ 菜单：光标前面的 @ 查询，选中的那一项，按了 Esc 的那个 @ 不再弹
@@ -177,8 +178,10 @@ export function Composer({
     setSending(true)
     setError(undefined)
     try {
+      // 等待期间又加的附件不在这次发送里，发完只去掉这次发出去的
+      const sending = files
       const attachments = await Promise.all(
-        files.map(async (f) => ({
+        sending.map(async (f) => ({
           name: f.name,
           mime: f.type,
           data: new Uint8Array(await f.arrayBuffer()),
@@ -191,7 +194,7 @@ export function Composer({
         attachments,
       })
       setText('')
-      setFiles([])
+      setFiles((cur) => cur.filter((f) => !sending.includes(f)))
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       setError(message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
@@ -202,6 +205,14 @@ export function Composer({
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (atOpen && !e.nativeEvent.isComposing) {
+      // 这次查询的结果还没回来：回车 / Tab 先别发送，也别选到上一次查询的结果
+      if (
+        (e.key === 'Enter' || e.key === 'Tab') &&
+        (matches.isFetching || matches.isPlaceholderData)
+      ) {
+        e.preventDefault()
+        return
+      }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
         const n = Math.max(found.length, 1)
@@ -265,6 +276,7 @@ export function Composer({
       ) : null}
       {atOpen ? (
         <div
+          id={`${inputId}-at`}
           role="listbox"
           aria-label={t('composer.atTitle')}
           data-testid="at-menu"
@@ -281,6 +293,7 @@ export function Composer({
           {found.map((f, i) => (
             <button
               key={f}
+              id={`${inputId}-at-${i}`}
               type="button"
               role="option"
               aria-selected={i === atIndex}
@@ -359,6 +372,12 @@ export function Composer({
         }}
         onSelect={(e) => updateAt(e.currentTarget.value, e.currentTarget.selectionStart)}
         onBlur={() => setAt(undefined)}
+        // @ 菜单打开时焦点还在输入框里：用组合框的写法告诉读屏当前选中的是哪个文件
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={atOpen}
+        aria-controls={atOpen ? `${inputId}-at` : undefined}
+        aria-activedescendant={atOpen && found[atIndex] ? `${inputId}-at-${atIndex}` : undefined}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         className={cx(

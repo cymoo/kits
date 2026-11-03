@@ -107,12 +107,18 @@ async function pdfText(data: Uint8Array): Promise<string> {
 export async function extractText(name: string, mime: string, data: Uint8Array): Promise<string> {
   const kind = attachmentKind(name, mime)
   if (!kind) throw new UnsupportedAttachmentError(name)
-  const raw =
-    kind === 'docx'
-      ? await docxText(data)
-      : kind === 'pdf'
-        ? await pdfText(data)
-        : new TextDecoder('utf-8').decode(data)
+  let raw: string
+  try {
+    raw =
+      kind === 'docx'
+        ? await docxText(data)
+        : kind === 'pdf'
+          ? await pdfText(data)
+          : new TextDecoder('utf-8').decode(data)
+  } catch (e) {
+    // 坏的 docx、加密或损坏的 PDF：一次传好几个时要知道是哪个
+    throw new Error(`${name}：读不了（${e instanceof Error ? e.message : String(e)}）`)
+  }
   const text = raw.replace(/\r\n/g, '\n').trim()
   if (text.length <= MAX_CHARS) return text
   return `${text.slice(0, MAX_CHARS)}\n\n（附件太长，后面还有 ${text.length - MAX_CHARS} 字没放进来）`
