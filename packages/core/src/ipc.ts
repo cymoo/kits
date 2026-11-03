@@ -1,3 +1,4 @@
+import type { AgentDraft, AgentOverview, AgentRef, AgentSaveInput, AgentView } from './agent-view'
 import type { PermissionLevel } from './config/permission'
 import type { GeneralSettings, Settings } from './config/settings'
 import type { McpOverview, McpParseResult, McpTestResult } from './mcp-view'
@@ -16,6 +17,7 @@ import type {
 } from './session'
 import type { SkillOverview, SkillSource } from './skill-view'
 
+export type * from './agent-view'
 // 渲染进程的 tsconfig 不带 Node 类型，不能引 @kits/core 的入口（里面有 node:fs），要用的类型从这里转出去
 export type { Gateway, GatewayModel } from './config/gateway'
 export type { PermissionLevel, PermissionMode } from './config/permission'
@@ -161,7 +163,23 @@ export const ipcContract = {
     pick: method<undefined, string | null>(),
   },
   agents: {
-    list: method<undefined, AgentSummary[]>(),
+    // 输入框的 Agent 浮层：给了工作目录时含项目 Agent
+    list: method<{ workdir?: string }, AgentSummary[]>(),
+    // 设置页 #agent：完整内容、默认权限、读不了的文件
+    overview: method<{ workdir?: string }, AgentOverview>(),
+    // 写成 Markdown 文件；个人的改了内核按新配置重启，项目的下一条消息起生效
+    save: method<AgentSaveInput, AgentView>(),
+    // 移到废纸篓；内置的不能删
+    remove: method<AgentRef, void>(),
+    // “看转换结果”：这份草稿转成内核配置是什么样（JSON 文本）
+    preview: method<
+      { source: AgentView['source']; workdir?: string; original?: string; draft: AgentDraft },
+      string
+    >(),
+    // 新建 <name>.schema.json（一个起步的 JSON Schema）并写进 output
+    createOutput: method<AgentRef, AgentView>(),
+    // 用系统默认程序打开 Agent 文件或它的输出格式文件
+    open: method<AgentRef & { what: 'file' | 'output' }, void>(),
   },
   secrets: {
     set: method<{ key: string; value: string }, void>(),

@@ -16,7 +16,7 @@ import type { ConfigService } from '../config/config-service'
 import type { SecretStore } from '../config/secrets'
 
 // 启动内核前把 ~/.kits 和密钥收拢成内核配置（phase1-implementation 4.1、5.1 节），写进 {userData}/kernel/<id>/config。
-// 现在只有内置和个人两级；项目级（<工作目录>/.agents）的 Agent、技能、记忆随 PR13、PR14、PR16 加。
+// 内核配置全局一份，只放内置和个人的 Agent、技能；项目的技能由内核按会话目录自己找，项目的 Agent 随消息带上。
 
 export interface KernelDirs {
   config: string
@@ -65,9 +65,25 @@ export function loadSkills(config: ConfigService, builtinDir?: string, workdir?:
   }
 }
 
-// 内置和个人两级 Agent，按来源合并（会话服务建会话时也用）
-export function loadAgents(config: ConfigService) {
-  return mergeBySource([builtinAssistant], loadAgentsDir(config.paths.agents, 'personal').items)
+const none = { items: [], errors: [] }
+
+// 三级 Agent：内置（resources/builtin/agents）、个人（~/.kits/agents）、项目（<工作目录>/.agents/agents），
+// 同名时项目覆盖个人覆盖内置。资源目录里没有 assistant 时（单测）用代码里兜底的那个
+export function listAgents(config: ConfigService, builtinDir?: string, workdir?: string) {
+  const builtin = builtinDir ? loadAgentsDir(path.join(builtinDir, 'agents'), 'builtin') : none
+  const builtins = builtin.items.some((a) => a.name === 'assistant')
+    ? builtin.items
+    : [builtinAssistant, ...builtin.items]
+  const personal = loadAgentsDir(config.paths.agents, 'personal')
+  const project = workdir ? loadAgentsDir(path.join(workdir, '.agents', 'agents'), 'project') : none
+  return {
+    agents: mergeBySource(builtins, personal.items, project.items),
+    errors: [...builtin.errors, ...personal.errors, ...project.errors],
+  }
+}
+
+export function loadAgents(config: ConfigService, builtinDir?: string, workdir?: string) {
+  return listAgents(config, builtinDir, workdir).agents
 }
 
 export function loadMcp(config: ConfigService) {
@@ -80,7 +96,8 @@ export function prepareKernelConfig(input: PrepareInput) {
   const { config, secrets } = input
   const env = input.env ?? process.env
   const settings = config.getSettings()
-  const agents = loadAgentsDir(config.paths.agents, 'personal')
+  // 项目 Agent 不进内核配置：它随工作目录变，提示词随消息带上（kernelAgentOf、agentSystemPrompt）
+  const agents = listAgents(config, input.builtinDir)
   // 读不了的 Agent 文件作为配置问题报出来、不启动内核，不能悄悄退回内置的同名 Agent
   if (agents.errors.length > 0) {
     return {
@@ -96,7 +113,7 @@ export function prepareKernelConfig(input: PrepareInput) {
   const skills = loadSkills(config, input.builtinDir).skills
   return generateOpencodeConfig({
     settings,
-    agents: loadAgents(config),
+    agents: agents.agents,
     mcp: loadMcp(config),
     skills: skills.filter((s) => s.enabled),
     disabledSkills: settings.skillsDisabled,

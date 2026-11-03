@@ -99,6 +99,22 @@ export function opencodeAgentName(name: string): string {
   return `kits-${name}`
 }
 
+// 项目 Agent（<工作目录>/.agents/agents）用的内核 agent：没有自己的工具开关和模型，
+// 权限随会话（提示词和所有 Agent 一样随消息的 system 带上）。名字以 _ 开头，和用户的 Agent 名（不能以符号开头）不会撞
+export const PROJECT_BASE_AGENT = '_project'
+
+// 内核里实际用哪个 agent：项目 Agent 用公共的底座
+export function kernelAgentOf(agent: Pick<AgentProfile, 'name' | 'source'>): string {
+  return agent.source === 'project' ? PROJECT_BASE_AGENT : agent.name
+}
+
+// 每条消息随 system 带上的提示词：正文 + 输出格式说明，接在内核自带的系统提示词后面
+export function agentSystemPrompt(agent: AgentProfile): string {
+  return [agent.prompt, agent.outputSchema ? outputSection(agent.outputSchema) : '']
+    .filter(Boolean)
+    .join('\n\n')
+}
+
 function envName(prefix: string, id: string, suffix = ''): string {
   return `${prefix}${id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}${suffix}`
 }
@@ -129,7 +145,19 @@ function rulesBeforeSkills(
     ...flattenPermissions(basePermissions({ mode, mcp: mcpRules(mcp) })),
     ...(agent ? agentOverrideRules(agent.permissions, mode) : []),
     ...deniedBuiltinKeys(agent).map((tool) => ({ tool, pattern: '*', level: 'deny' as const })),
+    ...deniedServers(agent, mcp).map((server) => ({
+      tool: `${server}_*`,
+      pattern: '*',
+      level: 'deny' as const,
+    })),
   ]
+}
+
+// Agent 的 mcp 允许列表之外的服务：内核的 tools 开关只是不给模型看，权限里也拒绝
+function deniedServers(agent: AgentProfile | undefined, mcp: McpFile): string[] {
+  if (!agent?.mcp) return []
+  const allowed = new Set(agent.mcp)
+  return enabledServers(mcp).filter((s) => !allowed.has(s))
 }
 
 function mcpRules(mcp: McpFile) {
@@ -202,6 +230,20 @@ function agentTools(agent: AgentProfile, mcp: McpFile): Record<string, boolean> 
   }
   if (!agent.outputSchema) tools[`${KITS_MCP_SERVER}_submit_output`] = false
   return tools
+}
+
+// 一个内置或个人 Agent 在 opencode.json 里的样子（设置页“看转换结果”也用）。
+// 不写 prompt：OpenCode 的 agent prompt 会顶掉内核自带的系统提示词（里面有怎么用工具），
+// Agent 的提示词改成每条消息随 system 带上（agentSystemPrompt），接在内核的后面，三级来源一样
+export function opencodeAgentEntry(a: AgentProfile, mcp: McpFile): Record<string, unknown> {
+  const tools = agentTools(a, mcp)
+  return {
+    mode: 'primary',
+    ...(a.description ? { description: a.description } : {}),
+    ...(a.model ? { model: a.model } : {}),
+    ...(Object.keys(tools).length > 0 ? { tools } : {}),
+    permission: agentConfigPermission(a, mcp),
+  }
 }
 
 // kits 工具服务所有会话共用一份工具列表，submit_output 的描述里放不下各 Agent 的格式，所以写进 Agent 提示词
@@ -342,19 +384,13 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
         })
       }
     }
-    const tools = agentTools(a, input.mcp)
-    const prompt = [a.prompt, a.outputSchema ? outputSection(a.outputSchema) : '']
-      .filter(Boolean)
-      .join('\n\n')
-    agent[opencodeAgentName(a.name)] = {
-      mode: 'primary',
-      ...(a.description ? { description: a.description } : {}),
-      // 空提示词就用内核自带的系统提示词
-      ...(prompt ? { prompt } : {}),
-      ...(a.model ? { model: a.model } : {}),
-      ...(Object.keys(tools).length > 0 ? { tools } : {}),
-      permission: agentConfigPermission(a, input.mcp),
-    }
+    agent[opencodeAgentName(a.name)] = opencodeAgentEntry(a, input.mcp)
+  }
+
+  // 项目 Agent 的底座：内核自带的系统提示词，权限用全局的，会话再按 Agent 收紧
+  agent[opencodeAgentName(PROJECT_BASE_AGENT)] = {
+    mode: 'primary',
+    description: '项目 Agent（提示词随消息带上）',
   }
 
   if (problems.length > 0) return { ok: false, problems }

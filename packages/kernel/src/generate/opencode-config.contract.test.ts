@@ -101,7 +101,9 @@ describe.skipIf(!binary)('generated opencode config', () => {
   it('lists the kits agents with their permission rules', async () => {
     const agents: any[] = await get('/agent')
     const reviewer = agents.find((a) => a.name === 'kits-api-reviewer')
-    expect(reviewer).toMatchObject({ mode: 'primary', prompt: '你是接口评审。' })
+    // 提示词不进配置（随消息的 system 带上），内核自带的系统提示词保留
+    expect(reviewer).toMatchObject({ mode: 'primary' })
+    expect(reviewer.prompt ?? undefined).toBeUndefined()
     const rules = reviewer.permission as { permission: string; pattern: string; action: string }[]
     const last = (perm: string) =>
       rules.filter((r) => r.permission === perm && r.pattern === '*').at(-1)
@@ -109,6 +111,7 @@ describe.skipIf(!binary)('generated opencode config', () => {
     // 工具允许列表外的 edit：tools 只管工具列表，权限里也要写 deny，不然 Agent 的 edit: allow 还在
     expect(last('edit')?.action).toBe('deny')
     expect(agents.some((a) => a.name === 'kits-assistant')).toBe(true)
+    expect(agents.some((a) => a.name === 'kits-_project')).toBe(true)
   })
 
   it('discovers the skill from the listed dir and registers it as a command', async () => {

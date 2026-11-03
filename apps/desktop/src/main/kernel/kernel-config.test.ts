@@ -4,7 +4,7 @@ import path from 'node:path'
 import { parseSettings } from '@kits/core'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ConfigService } from '../config/config-service'
-import { kernelSettingsKey, loadSkills } from './kernel-config'
+import { kernelSettingsKey, listAgents, loadSkills } from './kernel-config'
 
 let root: string | undefined
 afterEach(() => {
@@ -48,6 +48,40 @@ describe('loadSkills', () => {
         .skills.map((s) => s.source)
         .sort(),
     ).toEqual(['builtin', 'personal'])
+  })
+})
+
+function agentFile(dir: string, name: string, description: string) {
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(
+    path.join(dir, `${name}.md`),
+    `---\nname: ${name}\ndescription: ${description}\n---\n`,
+  )
+}
+
+describe('listAgents', () => {
+  it('merges builtin, personal and project agents with the project winning on the same name', () => {
+    root = mkdtempSync(path.join(os.tmpdir(), 'kits-agents-'))
+    const builtin = path.join(root, 'builtin')
+    const workdir = path.join(root, 'repo')
+    const config = new ConfigService({ dir: path.join(root, 'config') })
+    agentFile(path.join(builtin, 'agents'), 'assistant', '内置')
+    agentFile(config.paths.agents, 'doc-writer', '个人')
+    agentFile(path.join(workdir, '.agents', 'agents'), 'doc-writer', '项目')
+
+    const rows = listAgents(config, builtin, workdir)
+      .agents.map((a) => [a.name, a.source, a.description, a.shadows] as const)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+    expect(rows).toEqual([
+      ['assistant', 'builtin', '内置', []],
+      ['doc-writer', 'project', '项目', ['personal']],
+    ])
+  })
+
+  it('falls back to the code builtin assistant without a resources dir', () => {
+    root = mkdtempSync(path.join(os.tmpdir(), 'kits-agents-'))
+    const config = new ConfigService({ dir: path.join(root, 'config') })
+    expect(listAgents(config).agents.map((a) => a.name)).toEqual(['assistant'])
   })
 })
 
