@@ -1,6 +1,6 @@
 import type { MessageView, PartView, SessionDetail } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { mergeMessage, mergePart, mergeSession } from './session-merge'
+import { mergeMessage, mergePart, mergeSession, mergeSessionList } from './session-merge'
 
 const session = {
   id: 's1',
@@ -41,6 +41,20 @@ const part = (text: string, updatedAt: number): PartView => ({
   updatedAt,
 })
 const snapshot: SessionDetail = { session, messages: [message], parts: [part('完整的正文', 8)] }
+
+describe('mergeSessionList', () => {
+  it('keeps a summary pushed while the list was loading when it is newer', () => {
+    const fresh = [{ ...session, status: 'running' as const, updatedAt: 5 }]
+    const cached = [
+      { ...session, status: 'done' as const, updatedAt: 9 },
+      { ...session, id: 's2', updatedAt: 8 },
+    ]
+    expect(mergeSessionList(fresh, cached).map((s) => [s.id, s.status])).toEqual([
+      ['s1', 'done'],
+      ['s2', 'done'],
+    ])
+  })
+})
 
 describe('merging pushes into a snapshot', () => {
   it('skips a part update that is older than the snapshot', () => {

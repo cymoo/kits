@@ -404,7 +404,9 @@ export function ErrorCard({
         <span className="font-semibold">{t('error.head')}</span>
       </div>
       {canContinue ? (
-        <p className="m-0 text-[1rem] text-fg-muted leading-[1.6]">{t('error.body')}</p>
+        <p className="m-0 text-[1rem] text-fg-muted leading-[1.6]">
+          {block.resend ? t('error.resendBody') : t('error.body')}
+        </p>
       ) : null}
       <pre className="m-0 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-[8px] border border-danger-line bg-raised px-3 py-2.5 font-mono text-[0.885rem] text-fg-muted leading-[1.6]">
         {block.message}
@@ -417,11 +419,14 @@ export function ErrorCard({
             disabled={busy}
             onClick={() =>
               void run(() =>
-                kits.session.prompt({ id: session.id, text: t('error.continuePrompt') }),
+                kits.session.prompt({
+                  id: session.id,
+                  text: block.resend ?? t('error.continuePrompt'),
+                }),
               )
             }
           >
-            {t('error.continue')}
+            {block.resend ? t('error.resend') : t('error.continue')}
           </Button>
           <span className="flex-1" />
           <Button variant="ghost" onClick={() => void run(copy)}>

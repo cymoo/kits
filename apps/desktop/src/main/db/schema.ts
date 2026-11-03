@@ -79,7 +79,11 @@ export const parts = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   },
-  (t) => [index('parts_message').on(t.messageId, t.seq)],
+  // 打开会话时按会话取全部 parts，按创建时间和顺序排
+  (t) => [
+    index('parts_message').on(t.messageId, t.seq),
+    index('parts_session').on(t.sessionId, t.createdAt, t.seq),
+  ],
 )
 
 // 每轮改了的文件（改动面板）。内核在一轮结束后才异步算出来，会话服务拿到就整份替换

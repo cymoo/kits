@@ -248,6 +248,36 @@ describe('deriveBlocks cards', () => {
     expect(blocks.some((b) => b.kind === 'retry')).toBe(false)
   })
 
+  it('offers to resend the task when the turn failed before reaching the kernel', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([part({ type: 'error', message: '配置不完整' })], {
+        completedAt: 5,
+        finishReason: 'error',
+      }),
+    )
+    expect(blocks.at(-1)).toMatchObject({ kind: 'error', resend: '加幂等校验' })
+  })
+
+  it('keeps the retry bar when a question is answered during the retry', () => {
+    seq = 0
+    const q = part(
+      {
+        type: 'question',
+        questionId: 'q',
+        question: '?',
+        options: [],
+        blocking: false,
+        answer: 'a',
+      },
+      'answered',
+      20,
+    )
+    const retry = part({ type: 'retry', attempt: 1, message: 'reset', nextAt: 9 }, null, 10)
+    const blocks = deriveBlocks(detail([{ ...q, createdAt: 2 }, retry]), undefined, 30_000)
+    expect(blocks.some((b) => b.kind === 'retry')).toBe(true)
+  })
+
   it('only lets the last turn continue after an error', () => {
     seq = 0
     const blocks = deriveBlocks(
