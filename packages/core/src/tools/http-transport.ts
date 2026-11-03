@@ -37,9 +37,14 @@ export async function startKitsToolHttpServer(
 ): Promise<KitsToolHttpServer> {
   const token = options.token ?? randomBytes(24).toString('base64url')
   const http = createServer(async (req, res) => {
-    if (new URL(req.url ?? '/', 'http://localhost').pathname !== '/mcp') {
-      return reject(res, 404, 'not found')
+    // 不带 token 的请求也会走到这里，路径解析失败不能让异常冒出去把宿主进程带崩
+    let pathname: string
+    try {
+      pathname = new URL(req.url ?? '/', 'http://localhost').pathname
+    } catch {
+      return reject(res, 400, 'bad request')
     }
+    if (pathname !== '/mcp') return reject(res, 404, 'not found')
     if (!authorized(req, token)) return reject(res, 401, 'unauthorized')
     // 无状态模式下没有服务端推送的 GET 流，也没有会话可删
     if (req.method !== 'POST') return reject(res, 405, 'method not allowed')
