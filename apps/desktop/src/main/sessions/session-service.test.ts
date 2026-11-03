@@ -14,7 +14,8 @@ afterEach(() => {
   close = undefined
 })
 
-function setup(scenario: MockScenarioName | 'broken') {
+// gate：内核启动卡住，直到调用 open（模拟真实内核冷启动）
+function setup(scenario: MockScenarioName | 'broken', gate?: Promise<void>) {
   const db = openDatabase(':memory:', migrations)
   close = db.close
   const store = new SessionStore(db.db)
@@ -25,6 +26,7 @@ function setup(scenario: MockScenarioName | 'broken') {
     store,
     kernels: {
       acquire: async () => {
+        await gate
         if (scenario === 'broken') {
           throw new ConfigProblemsError([
             { section: 'model', target: 'gateways', message: '还没有启用的模型网关' },
@@ -130,6 +132,56 @@ describe('SessionService', () => {
     const s = await service.create(input)
     await waitFor(s.id, ['done'])
     expect(registered).toEqual([[s.id, 'submit_output', expect.anything()]])
+  })
+})
+
+describe('SessionService while the kernel is starting', () => {
+  const deferred = () => {
+    let open = () => {}
+    const gate = new Promise<void>((r) => {
+      open = r
+    })
+    return { gate, open }
+  }
+
+  it('rejects a second prompt while the first turn is still waiting for the kernel', async () => {
+    const { gate, open } = deferred()
+    const { service, waitFor } = setup('done', gate)
+    const s = await service.create(input)
+    await expect(service.prompt(s.id, '再来一轮')).rejects.toThrow('这一轮还没结束')
+    open()
+    await waitFor(s.id, ['done'])
+  })
+
+  it('stops a turn before it is sent when abort comes during the kernel start', async () => {
+    const { gate, open } = deferred()
+    const { service, waitFor, store, kernel } = setup('done', gate)
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create(input)
+    await service.abort(s.id)
+    open()
+    await waitFor(s.id, ['aborted'])
+    expect(prompt).not.toHaveBeenCalled()
+    expect(store.detail(s.id)?.messages[1]?.finishReason).toBe('aborted')
+  })
+})
+
+describe('SessionStore.markInterrupted', () => {
+  it('finishes the open assistant message and leaves an error part', async () => {
+    const { gate } = { gate: new Promise<void>(() => {}) }
+    const { service, store } = setup('done', gate)
+    const s = await service.create(input)
+    expect(store.markInterrupted(99)).toBe(1)
+    const detail = store.detail(s.id)
+    expect(detail?.session).toMatchObject({
+      status: 'error',
+      lastError: '应用退出时这一轮还没做完',
+    })
+    expect(detail?.messages[1]).toMatchObject({ finishReason: 'error', completedAt: 99 })
+    expect(detail?.parts.at(-1)).toMatchObject({
+      type: 'error',
+      payload: { message: '应用退出时这一轮还没做完' },
+    })
   })
 })
 

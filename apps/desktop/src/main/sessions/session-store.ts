@@ -7,7 +7,7 @@ import type {
   SessionStatus,
   SessionSummary,
 } from '@kits/core'
-import { asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { Database } from '../db'
 import {
   type MessageRecord,
@@ -181,20 +181,45 @@ export class SessionStore {
     }
   }
 
-  // 应用退出时还在跑的会话：下次打开时标成中断，不然一直显示“运行中”
+  // 应用退出时还在跑的会话：下次打开时标成中断，不然一直显示“运行中”。
+  // 没结束的助手消息一起收尾，留一个出错块；没回复的确认标成过期，对话流和会话状态一致
   markInterrupted(now: number): number {
-    const running = this.db.select({ id: sessions.id }).from(sessions).all()
+    const message = '应用退出时这一轮还没做完'
+    const at = new Date(now)
     let n = 0
-    for (const { id } of running) {
-      const s = this.session(id)
-      if (s && (s.status === 'running' || s.status === 'waiting')) {
-        this.updateSession(id, {
-          status: 'error',
-          lastError: '应用退出时这一轮还没做完',
-          updatedAt: now,
-        })
-        n += 1
-      }
+    for (const s of this.list()) {
+      if (s.status !== 'running' && s.status !== 'waiting') continue
+      this.updateSession(s.id, { status: 'error', lastError: message, updatedAt: now })
+      n += 1
+    }
+    const open = this.db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.role, 'assistant'), isNull(messages.completedAt)))
+      .all()
+    for (const m of open) {
+      this.db
+        .update(messages)
+        .set({ completedAt: at, finishReason: 'error' })
+        .where(eq(messages.id, m.id))
+        .run()
+      const own = this.db.select().from(parts).where(eq(parts.messageId, m.id)).all()
+      this.db
+        .update(parts)
+        .set({ status: 'expired', updatedAt: at })
+        .where(and(eq(parts.messageId, m.id), eq(parts.status, 'pending')))
+        .run()
+      this.savePart({
+        id: `${m.id}:error`,
+        messageId: m.id,
+        sessionId: m.sessionId,
+        seq: own.reduce((max, p) => Math.max(max, p.seq + 1), 0),
+        type: 'error',
+        payload: { type: 'error', message },
+        status: null,
+        createdAt: now,
+        updatedAt: now,
+      })
     }
     return n
   }

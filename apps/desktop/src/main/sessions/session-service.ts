@@ -31,10 +31,13 @@ export interface SessionServiceDeps {
   flushMs?: number
 }
 
+// 一轮从 startTurn 起就登记：内核冷启动期间也能拦住重复的 prompt、接住停止
 interface Running {
-  kernel: AgentKernel
+  kernel: AgentKernel | undefined
   ks: KernelSession | undefined
   recorder: TurnRecorder
+  // 内核还没起来、内核会话还没建好时点了停止
+  cancelled: boolean
 }
 
 // 任务前 40 个字当标题，换行压成空格
@@ -98,8 +101,10 @@ export class SessionService {
 
   async abort(id: string): Promise<void> {
     const run = this.running.get(id)
-    if (!run?.ks) return
-    await run.kernel.abort(run.ks)
+    if (!run) return
+    run.cancelled = true
+    // 还在启动的轮次在启动完后看到 cancelled 自己结束
+    if (run.kernel && run.ks) await run.kernel.abort(run.ks)
   }
 
   private update(id: string, patch: Parameters<SessionStore['updateSession']>[1]): void {
@@ -139,15 +144,14 @@ export class SessionService {
     this.saveMessage(assistant)
     this.update(session.id, { turns: turn, status: 'running', lastError: null })
     const recorder = new TurnRecorder(session.id, assistant, this.now)
-    void this.runTurn(session, text, recorder)
+    const run: Running = { kernel: undefined, ks: undefined, recorder, cancelled: false }
+    this.running.set(session.id, run)
+    void this.runTurn(session, text, run)
   }
 
-  private async runTurn(
-    session: SessionSummary,
-    text: string,
-    recorder: TurnRecorder,
-  ): Promise<void> {
+  private async runTurn(session: SessionSummary, text: string, run: Running): Promise<void> {
     const { store, kernels } = this.deps
+    const { recorder } = run
     let kernel: AgentKernel
     try {
       kernel = await kernels.acquire(session.kernel)
@@ -156,12 +160,22 @@ export class SessionService {
         e instanceof ConfigProblemsError
           ? `配置不完整：${e.problems.map((p) => p.message).join('；')}`
           : `内核没有启动：${e instanceof Error ? e.message : String(e)}`
-      this.apply(session.id, recorder, { type: 'done', reason: 'error', error: message })
+      this.apply(
+        session.id,
+        recorder,
+        run.cancelled
+          ? { type: 'done', reason: 'aborted' }
+          : { type: 'done', reason: 'error', error: message },
+      )
+      this.running.delete(session.id)
       return
     }
-    const run: Running = { kernel, ks: undefined, recorder }
-    this.running.set(session.id, run)
+    run.kernel = kernel
     try {
+      if (run.cancelled) {
+        this.apply(session.id, recorder, { type: 'done', reason: 'aborted' })
+        return
+      }
       const existing = store.kernelSessionId(session.id)
       const ks: KernelSession = existing
         ? {
@@ -183,6 +197,11 @@ export class SessionService {
           })
       if (!existing) store.updateSession(session.id, { kernelSessionId: ks.id })
       run.ks = ks
+      // 建内核会话期间点了停止：不再发这一轮
+      if (run.cancelled) {
+        this.apply(session.id, recorder, { type: 'done', reason: 'aborted' })
+        return
+      }
       for await (const event of kernel.prompt(ks, { text })) {
         // kits 工具的调用登记到关联表，工具服务收到调用时按参数对到这个会话
         if (event.type === 'tool-start' && event.name.startsWith('kits_')) {

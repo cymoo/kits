@@ -10,7 +10,7 @@ import { SecretStore } from './config/secrets'
 import { openDatabase } from './db'
 import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc, trustedUrl } from './ipc/register'
-import { loadAgents, loadMcp } from './kernel/kernel-config'
+import { kernelSettingsKey, loadAgents, loadMcp } from './kernel/kernel-config'
 import { kernelInfo, kernelLogsDir } from './kernel/kernel-info'
 import { createKernelManager } from './kernel/runtime'
 import { createElectronPlatform } from './platform'
@@ -90,13 +90,19 @@ app.whenReady().then(() => {
   const tools = new KitsToolHost()
   // 设置变了要重启内核、内核启动要读设置，两边互相引用
   let onConfigChanged = () => {}
+  // 只有进内核配置的字段变了才重启：最近目录、外观这些改了不动内核，免得新建会话时撞上重启
+  let kernelInputs: string | undefined
   const config = new ConfigService({
     dir: resolveConfigDir(),
     onSettingsChanged: (settings) => {
       push('settings.changed', settings)
+      const next = kernelSettingsKey(settings)
+      if (next === kernelInputs) return
+      kernelInputs = next
       onConfigChanged()
     },
   })
+  kernelInputs = kernelSettingsKey(config.getSettings())
   const kernels = createKernelManager({
     platform,
     config,

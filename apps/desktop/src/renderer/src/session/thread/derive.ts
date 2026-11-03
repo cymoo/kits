@@ -32,10 +32,13 @@ export type Block =
 
 type ToolPayload = Extract<PartPayload, { type: 'tool' }>
 
+// 工作目录里的文件显示相对路径。两边先统一成 /：Windows 上工作目录是 C:\repo，内核给的路径可能用任一种分隔符
 function rel(file: unknown, workdir: string): string {
   if (typeof file !== 'string') return ''
-  const base = workdir.endsWith('/') || workdir.endsWith('\\') ? workdir : `${workdir}/`
-  return file.startsWith(base) ? file.slice(base.length) : file
+  const slash = (p: string) => p.replace(/\\/g, '/')
+  const base = `${slash(workdir).replace(/\/+$/, '')}/`
+  const f = slash(file)
+  return f.startsWith(base) ? f.slice(base.length) : file
 }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '')

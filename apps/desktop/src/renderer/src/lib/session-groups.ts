@@ -5,10 +5,12 @@ import type { SessionSummary } from '@kits/core/ipc'
 export type Group = 'today' | 'yesterday' | 'week' | 'earlier'
 
 export function groupOf(at: number, now = new Date()): Group {
-  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  if (at >= day) return 'today'
-  if (at >= day - 86_400_000) return 'yesterday'
-  if (at >= day - 6 * 86_400_000) return 'week'
+  // 按本地日历构造零点，不用减 24 小时：夏令时切换那天一天不是 24 小时
+  const midnight = (back: number) =>
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() - back).getTime()
+  if (at >= midnight(0)) return 'today'
+  if (at >= midnight(1)) return 'yesterday'
+  if (at >= midnight(6)) return 'week'
   return 'earlier'
 }
 
