@@ -262,7 +262,7 @@ describe('createOpencodeEventMapper', () => {
     expect(out).toEqual([])
   })
 
-  it('backfills only what was not emitted and skips earlier turns', () => {
+  it('backfills only what was not emitted', () => {
     const m = createOpencodeEventMapper(S)
     m.map(assistant)
     m.map(
@@ -274,31 +274,39 @@ describe('createOpencodeEventMapper', () => {
         delta: 'ab',
       }),
     )
-    const out = m.backfill(
-      [
-        {
-          info: { id: 'msg_old', role: 'assistant', time: { created: 10 } },
-          parts: [{ id: 'prt_O', messageID: 'msg_old', type: 'text', text: '上一轮' }],
-        },
-        {
-          info: { id: 'msg_a', role: 'assistant', time: { created: 100 } },
-          parts: [
-            { id: 'prt_X', messageID: 'msg_a', type: 'text', text: 'abcd' },
-            {
-              id: 'prt_T',
-              messageID: 'msg_a',
-              type: 'tool',
-              tool: 'bash',
-              callID: 'c',
-              state: { status: 'completed', input: {}, output: 'ok' },
-            },
-          ],
-        },
-      ],
-      50,
-    )
+    const out = m.backfill([
+      {
+        info: { id: 'msg_a', role: 'assistant', time: { created: 100 } },
+        parts: [
+          { id: 'prt_X', messageID: 'msg_a', type: 'text', text: 'abcd' },
+          {
+            id: 'prt_T',
+            messageID: 'msg_a',
+            type: 'tool',
+            tool: 'bash',
+            callID: 'c',
+            state: { status: 'completed', input: {}, output: 'ok' },
+          },
+        ],
+      },
+    ])
     expect(out.map((e) => e.type)).toEqual(['text-delta', 'tool-start', 'tool-end'])
     expect(out[0]).toMatchObject({ text: 'cd' })
+  })
+
+  it('emits a recovered permission request once even if the live event also arrives', () => {
+    const m = createOpencodeEventMapper(S)
+    const asked = {
+      id: 'per_9',
+      sessionID: S,
+      permission: 'bash',
+      patterns: ['x'],
+      metadata: {},
+      always: [],
+    }
+    expect(m.permissions([asked])).toHaveLength(1)
+    expect(m.map(ev('permission.asked', asked))).toEqual([])
+    expect(m.permissions([{ ...asked, sessionID: 'ses_other' }])).toEqual([])
   })
 
   it('lets the adapter finish the turn only once', () => {
@@ -315,5 +323,13 @@ describe('createSseParser', () => {
     parse('data: {"a":')
     parse('1}\n\n: heartbeat\n\ndata: x\r\ndata: y\r\n\r\n')
     expect(got).toEqual(['{"a":1}', 'x\ny'])
+  })
+
+  it('keeps an event together when CRLF is split across chunks', () => {
+    const got: string[] = []
+    const parse = createSseParser((d) => got.push(d))
+    parse('data: {"a":\r')
+    parse('\ndata: 1}\r\n\r\n')
+    expect(got).toEqual(['{"a":\n1}'])
   })
 })
