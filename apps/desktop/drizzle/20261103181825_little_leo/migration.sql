@@ -73,4 +73,5 @@ ALTER TABLE `sessions` ADD `updated_at` integer DEFAULT 0 NOT NULL;--> statement
 ALTER TABLE `sessions` ADD `last_error` text;--> statement-breakpoint
 CREATE INDEX `messages_session` ON `messages` (`session_id`,`turn`);--> statement-breakpoint
 CREATE INDEX `parts_message` ON `parts` (`message_id`,`seq`);--> statement-breakpoint
+CREATE INDEX `parts_session` ON `parts` (`session_id`,`created_at`,`seq`);--> statement-breakpoint
 CREATE INDEX `sessions_updated_at` ON `sessions` (`updated_at`);
