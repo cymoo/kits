@@ -66,7 +66,8 @@ export function Nav({ forceCollapsed = false }: { forceCollapsed?: boolean }) {
       className={cx(
         'flex h-full min-w-0 shrink-0 flex-col gap-1.5 overflow-hidden border-line border-r bg-muted px-2 pb-2 transition-[width] duration-150',
         collapsed ? 'w-14 items-center' : 'w-[232px]',
-        isMac ? 'pt-9' : 'pt-3',
+        // macOS 隐藏了标题栏，左上角的红绿灯占了约 40px 高，内容从它下面开始
+        isMac ? 'pt-11' : 'pt-3',
       )}
     >
       <div className={cx('flex h-8 items-center gap-2 px-2', collapsed && 'h-auto flex-col px-0')}>
