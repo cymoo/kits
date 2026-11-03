@@ -134,7 +134,7 @@ const zhCN = {
   'changes.pendingDiff': '这一轮结束后显示 diff',
   'changes.note':
     '改动直接在工作目录里。要留就 Git 提交，不要就 Git 丢弃，或者让 Agent 改回来；这版不做回滚。',
-  'changes.open': '在编辑器打开',
+  'changes.reveal': '在文件夹中显示',
   'changes.binary': '没有可显示的文本差异',
   'output.running': '这一轮还在进行',
   'output.runningNote':

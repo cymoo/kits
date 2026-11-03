@@ -86,7 +86,7 @@ export const ipcContract = {
     info: method<undefined, AppInfo>(),
     openExternal: method<string, void>(),
     openPath: method<string, void>(),
-    // 在访达 / 资源管理器里选中这个文件
+    // 在访达 / 资源管理器里选中这个文件（不打开它）
     revealPath: method<string, void>(),
   },
   settings: {

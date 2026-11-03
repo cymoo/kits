@@ -41,6 +41,17 @@ export interface SessionServiceDeps {
   diffDelays?: number[]
   // 导出的产出写到这里（{userData}/exports）
   exportsDir: string
+  // 取改动、补轮次号读内核的截止时间：请求挂住也要收尾、释放内核
+  readTimeoutMs?: number
+}
+
+// 给读内核的请求加截止时间：超时就当失败，后面照常收尾
+function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`读内核超过 ${ms} ms 没有返回`)), ms)
+  })
+  return Promise.race([p, deadline]).finally(() => clearTimeout(timer))
 }
 
 // 导出文件名：日期-标题[-第 N 轮]，去掉文件名里不能用的字符
@@ -84,12 +95,14 @@ export class SessionService {
   private readonly id: () => string
   private readonly flushMs: number
   private readonly diffDelays: number[]
+  private readonly readTimeoutMs: number
 
   constructor(private readonly deps: SessionServiceDeps) {
     this.now = deps.now ?? Date.now
     this.id = deps.id ?? randomUUID
     this.flushMs = deps.flushMs ?? 50
     this.diffDelays = deps.diffDelays ?? [300, 1_500, 4_000]
+    this.readTimeoutMs = deps.readTimeoutMs ?? 10_000
   }
 
   list(): SessionSummary[] {
@@ -460,7 +473,7 @@ export class SessionService {
     const { store } = this.deps
     let at: number | undefined
     if (run.turn > 1 && store.kernelTurns(session.id).size === 0) {
-      const history = await kernel.messages(ks).catch(() => [])
+      const history = await withDeadline(kernel.messages(ks), this.readTimeoutMs).catch(() => [])
       const users = history.filter((m) => m.info.role === 'user').length
       if (users > 0) at = users
     }
@@ -485,7 +498,7 @@ export class SessionService {
       await new Promise((r) => setTimeout(r, delay))
       if (this.diffGen.get(id) !== gen) return
       try {
-        const found = await kernel.diff(ks)
+        const found = await withDeadline(kernel.diff(ks), this.readTimeoutMs)
         if (this.diffGen.get(id) !== gen) return
         const turns = this.deps.store.kernelTurns(id)
         const files: FileDiffView[] = found

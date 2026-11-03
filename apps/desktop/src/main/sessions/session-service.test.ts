@@ -539,6 +539,33 @@ describe('SessionService diff refresh order', () => {
   })
 })
 
+describe('SessionService kernel reads', () => {
+  it('releases the kernel even when reading the diff never returns', async () => {
+    const db = openDatabase(':memory:', migrations)
+    close = db.close
+    exportsDir = mkdtempSync(path.join(os.tmpdir(), 'kits-exports-'))
+    const store = new SessionStore(db.db)
+    const kernel = new MockKernel({ scenario: 'done', speed: 0 })
+    vi.spyOn(kernel, 'diff').mockImplementation(() => new Promise(() => {}))
+    const release = vi.fn()
+    const service = new SessionService({
+      store,
+      kernels: { acquire: async () => kernel, release },
+      resolveAgent: () => builtinAssistant,
+      loadMcp: () => parseMcpFile({}),
+      registry: { register: () => {} },
+      push: () => {},
+      flushMs: 5,
+      diffDelays: [0],
+      readTimeoutMs: 30,
+      exportsDir,
+    })
+    const s = await service.create(input)
+    await vi.waitFor(() => expect(store.session(s.id)?.status).toBe('done'))
+    await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1))
+  })
+})
+
 describe('titleOf', () => {
   it('folds whitespace and cuts at 40 characters', () => {
     expect(titleOf('  修 一下\n bug ')).toBe('修 一下 bug')

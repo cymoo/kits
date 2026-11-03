@@ -198,13 +198,22 @@ export class MockKernel implements AgentKernel {
           // 拿到 tool-start 就停了：已停止的轮次不再交产出
           if (self.stopped(session.id)) return 'aborted'
           const tools = self.options.tools
-          const submitted = tools
-            ? await submitOutput(
+          const submitting = tools
+            ? submitOutput(
                 { outputSchema: (c) => tools.outputSchema?.(c), onOutput: tools.onOutput },
                 step.output,
                 ctx,
               )
-            : { ok: true as const }
+            : Promise.resolve({ ok: true as const })
+          // 处理函数可能一直不返回：abort / dispose 时不再等它，也不再报“已提交”
+          const submitted = await Promise.race([
+            submitting,
+            new Promise<'aborted'>((resolve) =>
+              self.abortWaiters.set(session.id, () => resolve('aborted')),
+            ),
+          ])
+          self.abortWaiters.delete(session.id)
+          if (submitted === 'aborted' || self.stopped(session.id)) return 'aborted'
           yield submitted.ok
             ? { type: 'tool-end', callId: step.callId, output: '已提交' }
             : { type: 'tool-end', callId: step.callId, output: null, error: submitted.error }
@@ -214,7 +223,8 @@ export class MockKernel implements AgentKernel {
             type: 'retry',
             attempt: step.retry.attempt,
             message: step.retry.message,
-            nextAt: Date.now() + step.retry.waitMs,
+            // 和实际等待一样按 speed 缩放，界面的倒计时才对得上
+            nextAt: Date.now() + step.retry.waitMs * (self.options.speed ?? 1),
           }
           if (!(await self.wait(session.id, step.retry.waitMs))) return 'aborted'
           yield { type: 'status', state: 'busy' }
