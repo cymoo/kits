@@ -11,7 +11,16 @@ test('starts the mock kernel from the settings page', async () => {
     await expect(state).toHaveText('未启动（开始会话时自动启动）')
     await page.getByRole('button', { name: '启动', exact: true }).click()
     await expect(state).toHaveText('运行中')
+    // 记下这之后推来的内核状态：重启要经过“启动中”再回到“运行中”，不能是什么都没发生
+    await page.evaluate(() => {
+      const seen: string[] = []
+      ;(window as unknown as { seen: string[] }).seen = seen
+      window.kits.on('kernel.status', (s) => seen.push(s.state))
+    })
     await page.getByRole('button', { name: '重启', exact: true }).click()
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { seen: string[] }).seen))
+      .toEqual(expect.arrayContaining(['stopped', 'starting', 'running']))
     await expect(state).toHaveText('运行中')
   } finally {
     await close()

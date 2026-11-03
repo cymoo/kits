@@ -279,6 +279,43 @@ describe('MockKernel', () => {
     expect(next.find((e) => e.type === 'tool-end')).toMatchObject({ error: '用户拒绝了这条命令' })
   })
 
+  it('stops waiting for an output handler that never returns on abort', async () => {
+    let started = () => {}
+    const called = new Promise<void>((r) => {
+      started = r
+    })
+    const { kernel, session } = await start({
+      scenario: 'output-structured',
+      tools: {
+        askUser: async () => ({ answered: false }),
+        outputSchema: () => findingsSchema,
+        onOutput: () => {
+          started()
+          return new Promise(() => {})
+        },
+      },
+    })
+    void called.then(() => kernel.abort(session))
+    const events = await collect(kernel, session)
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+    expect(events.some((e) => e.type === 'tool-end' && e.callId === 'call_output')).toBe(false)
+  })
+
+  it('scales the retry countdown with the replay speed', async () => {
+    const kernel = new MockKernel({ scenario: 'retry', speed: 0.1 })
+    await kernel.start()
+    const session = await kernel.createSession({
+      workdir: '/w',
+      agent: 'assistant',
+      permission: [],
+    })
+    const before = Date.now()
+    const events = await collect(kernel, session)
+    const retry = events.find((e) => e.type === 'retry')
+    // 场景里等 2 秒，0.1 倍速就是 200 ms
+    expect(retry?.type === 'retry' && retry.nextAt - before).toBeLessThan(1_000)
+  })
+
   it('ends every running turn when the simulated process crashes and notifies the exit once', async () => {
     const kernel = new MockKernel({
       speed: 0,
