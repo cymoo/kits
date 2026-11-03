@@ -45,7 +45,7 @@
 
 1. **网关首字节延迟 11～15 s，与 prompt 大小无关。** 直接对网关 `stream: true` 发“回复 ok”：HTTP 头 0.19 s 就到，但第一个 data chunk 在 11.46 s，之后 302 字 reasoning + 2 字正文 3 s 内流完。非流式带一个 tool 的请求 13.5 s。应该是网关或模型侧排队，不是 OpenCode 的开销。一次任务 N 轮 LLM 调用就是 N × 12 s 的硬等待。
 2. **网关会在约 148 s 无输出后断开连接。** 10 次里 1 次（第 2 次）：请求发出后 147.9 s 收到 `session.status {type:"retry", attempt:1, message:"Connection reset by server", next:…}`，2 s 后 OpenCode 自动重发并成功。重试没有单独的 `session.next.retried` 事件（本版本未发出），只能从 `session.status` 判断。
-3. **模型行为略有随机性但都正确。** 7 次 `glob → bash`，2 次一步 `bash`（`wc -l *.ts`），1 次 `bash → glob → bash`，1 次 `bash → bash`。没有出现并行工具调用、参数 JSON 坏掉、调用不存在的工具等情况。reasoning 经 `reasoning_content` 字段透传，OpenCode 映射成 `reasoning` part，但 `tokens.reasoning` 常为 0 或 15，统计不准，不要拿它做计费。
+3. **模型行为略有随机性但都正确。** 6 次 `glob → bash`，2 次一步 `bash`（`wc -l *.ts`），1 次 `bash → glob → bash`，1 次 `bash → bash`。没有出现并行工具调用、参数 JSON 坏掉、调用不存在的工具等情况。reasoning 经 `reasoning_content` 字段透传，OpenCode 映射成 `reasoning` part，但 `tokens.reasoning` 常为 0 或 15，统计不准，不要拿它做计费。
 4. **OpenCode 会加载用户家目录里的技能和 Claude Code 配置。** 日志里出现几十条 `duplicate skill name` 警告，每轮多花约 2.8k 输入 token，也让内核行为依赖本机环境。设置 `OPENCODE_DISABLE_EXTERNAL_SKILLS=1` 和 `OPENCODE_DISABLE_CLAUDE_CODE=1` 后再跑一次：警告 0 条，首轮输入 7.9k token，任务照常成功。剩下的 7.9k 是 OpenCode 自带的系统提示词和工具 schema。
 5. **配置里的 `{env:…}` 为空时报错不友好。** 环境变量没传时 `provider.options.baseURL` 解析成空串，模型请求直接 `session.error {name:"UnknownError", data:{message:"Invalid URL"}}`，没有任何提示指向配置。kits 生成配置后应先校验网关地址和 key 非空。
 6. **工具的 `completed` 状态与 `step-finish` 同时到达。** 第 1 次运行里 `glob` 的 `running` 在 16.8 s，`completed` 在 24.8 s，和同一轮的 `step-finish` 同一毫秒；工具本身是毫秒级的。原因是 AI SDK 要等模型这一轮流结束才产出 tool-result。界面上“工具执行中”的时长会显得偏长，是正常现象。
@@ -90,8 +90,8 @@
 | 事件流 | `GET /event?directory=<工作目录>`（单实例，事件体就是下面的样本）；`GET /global/event` 是全局流，事件包在 `{directory, payload}` 里 |
 | 建会话 | `POST /session` body `{"title": "..."}`，可带 `permission` 覆盖 |
 | 发消息 | `POST /session/{id}/prompt_async` body `{"parts":[{"type":"text","text":"..."}]}`，204 立即返回 |
-| 回复权限 | `POST /permission/{requestID}/reply` body `{"reply":"once"|"always"|"reject"}`（新接口，phase1 的“待实测”已确认）；旧接口 `POST /session/{id}/permissions/{permissionID}` body `{"response": …}` 仍在 |
-| 完成判定 | `session.idle` 事件；兜底 `GET /session/status` 返回 `{ [sessionID]: {type:"idle"|"busy"|"retry"} }` |
+| 回复权限 | `POST /permission/{requestID}/reply` body `{"reply":"once"\|"always"\|"reject"}`（新接口，phase1 的“待实测”已确认）；旧接口 `POST /session/{id}/permissions/{permissionID}` body `{"response": …}` 仍在 |
+| 完成判定 | `session.idle` 事件；兜底 `GET /session/status` 返回 `{ [sessionID]: {type:"idle"\|"busy"\|"retry"} }` |
 
 ## 对 KernelEvent 映射和适配器的启示
 
@@ -106,7 +106,7 @@
 | `permission-request` | `permission.asked` | `requestId = properties.id`，`tool = properties.permission`，`input = properties.metadata`（bash 是 `{command}`）；`properties.tool.callID` 能关联到工具 part；`always` 数组是“总是允许”的模式，界面可以用 |
 | `usage` | `message.updated`，`info.role === "assistant"` 且 `info.time.completed` 存在 | `tokens.input` 不含缓存，输入要算 `input + cache.read + cache.write`；每轮一条，按会话累加 |
 | `done` | `session.idle` → `completed`；`session.error` → `error`（带 `error.name/data.message`）；`message.updated.info.finish === "length"` → `max-steps` 待确认 | abort 的情况本次没测 |
-| （新增建议）`status` | `session.status`，`status.type: "busy" | "retry" | "idle"` | **`KernelEvent` 现在没有地方表达“重试中”**，但网关断连重试是真实发生的，界面要显示 `attempt`、`message` 和 `next`（下次重试时间戳），建议加一个 `{ type: 'retry'; attempt; message; nextAt }` 事件 |
+| （新增建议）`status` | `session.status`，`status.type: "busy" \| "retry" \| "idle"` | **`KernelEvent` 现在没有地方表达“重试中”**，但网关断连重试是真实发生的，界面要显示 `attempt`、`message` 和 `next`（下次重试时间戳），建议加一个 `{ type: 'retry'; attempt; message; nextAt }` 事件 |
 
 其他：
 
