@@ -3,6 +3,7 @@ import { type MessageKey, t } from '../../app/i18n'
 import { useAppInfo, useSettingsLoadError } from '../../lib/kits'
 import { isMac } from '../../lib/shortcuts'
 import { cx } from '../../ui/cx'
+import { ModelSection } from './model/ModelSection'
 import { isSettingsSection, settingsSections } from './sections'
 
 // 设置页外框（原型 settings.html）：左侧分区导航，底部版本和配置目录；各分区的内容在 PR5、PR12～14、PR17 做。
@@ -57,12 +58,16 @@ export function SettingsPage() {
             <p className="m-0 mt-1 break-all font-mono text-[0.923rem]">{loadError.data}</p>
           </div>
         ) : null}
-        <div className="flex max-w-[720px] flex-col gap-1">
-          <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
-            {t(`settings.${section}` as MessageKey)}
-          </h2>
-          <p className="m-0 text-fg-muted">{t('settings.pending')}</p>
-        </div>
+        {section === 'model' ? (
+          <ModelSection />
+        ) : (
+          <div className="flex max-w-[720px] flex-col gap-1">
+            <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
+              {t(`settings.${section}` as MessageKey)}
+            </h2>
+            <p className="m-0 text-fg-muted">{t('settings.pending')}</p>
+          </div>
+        )}
       </section>
     </div>
   )

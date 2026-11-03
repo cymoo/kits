@@ -11,9 +11,13 @@ describe('contractEntries', () => {
       ['settings', 'get'],
       ['settings', 'update'],
       ['settings', 'loadError'],
+      ['gateway', 'test'],
+      ['kernel', 'status'],
+      ['kernel', 'openLogs'],
       ['secrets', 'set'],
       ['secrets', 'has'],
       ['secrets', 'remove'],
+      ['secrets', 'encrypted'],
     ])
   })
 

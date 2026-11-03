@@ -207,23 +207,25 @@ describe('generateOpencodeConfig', () => {
     expect(c.agent['kits-b'].prompt).toBe('你是 b')
   })
 
-  it('reports an empty gateway url and a missing key against the gateway', () => {
+  it('reports an empty gateway url against the gateway', () => {
     const result = generateOpencodeConfig(
       input({
         settings: parseSettings({
           gateways: [{ id: 'corp', models: [{ id: 'm' }] }],
           defaultModel: 'corp/m',
         }),
-        gatewayKeys: {},
       }),
     )
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.problems).toEqual([
-        { section: 'model', target: 'corp', message: '网关地址为空' },
-        { section: 'model', target: 'corp', message: '没有填 API Key' },
-      ])
-    }
+    expect(!result.ok && result.problems).toEqual([
+      { section: 'model', target: 'corp', message: '网关地址为空' },
+    ])
+  })
+
+  it('accepts a gateway without an api key and writes a placeholder', () => {
+    const result = ok(generateOpencodeConfig(input({ gatewayKeys: { backup: 'sk-backup' } })))
+    const provider = result.config.provider as Record<string, { options: { apiKey: string } }>
+    expect(provider.corp?.options.apiKey).toBe('kits-no-key')
+    expect(result.files.env.KITS_GW_CORP_KEY).toBeUndefined()
   })
 
   it('reports a default model that is not on an enabled gateway', () => {
