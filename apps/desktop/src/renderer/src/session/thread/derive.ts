@@ -264,10 +264,14 @@ export function deriveBlocks(
       })
     }
     blocks.push(...cards)
-    // 重试条：最后一个 part 是重试，说明还没恢复
-    const lastPart = parts.at(-1)
+    // 重试条：最近更新的 part 是重试，说明还没恢复。按更新时间看，不按 seq：
+    // 重试后接着写的正文复用原来的 part，seq 还在重试之前
+    const lastPart = parts.reduce<PartView | undefined>(
+      (a, p) => (!a || p.updatedAt >= a.updatedAt ? p : a),
+      undefined,
+    )
     const retrying = running && lastPart?.payload.type === 'retry'
-    if (retrying && lastPart.payload.type === 'retry') {
+    if (retrying && lastPart?.payload.type === 'retry') {
       const { attempt, message, nextAt } = lastPart.payload
       blocks.push({ kind: 'retry', id: lastPart.id, attempt, message, nextAt })
     }

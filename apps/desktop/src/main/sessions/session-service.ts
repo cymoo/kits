@@ -156,7 +156,9 @@ export class SessionService {
         createdAt: this.now(),
       })
     }
-    this.commit(input.id, change)
+    // 等内核回复期间这一轮可能已经结束、甚至排队的下一轮已经开始：决定照存，会话状态不再由它改
+    const current = this.running.get(input.id) === run && run.recorder.view.completedAt === null
+    this.commit(input.id, current ? change : { parts: change.parts })
   }
 
   // ask_user 的处理函数（接到 KitsToolHost）。内核传来的会话 id 可能是 kits 的，也可能是内核自己的（Mock 内核）
@@ -191,7 +193,8 @@ export class SessionService {
     // 不阻塞的提问：Agent 已经按假设往下做了，回答作为下一条消息发过去
     const part = this.deps.store.questionPart(input.id, input.questionId)
     if (part?.payload.type !== 'question') throw new Error('没有这个提问')
-    if (part.payload.blocking && part.status !== 'pending') throw new Error('这个提问已经过期了')
+    // 阻塞的提问只能在 Agent 还在等的时候回答（上面那个分支）；停止后卡片可能还没来得及变成过期
+    if (part.payload.blocking) throw new Error('这个提问已经过期了')
     const answered = run?.recorder.answer(input.questionId, answer)
     if (answered?.parts.length) this.commit(input.id, answered)
     else {
@@ -274,6 +277,8 @@ export class SessionService {
         e instanceof ConfigProblemsError
           ? `配置不完整：${e.problems.map((p) => p.message).join('；')}`
           : `内核没有启动：${e instanceof Error ? e.message : String(e)}`
+      // 内核起不来，排队的消息发了也一样失败；先清队列，推给界面的终态里就不带排队
+      this.queues.delete(session.id)
       this.apply(
         session.id,
         recorder,
@@ -281,8 +286,6 @@ export class SessionService {
           ? { type: 'done', reason: 'aborted' }
           : { type: 'done', reason: 'error', error: message },
       )
-      // 内核起不来，排队的消息发了也一样失败
-      this.queues.delete(session.id)
       this.running.delete(session.id)
       return
     }

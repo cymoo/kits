@@ -135,6 +135,34 @@ describe('SessionService', () => {
     expect(perm).toMatchObject({ status: 'reject', payload: { message: '先别跑测试' } })
   })
 
+  it('does not let a permission reply that lands after the turn ended change the session status', async () => {
+    const { service, waitFor, store, kernel } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    vi.spyOn(kernel, 'respondPermission').mockImplementation(async () => {
+      // 回复还在路上，这一轮被停掉了
+      await service.abort(s.id)
+      await waitFor(s.id, ['aborted'])
+    })
+    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'once' })
+    expect(store.session(s.id)?.status).toBe('aborted')
+  })
+
+  it('refuses to answer a blocking question once the turn has been stopped', async () => {
+    const { service, waitFor, store } = setup('question')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    const q = store.detail(s.id)?.parts.find((p) => p.type === 'question')
+    const questionId = q?.payload.type === 'question' ? q.payload.questionId : ''
+    await service.abort(s.id)
+    await expect(service.answerQuestion({ id: s.id, questionId, answer: '预发' })).rejects.toThrow(
+      '过期',
+    )
+    await waitFor(s.id, ['aborted'])
+    await new Promise((r) => setTimeout(r, 30))
+    expect(store.session(s.id)?.turns).toBe(1)
+  })
+
   it('waits on a blocking question and continues with the answer', async () => {
     const { service, waitFor, store } = setup('question')
     const s = await service.create(input)
@@ -280,6 +308,22 @@ describe('SessionService while the kernel is starting', () => {
     await waitFor(s.id, ['aborted'])
     expect(prompt).not.toHaveBeenCalled()
     expect(store.detail(s.id)?.messages[1]?.finishReason).toBe('aborted')
+  })
+})
+
+describe('SessionService when the kernel cannot start', () => {
+  it('drops queued follow-ups before pushing the failed turn', async () => {
+    let open = () => {}
+    const gate = new Promise<void>((r) => {
+      open = r
+    })
+    const { service, waitFor, pushed } = setup('broken', gate)
+    const s = await service.create(input)
+    await service.prompt(s.id, '顺便看下日志')
+    open()
+    await waitFor(s.id, ['error'])
+    const last = pushed.filter((p) => p.channel === 'session.changed').at(-1)?.payload
+    expect(last).not.toHaveProperty('queued')
   })
 })
 

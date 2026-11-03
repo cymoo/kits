@@ -228,6 +228,14 @@ describe('deriveBlocks cards', () => {
     expect(blocks.map((b) => b.kind)).toEqual(['user', 'retry'])
   })
 
+  it('drops the retry bar when an earlier text part keeps streaming after the retry', () => {
+    seq = 0
+    const text = part({ type: 'text', text: '接着' }, null, 9)
+    const retry = part({ type: 'retry', attempt: 1, message: 'reset', nextAt: 9 }, null, 5)
+    const blocks = deriveBlocks(detail([text, retry]))
+    expect(blocks.some((b) => b.kind === 'retry')).toBe(false)
+  })
+
   it('drops the retry bar once new content arrives', () => {
     seq = 0
     const blocks = deriveBlocks(
