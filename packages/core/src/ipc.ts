@@ -27,6 +27,8 @@ export interface AppInfo {
   node: string
   // 用户配置目录（~/.kits，可被 KITS_CONFIG_DIR 覆盖）和运行数据目录
   configDir: string
+  // 给人看的写法：家目录换成 ~（~/.kits/）
+  configDirLabel: string
   userDataDir: string
 }
 
