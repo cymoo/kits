@@ -211,6 +211,7 @@ export class TurnRecorder {
             cacheWrite: t.cacheWrite + event.cacheWriteTokens,
           },
           cost: this.message.cost + event.cost,
+          contextTokens: event.inputTokens,
         }
         return { parts: [], message: this.message }
       }

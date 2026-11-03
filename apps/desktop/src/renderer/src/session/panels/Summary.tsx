@@ -26,7 +26,7 @@ export function SummaryCard({
   const files = new Set(rounds.flatMap((r) => r.files.map((f) => f.path))).size
   const additions = rounds.reduce((n, r) => n + r.additions, 0)
   const deletions = rounds.reduce((n, r) => n + r.deletions, 0)
-  const failed = commands.filter((c) => c.state === 'failed').length
+  const failed = commands.filter((c) => c.state === 'failed' || c.state === 'interrupted').length
   const cells: { tab: PanelTab; label: string; value: string; note: ReactNode }[] = [
     {
       tab: 'changes',
@@ -55,7 +55,7 @@ export function SummaryCard({
     {
       tab: 'context',
       label: t('summary.usage'),
-      value: `${formatTokens(usage.input + usage.cacheRead)} / ${formatTokens(usage.output)}`,
+      value: `${formatTokens(usage.input)} / ${formatTokens(usage.output)}`,
       note: usage.cost ? `约 ¥${usage.cost.toFixed(2)}` : t('summary.usageNote'),
     },
   ]

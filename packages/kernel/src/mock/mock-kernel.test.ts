@@ -185,9 +185,15 @@ describe('MockKernel', () => {
     expect(retry?.type === 'retry' && retry.nextAt).toBeGreaterThanOrEqual(before)
   })
 
-  it('returns the scenario diff', async () => {
-    const { kernel } = await start({ scenario: 'done' })
-    expect((await kernel.diff())[0]?.path).toBe('src/points/redeem.py')
+  it('returns the scenario diff once per prompted turn, numbered like the kernel', async () => {
+    const { kernel, session } = await start({ scenario: 'done' })
+    expect(await kernel.diff(session)).toEqual([])
+    await collect(kernel, session)
+    await collect(kernel, session)
+    expect((await kernel.diff(session)).map((d) => [d.turn, d.path])).toEqual([
+      [1, 'src/points/redeem.py'],
+      [2, 'src/points/redeem.py'],
+    ])
   })
   it('routes permission replies to the right session when both wait on the same request id', async () => {
     const kernel = new MockKernel({ scenario: 'permission', speed: 0 })

@@ -98,8 +98,8 @@ export interface Command {
   turn: number
   command: string
   output: string
-  // running 在跑、waiting 等你确认、done / failed 结束
-  state: 'running' | 'waiting' | 'done' | 'failed'
+  // running 在跑、waiting 等你确认、done / failed 结束、interrupted 这一轮结束时还没跑完（停止、崩溃、退出）
+  state: 'running' | 'waiting' | 'done' | 'failed' | 'interrupted'
   exitCode?: number
   durationMs?: number
   // 自动允许 / 已允许 / 本会话允许 / 已拒绝 / 已过期
@@ -121,6 +121,7 @@ function cleanOutput(output: unknown): string {
 
 export function deriveCommands(detail: SessionDetail): Command[] {
   const parts = ordered(detail)
+  const finished = new Set(detail.messages.filter((m) => m.completedAt !== null).map((m) => m.id))
   const asked = new Map<string, PartView>()
   for (const { part } of parts) {
     if (part.payload.type === 'permission' && part.payload.callId)
@@ -136,7 +137,9 @@ export function deriveCommands(detail: SessionDetail): Command[] {
     const state = waiting
       ? 'waiting'
       : part.status === 'running'
-        ? 'running'
+        ? finished.has(part.messageId)
+          ? 'interrupted'
+          : 'running'
         : part.status === 'error' || (p.exitCode !== undefined && p.exitCode !== 0)
           ? 'failed'
           : 'done'
@@ -166,8 +169,9 @@ export function alwaysRules(detail: SessionDetail): string[] {
 }
 
 export interface Usage {
-  // 最近一次回复时上下文里的 token（输入 + 缓存读）
+  // 最近一次模型调用的输入 token，也就是现在上下文有多大
   context: number
+  // 整个会话累计；input 已经含缓存读写
   input: number
   output: number
   cacheRead: number
@@ -176,9 +180,9 @@ export interface Usage {
 
 export function deriveUsage(detail: SessionDetail): Usage {
   const replies = detail.messages.filter((m) => m.role === 'assistant')
-  const lastWithTokens = [...replies].reverse().find((m) => m.tokens.input > 0)
+  const last = [...replies].reverse().find((m) => m.contextTokens > 0)
   return {
-    context: lastWithTokens ? lastWithTokens.tokens.input + lastWithTokens.tokens.cacheRead : 0,
+    context: last?.contextTokens ?? 0,
     input: replies.reduce((n, m) => n + m.tokens.input, 0),
     output: replies.reduce((n, m) => n + m.tokens.output, 0),
     cacheRead: replies.reduce((n, m) => n + m.tokens.cacheRead, 0),

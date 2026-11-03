@@ -139,6 +139,7 @@ const zhCN = {
   'terminal.running': '运行中',
   'terminal.waiting': '等待确认',
   'terminal.failed': '失败',
+  'terminal.interrupted': '中断',
   'terminal.done': '完成',
   'terminal.rules': '本会话的允许规则',
   'terminal.noRules':

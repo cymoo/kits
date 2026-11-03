@@ -33,8 +33,11 @@ export interface MessageView {
   createdAt: number
   completedAt: number | null
   finishReason: string | null
+  // 整轮累计；input 已经含缓存读写
   tokens: { input: number; output: number; cacheRead: number; cacheWrite: number }
   cost: number
+  // 这一轮最后一次模型调用的输入 token，也就是现在上下文有多大
+  contextTokens: number
 }
 
 export type PartPayload =

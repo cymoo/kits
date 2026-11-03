@@ -49,6 +49,11 @@ export const messages = sqliteTable(
     tokensCacheRead: integer('tokens_cache_read').notNull().default(0),
     tokensCacheWrite: integer('tokens_cache_write').notNull().default(0),
     cost: real('cost').notNull().default(0),
+    // 助手消息：这一轮最后一次模型调用的输入 token（上下文条用；上面几项是整轮累计）
+    contextTokens: integer('context_tokens').notNull().default(0),
+    // 用户消息：它在内核会话里是第几条用户消息（发给内核时记下）。改动按这个对回本地轮次；
+    // 内核启动期间就停掉的轮次没发出去，这里为空
+    kernelTurn: integer('kernel_turn'),
   },
   (t) => [index('messages_session').on(t.sessionId, t.turn)],
 )

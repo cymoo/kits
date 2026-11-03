@@ -410,6 +410,22 @@ describe('SessionStore.markInterrupted with questions', () => {
   })
 })
 
+describe('SessionService diffs across turns', () => {
+  it('maps the kernel turns back to local turns when a turn was stopped before reaching the kernel', async () => {
+    const { service, waitFor, store } = setup('done', undefined, [0])
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    // 第 2 轮刚发就停了，还没发到内核
+    await service.prompt(s.id, '算了')
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+    await service.prompt(s.id, '再改一遍')
+    await vi.waitFor(() => expect(store.session(s.id)?.turns).toBe(3))
+    await waitFor(s.id, ['done'])
+    await vi.waitFor(() => expect(service.diffs(s.id).map((d) => d.turn)).toEqual([1, 3]))
+  })
+})
+
 describe('titleOf', () => {
   it('folds whitespace and cuts at 40 characters', () => {
     expect(titleOf('  修 一下\n bug ')).toBe('修 一下 bug')

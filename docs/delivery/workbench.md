@@ -28,11 +28,11 @@ phase1-implementation PR9（6.4 节的右侧面板和总结卡片）：会话页
   - 事件映射从 OpenCode 工具状态里取 `metadata.exit`（bash 的退出码，1.19.5 实测有）和 `time.start / end`。
   - `diff()` 给每个文件标上 `turn`（内核会话里第几条用户消息）。
   - Mock：工具步骤可以带退出码和耗时；`done` 场景加一条跑测试的命令。
-- 数据库：新表 `diffs`（会话、轮次、路径、状态、增删行数、patch），迁移 `drizzle/20261103195203_overrated_goliath`。旧库直接迁移。
-- `apps/desktop/src/main/sessions/session-service.ts`：一轮结束后隔 0.3 / 1.5 / 4 秒去内核取改动（OpenCode 在一轮结束后才异步算出来），变了才整份替换落库并推给界面；内核的轮次对齐到当前轮次。
+- 数据库：新表 `diffs`（会话、轮次、路径、状态、增删行数、patch），迁移 `drizzle/20261103195203_overrated_goliath`；`messages` 加 `context_tokens`（这一轮最后一次模型调用的输入 token）和 `kernel_turn`（用户消息在内核会话里是第几条），迁移 `drizzle/20261103202118_melted_the_hunter`。旧库直接迁移。
+- `apps/desktop/src/main/sessions/session-service.ts`：一轮结束后隔 0.3 / 1.5 / 4 秒去内核取改动（OpenCode 在一轮结束后才异步算出来），变了才整份替换落库并推给界面。每轮真正发给内核时记下 `kernel_turn`，内核的轮次按它换回本地轮次（内核启动期间就停掉的轮次不占号）。
 - `apps/desktop/src/renderer/src/`：
   - `session/panels/patch.ts`：unified diff → 带行号的行；并排时一段删除和紧跟的新增左右配对。
-  - `session/panels/derive.ts`：改动按轮分组（最新在上，进行中的一轮先按编辑步骤列文件）、终端命令（去掉 OpenCode 附给模型看的 `<shell_metadata>`）、本会话允许规则、上下文用量。
+  - `session/panels/derive.ts`：改动按轮分组（最新在上，进行中的一轮先按编辑步骤列文件）、终端命令（去掉 OpenCode 附给模型看的 `<shell_metadata>`）、本会话允许规则、上下文用量（上下文条用最后一次模型调用的输入；累计输入已经含缓存，命中率 = 缓存读 / 输入）；这一轮已经结束但没收到结束事件的命令显示“中断”，不算进“都成功了”。“在编辑器打开”对工作目录外的绝对路径直接用原路径。
   - `session/panels/Workbench.tsx`、`Summary.tsx`：三个页签和总结卡片，样子照原型。
   - `pages/session/SessionPage.tsx`：对话 + 面板两栏，窄栏 / 放大 / 收起三种（`lib/ui-store.ts` 的 `panel`，记在 localStorage）；快捷键 ⌘\ 放大 / 缩回（`lib/shortcuts.ts` 的 `widePanel`）。
   - `index.css`：面板底色令牌 `--k-bg-panel`。
@@ -50,6 +50,6 @@ phase1-implementation PR9（6.4 节的右侧面板和总结卡片）：会话页
 ### 已知问题
 
 - 产出页签和总结卡片的“产出”格在 PR10；现在第三格是用量。
-- 内核的轮次按“最后一轮对齐当前轮次”换算：如果中间有在内核启动期间就停掉的轮次（内核里没有那条消息），更早的轮次编号会差一。
+- 这个版本之前建的会话没有 `kernel_turn`，改动按内核的编号直接当本地轮次。
 - 本会话允许的规则只能看，不能撤销（OpenCode 没有撤销会话规则的接口）。
 - diff 没有语法高亮，也没有“只看这一轮 / 合并所有轮”的切换。

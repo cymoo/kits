@@ -47,6 +47,9 @@ interface Running {
   questions: Map<string, (result: AskUserResult) => void>
   // 内核还没起来、内核会话还没建好时点了停止
   cancelled: boolean
+  // 这一轮的用户消息和轮次（改动对回本地轮次用）
+  userMessageId: string
+  turn: number
 }
 
 type PermissionReply = 'once' | 'always' | 'reject'
@@ -251,6 +254,7 @@ export class SessionService {
       finishReason: null,
       tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       cost: 0,
+      contextTokens: 0,
     }
     const assistant: MessageView = {
       ...user,
@@ -270,6 +274,8 @@ export class SessionService {
       recorder,
       questions: new Map(),
       cancelled: false,
+      userMessageId: user.id,
+      turn,
     }
     this.running.set(session.id, run)
     void this.runTurn(session, text, run)
@@ -330,6 +336,8 @@ export class SessionService {
         this.apply(session.id, recorder, { type: 'done', reason: 'aborted' })
         return
       }
+      // 真要发给内核了：记下这是内核会话里第几条用户消息
+      store.assignKernelTurn(session.id, run.userMessageId)
       for await (const event of kernel.prompt(ks, { text })) {
         // kits 工具的调用登记到关联表，工具服务收到调用时按参数对到这个会话
         if (event.type === 'tool-start' && event.name.startsWith('kits_')) {
@@ -347,27 +355,30 @@ export class SessionService {
       this.flush()
       for (const resolve of run.questions.values()) resolve({ answered: false })
       this.running.delete(session.id)
-      if (run.ks) void this.refreshDiffs(session.id, kernel, run.ks)
+      if (run.ks) void this.refreshDiffs(session.id, kernel, run.ks, run.turn)
       kernels.release(session.kernel)
       this.sendQueued(session.id)
     }
   }
 
   // 内核在一轮结束后才把这一轮的改动算出来（OpenCode 写在用户消息的 summary 上），隔几次去取。
-  // 内核按自己的用户消息编号，最后一轮对齐到当前轮次（启动期间停掉的轮次在内核里没有消息）
-  private async refreshDiffs(id: string, kernel: AgentKernel, ks: KernelSession): Promise<void> {
+  // 内核按自己的用户消息编号，用发出时记下的对应关系换回本地轮次；内核没给编号（Mock）就算在刚结束的这一轮
+  private async refreshDiffs(
+    id: string,
+    kernel: AgentKernel,
+    ks: KernelSession,
+    turn: number,
+  ): Promise<void> {
     let last = JSON.stringify(this.deps.store.diffs(id))
     for (const delay of this.diffDelays) {
       await new Promise((r) => setTimeout(r, delay))
       try {
         const found = await kernel.diff(ks)
-        const turns = this.deps.store.session(id)?.turns ?? 0
-        const latest = Math.max(0, ...found.map((d) => d.turn ?? 0))
-        const offset = latest > 0 ? turns - latest : 0
+        const turns = this.deps.store.kernelTurns(id)
         const files: FileDiffView[] = found
           .filter((d) => d.path)
           .map((d) => ({
-            turn: d.turn ? d.turn + offset : turns,
+            turn: d.turn ? (turns.get(d.turn) ?? d.turn) : turn,
             path: d.path,
             status: d.status,
             additions: d.additions,

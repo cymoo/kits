@@ -57,6 +57,7 @@ export function toMessage(r: MessageRecord): MessageView {
       cacheWrite: r.tokensCacheWrite,
     },
     cost: r.cost,
+    contextTokens: r.contextTokens,
   }
 }
 
@@ -139,6 +140,7 @@ export class SessionStore {
       tokensCacheRead: m.tokens.cacheRead,
       tokensCacheWrite: m.tokens.cacheWrite,
       cost: m.cost,
+      contextTokens: m.contextTokens,
     }
     this.db
       .insert(messages)
@@ -160,6 +162,28 @@ export class SessionStore {
       updatedAt: new Date(p.updatedAt),
     }
     this.db.insert(parts).values(values).onConflictDoUpdate({ target: parts.id, set: values }).run()
+  }
+
+  // 发给内核前记下这是内核会话里的第几条用户消息
+  assignKernelTurn(sessionId: string, messageId: string): number {
+    const rows = this.db
+      .select({ k: messages.kernelTurn })
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .all()
+    const next = rows.reduce((n, r) => Math.max(n, r.k ?? 0), 0) + 1
+    this.db.update(messages).set({ kernelTurn: next }).where(eq(messages.id, messageId)).run()
+    return next
+  }
+
+  // 内核的第几条用户消息 → 本地第几轮
+  kernelTurns(sessionId: string): Map<number, number> {
+    const rows = this.db
+      .select({ k: messages.kernelTurn, turn: messages.turn })
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .all()
+    return new Map(rows.flatMap((r) => (r.k ? [[r.k, r.turn] as [number, number]] : [])))
   }
 
   diffs(sessionId: string): FileDiffView[] {

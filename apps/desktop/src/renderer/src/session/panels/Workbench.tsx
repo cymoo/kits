@@ -248,7 +248,9 @@ function DiffView({
 }) {
   const lines = useMemo(() => parsePatch(file.patch), [file.patch])
   const sep = workdir.includes('\\') && !workdir.includes('/') ? '\\' : '/'
-  const full = `${workdir.replace(/[\\/]+$/, '')}${sep}${file.path}`
+  // 工作目录外的文件保留的是绝对路径，直接用
+  const absolute = /^(\/|[A-Za-z]:[\\/]|\\\\)/.test(file.path)
+  const full = absolute ? file.path : `${workdir.replace(/[\\/]+$/, '')}${sep}${file.path}`
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="diff">
       <div className="sticky top-0 z-[1] flex items-center gap-2 border-line-soft border-b bg-muted px-3 py-2 text-[0.923rem] text-fg-muted">
@@ -356,13 +358,15 @@ function CommandCard({ command: c }: { command: Command }) {
   const status =
     c.state === 'waiting'
       ? t('terminal.waiting')
-      : c.state === 'running'
-        ? t('terminal.running')
-        : c.exitCode !== undefined
-          ? t('terminal.exit', { code: c.exitCode })
-          : c.state === 'failed'
-            ? t('terminal.failed')
-            : t('terminal.done')
+      : c.state === 'interrupted'
+        ? t('terminal.interrupted')
+        : c.state === 'running'
+          ? t('terminal.running')
+          : c.exitCode !== undefined
+            ? t('terminal.exit', { code: c.exitCode })
+            : c.state === 'failed'
+              ? t('terminal.failed')
+              : t('terminal.done')
   const meta = [c.durationMs !== undefined ? commandTime(c.durationMs) : null, c.how]
     .filter(Boolean)
     .join(' · ')
@@ -384,7 +388,7 @@ function CommandCard({ command: c }: { command: Command }) {
             'shrink-0 font-medium',
             c.state === 'waiting' || c.state === 'running'
               ? 'text-warn'
-              : c.state === 'failed'
+              : c.state === 'failed' || c.state === 'interrupted'
                 ? 'text-danger'
                 : 'text-ok',
           )}
@@ -409,10 +413,8 @@ function ContextPanel({ detail, usage, contextWindow }: WorkbenchProps) {
   const { session } = detail
   const pct = contextWindow ? Math.min(100, (usage.context / contextWindow) * 100) : 0
   const near = pct >= 85
-  const cachePct =
-    usage.input + usage.cacheRead
-      ? Math.round((usage.cacheRead / (usage.input + usage.cacheRead)) * 100)
-      : 0
+  // input 已经含缓存读写
+  const cachePct = usage.input ? Math.round((usage.cacheRead / usage.input) * 100) : 0
   const model = session.model.slice(session.model.indexOf('/') + 1)
   const rows: [string, string][] = [
     [t('context.agent'), session.agent],
@@ -433,7 +435,7 @@ function ContextPanel({ detail, usage, contextWindow }: WorkbenchProps) {
       t('context.tokens'),
       [
         t('context.tokensValue', {
-          input: formatTokens(usage.input + usage.cacheRead),
+          input: formatTokens(usage.input),
           output: formatTokens(usage.output),
         }),
         usage.cacheRead ? t('context.cache', { pct: cachePct }) : null,

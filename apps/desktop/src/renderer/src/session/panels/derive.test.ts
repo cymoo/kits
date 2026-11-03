@@ -27,6 +27,7 @@ const msg = (id: string, turn: number, extra: Partial<MessageView> = {}): Messag
   finishReason: 'completed',
   tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   cost: 0,
+  contextTokens: 0,
   ...extra,
 })
 let seq = 0
@@ -197,24 +198,31 @@ describe('deriveCommands', () => {
 })
 
 describe('deriveUsage', () => {
-  it('takes the context size from the latest reply and adds up the totals', () => {
+  it('takes the context size from the last model call and adds up the totals', () => {
+    const tokens = (input: number, output: number, cacheRead: number) => ({
+      input,
+      output,
+      cacheRead,
+      cacheWrite: 0,
+    })
     const usage = deriveUsage(
       detail(
         [
-          msg('a1', 1, {
-            tokens: { input: 20_000, output: 300, cacheRead: 0, cacheWrite: 0 },
-            cost: 0.1,
-          }),
-          msg('a2', 2, {
-            tokens: { input: 5_000, output: 200, cacheRead: 30_000, cacheWrite: 0 },
-            cost: 0.2,
-          }),
+          // 一轮里两次调用，输入累计 90K；最后一次 50K 才是现在的上下文
+          msg('a1', 1, { tokens: tokens(90_000, 300, 60_000), contextTokens: 50_000, cost: 0.1 }),
+          msg('a2', 2, { completedAt: null, contextTokens: 0 }),
         ],
         [],
       ),
     )
-    expect(usage).toMatchObject({ context: 35_000, input: 25_000, output: 500, cacheRead: 30_000 })
-    expect(usage.cost).toBeCloseTo(0.3)
+    expect(usage).toMatchObject({ context: 50_000, input: 90_000, cacheRead: 60_000 })
+    expect(usage.cost).toBeCloseTo(0.1)
+  })
+
+  it('marks a command still running when its turn ended as interrupted', () => {
+    seq = 0
+    const t = bash('a1', 'sleep 100', {}, 'running')
+    expect(deriveCommands(detail([msg('a1', 1)], [t]))[0]?.state).toBe('interrupted')
   })
 
   it('formats token counts the way the prototype does', () => {

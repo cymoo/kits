@@ -27,6 +27,7 @@ const message: MessageView = {
   finishReason: 'completed',
   tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   cost: 0,
+  contextTokens: 0,
 }
 const part = (text: string, updatedAt: number): PartView => ({
   id: 'p1',
