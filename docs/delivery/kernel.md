@@ -34,7 +34,7 @@
 
 ## 2026-11-04　统一配置模型和 opencode.json 生成
 
-> 日期：2026-11-04　PR：见本分支 `feat/kernel-config`　作者：Claude Code
+> 日期：2026-11-04　PR：#9　作者：Claude Code
 
 ### 原始需求
 
