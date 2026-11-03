@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { loadAgentsDir, loadSkillsDir } from './files'
-import { parseFrontmatter } from './frontmatter'
+import { parseFrontmatter, stringifyFrontmatter } from './frontmatter'
 import { resolveSkills } from './skill'
 
 let root: string
@@ -90,6 +90,12 @@ describe('parseFrontmatter', () => {
       data: { name: 'a' },
       body: 'body',
     })
+  })
+
+  it('reads an empty frontmatter written by stringifyFrontmatter', () => {
+    const text = stringifyFrontmatter({}, '正文')
+    expect(text).toBe('---\n---\n\n正文')
+    expect(parseFrontmatter(text)).toEqual({ data: {}, body: '正文' })
   })
 
   it('rejects a frontmatter that is a list', () => {

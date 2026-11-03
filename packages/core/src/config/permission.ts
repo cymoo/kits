@@ -20,13 +20,13 @@ export type PermissionSet = z.infer<typeof permissionSetSchema>
 export const permissionModeSchema = z.enum(['ask', 'read', 'auto'])
 export type PermissionMode = z.infer<typeof permissionModeSchema>
 
-// 只读命令白名单：这些命令开头的 bash 不用确认
-export const readonlyCommands = [
+// 只读命令白名单：这些写法的 bash 不用确认。只列确认过只读的调用形式：
+// git branch 只放行列出分支的几种写法（-D、-m 会改分支），其他命令带任意参数
+const READONLY_WITH_ARGS = [
   'git status',
   'git diff',
   'git log',
   'git show',
-  'git branch',
   'ls',
   'cat',
   'head',
@@ -38,15 +38,34 @@ export const readonlyCommands = [
   'find',
   'tree',
   'echo',
-] as const
+]
+export const readonlyCommandPatterns: string[] = [
+  ...READONLY_WITH_ARGS.flatMap((cmd) => [cmd, `${cmd} *`]),
+  'git branch',
+  'git branch --list*',
+  'git branch -a',
+  'git branch -r',
+  'git branch -v',
+  'git branch -vv',
+  'git branch --show-current',
+]
 
-// 白名单命令也能写文件或执行别的命令，这些写法回到 bash 的兜底档位
+// 白名单命令也能写文件或执行别的程序，这些写法回到 bash 的兜底档位（排在白名单后面，后写的优先）：
+// 重定向、命令替换、git 的 --output 和外部 diff、find 的执行和写文件选项、rg 的预处理程序、tree 的输出文件
 const unsafeCommandPatterns = [
   '*>*',
+  '*$(*',
+  '*`*',
+  'git *--output*',
+  'git *--ext-diff*',
   'find *-exec*',
   'find *-execdir*',
   'find *-delete*',
   'find *-ok*',
+  'find *-fprint*',
+  'find *-fls*',
+  'rg *--pre*',
+  'tree *-o *',
 ]
 
 // MCP 工具名像写入操作的，默认询问
@@ -55,6 +74,23 @@ const WRITE_PREFIXES = ['create_', 'update_', 'delete_', 'push_', 'send_']
 
 export function isWriteTool(tool: string): boolean {
   return WRITE_TOOL.test(tool)
+}
+
+// 和内核一样的通配：`*` 匹配任意字符（含空），其余按字面
+export function matchPattern(pattern: string, input: string): boolean {
+  const re = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
+  return new RegExp(`^${re}$`, 's').test(input)
+}
+
+// 一个工具对某个输入的最终档位：按模式顺序找最后一条匹配的
+export function levelFor(
+  value: PermissionValue | undefined,
+  input: string,
+): PermissionLevel | undefined {
+  if (value === undefined || typeof value === 'string') return value
+  let level: PermissionLevel | undefined
+  for (const [pattern, l] of Object.entries(value)) if (matchPattern(pattern, input)) level = l
+  return level
 }
 
 export function mcpToolKey(server: string, tool: string): string {
@@ -67,10 +103,7 @@ export const KITS_MCP_SERVER = 'kits'
 function bashRules(fallback: PermissionLevel): Record<string, PermissionLevel> {
   const rules: Record<string, PermissionLevel> = { '*': fallback }
   if (fallback === 'allow') return rules
-  for (const cmd of readonlyCommands) {
-    rules[cmd] = 'allow'
-    rules[`${cmd} *`] = 'allow'
-  }
+  for (const pattern of readonlyCommandPatterns) rules[pattern] = 'allow'
   for (const pattern of unsafeCommandPatterns) rules[pattern] = fallback
   return rules
 }

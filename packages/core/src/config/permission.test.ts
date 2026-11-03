@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { defaultPermissions, isWriteTool, resolvePermissions } from './permission'
+import {
+  defaultPermissions,
+  isWriteTool,
+  levelFor,
+  matchPattern,
+  resolvePermissions,
+} from './permission'
 
 const mcp = { servers: ['wiki'], rules: { 'wiki.get_page': 'allow' as const } }
 
@@ -11,6 +17,27 @@ describe('defaultPermissions', () => {
       'git status *': 'allow',
       'ls *': 'allow',
     })
+  })
+
+  it('only allows the listing forms of git branch', () => {
+    const bash = defaultPermissions.bash as Record<string, string>
+    expect(bash['git branch']).toBe('allow')
+    expect(bash['git branch -a']).toBe('allow')
+    expect(bash['git branch *']).toBeUndefined()
+  })
+
+  it('sends git --output, command substitution and rg --pre back to the fallback level', () => {
+    const bash = defaultPermissions.bash as Record<string, string>
+    for (const p of [
+      'git *--output*',
+      'git *--ext-diff*',
+      '*$(*',
+      '*`*',
+      'rg *--pre*',
+      'tree *-o *',
+    ]) {
+      expect(bash[p]).toBe('ask')
+    }
   })
 
   it('sends redirects and find -delete back to the fallback level', () => {
@@ -105,5 +132,24 @@ describe('resolvePermissions', () => {
   it('always allows the kits tools', () => {
     const result = resolvePermissions({ mode: 'read', agent: {} })
     expect(result['kits_*']).toBe('allow')
+  })
+})
+
+describe('matchPattern', () => {
+  it('treats * as any run of characters and everything else literally', () => {
+    expect(matchPattern('git status *', 'git status -s')).toBe(true)
+    expect(matchPattern('*$(*', 'echo $(rm -rf x)')).toBe(true)
+    expect(matchPattern('ls *', 'lsof')).toBe(false)
+    expect(matchPattern('a.b', 'axb')).toBe(false)
+  })
+})
+
+describe('levelFor', () => {
+  it('uses the last matching pattern', () => {
+    expect(
+      levelFor({ '*': 'ask', 'git *': 'allow', 'git *--output*': 'ask' }, 'git diff --output=x'),
+    ).toBe('ask')
+    expect(levelFor('deny', 'anything')).toBe('deny')
+    expect(levelFor({ a: 'allow' }, 'b')).toBeUndefined()
   })
 })

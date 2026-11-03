@@ -5,8 +5,10 @@ import {
   findModel,
   findVars,
   KITS_MCP_SERVER,
+  levelFor,
   type McpFile,
   type McpServerConfig,
+  type PermissionLevel,
   type PermissionMode,
   type PermissionSet,
   resolvePermissions,
@@ -113,9 +115,11 @@ export function agentPermissions(
       result[key] = 'deny'
     }
   }
+  // 技能允许列表和已有的 skill 权限取交集：列表外的拒绝，列表内的保留原来的档位（deny、ask 照旧）
   if (agent?.skills && result.skill !== 'deny') {
-    const rules: Record<string, 'allow' | 'deny'> = { '*': 'deny' }
-    for (const name of agent.skills) rules[name] = 'allow'
+    const current = result.skill
+    const rules: Record<string, PermissionLevel> = { '*': 'deny' }
+    for (const name of agent.skills) rules[name] = levelFor(current, name) ?? 'allow'
     delete result.skill
     result.skill = rules
   }
@@ -197,8 +201,21 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
 
   // MCP：`${VAR}` 换成 `{env:KITS_MCP_VAR}`，值进子进程环境变量
   const mcp: Record<string, unknown> = {}
+  // 变量名转成环境变量名时会转大写，${TOKEN} 和 ${token} 会撞到同一个 KITS_MCP_TOKEN
+  const varOwners = new Map<string, string>()
   const toEnvRef = (server: string, value: string): string => {
     for (const name of findVars(value)) {
+      const target = envName('KITS_MCP_', name)
+      const owner = varOwners.get(target)
+      if (owner !== undefined && owner !== name) {
+        problems.push({
+          section: 'mcp',
+          target: server,
+          message: `变量 ${name} 和 ${owner} 只差大小写或符号，换一个名字`,
+        })
+        continue
+      }
+      varOwners.set(target, name)
       const { value: resolved, missing } = expandVars(`\${${name}}`, input.lookupVar)
       if (missing.length > 0) {
         // 停用的服务缺变量不拦启动

@@ -247,6 +247,19 @@ describe('generateOpencodeConfig', () => {
     ])
   })
 
+  it('reports mcp variables that collide after turning into env names', () => {
+    const mcp = parseMcpFile({
+      mcpServers: {
+        a: { url: 'https://a.local/mcp', headers: { A: '${TOKEN}' } },
+        b: { url: 'https://b.local/mcp', headers: { B: '${token}' } },
+      },
+    })
+    const result = generateOpencodeConfig(input({ mcp, lookupVar: (n) => `value-of-${n}` }))
+    expect(!result.ok && result.problems).toEqual([
+      { section: 'mcp', target: 'b', message: '变量 token 和 TOKEN 只差大小写或符号，换一个名字' },
+    ])
+  })
+
   it('reserves the kits mcp server name', () => {
     const mcp = parseMcpFile({ mcpServers: { kits: { url: 'https://a.local/mcp' } } })
     const result = generateOpencodeConfig(input({ mcp }))
@@ -271,6 +284,25 @@ describe('agentPermissions', () => {
     for (const mode of ['ask', 'read', 'auto'] as const) {
       expect(agentPermissions(a, mode, mcp).skill).toEqual({ '*': 'deny', review: 'allow' })
     }
+  })
+
+  it('keeps a per-skill deny or ask inside the skill list', () => {
+    const a = agent({
+      name: 'a',
+      skills: ['review', 'doc'],
+      permissions: { skill: { review: 'deny', doc: 'ask' } },
+    })
+    expect(agentPermissions(a, 'ask', mcp).skill).toEqual({
+      '*': 'deny',
+      review: 'deny',
+      doc: 'ask',
+    })
+    // read 模式下 ask 不生效，回到默认的 allow；deny 永远生效
+    expect(agentPermissions(a, 'read', mcp).skill).toEqual({
+      '*': 'deny',
+      review: 'deny',
+      doc: 'allow',
+    })
   })
 
   it('keeps an agent skill deny over the skill list', () => {

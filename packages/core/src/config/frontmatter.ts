@@ -8,7 +8,8 @@ export interface Frontmatter {
   body: string
 }
 
-const FENCE = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/
+// 两条 `---` 可以紧挨着（空 frontmatter）
+const FENCE = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/
 
 export function parseFrontmatter(text: string): Frontmatter {
   const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text

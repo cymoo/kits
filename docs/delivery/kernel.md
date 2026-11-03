@@ -59,8 +59,8 @@
   - `settings.ts`、`gateway.ts`：`settings.json` 的完整 schema（3.1 节），字段全有默认值，空文件能解析；多了 `skillsDisabled`（3.4 节）和 `updateUrl`（PR20 用）。`parseModelRef` 只按第一个 `/` 拆，模型 id 里可以带 `/`。
   - `agent.ts`：Agent Markdown 的解析和序列化。`disabledTools` 换成允许列表 `tools`；`tools`、`skills`、`mcp` 可以写 YAML 数组、逗号分隔的一行或 `all`；`permissions` 是 `工具 → 档位` 或 `工具 → {模式: 档位}`。`mergeBySource` 做三级来源合并，记下被覆盖的来源（界面标“同名，项目的优先”）。
   - `skill.ts`、`memory.ts`、`files.ts`：SKILL.md 解析、技能三级合并和启停；`memory.md` 一行一条的读、追加、改、删（非列表行原样保留）；从目录加载 Agent 和技能，坏文件收进 `errors` 不拖垮列表，Agent 的 `output` 文件在加载时读进来并做 JSON Schema 结构检查。
-  - `permission.ts`：`resolvePermissions` 按 3.6 节三层叠加。bash 默认带只读白名单（`git status|diff|log|show|branch`、`ls`、`cat` 等），白名单命令里带 `>` 重定向或 `find -exec/-delete` 的回到兜底档位；MCP 写入类（`create_ / update_ / delete_ / push_ / send_` 开头）默认询问，用户在 `mcp.json` 里设过的照用户的；`kits_*` 永远允许。输出的键顺序有意义（内核按顺序匹配，后写的优先）。
-  - `mcp.ts`：`mcp.json` 的 `enabled`、`permissions` 两个 kits 字段；`${VAR}` 查找和替换。
+  - `permission.ts`：`resolvePermissions` 按 3.6 节三层叠加。bash 默认带只读白名单（`git status|diff|log|show` 带任意参数，`git branch` 只放行 `--list`、`-a`、`-r`、`-v` 等列出分支的写法，`ls`、`cat` 等），白名单命令里带重定向 `>`、命令替换 `$(…)` / 反引号、`git --output` / `--ext-diff`、`find -exec/-delete/-fprint`、`rg --pre`、`tree -o` 的回到兜底档位；Agent 的技能允许列表和已有的 skill 权限取交集，列表里单独设成 deny / ask 的照旧；MCP 写入类（`create_ / update_ / delete_ / push_ / send_` 开头）默认询问，用户在 `mcp.json` 里设过的照用户的；`kits_*` 永远允许。输出的键顺序有意义（内核按顺序匹配，后写的优先）。
+  - `mcp.ts`：`mcp.json` 的 `enabled`、`permissions` 两个 kits 字段；`${VAR}` 查找和替换。转成环境变量名后撞名的变量（如 `${TOKEN}` 和 `${token}`）报错，不静默覆盖。
 - `packages/kernel/src/generate/`：`generateOpencodeConfig` 纯函数，返回要写的文件和子进程环境变量，或者一组 `{ section, target, message }` 错误（`section` 是设置页分区 `model / mcp / agent`）。`agentPermissions(agent, mode, mcp)` 单独导出，PR2 建会话时按会话模式算权限也用它。`writeGeneratedFiles` 先写临时文件再改名。
 - `packages/kernel`：`KernelConfig.gateway` 换成 `env`（多网关时每个网关一个 key 环境变量）；`opencodeDialect.writeConfig` 实现；`spawnEnv` 多关两样联网：`OPENCODE_DISABLE_MODELS_FETCH`（models.dev）、`OPENCODE_DISABLE_LSP_DOWNLOAD`。
 - 和方案不一样的地方（已改回 [phase1-implementation.md](../plans/phase1-implementation.md) 4.1 节的表）：
