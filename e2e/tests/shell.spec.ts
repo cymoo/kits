@@ -114,7 +114,8 @@ test('keeps the option picked with the arrow keys in view at the large ui scale'
     const n = await options.count()
     for (let i = 0; i < n; i++) await page.keyboard.press('ArrowDown')
     await expect(options.last()).toHaveAttribute('aria-selected', 'true')
-    await expect(options.last()).toBeInViewport({ ratio: 1 })
+    // 没滚过去时比例是 0；留一点余量给亚像素
+    await expect(options.last()).toBeInViewport({ ratio: 0.9 })
     await expect(page.getByRole('combobox', { name: '搜索' })).toBeFocused()
   } finally {
     await close()

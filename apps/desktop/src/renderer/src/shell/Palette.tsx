@@ -143,7 +143,7 @@ export function Palette() {
               ref={i === active ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
               onClick={a.run}
               className={cx(
-                'flex min-h-9 w-full cursor-pointer items-center gap-3 rounded-[8px] px-2.5 py-[5px] text-left',
+                'flex min-h-9 w-full scroll-my-1.5 cursor-pointer items-center gap-3 rounded-[8px] px-2.5 py-[5px] text-left',
                 i === active && 'bg-accent-bg',
               )}
             >
