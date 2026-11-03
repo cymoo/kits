@@ -55,7 +55,25 @@ export class ToolCallRegistry {
     return `${tool}\u0000${stableStringify(normalizeKitsToolInput(tool, input))}`
   }
 
+  // 删掉所有过期的登记：调用等超时之后 tool-start 才到的那种登记，参数不会再出现，不清会一直留着
+  private prune(): void {
+    const now = this.now()
+    for (const [key, list] of this.entries) {
+      const fresh = list.filter((e) => now - e.at <= this.ttl)
+      if (fresh.length > 0) this.entries.set(key, fresh)
+      else this.entries.delete(key)
+    }
+  }
+
+  // 还留着的登记数（测试用）
+  get size(): number {
+    let n = 0
+    for (const list of this.entries.values()) n += list.length
+    return n
+  }
+
   register(sessionId: string, tool: string, input: unknown): void {
+    this.prune()
     const key = this.key(tool, input)
     const waiting = this.waiters.get(key)
     const waiter = waiting?.shift()
