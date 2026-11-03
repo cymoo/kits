@@ -105,3 +105,28 @@ test('continues the same session with a follow-up message', async () => {
     await close()
   }
 })
+
+test('starts another session right after one finishes', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'done',
+    KITS_MOCK_SPEED: '0.2',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    for (const task of ['第一个任务', '第二个任务']) {
+      await page.keyboard.press(`${mod}+N`)
+      const box = page.getByLabel('给 Agent 发消息')
+      await box.fill(task)
+      await box.press('Enter')
+      await expect(page.getByTestId('user-message')).toHaveText(task)
+      await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    }
+    // 记最近目录只改了设置里的 workdirs，内核不会因此重启
+    const status = await page.evaluate(() => window.kits.kernel.status())
+    expect(status.find((k) => k.id === 'opencode')?.state).toBe('running')
+  } finally {
+    await close()
+  }
+})

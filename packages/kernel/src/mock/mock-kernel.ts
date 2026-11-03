@@ -33,11 +33,15 @@ export interface MockKernelOptions {
 
 const CHUNK = 12
 
+// 会话 id 跨实例唯一：KernelManager 重启后会建新的 MockKernel，旧会话可能接着在新实例上跑
+let nextSession = 0
+
 export class MockKernel implements AgentKernel {
   readonly id = 'opencode' as const
   readonly capabilities = { subagents: false, revert: false }
   private readonly scenario: MockScenario
-  private seq = 0
+  // dispose 之后所有等待立刻结束，还没开始的等待也不再挂起
+  private disposed = false
   private permissionWaiters = new Map<string, (reply: PermissionReply) => void>()
   // 回复可能在事件被消费方拿到、生成器还没往下走时就到了，先记下
   private earlyReplies = new Map<string, PermissionReply>()
@@ -60,9 +64,9 @@ export class MockKernel implements AgentKernel {
   }
 
   async createSession(opts: CreateSessionOptions): Promise<KernelSession> {
-    this.seq += 1
+    nextSession += 1
     return {
-      id: `ses_mock_${this.seq}`,
+      id: `ses_mock_${nextSession}`,
       workdir: opts.workdir,
       agent: opts.agent,
       ...(opts.model ? { model: opts.model } : {}),
@@ -72,7 +76,7 @@ export class MockKernel implements AgentKernel {
   // 等一段时间；中途 abort 了返回 false
   private wait(sessionId: string, ms: number): Promise<boolean> {
     const scaled = ms * (this.options.speed ?? 1)
-    if (this.aborted.has(sessionId)) return Promise.resolve(false)
+    if (this.aborted.has(sessionId) || this.disposed) return Promise.resolve(false)
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         this.abortWaiters.delete(sessionId)
@@ -120,13 +124,14 @@ export class MockKernel implements AgentKernel {
           const key = `${session.id}:${p.requestId}`
           const early = self.earlyReplies.get(key)
           self.earlyReplies.delete(key)
-          const reply = self.aborted.has(session.id)
-            ? 'aborted'
-            : (early ??
-              (await new Promise<PermissionReply | 'aborted'>((resolve) => {
-                self.permissionWaiters.set(key, resolve)
-                self.abortWaiters.set(session.id, () => resolve('aborted'))
-              })))
+          const reply =
+            self.aborted.has(session.id) || self.disposed
+              ? 'aborted'
+              : (early ??
+                (await new Promise<PermissionReply | 'aborted'>((resolve) => {
+                  self.permissionWaiters.set(key, resolve)
+                  self.abortWaiters.set(session.id, () => resolve('aborted'))
+                })))
           self.permissionWaiters.delete(key)
           if (reply === 'aborted') return 'aborted'
           const branch = yield* run(reply === 'reject' ? step.reject : step.allow)
@@ -135,7 +140,7 @@ export class MockKernel implements AgentKernel {
           const input = { ...step.ask }
           yield { type: 'tool-start', callId: step.callId, name: 'kits_ask_user', input }
           // 消费方可能在拿到 tool-start 时就 abort 了，那时还没开始等
-          if (self.aborted.has(session.id)) return 'aborted'
+          if (self.aborted.has(session.id) || self.disposed) return 'aborted'
           const asked: Promise<AskUserResult> = self.options.tools
             ? self.options.tools.askUser(input, ctx)
             : Promise.resolve({
@@ -150,7 +155,8 @@ export class MockKernel implements AgentKernel {
             ),
           ])
           self.abortWaiters.delete(session.id)
-          if (result === 'aborted' || self.aborted.has(session.id)) return 'aborted'
+          if (result === 'aborted' || self.aborted.has(session.id) || self.disposed)
+            return 'aborted'
           yield { type: 'tool-end', callId: step.callId, output: JSON.stringify(result) }
         } else if ('output' in step) {
           yield {
@@ -172,14 +178,15 @@ export class MockKernel implements AgentKernel {
           if (!(await self.wait(session.id, step.retry.waitMs))) return 'aborted'
           yield { type: 'status', state: 'busy' }
         } else if ('crash' in step) {
+          // 先更新状态、通知退出，再交出 done：消费方拿到 done 就结束迭代时，这些也不会漏掉
           const exit = { code: 2, signal: null, tail: step.crash }
+          self.started = false
+          for (const l of self.exitListeners) l(exit)
           yield {
             type: 'done',
             reason: 'error',
             error: `内核进程退出了（退出码 2）\n${step.crash}`,
           }
-          self.started = false
-          for (const l of self.exitListeners) l(exit)
           return 'crashed'
         }
       }
@@ -232,6 +239,7 @@ export class MockKernel implements AgentKernel {
 
   async dispose(): Promise<void> {
     this.started = false
+    this.disposed = true
     for (const waiter of this.abortWaiters.values()) waiter()
     this.abortWaiters.clear()
   }

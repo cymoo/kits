@@ -4,7 +4,7 @@ import type { AgentKernel, ConfigProblem, KernelConfig } from '@kits/kernel'
 // KernelManager（phase1-implementation 5.1 节，关 #5）：
 // - 每种内核一个 app 生命周期最多一个进程，第一次需要时懒启动，启动前生成并写配置；
 // - 进程意外退出：正在跑的轮次已由适配器以 done: error 结束，这里把状态标成出错，下次 acquire 自动拉起；
-// - 配置变更：没有轮次在跑就立即重启，有的话标“待重启”，最后一轮结束后重启；启动途中改了配置，启动完再按同样规则处理；
+// - 配置变更和手动重启：没有轮次在跑就立即重启，有的话标“待重启”，最后一轮结束后重启；启动途中改了配置，启动完再按同样规则处理；
 // - 每种内核的启动、停止、重启排成一条队列依次执行，不会同时有两个进程用同一个数据目录；
 // - 每次状态变化推给界面（设置页“内核与模型”卡片）。
 
@@ -167,6 +167,16 @@ export class KernelManager {
       }
       if (slot.kernel) this.markChanged(id, slot)
     }
+  }
+
+  // 设置页点“重启”：有轮次在跑就标“待重启”，等最后一轮结束；直接关掉会让在跑的轮次收不到结束事件
+  async requestRestart(id: KernelName): Promise<void> {
+    const slot = this.slot(id)
+    if (slot.runs > 0) {
+      this.setStatus(slot, { state: 'restart-pending' })
+      return
+    }
+    await this.restart(id)
   }
 
   async restart(id: KernelName): Promise<void> {

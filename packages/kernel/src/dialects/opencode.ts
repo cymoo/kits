@@ -120,6 +120,15 @@ export function spawnEnv(
   }
 }
 
+// Windows：taskkill /T 结束进程树；taskkill 本身起不来时退回 child.kill
+function killTree(pid: number, fallback: () => void): void {
+  const killer = spawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
+    stdio: 'ignore',
+    windowsHide: true,
+  })
+  killer.once('error', fallback)
+}
+
 export const opencodeDialect: KernelDialect = {
   id: 'opencode',
   apiPrefix: '',
@@ -170,8 +179,15 @@ export const opencodeDialect: KernelDialect = {
       if (child.exitCode !== null || child.signalCode !== null) return
       await new Promise<void>((resolve) => {
         child.once('exit', () => resolve())
-        child.kill()
-        // Windows 上 kill 是强杀，别的平台给 2 秒自己退
+        if (process.platform === 'win32' && child.pid !== undefined) {
+          // Windows 上 kill 只杀直接子进程，OpenCode 拉起的 stdio MCP 服务、命令会留下来；整棵树一起结束
+          killTree(child.pid, () => {
+            if (child.exitCode === null) child.kill()
+          })
+        } else {
+          child.kill()
+        }
+        // 给 2 秒自己退，还不退就强杀
         setTimeout(() => {
           if (child.exitCode === null) child.kill('SIGKILL')
           resolve()

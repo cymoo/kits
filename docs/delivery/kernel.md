@@ -120,7 +120,7 @@
   - 会话用 `KernelSession`（id + 工作目录 + Agent + 模型）整个传进来，适配器不记会话：OpenCode 每个请求都要带工作目录，应用重启后从数据库读出来照样能续。
   - `createSession` 接收按会话模式解析好的权限（`agentPermissions` 的结果），转成内核的规则数组随建会话一起发，所以三档模式（执行前确认 / 只读 / 全部自动）是会话级的，不用重启内核。
   - `respondPermission` 的回复改成 `once | always | reject`，拒绝可带说明：1.19.5 的回复接口原生支持 `message`，内核把它当反馈交给模型，不用再另发一条用户消息。
-  - `FileDiff` 改成 `{ path, status, additions, deletions, patch }`：内核返回的是 unified diff，不是前后全文。
+  - `FileDiff` 改成 `{ path, status, additions, deletions, patch, messageId }`：内核给的是 unified diff，不是前后全文。**1.19.5 的 `GET /session/{id}/diff` 不带 `messageID` 时返回空**，每一轮的改动记在那一轮用户消息的 `summary.diffs` 上，适配器从消息里按轮收集，`messageId` 标出是哪一轮（改动面板按轮分组用）。这份数据是内核在一轮结束后异步算出来的，`done` 之后立刻读可能还是空的，改动面板要在会话变化后重新取。
   - 新增 `summarize`（上下文压缩）和 `messages`（补齐、恢复）。
   - 方言多一个 `apiPrefix`（CodeAgent 是 `/api/v1`）。
 - `packages/core/src/events.ts`：`text-delta` / `reasoning-delta` 带 `partId`（落库时同一个 part 的增量合并）；`permission-request` 带 `patterns`、`always`、`callId`；`usage` 拆出缓存读写和费用；新增 `status`、`compaction`；`PermissionDecision` 换成 `PermissionReply`。
@@ -138,6 +138,8 @@
 
 ### 已知问题
 
+- 断线补齐时丢掉了补齐期间到达的正文增量（快照里已有）；如果某个增量在快照之后生成、却在补齐结束后才到，这一段会重复一次。窗口很小（一次 GET 的往返），下一条带整段正文的 `message.part.updated` 也不会去掉重复，界面上偶尔会看到一小段重复的字。真要消除得让内核在增量里带偏移量。
+- 工作目录要用真实路径（`realpath`）：macOS 的临时目录在 `/var` 下，它是 `/private/var` 的软链接，内核按真实路径判断目录内外，用软链接路径时目录里的写入也会触发“目录外”的权限请求。会话服务建会话时做规整（PR7）。
 - `compaction` 事件的 `summary` 先给空串：`session.compacted` 不带摘要内容，要从消息里取，PR16 做上下文压缩时补。
 - `done: max-steps` 还没有映射：1.19.5 里输出超长是 `session.error` 的 `MessageOutputLengthError`，现在按普通错误报，带内核给的原因。
 - 正文只按 `messageID` 的角色过滤用户消息；角色还没到就先来的 part 当作回复。契约测试确认 1.19.5 总是先发 `message.updated`。
@@ -170,20 +172,22 @@
   - `adapter/opencode-family.ts`：进程意外退出时，正在跑的每一轮以 `done: error`（“内核进程退出了（退出码 N）”加输出尾部）结束，再通知监听方。
   - `mock/mock-kernel.ts`、`mock/scenarios.ts`：Mock 内核和 8 个场景（`streaming`、`permission`、`question`、`done`、`retry`、`crash`、`context`、`output-structured`），和原型 `session.html` 的 `?s=` 一一对应。权限请求真的等 `respondPermission`，按回复走允许 / 拒绝两个分支；提问和提交产出调和真内核一样的 kits 工具处理函数；`KITS_MOCK_SPEED` 调快慢。
 - `apps/desktop/src/main`：
-  - `kernel/kernel-manager.ts`：`acquire / release`（会话服务每轮调一次，用来判断能不能立即重启）、懒启动（并发调用共用一次启动）、退出处理、`configChanged`、`restart`、`dispose`，状态变化推给界面。
+  - `kernel/kernel-manager.ts`：`acquire / release`（会话服务每轮调一次，用来判断能不能立即重启）、懒启动（并发调用共用一次启动）、退出处理、`configChanged`、`requestRestart`（设置页的“重启”：有轮次在跑就标待重启，最后一轮结束后再重启，不会把在跑的轮次掐断）、`dispose`，状态变化推给界面。
+  - `dialects/opencode.ts`：Windows 上关内核用 `taskkill /T /F` 结束整棵进程树，OpenCode 拉起的 stdio MCP 服务和命令不会在应用退出后留下。
+  - Mock 内核：会话 id 跨实例唯一（重启后新建的会话不会和旧会话撞 id）；崩溃时先通知退出再交出 `done`；`dispose` 后还没开始的等待也立刻结束。
   - `kernel/kernel-config.ts`：从 `~/.kits`（设置、个人 Agent、个人技能、`mcp.json`、个人记忆）和密钥表收拢成内核配置，写进 `{userData}/kernel/<id>/config`，日志在 `{userData}/kernel/<id>/logs/<日期>.log`。
   - `kernel/runtime.ts`：真内核 / Mock 内核的工厂；找不到内核二进制时报“内核没有安装”。
   - `tools/kits-tool-host.ts`：kits 工具服务的宿主（一个应用一个 HTTP MCP 服务），处理函数可替换，PR7 由会话服务接上。
   - `index.ts`：设置保存后通知 KernelManager；退出时关内核子进程和工具服务。
 - `packages/core/src/ipc.ts`：`KernelRuntime`（状态、错误、配置问题）、`kernel.restart`、推送 `kernel.status`。
-- 设置页“Agent 内核”卡片：标签换成运行状态，加“内核进程”一行（状态 + 启动 / 重启），出错时红框列出原因和配置问题。
+- 设置页“Agent 内核”卡片：标签换成运行状态，加“内核进程”一行（状态 + 启动 / 重启），出错时红框列出原因和配置问题。原型 `designs/app/settings.html#model` 同步加了这一行，`?proc=stopped|starting|running|restart-pending|error` 切演示状态。
 - `apps/desktop` 开发依赖加 `opencode-ai@1.19.5`（和 `packages/kernel` 同一个版本，pnpm 硬链接同一份文件）：主进程打包后从 `apps/desktop/out` 找 npm 包，原来找不到内核。
 - 和方案不一样的地方：Mock 场景写成 TS（`scenarios.ts`）而不是 `scenarios/*.json`，步骤类型有检查，写错字段编译就报。
 - 没有数据库 schema 改动，没有新的三方依赖。
 
 ### 测试
 
-- 单元测试：`kernel-manager.test.ts`（懒启动只启动一次、配置问题不启动、退出后标出错并在下次拉起、空闲时立即重启、有轮次时待重启、配置修好后清掉错误、dispose）；`mock-kernel.test.ts`（8 个场景都以一条 done 结束、权限两个分支、提问走 askUser、产出走 onOutput、崩溃通知、等权限时 abort、重试时间、diff）；`opencode-family.test.ts` 补“进程退出时正在跑的轮次以出错结束”。
+- 单元测试：`kernel-manager.test.ts`（懒启动只启动一次、配置问题不启动、退出后标出错并在下次拉起、空闲时立即重启、有轮次时待重启、配置修好后清掉错误、dispose）；`mock-kernel.test.ts`（8 个场景都以一条 done 结束、权限两个分支、提问走 askUser、产出走 onOutput、崩溃通知（消费方在 done 处停下也收得到）、等权限时 abort、dispose 后结束、会话 id 跨实例唯一、重试时间、diff）；`kernel-manager.test.ts` 补“有轮次时手动重启要等、空闲时立即重启”；`opencode-family.test.ts` 补“进程退出时正在跑的轮次以出错结束”。
 - E2E：`kernel.spec.ts`：Mock 内核从设置页启动和重启；没配网关时启动真内核失败并列出缺的设置。
 
 ### 新增依赖

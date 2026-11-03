@@ -245,3 +245,13 @@ describe('permissionSubject', () => {
     expect(permissionSubject('req_get', { id: 'R-1' }, '/w')).toBe('{"id":"R-1"}')
   })
 })
+
+describe('describeTool on windows paths', () => {
+  it('shows paths relative to a backslash workdir whatever separator the kernel uses', () => {
+    const p = (filePath: string) =>
+      ({ type: 'tool', callId: 'c', name: 'read', input: { filePath } }) as const
+    expect(describeTool(p('C:\\repo\\src\\a.ts'), 'C:\\repo').detail).toBe('src/a.ts')
+    expect(describeTool(p('C:/repo/src/a.ts'), 'C:\\repo\\').detail).toBe('src/a.ts')
+    expect(describeTool(p('D:\\other\\a.ts'), 'C:\\repo').detail).toBe('D:\\other\\a.ts')
+  })
+})

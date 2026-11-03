@@ -89,6 +89,26 @@ describe('KernelManager', () => {
     await vi.waitFor(() => expect(manager.status('opencode').state).toBe('running'))
   })
 
+  it('defers a manual restart until the running turns are released', async () => {
+    const { manager, made } = setup()
+    await manager.acquire('opencode')
+    await manager.requestRestart('opencode')
+    expect(manager.status('opencode').state).toBe('restart-pending')
+    expect(made[0]?.raw.dispose).not.toHaveBeenCalled()
+    manager.release('opencode')
+    await vi.waitFor(() => expect(made).toHaveLength(2))
+    expect(made[0]?.raw.dispose).toHaveBeenCalled()
+  })
+
+  it('restarts right away on a manual restart when nothing is running', async () => {
+    const { manager, made } = setup()
+    await manager.acquire('opencode')
+    manager.release('opencode')
+    await manager.requestRestart('opencode')
+    expect(made).toHaveLength(2)
+    expect(manager.status('opencode').state).toBe('running')
+  })
+
   it('clears a config error on change so the next acquire regenerates', async () => {
     let result: PrepareResult = {
       ok: false,

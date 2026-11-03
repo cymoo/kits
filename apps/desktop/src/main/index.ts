@@ -10,7 +10,7 @@ import { SecretStore } from './config/secrets'
 import { openDatabase } from './db'
 import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc, trustedUrl } from './ipc/register'
-import { loadAgents, loadMcp } from './kernel/kernel-config'
+import { kernelSettingsKey, loadAgents, loadMcp } from './kernel/kernel-config'
 import { kernelInfo, kernelLogsDir } from './kernel/kernel-info'
 import { createKernelManager } from './kernel/runtime'
 import { createElectronPlatform } from './platform'
@@ -28,6 +28,19 @@ app.setName('kits')
 // E2E 和本地调试可以指定独立的用户数据目录，不碰真实数据。必须在 app ready 之前设置。
 if (process.env.KITS_USER_DATA_DIR) {
   app.setPath('userData', process.env.KITS_USER_DATA_DIR)
+}
+
+// 同一份用户数据只开一个实例：两个实例各自缓存再写回密钥表、数据库会互相覆盖。
+// 第二个实例直接退出，把已有窗口叫到前面。
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0)
+} else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  })
 }
 
 let shutdown: (() => Promise<void>) | undefined
@@ -90,13 +103,19 @@ app.whenReady().then(() => {
   const tools = new KitsToolHost()
   // 设置变了要重启内核、内核启动要读设置，两边互相引用
   let onConfigChanged = () => {}
+  // 只有进内核配置的字段变了才重启：最近目录、外观这些改了不动内核，免得新建会话时撞上重启
+  let kernelInputs: string | undefined
   const config = new ConfigService({
     dir: resolveConfigDir(),
     onSettingsChanged: (settings) => {
       push('settings.changed', settings)
+      const next = kernelSettingsKey(settings)
+      if (next === kernelInputs) return
+      kernelInputs = next
       onConfigChanged()
     },
   })
+  kernelInputs = kernelSettingsKey(config.getSettings())
   const kernels = createKernelManager({
     platform,
     config,
@@ -194,7 +213,7 @@ app.whenReady().then(() => {
             runtime: (id) => kernels.status(id),
             mock: process.env.KITS_KERNEL === 'mock',
           }),
-        restart: (id) => kernels.restart(id),
+        restart: (id) => kernels.requestRestart(id),
         openLogs: async (id) => {
           const dir = kernelLogsDir(platform.userDataDir, id)
           mkdirSync(dir, { recursive: true })

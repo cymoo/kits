@@ -26,7 +26,8 @@
 - `packages/core/src/ipc.ts`（新，`@kits/core/ipc` 子路径）：IPC 契约。一个对象字面量声明 `app`、`settings`、`secrets` 三个域的方法和入参、返回值类型；`KitsInvoke` 是渲染进程看到的 `window.kits.<域>.<方法>`，`IpcHandlers` 是主进程要实现的处理函数，少一个或类型不对编译报错；推送通道 `settings.changed`。这个文件只有类型导入，打进 sandbox 的 preload。
 - `apps/desktop/src/main/`：
   - `config/config-service.ts`：`~/.kits/settings.json` 读写（`KITS_CONFIG_DIR` 可覆盖）。没有文件用默认值，第一次保存才创建；写文件先写临时文件再改名；补丁过一遍 schema，坏值不落盘；文件坏了不覆盖，先用默认值跑、在设置页提示，保存时先备份。
-  - `config/secrets.ts`：密钥表 `{userData}/secrets.json`，值用 Electron `safeStorage` 加密；系统不支持加密时退化成标了 `plain` 的 base64，以后在设置页提示。
+  - `config/secrets.ts`：密钥表 `{userData}/secrets.json`，值用 Electron `safeStorage` 加密；系统不支持加密时退化成标了 `plain` 的 base64，以后在设置页提示。先写文件、成功了再改内存里的表，写失败时读到的还是旧值；文件坏了时先备份，备份失败就拒绝保存（不拦启动），不会把还能恢复的旧密钥盖掉。
+  - `index.ts`：同一份用户数据只允许一个实例（`requestSingleInstanceLock`），第二个实例退出并把已有窗口叫到前面，避免两个实例互相覆盖密钥表和数据库。
   - `ipc/register.ts`：按契约逐个 `ipcMain.handle`，`push()` 推给所有窗口。
   - `index.ts`：开发时 `app.setName('kits')`（不设的话 userData 落在 `…/Electron`）；版本号从 `package.json` 编进来（开发时 `app.getVersion()` 返回的是 Electron 的版本）。
   - `platform.ts`：加 `openPath`、`encryptor`；`openExternal` 只放行 http(s)。
@@ -44,7 +45,7 @@
 
 ### 测试
 
-- 单元测试：`core/src/ipc.test.ts`（契约列表、类型：无入参的方法是零参调用；补丁合并）；`main/config/config-service.test.ts`（默认值不建文件、合并和落盘、坏补丁不落盘、坏文件提示和备份、手改后重读）；`main/config/secrets.test.ts`（加密存取、不能加密时退化、删除）；`renderer/src/app/app.test.ts`（文案占位、主题解析、快捷键匹配）。
+- 单元测试：`core/src/ipc.test.ts`（契约列表、类型：无入参的方法是零参调用；补丁合并）；`main/config/config-service.test.ts`（默认值不建文件、合并和落盘、坏补丁不落盘、坏文件提示和备份、手改后重读）；`main/config/secrets.test.ts`（加密存取、不能加密时退化、删除、写失败保留旧值、坏文件备份失败时拒绝保存）；`renderer/src/app/app.test.ts`（文案占位、主题解析、快捷键匹配）。
 - E2E：`shell.spec.ts`：⌘K 跳设置分区；⌘B 折叠并记住；设置写入配置目录、主题立刻生效、设置页底部显示配置目录和版本；坏设置文件在设置页提示。
 
 ### 新增依赖

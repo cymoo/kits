@@ -77,6 +77,11 @@ export function SessionPage() {
   // 新内容来了滚到底；用户往上翻了就不打扰
   const scroller = useRef<HTMLElement>(null)
   const pinned = useRef(true)
+  // 换了会话就重新跟随到底；同一会话里往上翻了才不打扰
+  // biome-ignore lint/correctness/useExhaustiveDependencies: id 变了才重置
+  useEffect(() => {
+    pinned.current = true
+  }, [id])
   // biome-ignore lint/correctness/useExhaustiveDependencies: 块变了才需要滚动
   useEffect(() => {
     const el = scroller.current

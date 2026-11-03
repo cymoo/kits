@@ -24,9 +24,16 @@ export function Layout() {
   }, [settings.data])
 
   useShortcuts({
-    newSession: () => navigate('/'),
+    // 跳转前先关掉 ⌘K 面板，不然目标页面被面板挡着
+    newSession: () => {
+      setPaletteOpen(false)
+      navigate('/')
+    },
     search: () => setPaletteOpen(!paletteOpen),
-    settings: () => navigate('/settings'),
+    settings: () => {
+      setPaletteOpen(false)
+      navigate('/settings')
+    },
     toggleNav,
   })
 

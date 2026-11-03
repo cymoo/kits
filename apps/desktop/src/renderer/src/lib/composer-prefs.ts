@@ -24,6 +24,22 @@ export const usePrefs = create<PrefsState>((set) => ({
   set: (patch) => set(patch),
 }))
 
+// 模型引用指向启用的网关下还在的模型
+function modelUsable(ref: string | undefined, settings: Settings): ref is string {
+  if (!ref) return false
+  const i = ref.indexOf('/')
+  if (i <= 0) return false
+  const gateway = settings.gateways.find((g) => g.id === ref.slice(0, i) && g.enabled)
+  return !!gateway?.models.some((m) => m.id === ref.slice(i + 1))
+}
+
+// 选过的模型所在网关删了或停用了：回退到默认模型；默认模型也不能用就空着，发送按钮置灰
+function resolveModel(picked: string | undefined, settings: Settings | undefined): string {
+  if (!settings) return picked ?? ''
+  if (modelUsable(picked, settings)) return picked
+  return modelUsable(settings.defaultModel, settings) ? settings.defaultModel : ''
+}
+
 // 用户没选过的项按设置补上
 export function resolvePrefs(prefs: ComposerPrefs, settings: Settings | undefined) {
   return {
@@ -31,7 +47,7 @@ export function resolvePrefs(prefs: ComposerPrefs, settings: Settings | undefine
     agent: prefs.agent,
     permissionMode: prefs.permissionMode ?? settings?.permissionMode ?? 'ask',
     kernel: prefs.kernel ?? settings?.kernel ?? 'opencode',
-    model: prefs.model ?? settings?.defaultModel ?? '',
+    model: resolveModel(prefs.model, settings),
   }
 }
 

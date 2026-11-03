@@ -14,6 +14,22 @@ describe('groupOf', () => {
   })
 })
 
+describe('groupOf across a daylight saving change', () => {
+  it('puts the first hour of yesterday in yesterday when yesterday had 25 hours', () => {
+    const tz = process.env.TZ
+    process.env.TZ = 'America/New_York'
+    try {
+      // 2026-11-01 夏令时结束，那天有 25 小时
+      const now = new Date(2026, 10, 2, 12)
+      expect(groupOf(new Date(2026, 10, 1, 0, 30).getTime(), now)).toBe('yesterday')
+      expect(groupOf(new Date(2026, 9, 27, 0, 30).getTime(), now)).toBe('week')
+    } finally {
+      if (tz === undefined) delete process.env.TZ
+      else process.env.TZ = tz
+    }
+  })
+})
+
 describe('groupSessions', () => {
   it('keeps the group order and the order inside a group', () => {
     const s = (id: string, updatedAt: number) => ({ id, updatedAt }) as SessionSummary
