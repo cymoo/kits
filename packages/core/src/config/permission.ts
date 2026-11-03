@@ -165,9 +165,12 @@ function set(target: PermissionSet, key: string, value: PermissionValue): void {
 // 给一个工具加模式规则。
 // 具体工具（bash）：这个工具的规则挪到末尾，挪之前先把前面所有匹配它的规则（包括 `*` 这类通配键）按顺序折进它的模式表，
 // 这样挪动不改变其他输入的结果，只有新加的模式生效。
-// 通配键（`wiki_*`）：不折别的键、不挪位置，只在它自己的模式表里加，免得把宽泛的兜底规则提到更具体的规则后面。
+// 通配键（`wiki_create_*`）：不折别的键、不挪位置，只在它自己的模式表里加，免得把宽泛的兜底规则提到更具体的规则后面；
+// 排在它后面、被它覆盖的更具体的键（MCP 设置里的 `wiki_create_page`）再各自加一遍同样的模式，新规则对它们也生效。
 function setPattern(target: PermissionSet, key: string, pattern: string, level: PermissionLevel) {
   if (key.includes('*')) {
+    const keys = Object.keys(target)
+    const after = keys.includes(key) ? keys.slice(keys.indexOf(key) + 1) : []
     const current = target[key]
     const rules: Record<string, PermissionLevel> =
       current === undefined ? {} : typeof current === 'string' ? { '*': current } : { ...current }
@@ -175,6 +178,8 @@ function setPattern(target: PermissionSet, key: string, pattern: string, level: 
     rules[pattern] = level
     // 已有的键原地更新（保持位置），新键加在末尾
     target[key] = rules
+    for (const k of after)
+      if (k !== key && matchPattern(key, k)) setPattern(target, k, pattern, level)
     return
   }
   const rules: Record<string, PermissionLevel> = {}

@@ -159,6 +159,19 @@ describe('resolvePermissions', () => {
     expect(effectiveLevel(result, 'bash', 'pwd')).toBe('allow')
   })
 
+  it('lets an agent wildcard deny beat an mcp allow on a more specific tool', () => {
+    for (const mode of ['ask', 'auto'] as const) {
+      const result = resolvePermissions({
+        mode,
+        mcp: { servers: ['wiki'], rules: { 'wiki.create_page': 'allow' } },
+        agent: { 'wiki_create_*': { '*': 'deny' } },
+      })
+      expect(effectiveLevel(result, 'wiki_create_page', '*')).toBe('deny')
+      expect(effectiveLevel(result, 'wiki_create_space', '*')).toBe('deny')
+      expect(effectiveLevel(result, 'wiki_get_page', '*')).toBeUndefined()
+    }
+  })
+
   it('does not allow tools of another server whose name starts with kits_', () => {
     const result = resolvePermissions({
       mode: 'read',
