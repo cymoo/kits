@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type {
   AskUserInput,
@@ -126,6 +126,8 @@ export class SessionService {
   private queues = new Map<string, Queued[]>()
   // 建会话时选的“这次不用的 MCP 服务”，第一轮在内核里建会话时用
   private mcpOff = new Map<string, string[]>()
+  // 每次停止加一：转附件期间停止的追问据此作废
+  private abortGen = new Map<string, number>()
   private readonly now: () => number
   private readonly id: () => string
   private readonly flushMs: number
@@ -253,7 +255,13 @@ export class SessionService {
 
   async prompt(id: string, text: string, attachments: AttachmentInput[] = []): Promise<void> {
     if (!this.deps.store.session(id)) throw new Error(`没有这个会话：${id}`)
+    // 转附件期间点了停止：这条也作废（停止要连还没进队列的一起停）
+    const gen = this.abortGen.get(id) ?? 0
     const staged = await this.stage(id, attachments)
+    if ((this.abortGen.get(id) ?? 0) !== gen) {
+      this.unstage(staged)
+      return
+    }
     // 转附件要时间，回来时会话的状态可能变了，重新读
     const session = this.deps.store.session(id)
     if (!session) throw new Error(`没有这个会话：${id}`)
@@ -271,31 +279,51 @@ export class SessionService {
     const extract = this.deps.extractText ?? extractText
     const dir = path.join(this.deps.attachmentsDir, sessionId)
     const staged: StagedAttachment[] = []
-    for (const a of inputs) {
-      if (a.data.byteLength > MAX_ATTACHMENT_BYTES) {
-        throw new Error(`${a.name} 超过 20 MB，先拆小一点再发`)
+    // 这一批写出去的文件：有一个失败就整批清掉，不在磁盘上留没有记录的副本
+    const written: string[] = []
+    try {
+      for (const a of inputs) {
+        if (a.data.byteLength > MAX_ATTACHMENT_BYTES) {
+          throw new Error(`${a.name} 超过 20 MB，先拆小一点再发`)
+        }
+        const text = await extract(a.name, a.mime, a.data)
+        const id = this.id()
+        const safe = a.name.replace(/[\\/:*?"<>|]+/g, '_')
+        const file = path.join(dir, `${id}-${safe}`)
+        mkdirSync(dir, { recursive: true })
+        written.push(file)
+        writeFileSync(file, a.data)
+        written.push(`${file}.txt`)
+        writeFileSync(`${file}.txt`, text)
+        staged.push({
+          id,
+          name: a.name,
+          mime: a.mime,
+          size: a.data.byteLength,
+          path: file,
+          textPath: `${file}.txt`,
+          text,
+        })
       }
-      const text = await extract(a.name, a.mime, a.data)
-      const id = this.id()
-      const safe = a.name.replace(/[\\/:*?"<>|]+/g, '_')
-      const file = path.join(dir, `${id}-${safe}`)
-      mkdirSync(dir, { recursive: true })
-      writeFileSync(file, a.data)
-      writeFileSync(`${file}.txt`, text)
-      staged.push({
-        id,
-        name: a.name,
-        mime: a.mime,
-        size: a.data.byteLength,
-        path: file,
-        textPath: `${file}.txt`,
-        text,
-      })
+    } catch (e) {
+      for (const f of written) rmSync(f, { force: true })
+      throw e
     }
     return staged
   }
 
+  // 作废的附件（停止了、没发出去）删掉
+  private unstage(staged: StagedAttachment[]): void {
+    for (const a of staged) {
+      rmSync(a.path, { force: true })
+      rmSync(a.textPath, { force: true })
+    }
+  }
+
   async abort(id: string): Promise<void> {
+    this.abortGen.set(id, (this.abortGen.get(id) ?? 0) + 1)
+    // 排队的消息作废，它们带的附件也删掉
+    for (const q of this.queues.get(id) ?? []) this.unstage(q.attachments)
     if (this.queues.delete(id)) {
       const s = this.deps.store.session(id)
       if (s) this.deps.push('session.changed', s)

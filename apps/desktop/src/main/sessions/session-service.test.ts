@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { builtinAssistant, type PushEvents, parseMcpFile, type SessionStatus } from '@kits/core'
@@ -540,6 +540,39 @@ describe('SessionService attachments', () => {
     const png = { name: 'shot.png', mime: 'image/png', data: new Uint8Array([1, 2, 3]) }
     await expect(service.create({ ...input, attachments: [png] })).rejects.toThrow('shot.png')
     expect(store.list()).toEqual([])
+  })
+
+  it('leaves no files behind when one attachment of a batch cannot be read', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const png = { name: 'shot.png', mime: 'image/png', data: new Uint8Array([1]) }
+    await expect(service.prompt(s.id, '看看', [md('说明'), png])).rejects.toThrow('shot.png')
+    const dir = path.join(exportsDir, s.id)
+    expect(existsSync(dir) ? readdirSync(dir) : []).toEqual([])
+  })
+
+  it('drops a follow-up whose attachments were still converting when the turn was stopped', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    let finish = () => {}
+    const converting = new Promise<void>((r) => {
+      finish = r
+    })
+    // 换掉转文本：卡住，等停止之后再放行
+    ;(service as unknown as { deps: { extractText: unknown } }).deps.extractText = async () => {
+      await converting
+      return '说明'
+    }
+    const sent = service.prompt(s.id, '顺便看下', [md('说明')])
+    await service.abort(s.id)
+    finish()
+    await sent
+    await waitFor(s.id, ['aborted'])
+    await new Promise((r) => setTimeout(r, 30))
+    expect(store.session(s.id)?.turns).toBe(1)
+    expect(service.get(s.id)?.session.queued).toBeUndefined()
   })
 
   it('keeps the attachments of a queued follow-up and sends them with the next turn', async () => {
