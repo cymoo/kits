@@ -80,7 +80,8 @@ async function pdfText(data: Uint8Array): Promise<string> {
   const task = pdfjs.getDocument({
     // pdfjs 会改写传进去的数组，给它一份拷贝
     data: new Uint8Array(data),
-    standardFontDataUrl: `${fonts}${path.sep}`,
+    // pdfjs 要求以 / 结尾（Windows 上 \ 结尾也不认）；Node 的 fs 在 Windows 上也认 /
+    standardFontDataUrl: `${fonts.split(path.sep).join('/')}/`,
     // 只取文字，不渲染：不装 @napi-rs/canvas，也不打它没装上的警告
     verbosity: pdfjs.VerbosityLevel.ERRORS,
   })
