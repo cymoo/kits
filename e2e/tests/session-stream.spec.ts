@@ -94,6 +94,8 @@ test('starts another session right after one finishes', async () => {
     await prepare(page, configDir)
     for (const task of ['第一个任务', '第二个任务']) {
       await page.keyboard.press(`${mod}+N`)
+      // 等真的回到首页再输入，不然会打进上一个会话的输入框
+      await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
       const box = page.getByLabel('给 Agent 发消息')
       await box.fill(task)
       await box.press('Enter')
