@@ -35,7 +35,8 @@ export class KitsToolHost {
   }
 
   start(): Promise<KitsToolHttpServer> {
-    this.server ??= startKitsToolHttpServer({
+    if (this.server) return this.server
+    const starting = startKitsToolHttpServer({
       createServer: () =>
         createKitsToolServer({
           // 每次调用时取当前的处理函数，setHandlers 之后不用重启服务
@@ -48,7 +49,12 @@ export class KitsToolHost {
           resolveSession: (tool, input) => this.registry.match(tool, input),
         }),
     })
-    return this.server
+    this.server = starting
+    // 监听失败（比如一时 EMFILE）不能把失败的结果缓存住：清掉，下次内核启动时重试
+    starting.catch(() => {
+      if (this.server === starting) this.server = undefined
+    })
+    return starting
   }
 
   async stop(): Promise<void> {
