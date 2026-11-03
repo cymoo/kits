@@ -123,6 +123,23 @@ describe('KernelManager', () => {
     expect(manager.status('opencode').state).toBe('running')
   })
 
+  it('shares one failed start between concurrent acquires and retries on a later one', async () => {
+    const prepare = vi.fn(async (): Promise<PrepareResult> => {
+      await new Promise((r) => setTimeout(r, 10))
+      return { ok: false, problems: [{ section: 'model', target: 'x', message: 'm' }] }
+    })
+    const { manager } = setup(prepare)
+    const all = await Promise.allSettled([
+      manager.acquire('opencode'),
+      manager.acquire('opencode'),
+      manager.acquire('opencode'),
+    ])
+    expect(all.every((r) => r.status === 'rejected')).toBe(true)
+    expect(prepare).toHaveBeenCalledTimes(1)
+    await expect(manager.acquire('opencode')).rejects.toThrow()
+    expect(prepare).toHaveBeenCalledTimes(2)
+  })
+
   it('disposes every kernel', async () => {
     const { manager, made } = setup()
     await manager.acquire('opencode')

@@ -82,10 +82,11 @@ export class ConfigService {
     if (this.broken && existsSync(this.paths.settings)) {
       const stamp = new Date(this.options.now?.() ?? Date.now()).toISOString().replace(/[:.]/g, '-')
       copyFileSync(this.paths.settings, `${this.paths.settings}.broken-${stamp}`)
-      this.broken = false
-      this.loadError = undefined
     }
     writeFileAtomic(this.paths.settings, `${JSON.stringify(next, null, 2)}\n`)
+    // 写成功了磁盘上才是好文件，这时再清掉损坏状态
+    this.broken = false
+    this.loadError = undefined
     this.mtime = this.fileMtime()
     this.settings = next
     this.options.onSettingsChanged?.(next)

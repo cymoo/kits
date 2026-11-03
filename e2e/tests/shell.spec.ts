@@ -103,3 +103,20 @@ test('closes the command palette when a shortcut jumps to another page', async (
     await close()
   }
 })
+
+test('keeps the option picked with the arrow keys in view at the large ui scale', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await page.evaluate(() => window.kits.settings.update({ general: { uiScale: 'l' } }))
+    await page.keyboard.press(`${mod}+K`)
+    const options = page.getByRole('dialog', { name: '搜索和跳转' }).getByRole('option')
+    const n = await options.count()
+    for (let i = 0; i < n; i++) await page.keyboard.press('ArrowDown')
+    await expect(options.last()).toHaveAttribute('aria-selected', 'true')
+    await expect(options.last()).toBeInViewport({ ratio: 1 })
+    await expect(page.getByRole('combobox', { name: '搜索' })).toBeFocused()
+  } finally {
+    await close()
+  }
+})

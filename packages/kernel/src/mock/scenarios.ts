@@ -88,7 +88,7 @@ const redeemDiff: FileDiff = {
   patch: [
     '--- a/src/points/redeem.py',
     '+++ b/src/points/redeem.py',
-    '@@ -1,3 +1,8 @@',
+    '@@ -1,2 +1,7 @@',
     '+from points.idempotent import idempotent',
     '+',
     '+',

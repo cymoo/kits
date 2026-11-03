@@ -42,6 +42,8 @@ export class MockKernel implements AgentKernel {
   private readonly scenario: MockScenario
   // dispose 之后所有等待立刻结束，还没开始的等待也不再挂起
   private disposed = false
+  // 模拟的进程崩溃是整个实例的事：所有在跑的轮次都以出错结束，退出只通知一次
+  private crashed: string | undefined
   private permissionWaiters = new Map<string, (reply: PermissionReply) => void>()
   // 回复可能在事件被消费方拿到、生成器还没往下走时就到了，先记下
   private earlyReplies = new Map<string, PermissionReply>()
@@ -76,7 +78,7 @@ export class MockKernel implements AgentKernel {
   // 等一段时间；中途 abort 了返回 false
   private wait(sessionId: string, ms: number): Promise<boolean> {
     const scaled = ms * (this.options.speed ?? 1)
-    if (this.aborted.has(sessionId) || this.disposed) return Promise.resolve(false)
+    if (this.stopped(sessionId)) return Promise.resolve(false)
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         this.abortWaiters.delete(sessionId)
@@ -87,6 +89,20 @@ export class MockKernel implements AgentKernel {
         resolve(false)
       })
     })
+  }
+
+  private stopped(sessionId: string): boolean {
+    return this.aborted.has(sessionId) || this.disposed || this.crashed !== undefined
+  }
+
+  private crash(tail: string): void {
+    if (this.crashed !== undefined) return
+    this.crashed = `内核进程退出了（退出码 2）\n${tail}`
+    this.started = false
+    for (const l of this.exitListeners) l({ code: 2, signal: null, tail })
+    // 叫醒别的会话里还在等的轮次，让它们也结束
+    for (const waiter of this.abortWaiters.values()) waiter()
+    this.abortWaiters.clear()
   }
 
   async *prompt(session: KernelSession, _input: UserInput): AsyncIterable<KernelEvent> {
@@ -124,14 +140,13 @@ export class MockKernel implements AgentKernel {
           const key = `${session.id}:${p.requestId}`
           const early = self.earlyReplies.get(key)
           self.earlyReplies.delete(key)
-          const reply =
-            self.aborted.has(session.id) || self.disposed
-              ? 'aborted'
-              : (early ??
-                (await new Promise<PermissionReply | 'aborted'>((resolve) => {
-                  self.permissionWaiters.set(key, resolve)
-                  self.abortWaiters.set(session.id, () => resolve('aborted'))
-                })))
+          const reply = self.stopped(session.id)
+            ? 'aborted'
+            : (early ??
+              (await new Promise<PermissionReply | 'aborted'>((resolve) => {
+                self.permissionWaiters.set(key, resolve)
+                self.abortWaiters.set(session.id, () => resolve('aborted'))
+              })))
           self.permissionWaiters.delete(key)
           if (reply === 'aborted') return 'aborted'
           const branch = yield* run(reply === 'reject' ? step.reject : step.allow)
@@ -140,7 +155,7 @@ export class MockKernel implements AgentKernel {
           const input = { ...step.ask }
           yield { type: 'tool-start', callId: step.callId, name: 'kits_ask_user', input }
           // 消费方可能在拿到 tool-start 时就 abort 了，那时还没开始等
-          if (self.aborted.has(session.id) || self.disposed) return 'aborted'
+          if (self.stopped(session.id)) return 'aborted'
           const asked: Promise<AskUserResult> = self.options.tools
             ? self.options.tools.askUser(input, ctx)
             : Promise.resolve({
@@ -155,8 +170,7 @@ export class MockKernel implements AgentKernel {
             ),
           ])
           self.abortWaiters.delete(session.id)
-          if (result === 'aborted' || self.aborted.has(session.id) || self.disposed)
-            return 'aborted'
+          if (result === 'aborted' || self.stopped(session.id)) return 'aborted'
           yield { type: 'tool-end', callId: step.callId, output: JSON.stringify(result) }
         } else if ('output' in step) {
           yield {
@@ -165,6 +179,8 @@ export class MockKernel implements AgentKernel {
             name: 'kits_submit_output',
             input: { output: step.output },
           }
+          // 拿到 tool-start 就停了：已停止的轮次不再交产出
+          if (self.stopped(session.id)) return 'aborted'
           await self.options.tools?.onOutput(step.output, ctx)
           yield { type: 'tool-end', callId: step.callId, output: '已提交' }
         } else if ('retry' in step) {
@@ -179,22 +195,26 @@ export class MockKernel implements AgentKernel {
           yield { type: 'status', state: 'busy' }
         } else if ('crash' in step) {
           // 先更新状态、通知退出，再交出 done：消费方拿到 done 就结束迭代时，这些也不会漏掉
-          const exit = { code: 2, signal: null, tail: step.crash }
-          self.started = false
-          for (const l of self.exitListeners) l(exit)
-          yield {
-            type: 'done',
-            reason: 'error',
-            error: `内核进程退出了（退出码 2）\n${step.crash}`,
-          }
+          self.crash(step.crash)
           return 'crashed'
         }
       }
       return 'ok'
     }
 
-    const result = yield* run(this.scenario.steps)
-    if (result === 'crashed') return
+    let result: 'ok' | 'aborted' | 'crashed'
+    try {
+      result = yield* run(this.scenario.steps)
+    } catch (e) {
+      // 注入的 askUser / onOutput 抛错：照接口约定以 done 结束
+      this.abortWaiters.delete(session.id)
+      yield { type: 'done', reason: 'error', error: e instanceof Error ? e.message : String(e) }
+      return
+    }
+    if (this.crashed !== undefined) {
+      yield { type: 'done', reason: 'error', error: this.crashed }
+      return
+    }
     if (result === 'aborted') {
       yield { type: 'done', reason: 'aborted' }
       return
