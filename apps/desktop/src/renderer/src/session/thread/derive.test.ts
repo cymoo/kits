@@ -175,6 +175,19 @@ describe('deriveBlocks cards', () => {
     expect(blocks.some((b) => b.kind === 'permission')).toBe(false)
   })
 
+  it('shows a permission left unanswered when the app quit as expired, not allowed', () => {
+    seq = 0
+    const t = tool('bash', { command: 'uv run pytest' }, 'running')
+    const callId = t.payload.type === 'tool' ? t.payload.callId : ''
+    const blocks = deriveBlocks(
+      detail([t, perm('expired', callId)], { completedAt: 5, finishReason: 'error' }),
+    )
+    const turn = blocks.find((b) => b.kind === 'turn')
+    expect(turn?.kind === 'turn' && turn.steps).toEqual([
+      expect.objectContaining({ kind: '执行命令', meta: '已过期' }),
+    ])
+  })
+
   it('keeps a rejected permission without a tool step as a failed step', () => {
     seq = 0
     const blocks = deriveBlocks(detail([perm('reject')]))

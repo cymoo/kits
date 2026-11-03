@@ -167,8 +167,9 @@ export const opencodeDialect: KernelDialect = {
 
     let closing = false
     const exitListeners: ((exit: KernelExit) => void)[] = []
+    // exit 时管道里可能还有没读完的输出，等 stdio 都关了（close）再结束日志，不然最后几行诊断会丢
+    child.once('close', () => log?.end())
     child.once('exit', (code, signal) => {
-      log?.end()
       if (closing) return
       const exit = { code, signal, tail: tail(stderr) }
       for (const l of exitListeners) l(exit)

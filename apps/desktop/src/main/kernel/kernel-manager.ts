@@ -35,6 +35,9 @@ interface Slot {
   dirty: boolean
   runs: number
   status: KernelRuntime
+  // 排在队列里、还没完成的那次取实例：同一批并发的 acquire 共用它（成功、失败都共用），
+  // 启动失败不会被同一批请求串行重试 N 次
+  pending: Promise<AgentKernel> | undefined
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -55,6 +58,7 @@ export class KernelManager {
         dirty: false,
         runs: 0,
         status: { id, state: 'stopped', error: null, problems: [] },
+        pending: undefined,
       }
       this.slots.set(id, slot)
     }
@@ -99,7 +103,14 @@ export class KernelManager {
   private ensure(id: KernelName): Promise<AgentKernel> {
     if (this.closing) return Promise.reject(new Error('应用正在退出'))
     const slot = this.slot(id)
-    return this.enqueue(slot, async () => slot.kernel ?? this.start(id))
+    if (slot.pending) return slot.pending
+    const pending = this.enqueue(slot, async () => slot.kernel ?? this.start(id))
+    slot.pending = pending
+    const clear = () => {
+      if (slot.pending === pending) slot.pending = undefined
+    }
+    pending.then(clear, clear)
+    return pending
   }
 
   // 只在队列里调用
@@ -181,6 +192,8 @@ export class KernelManager {
 
   async restart(id: KernelName): Promise<void> {
     const slot = this.slot(id)
+    // 重启排在后面：之后的 acquire 要等重启完再取，不能共用重启前那次
+    slot.pending = undefined
     await this.enqueue(slot, async () => {
       const old = slot.kernel
       slot.kernel = undefined

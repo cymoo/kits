@@ -84,6 +84,8 @@ const REPLY_META: Record<string, string> = {
   once: '已允许',
   always: '本会话允许',
   reject: '已拒绝',
+  // 这一轮结束（停止、出错、应用退出）时还没回复
+  expired: '已过期',
 }
 
 export function describeTool(p: ToolPayload, workdir: string): { kind: string; detail: string } {

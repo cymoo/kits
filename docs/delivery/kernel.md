@@ -174,7 +174,9 @@
 - `apps/desktop/src/main`：
   - `kernel/kernel-manager.ts`：`acquire / release`（会话服务每轮调一次，用来判断能不能立即重启）、懒启动（并发调用共用一次启动）、退出处理、`configChanged`、`requestRestart`（设置页的“重启”：有轮次在跑就标待重启，最后一轮结束后再重启，不会把在跑的轮次掐断）、`dispose`，状态变化推给界面。
   - `dialects/opencode.ts`：Windows 上关内核用 `taskkill /T /F` 结束整棵进程树，OpenCode 拉起的 stdio MCP 服务和命令不会在应用退出后留下。
-  - Mock 内核：会话 id 跨实例唯一（重启后新建的会话不会和旧会话撞 id）；崩溃时先通知退出再交出 `done`；`dispose` 后还没开始的等待也立刻结束。
+  - Mock 内核：会话 id 跨实例唯一（重启后新建的会话不会和旧会话撞 id）；崩溃时先通知退出再交出 `done`，崩溃是整个实例的事，其他会话在跑的轮次也以出错结束、退出只通知一次；`dispose` 后还没开始的等待也立刻结束；停在 `submit_output` 时不再交产出；注入的 `askUser` / `onOutput` 抛错时以 `done: error` 结束。
+  - 同一批并发的 `acquire` 共用一次启动（失败也共用），健康检查超时不会被串行重试 N 次；之后单独的请求照常重试。
+  - 内核日志在子进程 `close`（stdio 都关了）时才结束，退出前最后几行诊断不会丢。
   - `kernel/kernel-config.ts`：从 `~/.kits`（设置、个人 Agent、个人技能、`mcp.json`、个人记忆）和密钥表收拢成内核配置，写进 `{userData}/kernel/<id>/config`，日志在 `{userData}/kernel/<id>/logs/<日期>.log`。
   - `kernel/runtime.ts`：真内核 / Mock 内核的工厂；找不到内核二进制时报“内核没有安装”。
   - `tools/kits-tool-host.ts`：kits 工具服务的宿主（一个应用一个 HTTP MCP 服务），处理函数可替换，PR7 由会话服务接上。

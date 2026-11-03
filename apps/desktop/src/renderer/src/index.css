@@ -226,6 +226,19 @@ html[data-scale="l"] {
 .k-md ol {
   padding-left: 1.4em;
 }
+/* Preflight 把列表符号清掉了，正文里的步骤要有编号和圆点；GFM 任务列表用勾选框，不要圆点 */
+.k-md ul {
+  list-style: disc;
+}
+.k-md ol {
+  list-style: decimal;
+}
+.k-md li.task-list-item {
+  list-style: none;
+}
+.k-md ul.contains-task-list {
+  padding-left: 0.2em;
+}
 .k-md li + li {
   margin-top: 0.2em;
 }

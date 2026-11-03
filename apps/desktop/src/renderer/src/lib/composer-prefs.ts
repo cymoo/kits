@@ -33,21 +33,32 @@ function modelUsable(ref: string | undefined, settings: Settings): ref is string
   return !!gateway?.models.some((m) => m.id === ref.slice(i + 1))
 }
 
-// 选过的模型所在网关删了或停用了：回退到默认模型；默认模型也不能用就空着，发送按钮置灰
-function resolveModel(picked: string | undefined, settings: Settings | undefined): string {
-  if (!settings) return picked ?? ''
-  if (modelUsable(picked, settings)) return picked
-  return modelUsable(settings.defaultModel, settings) ? settings.defaultModel : ''
+// 优先级：手动选的 → Agent 配的 → 全局默认。指向的网关删了或停用了就往下退；都不能用就空着，发送按钮置灰
+function resolveModel(
+  picked: string | undefined,
+  agentModel: string | undefined,
+  settings: Settings | undefined,
+): string {
+  if (!settings) return picked ?? agentModel ?? ''
+  for (const ref of [picked, agentModel, settings.defaultModel]) {
+    if (modelUsable(ref, settings)) return ref
+  }
+  return ''
 }
 
 // 用户没选过的项按设置补上
-export function resolvePrefs(prefs: ComposerPrefs, settings: Settings | undefined) {
+export function resolvePrefs(
+  prefs: ComposerPrefs,
+  settings: Settings | undefined,
+  // 选中的 Agent 配的模型
+  agentModel?: string,
+) {
   return {
     workdir: prefs.workdir ?? settings?.workdirs[0]?.path,
     agent: prefs.agent,
     permissionMode: prefs.permissionMode ?? settings?.permissionMode ?? 'ask',
     kernel: prefs.kernel ?? settings?.kernel ?? 'opencode',
-    model: resolveModel(prefs.model, settings),
+    model: resolveModel(prefs.model, agentModel, settings),
   }
 }
 

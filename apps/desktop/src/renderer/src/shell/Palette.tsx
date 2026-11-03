@@ -139,6 +139,8 @@ export function Palette() {
               aria-selected={i === active}
               // 鼠标真的移动了才跟着选；面板弹出来时正好在光标下面的那一项不算（mouseenter 会误选）
               onPointerMove={() => setActive(i)}
+              // 方向键选到可视范围外的项时滚过去（焦点留在输入框）
+              ref={i === active ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
               onClick={a.run}
               className={cx(
                 'flex min-h-9 w-full cursor-pointer items-center gap-3 rounded-[8px] px-2.5 py-[5px] text-left',
