@@ -68,6 +68,17 @@ describe('ConfigService', () => {
     expect(readFileSync(path.join(dir, backup ?? ''), 'utf8')).toBe('{ not json')
   })
 
+  it('clears the broken state when the broken file is deleted and settings are saved', () => {
+    const file = path.join(dir, 'settings.json')
+    writeFileSync(file, '{ not json')
+    const config = new ConfigService({ dir })
+    expect(config.loadError).toBeDefined()
+    rmSync(file)
+    config.updateSettings({ general: { theme: 'dark' } })
+    expect(config.loadError).toBeUndefined()
+    expect(JSON.parse(readFileSync(file, 'utf8')).general.theme).toBe('dark')
+  })
+
   it('picks up a hand edit before reading and before saving', () => {
     const changed: string[] = []
     const config = new ConfigService({ dir, onSettingsChanged: (s) => changed.push(s.kernel) })

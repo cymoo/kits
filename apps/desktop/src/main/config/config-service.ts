@@ -38,7 +38,12 @@ export class ConfigService {
 
   private readSettings(): Settings {
     this.mtime = this.fileMtime()
-    if (!existsSync(this.paths.settings)) return parseSettings({})
+    if (!existsSync(this.paths.settings)) {
+      // 坏文件被人删掉了：不再算坏，提示也跟着消失
+      this.broken = false
+      this.loadError = undefined
+      return parseSettings({})
+    }
     try {
       const settings = parseSettings(JSON.parse(readFileSync(this.paths.settings, 'utf8')))
       this.broken = false

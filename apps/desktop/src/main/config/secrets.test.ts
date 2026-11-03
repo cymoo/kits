@@ -62,6 +62,7 @@ describe('SecretStore', () => {
       },
     }
     expect(new SecretStore(file, broken).get('k')).toBeUndefined()
+    expect(new SecretStore(file, broken).has('k')).toBe(false)
   })
 
   it.skipIf(process.platform === 'win32')('writes the file readable by the owner only', () => {
