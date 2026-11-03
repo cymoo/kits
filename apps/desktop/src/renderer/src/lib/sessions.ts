@@ -90,6 +90,9 @@ function wire() {
   kits.on('session.changed', (s: SessionSummary) => dispatch(s.id, mergeSession(s)))
   kits.on('session.message', (m: MessageView) => dispatch(m.sessionId, mergeMessage(m)))
   kits.on('session.part', (p: PartView) => dispatch(p.sessionId, mergePart(p)))
+  kits.on('session.attachments', ({ sessionId, attachments }) =>
+    dispatch(sessionId, (d) => ({ ...d, attachments })),
+  )
   kits.on('session.activity', (a: SessionActivity) => {
     const cur = states.get(a.sessionId)
     if (cur) set(a.sessionId, { ...cur, activity: a })

@@ -50,7 +50,12 @@ const tool = (name: string, input: unknown, status = 'completed') =>
   part({ type: 'tool', callId: `c${seq}`, name, input }, status)
 
 function detail(parts: PartView[], assistant: Partial<MessageView> = {}): SessionDetail {
-  return { session, messages: [msg('u1', 'user'), msg('a1', 'assistant', assistant)], parts }
+  return {
+    session,
+    messages: [msg('u1', 'user'), msg('a1', 'assistant', assistant)],
+    parts,
+    attachments: [],
+  }
 }
 
 describe('deriveBlocks', () => {

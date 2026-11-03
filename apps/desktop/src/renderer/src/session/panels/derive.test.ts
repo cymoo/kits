@@ -57,6 +57,7 @@ const detail = (messages: MessageView[], parts: PartView[]): SessionDetail => ({
   session,
   messages,
   parts,
+  attachments: [],
 })
 
 describe('deriveRounds', () => {

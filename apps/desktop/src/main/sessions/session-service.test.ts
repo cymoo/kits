@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { builtinAssistant, type PushEvents, parseMcpFile, type SessionStatus } from '@kits/core'
@@ -73,6 +73,7 @@ function setup(
     flushMs: 5,
     diffDelays,
     exportsDir,
+    attachmentsDir: exportsDir,
   })
   const statusOf = (id: string) => store.session(id)?.status
   const waitFor = (id: string, statuses: SessionStatus[]) =>
@@ -508,6 +509,93 @@ describe('SessionService outputs', () => {
   })
 })
 
+describe('SessionService attachments', () => {
+  const md = (text: string) => ({
+    name: '需求.md',
+    mime: 'text/markdown',
+    data: new TextEncoder().encode(text),
+  })
+
+  it('stores the attachment, shows it on the user message and sends its text to the kernel', async () => {
+    const { service, waitFor, store, kernel } = setup('done')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create({
+      ...input,
+      attachments: [md('# 积分兑换\n同一个请求号只兑换一次')],
+    })
+    await waitFor(s.id, ['done'])
+    expect(prompt.mock.calls[0]?.[1]).toEqual({
+      text: input.text,
+      attachments: [{ name: '需求.md', text: '# 积分兑换\n同一个请求号只兑换一次' }],
+    })
+    const detail = store.detail(s.id)
+    const user = detail?.messages.find((m) => m.role === 'user')
+    expect(detail?.attachments).toEqual([
+      expect.objectContaining({ messageId: user?.id, name: '需求.md', mime: 'text/markdown' }),
+    ])
+  })
+
+  it('does not create the session when an attachment cannot be read', async () => {
+    const { service, store } = setup('done')
+    const png = { name: 'shot.png', mime: 'image/png', data: new Uint8Array([1, 2, 3]) }
+    await expect(service.create({ ...input, attachments: [png] })).rejects.toThrow('shot.png')
+    expect(store.list()).toEqual([])
+  })
+
+  it('leaves no files behind when one attachment of a batch cannot be read', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const png = { name: 'shot.png', mime: 'image/png', data: new Uint8Array([1]) }
+    await expect(service.prompt(s.id, '看看', [md('说明'), png])).rejects.toThrow('shot.png')
+    const dir = path.join(exportsDir, s.id)
+    expect(existsSync(dir) ? readdirSync(dir) : []).toEqual([])
+  })
+
+  it('drops a follow-up whose attachments were still converting when the turn was stopped', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    let finish = () => {}
+    const converting = new Promise<void>((r) => {
+      finish = r
+    })
+    // 换掉转文本：卡住，等停止之后再放行
+    ;(service as unknown as { deps: { extractText: unknown } }).deps.extractText = async () => {
+      await converting
+      return '说明'
+    }
+    const sent = service.prompt(s.id, '顺便看下', [md('说明')])
+    await service.abort(s.id)
+    finish()
+    await sent
+    await waitFor(s.id, ['aborted'])
+    await new Promise((r) => setTimeout(r, 30))
+    expect(store.session(s.id)?.turns).toBe(1)
+    expect(service.get(s.id)?.session.queued).toBeUndefined()
+  })
+
+  it('keeps the attachments of a queued follow-up and sends them with the next turn', async () => {
+    const { service, waitFor, store, kernel } = setup('permission')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下这个', [md('附加说明')])
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'once',
+    })
+    await vi.waitFor(() => expect(prompt).toHaveBeenCalledTimes(2))
+    expect(prompt.mock.calls[1]?.[1]).toMatchObject({
+      text: '顺便看下这个',
+      attachments: [{ name: '需求.md', text: '附加说明' }],
+    })
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+})
+
 describe('exportName', () => {
   it('drops characters that cannot go into a file name and adds the turn when there are several', () => {
     const at = new Date(2026, 10, 4).getTime()
@@ -559,6 +647,7 @@ describe('SessionService kernel reads', () => {
       diffDelays: [0],
       readTimeoutMs: 30,
       exportsDir,
+      attachmentsDir: exportsDir,
     })
     const s = await service.create(input)
     await vi.waitFor(() => expect(store.session(s.id)?.status).toBe('done'))

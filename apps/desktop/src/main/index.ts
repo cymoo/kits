@@ -9,6 +9,7 @@ import { ConfigService } from './config/config-service'
 import { resolveConfigDir } from './config/paths'
 import { SecretStore } from './config/secrets'
 import { openDatabase } from './db'
+import { FileSearch } from './files/search'
 import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc, trustedUrl } from './ipc/register'
 import { kernelSettingsKey, loadAgents, loadMcp } from './kernel/kernel-config'
@@ -132,6 +133,7 @@ app.whenReady().then(() => {
   })
   onConfigChanged = () => kernels.configChanged()
 
+  const files = new FileSearch()
   const store = new SessionStore(db)
   // 上次退出时还在跑的会话标成中断
   store.markInterrupted(Date.now())
@@ -143,6 +145,7 @@ app.whenReady().then(() => {
     registry: tools.registry,
     push,
     exportsDir: path.join(platform.userDataDir, 'exports'),
+    attachmentsDir: path.join(platform.userDataDir, 'attachments'),
   })
   // 提问、产出交给会话服务；记忆在 PR16 接上
   tools.setHandlers({
@@ -190,7 +193,7 @@ app.whenReady().then(() => {
         },
         list: () => sessions.list(),
         get: (id) => sessions.get(id),
-        prompt: ({ id, text }) => sessions.prompt(id, text),
+        prompt: ({ id, text, attachments }) => sessions.prompt(id, text, attachments),
         abort: (id) => sessions.abort(id),
         respondPermission: (input) => sessions.respondPermission(input),
         answerQuestion: (input) => sessions.answerQuestion(input),
@@ -200,6 +203,9 @@ app.whenReady().then(() => {
         list: (id) => sessions.outputs(id),
         save: (input) => sessions.saveOutput(input),
         export: (input) => sessions.exportOutput(input),
+      },
+      files: {
+        search: ({ workdir, query }) => files.search(workdir, query),
       },
       workdir: {
         pick: async () => {

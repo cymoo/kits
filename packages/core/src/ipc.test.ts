@@ -27,6 +27,7 @@ describe('contractEntries', () => {
       ['output', 'list'],
       ['output', 'save'],
       ['output', 'export'],
+      ['files', 'search'],
       ['workdir', 'pick'],
       ['agents', 'list'],
       ['secrets', 'set'],

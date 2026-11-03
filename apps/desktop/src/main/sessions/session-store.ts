@@ -1,4 +1,5 @@
 import type {
+  AttachmentView,
   FileDiffView,
   MessageView,
   OutputView,
@@ -12,6 +13,7 @@ import type {
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { Database } from '../db'
 import {
+  attachments,
   diffs,
   type MessageRecord,
   messages,
@@ -237,6 +239,33 @@ export class SessionStore {
     }
   }
 
+  attachments(sessionId: string): AttachmentView[] {
+    return this.db
+      .select({
+        id: attachments.id,
+        messageId: attachments.messageId,
+        name: attachments.name,
+        mime: attachments.mime,
+        size: attachments.size,
+      })
+      .from(attachments)
+      .where(eq(attachments.sessionId, sessionId))
+      .all()
+  }
+
+  saveAttachment(row: {
+    id: string
+    sessionId: string
+    messageId: string
+    name: string
+    mime: string
+    size: number
+    path: string
+    textPath: string
+  }): void {
+    this.db.insert(attachments).values(row).run()
+  }
+
   outputs(sessionId: string): OutputView[] {
     return this.db
       .select()
@@ -339,6 +368,7 @@ export class SessionStore {
         .orderBy(asc(parts.createdAt), asc(parts.seq))
         .all()
         .map(toPart),
+      attachments: this.attachments(id),
     }
   }
 

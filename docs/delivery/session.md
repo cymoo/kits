@@ -162,3 +162,55 @@ phase1-implementation PR10（5.4 节 `outputs` 表、6.4 节产出页签）：�
 - 结构化产出不能改，只能看和导出；逐条审核、Excel 导出、推送到缺陷平台在后续。
 - 导出到固定的 `exports/` 目录，没有“另存为”。
 - 评测数据（原稿 + 修改的 JSONL）的导出入口还没有，数据已经分开存好。
+
+## 2026-11-04　附件和 @ 引用：上传、拖进来、转文本，@ 工作目录里的文件
+
+> 日期：2026-11-04　PR：见本分支 `feat/session-attachments`　作者：Claude Code
+
+### 原始需求
+
+phase1-implementation PR11：输入框能带附件（需求文档、用例、日志），Word 和 PDF 转成文字随消息发给 Agent；能拖文件进输入框；`+` 菜单里有“上传文件”和“引用文件”；打 `@` 弹出工作目录里的文件。原型 `designs/app/shell.js` 的 `+` 浮层和 `@` 菜单。
+
+做到什么程度算完：首页和会话页的输入框都能加附件、去掉附件；Word（.docx）、PDF、Markdown 和纯文本类文件转成文字发给内核，读不了的文件说清楚是哪个、草稿和附件都留着；用户消息下面有附件芯片；`@` 菜单按路径搜工作目录里的文件，↑↓ 选、↵ 引用、Esc 关。
+
+### 怎么验收
+
+用 Mock 内核（`KITS_KERNEL=mock KITS_MOCK_SCENARIO=done`）：
+
+1. 首页点输入框左下的 `+` → “上传文件”，选一个 .docx 和一个 .md。输入框上方出现两个附件芯片（名字和大小），点 × 能去掉。
+2. 写任务回车：会话页的用户消息下面有这两个附件。`{userData}/attachments/<会话 id>/` 里有原文件和转出来的 `.txt`。
+3. 把一个 .txt 文件拖进输入框：拖的时候输入框出现“松开添加附件”，松开后多一个芯片。再拖一张 .png 进去发送：输入框里提示“shot.png：这一版只支持 Word（.docx）、PDF、Markdown 和纯文本类文件”，没有建会话，草稿和附件都还在。
+4. 工作目录里放 `src/points/redeem.py`，在输入框打 `看下 @red`：弹出“工作目录里的文件”，只有 `src/points/redeem.py`（`node_modules` 之类的目录不搜），回车后输入框变成 `看下 @src/points/redeem.py `。`+` → “引用工作目录里的文件”也会插一个 `@` 并弹出菜单，Esc 关掉。
+5. 真实网关：带一份 PDF 需求让 Agent 总结，回复里能看到 PDF 里的内容。
+
+### 主要改动
+
+- `packages/core`：`AttachmentInput`（名字、类型、字节）和 `AttachmentView`；`CreateSessionInput.attachments`、`session.prompt` 的 `attachments`；`SessionDetail.attachments`；IPC `files.search`；推送 `session.attachments`。
+- `apps/desktop/src/main/attachments/extract.ts`：附件转文本。Word 用 mammoth 取正文，PDF 用 pdfjs-dist 逐页取文字（不渲染，不装 `@napi-rs/canvas`），Markdown / 纯文本 / 代码 / 日志 / CSV / JSON 按 UTF-8 读；单个附件超过 20 万字截断并注明；图片和其他二进制文件报错。
+- `apps/desktop/src/main/files/search.ts`：列工作目录里的文件（跳过 `.git`、`node_modules`、`dist`、`.venv` 等，最多 2 万个，缓存 30 秒），按“文件名开头 > 文件名包含 > 路径包含”排序，返回 30 个。
+- `apps/desktop/src/main/sessions/session-service.ts`：建会话、接着说时先把附件存到 `{userData}/attachments/<会话>/`（原文件 + `.txt`），读不了就报错、会话不建；这一轮的用户消息建好后写 `attachments` 表；转出来的文字随消息发给内核（适配器包成 `<attachment name="…">` 段）；运行中排队的消息带着附件，合并时一起发。单个附件上限 20 MB。一批里有一个读不了就整批的文件都删掉；转附件期间点了停止，这条追问作废、文件删掉；停止时丢掉的排队消息，附件也删掉。读不了的错误都带文件名。
+- `apps/desktop/src/renderer/src/shell/Composer.tsx`：`+` 菜单（上传文件、引用工作目录里的文件）、拖放、附件芯片、`@` 菜单；`shell/composer-at.ts` 是 @ 查询和替换的纯函数（只吃掉紧跟的一个空格，换行留着）。发送期间新加的附件不会被清掉；@ 结果还没回来时回车不发送；输入框按组合框标注（`aria-activedescendant` 指向选中的文件），读屏能读出当前选项。
+- `session/thread/Blocks.tsx`：用户消息下面的附件芯片。
+- `pnpm-workspace.yaml`：`overrides` 去掉 `@napi-rs/canvas`（pdfjs-dist 的可选原生依赖，只在渲染页面时用）。
+- 原型没画到、按风格补的：拖放时的“松开添加附件”遮罩；读不了附件时的报错；`+` 菜单里原型还有“本次会话可用的平台”开关，那是 PR12 的 MCP。
+
+### 测试
+
+- 单元测试：`extract.test.ts`（5 个：Word、PDF、Markdown 换行、超长截断、图片报错，fixture 是仓库里的 `requirement.docx` 和 `spec.pdf`）；`files/search.test.ts`（3 个：跳过的目录、排序、缓存）；`composer-at.test.ts`（5 个）；`session-service.test.ts` 补 3 个（附件落库并随消息发给内核、读不了不建会话、排队消息带附件）。
+- E2E：`attachments.spec.ts`（3 个）：上传 Word 和 Markdown → 芯片 → 发送 → 用户消息下的附件和存下来的文件；拖进来、拖一张图被拒；`@` 引用和 `+` 菜单的引用。
+
+### 新增依赖
+
+| 依赖 | 版本 | 用途 | 许可证 |
+|---|---|---|---|
+| mammoth | 1.13.0 | Word（.docx）取正文 | BSD-2-Clause |
+| pdfjs-dist | 6.5.438 | PDF 取文字 | Apache-2.0 |
+
+都在 `apps/desktop` 的 dependencies，在主进程里用，纯 JS。pdfjs-dist 的可选依赖 `@napi-rs/canvas` 是原生模块，用 `overrides` 去掉了（只取文字用不到）。内网镜像要能装这两个包。
+
+### 已知问题
+
+- 图片还不能发（要走内核的文件 part，模型也要支持看图），这一版直接报错。
+- 旧的 .doc、Excel、PPT 不支持；扫描版 PDF 没有文字层，取不到内容。
+- `@` 只引用工作目录里的文件，引用需求平台、用例平台在 PR12 接 MCP 之后。
+- 附件转出来的文字整段放进消息，很长的文档会占上下文；PR16 做上下文用量提示。

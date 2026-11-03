@@ -40,7 +40,12 @@ const part = (text: string, updatedAt: number): PartView => ({
   createdAt: 1,
   updatedAt,
 })
-const snapshot: SessionDetail = { session, messages: [message], parts: [part('完整的正文', 8)] }
+const snapshot: SessionDetail = {
+  session,
+  messages: [message],
+  parts: [part('完整的正文', 8)],
+  attachments: [],
+}
 
 describe('replaySessionList', () => {
   it('lets a push received during the list query win even with the same timestamp', () => {

@@ -18,7 +18,9 @@
     "@kits/core": "workspace:*",
     "@kits/kernel": "workspace:*",
     "drizzle-orm": "1.0.0-rc.5",
-    "electron-updater": "6.8.11"
+    "electron-updater": "6.8.11",
+    "mammoth": "1.13.0",
+    "pdfjs-dist": "6.5.438"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

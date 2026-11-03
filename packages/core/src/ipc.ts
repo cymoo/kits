@@ -1,6 +1,8 @@
 import type { GeneralSettings, Settings } from './config/settings'
 import type {
   AgentSummary,
+  AttachmentInput,
+  AttachmentView,
   CreateSessionInput,
   FileDiffView,
   MessageView,
@@ -107,7 +109,7 @@ export const ipcContract = {
     create: method<CreateSessionInput, SessionSummary>(),
     list: method<undefined, SessionSummary[]>(),
     get: method<string, SessionDetail | null>(),
-    prompt: method<{ id: string; text: string }, void>(),
+    prompt: method<{ id: string; text: string; attachments?: AttachmentInput[] }, void>(),
     abort: method<string, void>(),
     respondPermission: method<
       { id: string; requestId: string; reply: 'once' | 'always' | 'reject'; message?: string },
@@ -124,6 +126,10 @@ export const ipcContract = {
     save: method<{ id: string; edited: unknown | null }, OutputView>(),
     // 写到 {userData}/exports/，返回文件路径
     export: method<{ id: string; format: 'markdown' | 'json' }, { path: string }>(),
+  },
+  files: {
+    // 输入框 @ 菜单：工作目录里按路径匹配的文件（相对路径），最多 30 个
+    search: method<{ workdir: string; query: string }, string[]>(),
   },
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用
@@ -178,6 +184,8 @@ export interface PushEvents {
   'session.diffs': { sessionId: string; files: FileDiffView[] }
   // 一轮的产出有了（回复正文、submit_output）或者被改了
   'session.output': OutputView
+  // 一条用户消息带的附件存好了
+  'session.attachments': { sessionId: string; attachments: AttachmentView[] }
 }
 export type PushChannel = keyof PushEvents
 export const pushChannels: PushChannel[] = [
@@ -189,6 +197,7 @@ export const pushChannels: PushChannel[] = [
   'session.activity',
   'session.diffs',
   'session.output',
+  'session.attachments',
 ]
 
 export function channelName(domain: string, method: string): string {
