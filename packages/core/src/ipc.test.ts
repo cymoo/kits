@@ -6,6 +6,7 @@ describe('contractEntries', () => {
   it('lists every domain and method of the contract', () => {
     expect(contractEntries()).toEqual([
       ['app', 'info'],
+      ['app', 'checkForUpdates'],
       ['app', 'permissionDefaults'],
       ['app', 'openExternal'],
       ['app', 'openPath'],

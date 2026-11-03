@@ -99,6 +99,14 @@ export type SettingsPatch = Partial<Omit<Settings, 'version' | 'general'>> & {
 export const ipcContract = {
   app: {
     info: method<undefined, AppInfo>(),
+    // 检查更新（设置 · 通用的“版本与更新”）；没配更新地址或开发时返回 disabled
+    checkForUpdates: method<
+      undefined,
+      | { status: 'disabled'; reason: 'dev' | 'no-url' }
+      | { status: 'latest'; version: string }
+      | { status: 'available'; version: string }
+      | { status: 'error'; message: string }
+    >(),
     // 设置 · 权限页的说明：默认权限（执行前确认模式下）和只读命令白名单
     permissionDefaults: method<
       undefined,

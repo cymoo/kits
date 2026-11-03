@@ -32,11 +32,21 @@ pnpm check
 pnpm build && pnpm test:e2e
 ```
 
-打安装包前把当前平台的内核二进制拷到 `vendor/`：
+## 打包和发布
+
+安装包在本机架构上打（内核二进制按架构来）：先把内核拷到 `vendor/`，再打包，产物在 `apps/desktop/release/`。
 
 ```bash
 pnpm vendor:kernel && pnpm --filter @kits/desktop package
 ```
+
+- 带上 CodeAgent：打包前设 `KITS_CODEAGENT_BIN` 指到 CodeAgent 的可执行文件，`vendor:kernel` 会一起拷进去；不设的话安装包里只有 OpenCode，设置页显示 CodeAgent“未安装”。
+- 只想看一眼打出来的应用、不要 dmg / 安装程序：`pnpm --filter @kits/desktop package:dir`。
+- 发版：推一个 `v*` 的 tag，`.github/workflows/release.yml` 在 mac（arm64、x64 各一台）和 Windows（x64）上打包，产物挂到一个草稿 release 上。
+- 签名：现在是未签名包（mac 打开时要右键“打开”，Windows 会有 SmartScreen 提示）。证书到位后要的是：
+  - mac：Developer ID Application 证书（`.p12`），放进仓库 Secrets 的 `CSC_LINK`（base64）和 `CSC_KEY_PASSWORD`；公证再加 `APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`，并把 `apps/desktop/electron-builder.yml` 的 `mac.notarize` 改成 `true`。
+  - Windows：代码签名证书（`.pfx`），同样放 `CSC_LINK` / `CSC_KEY_PASSWORD`（Windows 那台 runner 用）。
+- 自动更新：electron-updater 的 generic provider。把 release 产物（安装包、`latest*.yml`、`.blockmap`）放到内网一个静态目录，在 `~/.kits/settings.json` 里写 `"updateUrl": "https://…/kits"`（或设环境变量 `KITS_UPDATE_URL`）；没配就不检查。设置 · 通用的“版本与更新”能手动查一次。
 
 ## 目录
 
