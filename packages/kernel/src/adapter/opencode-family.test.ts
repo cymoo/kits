@@ -26,6 +26,10 @@ interface Fake {
   failPermissions: boolean
   // POST /session/{id}/abort 不回
   hangAbort: boolean
+  // POST prompt_async 不回
+  hangPrompt: boolean
+  // 事件流连上后不发 server.connected
+  silentStream: boolean
   promptCount: number
   summarizeBody: unknown
   close(): Promise<void>
@@ -43,6 +47,8 @@ async function startFake(): Promise<Fake> {
     permissions: [],
     failPermissions: false,
     hangAbort: false,
+    hangPrompt: false,
+    silentStream: false,
     promptCount: 0,
     summarizeBody: undefined,
   }
@@ -50,7 +56,9 @@ async function startFake(): Promise<Fake> {
     const url = new URL(req.url ?? '/', 'http://x')
     if (url.pathname === '/event') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream' })
-      res.write(`data: ${JSON.stringify({ type: 'server.connected', properties: {} })}\n\n`)
+      if (!fake.silentStream) {
+        res.write(`data: ${JSON.stringify({ type: 'server.connected', properties: {} })}\n\n`)
+      }
       fake.streams.push(res)
       fake.connections += 1
       req.on('close', () => {
@@ -65,6 +73,7 @@ async function startFake(): Promise<Fake> {
     if (url.pathname === '/session' && req.method === 'POST') return json({ id: 'ses_1' })
     if (url.pathname.endsWith('/prompt_async')) {
       fake.promptCount += 1
+      if (fake.hangPrompt) return
       res.writeHead(204).end()
       return
     }
@@ -377,6 +386,35 @@ describe('OpencodeFamilyKernel', () => {
       void kernel.abort(s).catch(() => {})
     })
     expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+  })
+
+  it('ends the turn on abort while prompt_async is still waiting for a reply', async () => {
+    const s = await setup({ abortGraceMs: 2_000 })
+    fake.hangPrompt = true
+    const started = Date.now()
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+      await until(() => fake.promptCount === 1)
+      // abort 请求可能在用例结束、假内核关掉之后才失败，这里不关心它的结果
+      void kernel.abort(s).catch(() => {})
+    })
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+    // 不用等 abortGrace 兜底，取消请求后立刻结束
+    expect(Date.now() - started).toBeLessThan(1_500)
+  })
+
+  it('gives up and drops the subscription when the event stream never sends a first event', async () => {
+    const s = await setup({ setupTimeoutMs: 200 })
+    fake.silentStream = true
+    const events: KernelEvent[] = []
+    for await (const e of kernel.prompt(s, { text: 'hi' })) events.push(e)
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'error',
+      error: '连不上内核的事件流',
+    })
+    // 没人订阅了，事件流连接被关掉
+    await until(() => fake.streams.length === 0)
+    expect(fake.promptCount).toBe(0)
   })
 
   it('summarizes a session on the default model with the model of its last reply', async () => {
