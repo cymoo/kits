@@ -97,6 +97,9 @@ describe('McpService', () => {
       { name: 'get_case', description: '读一条用例', level: 'deny' },
       { name: 'create_case', description: '新建一条用例', level: 'ask' },
     ])
+    // 同名重新粘贴一份配置：旧的工具列表不作数，等重新测试
+    mcp.add(JSON.stringify({ echo: { command: process.execPath, args: [echo, '--v2'] } }))
+    expect(mcp.overview().servers[0]?.tools).toEqual([])
   }, 20_000)
 
   it('says which credentials are missing before trying to connect', async () => {
