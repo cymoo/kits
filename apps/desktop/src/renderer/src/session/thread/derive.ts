@@ -45,6 +45,22 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '')
 
 const EDIT_TOOLS = new Set(['edit', 'write', 'apply_patch'])
 
+// apply_patch 的参数是 patchText（*** Add / Update / Delete File: <路径>），没有 filePath
+export function patchTargets(input: unknown, workdir: string): string[] {
+  const text = str((input as Record<string, unknown> | undefined)?.patchText)
+  const found = [...text.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map((m) =>
+    rel((m[1] ?? '').trim(), workdir),
+  )
+  return [...new Set(found)]
+}
+
+// 这一步改了哪些文件（工作过程里数“改了 N 个文件”）
+function editedFiles(p: ToolPayload, workdir: string): string[] {
+  if (p.name === 'apply_patch') return patchTargets(p.input, workdir)
+  const file = rel((p.input as Record<string, unknown> | undefined)?.filePath, workdir)
+  return file ? [file] : []
+}
+
 export function describeTool(p: ToolPayload, workdir: string): { kind: string; detail: string } {
   const input = (p.input ?? {}) as Record<string, unknown>
   switch (p.name) {
@@ -62,8 +78,9 @@ export function describeTool(p: ToolPayload, workdir: string): { kind: string; d
     case 'bash':
       return { kind: '执行命令', detail: str(input.command) }
     case 'edit':
-    case 'apply_patch':
       return { kind: '修改文件', detail: rel(input.filePath, workdir) }
+    case 'apply_patch':
+      return { kind: '修改文件', detail: patchTargets(p.input, workdir).join(', ') }
     case 'write':
       return { kind: '新建文件', detail: rel(input.filePath, workdir) }
     case 'webfetch':
@@ -134,7 +151,9 @@ export function deriveBlocks(
         }
       } else if (payload.type === 'tool') {
         const { kind, detail: d } = describeTool(payload, session.workdir)
-        if (EDIT_TOOLS.has(payload.name) && p.status === 'completed') files.add(d)
+        if (EDIT_TOOLS.has(payload.name) && p.status === 'completed') {
+          for (const f of editedFiles(payload, session.workdir)) files.add(f)
+        }
         steps.push({
           id: p.id,
           kind,

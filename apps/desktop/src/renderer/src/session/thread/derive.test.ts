@@ -1,6 +1,6 @@
 import type { MessageView, PartPayload, PartView, SessionDetail } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { deriveBlocks, describeTool } from './derive'
+import { deriveBlocks, describeTool, patchTargets } from './derive'
 
 const session = {
   id: 's1',
@@ -145,5 +145,35 @@ describe('describeTool on windows paths', () => {
     expect(describeTool(p('C:\\repo\\src\\a.ts'), 'C:\\repo').detail).toBe('src/a.ts')
     expect(describeTool(p('C:/repo/src/a.ts'), 'C:\\repo\\').detail).toBe('src/a.ts')
     expect(describeTool(p('D:\\other\\a.ts'), 'C:\\repo').detail).toBe('D:\\other\\a.ts')
+  })
+})
+
+describe('apply_patch', () => {
+  const patchText = [
+    '*** Begin Patch',
+    '*** Update File: /repo/member-svc/src/a.py',
+    '@@',
+    '-x',
+    '+y',
+    '*** Add File: src/b.py',
+    '+z',
+    '*** End Patch',
+  ].join('\n')
+
+  it('reads the target files from the patch text', () => {
+    expect(patchTargets({ patchText }, '/repo/member-svc')).toEqual(['src/a.py', 'src/b.py'])
+  })
+
+  it('counts each patched file once in the work process', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([tool('apply_patch', { patchText }), tool('apply_patch', { patchText })], {
+        completedAt: 5,
+        finishReason: 'completed',
+      }),
+    )
+    const turn = blocks.find((b) => b.kind === 'turn')
+    expect(turn?.kind === 'turn' && turn.filesChanged).toBe(2)
+    expect(turn?.kind === 'turn' && turn.steps[0]?.detail).toBe('src/a.py, src/b.py')
   })
 })
