@@ -8,7 +8,7 @@ import { resolveKernelBinary } from '../binary'
 import { opencodeDialect } from '../dialects/opencode'
 import { agentPermissions, generateOpencodeConfig } from '../generate/opencode-config'
 import type { KernelSession } from '../kernel'
-import { MOCK_MODEL_ID, type MockModel, startMockModel } from '../testing/mock-model'
+import { MOCK_MODEL_ID, MOCK_TITLE, type MockModel, startMockModel } from '../testing/mock-model'
 import { OpencodeFamilyKernel } from './opencode-family'
 
 // 契约测试（phase1-implementation 4.5 节）：真实 opencode serve + 假网关走完整一轮：
@@ -214,5 +214,13 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     const messages = await kernel.messages(s)
     expect(messages.map((m) => m.info.role)).toContain('assistant')
     expect(await kernel.diff(s)).toEqual([])
+  }, 60_000)
+
+  it('compacts a session and returns the summary text', async () => {
+    const s = await session('ok')
+    await run(s, '打印 hi', (e) => kernel.respondPermission(s, e.requestId, 'always'))
+    const result = await kernel.summarize(s)
+    // 假网关没带工具的请求回固定的一句，压缩请求也走这里
+    expect(result.summary).toContain(MOCK_TITLE)
   }, 60_000)
 })

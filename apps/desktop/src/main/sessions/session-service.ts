@@ -132,6 +132,8 @@ export function titleOf(text: string): string {
 
 export class SessionService {
   private running = new Map<string, Running>()
+  // 正在手动压缩的会话
+  private compacting = new Set<string>()
   private queues = new Map<string, Queued[]>()
   // 建会话时选的“这次不用的 MCP 服务”，第一轮在内核里建会话时用
   private mcpOff = new Map<string, string[]>()
@@ -198,6 +200,12 @@ export class SessionService {
     const marked = this.deps.store.markExported(input.id, input.format, at)
     if (marked) this.deps.push('session.output', marked)
     return { path: file }
+  }
+
+  // kits 工具服务：这次工具调用属于哪个会话（remember 按会话的工作目录写项目记忆）
+  sessionFor(ctx: KitsToolContext): SessionSummary | undefined {
+    const found = this.findRun(ctx.sessionId)
+    return found ? this.deps.store.session(found[0]) : undefined
   }
 
   // kits 工具服务：会话的 Agent 的输出格式（有它才提供 submit_output）
@@ -276,7 +284,8 @@ export class SessionService {
     // 转附件要时间，回来时会话的状态可能变了，重新读
     const session = this.deps.store.session(id)
     if (!session) throw new Error(`没有这个会话：${id}`)
-    if (this.running.has(id)) {
+    // 正在跑一轮、或正在压缩：排到它结束
+    if (this.running.has(id) || this.compacting.has(id)) {
       this.queues.set(id, [...(this.queues.get(id) ?? []), { text, attachments: staged }])
       this.deps.push('session.changed', this.view(session))
       return
@@ -450,6 +459,89 @@ export class SessionService {
       const session = this.deps.store.session(hit.id)
       return session ? [{ ...hit, session: this.view(session) }] : []
     })
+  }
+
+  // 手动压缩（会话页“现在压缩”）：内核把前面的对话压成摘要，对话流里留一条分隔线，展开能看摘要。
+  // 期间会话显示运行中，发的消息排到压缩之后；失败了分隔线标出错，会话回到原来的状态
+  async compact(id: string): Promise<void> {
+    const { store, kernels } = this.deps
+    const session = store.session(id)
+    if (!session) throw new Error(`没有这个会话：${id}`)
+    if (this.running.has(id) || this.compacting.has(id)) {
+      throw new Error('这一轮还在跑，结束后再压缩')
+    }
+    const ksId = store.kernelSessionId(id)
+    if (!ksId) throw new Error('还没有和内核对话过，不用压缩')
+    this.compacting.add(id)
+    const at = this.now()
+    const message: MessageView = {
+      id: this.id(),
+      sessionId: id,
+      role: 'assistant',
+      turn: session.turns,
+      text: '',
+      createdAt: at,
+      completedAt: null,
+      finishReason: null,
+      tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      cost: 0,
+      contextTokens: 0,
+    }
+    const part: PartView = {
+      id: `${message.id}:compaction`,
+      messageId: message.id,
+      sessionId: id,
+      seq: 0,
+      type: 'compaction',
+      payload: { type: 'compaction', summary: '' },
+      status: 'pending',
+      createdAt: at,
+      updatedAt: at,
+    }
+    const savePart = (p: PartView) => {
+      store.savePart(p)
+      this.deps.push('session.part', p)
+    }
+    this.saveMessage(message)
+    savePart(part)
+    this.update(id, { status: 'running' })
+    let kernel: AgentKernel | undefined
+    try {
+      kernel = await kernels.acquire(session.kernel)
+      const profile = this.deps.resolveAgent(session.agent, session.workdir)
+      const result = await kernel.summarize({
+        id: ksId,
+        workdir: session.workdir,
+        agent: profile ? kernelAgentOf(profile) : session.agent,
+        ...(session.model ? { model: session.model } : {}),
+      })
+      const done = this.now()
+      savePart({
+        ...part,
+        payload: { type: 'compaction', summary: result.summary },
+        status: 'completed',
+        updatedAt: done,
+      })
+      // 压缩后的上下文从摘要算起
+      this.saveMessage({
+        ...message,
+        completedAt: done,
+        finishReason: 'compaction',
+        contextTokens: result.tokens,
+      })
+      this.update(id, { status: 'done', lastError: null })
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e)
+      const done = this.now()
+      savePart({ ...part, status: 'error', updatedAt: done })
+      this.saveMessage({ ...message, completedAt: done, finishReason: 'error' })
+      this.update(id, { status: session.status === 'running' ? 'done' : session.status })
+      throw new Error(`压缩失败：${reason}`)
+    } finally {
+      this.compacting.delete(id)
+      if (kernel) kernels.release(session.kernel)
+      this.sendQueued(id)
+    }
   }
 
   // 还在跑（或在等确认、排着队）的会话不删：先停止，免得删到一半内核还在往里写

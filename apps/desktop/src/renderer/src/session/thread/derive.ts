@@ -51,6 +51,16 @@ export type Block =
       answer?: string
     }
   | { kind: 'retry'; id: string; attempt: number; message: string; nextAt: number }
+  // 上下文压缩的分隔线：手动压缩是单独一条助手消息；内核自动压缩夹在某一轮里（没有摘要正文）
+  | {
+      kind: 'compaction'
+      id: string
+      state: 'running' | 'done' | 'failed'
+      // 压掉了前几轮
+      turns: number
+      summary: string
+      at: number
+    }
   // last：是不是最后一轮（只有最后一轮能“继续”）
   | {
       kind: 'error'
@@ -210,6 +220,24 @@ export function deriveBlocks(
     }
     const parts = (byMessage.get(m.id) ?? []).sort((a, b) => a.seq - b.seq)
     const running = m.completedAt === null
+    for (const p of parts) {
+      if (p.payload.type !== 'compaction') continue
+      blocks.push({
+        kind: 'compaction',
+        id: p.id,
+        state:
+          p.status === 'pending' && running
+            ? 'running'
+            : p.status === 'error' || p.status === 'expired'
+              ? 'failed'
+              : 'done',
+        turns: m.turn,
+        summary: p.payload.summary,
+        at: p.updatedAt,
+      })
+    }
+    // 手动压缩那条消息只有分隔线
+    if (parts.length > 0 && parts.every((p) => p.payload.type === 'compaction')) continue
     const lastTool = parts.map((p) => p.type).lastIndexOf('tool')
     const steps: Step[] = []
     const reasoning: string[] = []

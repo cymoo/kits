@@ -256,3 +256,47 @@ phase1-implementation PR15（5.4 节 `sessions_fts`、6.3 节 `history.html` / `
 - 删除只删 kits 自己的记录和附件，内核数据目录里的会话记录还在（内核没有提供删会话的接口给 kits 用；它只在 kits 的数据目录里，不影响别的工具）。
 - 搜索只搜标题、用户消息和回复正文；工具的输出（命令结果、读到的文件）、附件内容不搜。
 - 两个字以内的查询走 LIKE，会话很多时会慢一些（逐行扫描），几千个会话以内感觉不到。
+
+## 2026-11-04　上下文用量、接近上限提示、手动压缩；记忆（remember、设置页列表、注入内核）
+
+> 日期：2026-11-04　PR：见本分支 `feat/session-context`　作者：Claude Code
+
+### 原始需求
+
+phase1-implementation PR16（3.5 节记忆、6.4 节会话页的上下文、原型 `session.html` 的 context 场景、`settings.html#skills` 下半的记忆）：上下文用量按模型的 `contextWindow` 算，接近上限时提示，能手动压缩，压缩后对话里留一条分隔线；Agent 用 kits 工具 `remember` 记下约定，写进项目或个人的 `memory.md`，设置页能看、改、删、手动加，两份文件注入每次会话。
+
+做到什么程度算完：上下文过八成时输入框上方出现提示，点“现在压缩”后出现“前 N 轮已压缩成摘要”的分隔线、能展开看摘要，用量从摘要重新算；`remember` 调用后文件里多一条，设置页能看到并编辑。
+
+### 怎么验收
+
+1. 设置 → 内核与模型，把模型的上下文窗口改小（比如 25K），用 Mock 内核（`KITS_KERNEL=mock`）发一个任务：这一轮用了 21K，输入框上方出现黄色提示“上下文已用 21K / 25K。……”，右边两个按钮。
+2. 点“现在压缩”：对话里先出现“正在把前 1 轮压缩成摘要…”，然后变成分隔线“前 1 轮已压缩成摘要 · 时间”，点开是 Markdown 摘要；提示消失；右侧“上下文”页签的用量变成 1K / 25K。压缩期间发的消息排到压缩之后发。
+3. 右侧“上下文”页签也有“压缩上下文”按钮（运行中不能点），还多了一行“记忆：项目 N 条 · 个人 N 条”。
+4. 提示里的“带着结论新开会话”：回到首页，目录和 Agent 跟原会话一样，输入框里先写好“接着会话“…”继续：”。
+5. 用真实内核让 Agent 记一条（比如说“记住：测试命令是 uv run pytest”）：`<工作目录>/.agents/memory.md` 多一行 `- 测试命令是 uv run pytest <!-- session:<会话 id> 日期 -->`；下一个会话里 Agent 知道这条。
+6. 设置 → 技能与记忆，下面“记忆”卡片：项目 / 个人切换；每条显示来源（会话“…” / 手动添加 / 在文件里手写的）和日期；“编辑”“删除”直接改文件（文件里的标题、空行、手写的说明原样保留）；“手动加一条”；“打开文件”用系统程序打开（没有就先建一个空的）。
+7. 个人记忆文件第一次建出来时内核按新配置重启（之后的会话才读得到）。
+
+### 主要改动
+
+- 内核：`AgentKernel.summarize` 改成返回摘要正文和 token 数（`CompactionResult`）。OpenCode 适配器 `POST /session/{id}/summarize`（等它做完，最长 5 分钟）后读 `summary: true` 的那条助手消息；Mock 给一份固定摘要。契约测试用真实 OpenCode 1.19.5 跑过：压缩请求走假网关，返回的摘要就是网关回的那句。
+- `main/sessions/session-service.ts`：`compact(id)`。压缩记成一条单独的助手消息（只有一个 `compaction` 块，`finishReason: compaction`，`contextTokens` 是摘要的大小），期间会话显示运行中、发的消息排队；失败时块标出错、会话回到原来的状态、把原因抛给界面。`sessionFor(ctx)` 给 `remember` 找会话。IPC `session.compact`。
+- `main/memory/memory-service.ts`：读写两份 `memory.md`（`list / add / update / remove / ensure`），同样的话不重复记；个人文件第一次建出来时通知内核重启。`index.ts` 把 `remember` 接到它，按会话的工作目录写项目记忆。IPC `memory.list / add / update / remove / open`。
+- 内核配置的 `instructions`：个人记忆用绝对路径（存在才列），项目记忆写相对路径 `.agents/memory.md`，内核按会话目录往上找。
+- 渲染进程：`session/thread/derive.ts` 的 `compaction` 块和 `Blocks.tsx` 的 `CompactionDivider`；`pages/session/SessionPage.tsx` 的 `ContextBanner`（八成以上、不在运行、刚压缩过不显示）；`session/panels/Workbench.tsx` 上下文页签的压缩按钮和记忆条数；`pages/settings/skills/MemorySection.tsx`。
+- 原型没画到、按风格补的：压缩失败的分隔线；“带着结论新开会话”填进输入框的那句话；记忆的编辑框和“在文件里手写的”来源。原型上下文用量条分三段（系统提示 / 前面几轮 / 最近一轮），内核不给这个拆分，这版还是一段。
+
+### 测试
+
+- 单元测试：`memory-service.test.ts`（5 个：写项目记忆带来源日期、不重复、个人文件第一次建出来通知重启、改删保留非列表行、没工作目录不能写项目记忆）；`session-service.test.ts` 补 3 个（压缩后存摘要并从摘要算上下文、运行中不能压缩、压缩期间发的消息排到之后）；`opencode-family.test.ts` 补“读回摘要正文和大小”；契约测试补“真实内核压缩并返回摘要”。
+- E2E：`context-memory.spec.ts`（2 个）：接近上限提示 → 现在压缩 → 分隔线和摘要 → 用量重算；设置页加、改、删项目记忆，切到个人再加一条。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 内核自己触发的自动压缩只显示“内核自动压缩了前面的对话”，没有摘要正文（事件里不带）。
+- 上下文页签的记忆条数在打开页签时读一次，会话里新记的要切一下页签才更新。
+- 删除记忆按文件里的第几条来删：设置页开着时人在编辑器里改了文件，先刷新再删（序号对不上时会提示“这条记忆已经不在了”）。

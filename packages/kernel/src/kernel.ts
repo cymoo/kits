@@ -74,6 +74,12 @@ export interface KernelMessage {
   parts: unknown[]
 }
 
+export interface CompactionResult {
+  summary: string
+  // 摘要本身的 token 数（压缩后上下文从这里重新算）；内核没给就是 0
+  tokens: number
+}
+
 export interface AgentKernel {
   readonly id: KernelId
   readonly capabilities: { subagents: boolean; revert: boolean }
@@ -90,8 +96,8 @@ export interface AgentKernel {
   ): Promise<void>
   abort(session: KernelSession): Promise<void>
   diff(session: KernelSession): Promise<FileDiff[]>
-  // 上下文压缩
-  summarize(session: KernelSession): Promise<void>
+  // 上下文压缩：等内核把前面的对话压成摘要，返回摘要正文和它占多少 token
+  summarize(session: KernelSession): Promise<CompactionResult>
   messages(session: KernelSession): Promise<KernelMessage[]>
   revert(session: KernelSession, messageId: string): Promise<void>
   // 进程意外退出时通知；正在跑的轮次会先各自收到 done: error

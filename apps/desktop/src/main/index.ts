@@ -17,6 +17,7 @@ import { kernelSettingsKey, loadAgents, loadMcp, loadSkills } from './kernel/ker
 import { kernelInfo, kernelLogsDir } from './kernel/kernel-info'
 import { createKernelManager } from './kernel/runtime'
 import { McpService } from './mcp/mcp-service'
+import { MemoryService } from './memory/memory-service'
 import { createElectronPlatform } from './platform'
 import { SessionService } from './sessions/session-service'
 import { SessionStore } from './sessions/session-store'
@@ -182,12 +183,22 @@ app.whenReady().then(() => {
         .skills.filter((s) => s.enabled)
         .map((s) => s.name),
   })
-  // 提问、产出交给会话服务；记忆在 PR16 接上
+  const memory = new MemoryService({
+    personalFile: config.paths.memory,
+    sessionTitle: (id) => store.session(id)?.title,
+    onPersonalCreated: () => kernels.configChanged(),
+  })
+  // 提问、产出交给会话服务；记忆按会话的工作目录写
   tools.setHandlers({
     ...tools.current,
     askUser: (input, ctx) => sessions.askUser(input, ctx),
     outputSchema: (ctx) => sessions.outputSchema(ctx),
     onOutput: (output, ctx) => sessions.onOutput(output, ctx),
+    remember: async (input, ctx) => {
+      const session = sessions.sessionFor(ctx)
+      if (!session) throw new Error('找不到这次调用属于哪个会话')
+      memory.add(input.scope, input.text, `session:${session.id}`, session.workdir)
+    },
   })
   // 最近用过的工作目录放在最前面，最多记 10 个
   const rememberWorkdir = (dir: string) => {
@@ -230,6 +241,7 @@ app.whenReady().then(() => {
         get: (id) => sessions.get(id),
         search: (query) => sessions.search(query),
         remove: (id) => sessions.remove(id),
+        compact: (id) => sessions.compact(id),
         prompt: ({ id, text, attachments }) => sessions.prompt(id, text, attachments),
         abort: (id) => sessions.abort(id),
         respondPermission: (input) => sessions.respondPermission(input),
@@ -290,6 +302,13 @@ app.whenReady().then(() => {
           if (source !== 'builtin') mkdirSync(dir, { recursive: true })
           await platform.openPath(dir)
         },
+      },
+      memory: {
+        list: ({ scope, workdir }) => memory.list(scope, workdir),
+        add: ({ scope, workdir, text }) => memory.add(scope, text, 'manual', workdir),
+        update: ({ scope, workdir, index, text }) => memory.update(scope, index, text, workdir),
+        remove: ({ scope, workdir, index }) => memory.remove(scope, index, workdir),
+        open: async ({ scope, workdir }) => platform.openPath(memory.ensure(scope, workdir)),
       },
       files: {
         search: ({ workdir, query }) => files.search(workdir, query),

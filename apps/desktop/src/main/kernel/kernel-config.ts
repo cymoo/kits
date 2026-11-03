@@ -24,6 +24,9 @@ export interface KernelDirs {
   logs: string
 }
 
+// 项目记忆相对工作目录的位置
+export const PROJECT_MEMORY = '.agents/memory.md'
+
 export function kernelDirs(userDataDir: string, id: KernelName): KernelDirs {
   const root = path.join(userDataDir, 'kernel', id)
   return {
@@ -117,7 +120,11 @@ export function prepareKernelConfig(input: PrepareInput) {
     mcp: loadMcp(config),
     skills: skills.filter((s) => s.enabled),
     disabledSkills: settings.skillsDisabled,
-    instructions: existsSync(config.paths.memory) ? [config.paths.memory] : [],
+    // 个人记忆用绝对路径（存在才列，第一次建出来时会重启内核）；项目记忆写相对路径，内核按会话目录往上找
+    instructions: [
+      ...(existsSync(config.paths.memory) ? [config.paths.memory] : []),
+      PROJECT_MEMORY,
+    ],
     gatewayKeys: Object.fromEntries(
       settings.gateways.flatMap((g) => {
         const key = secrets.get(gatewaySecretKey(g.id))

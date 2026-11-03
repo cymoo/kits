@@ -7,9 +7,10 @@ import { kits, useHomeLabel, useSettings } from '../../../lib/kits'
 import { Button } from '../../../ui/Button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../../ui/Menu'
 import { Switch } from '../../../ui/Switch'
+import { MemorySection } from './MemorySection'
 
 // 设置 · 技能与记忆的技能部分（原型 settings.html#skills）：内置、项目、个人三组，同名提示，开关，打开目录。
-// 记忆在 PR16。项目技能按选中的工作目录列（默认最近用的那个）。
+// 下面是记忆（MemorySection）。项目技能和项目记忆按选中的工作目录列（默认最近用的那个）。
 
 export function useSkills(workdir: string | undefined) {
   return useQuery({
@@ -166,6 +167,7 @@ export function SkillsSection() {
         })}
         <p className="mx-1 my-0 text-[0.923rem] text-fg-label">{t('skills.footnote')}</p>
       </section>
+      <MemorySection workdir={workdir} />
     </div>
   )
 }

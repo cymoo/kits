@@ -1,4 +1,5 @@
 import type { OutputView, SessionDetail } from '@kits/core/ipc'
+import { useQuery } from '@tanstack/react-query'
 import { SquareTerminal } from 'lucide-react'
 import { Tabs as T } from 'radix-ui'
 import { type ReactNode, useMemo, useState } from 'react'
@@ -422,6 +423,32 @@ function CommandCard({ command: c }: { command: Command }) {
 function ContextPanel({ detail, usage, contextWindow }: WorkbenchProps) {
   const homeLabel = useHomeLabel()
   const { session } = detail
+  const [compactError, setCompactError] = useState<string>()
+  const [compacting, setCompacting] = useState(false)
+  const busy = compacting || session.status === 'running' || session.status === 'waiting'
+  // 这个会话会读到的记忆条数（项目 + 个人）
+  const memory = useQuery({
+    queryKey: ['memory', 'count', session.workdir],
+    queryFn: async () => {
+      const [project, personal] = await Promise.all([
+        kits.memory.list({ scope: 'project', workdir: session.workdir }),
+        kits.memory.list({ scope: 'personal' }),
+      ])
+      return { project: project.entries.length, personal: personal.entries.length }
+    },
+  })
+  const compact = async () => {
+    setCompacting(true)
+    setCompactError(undefined)
+    try {
+      await kits.session.compact(session.id)
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e)
+      setCompactError(m.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
+    } finally {
+      setCompacting(false)
+    }
+  }
   const pct = contextWindow ? Math.min(100, (usage.context / contextWindow) * 100) : 0
   const near = pct >= 85
   // input 已经含缓存读写
@@ -441,6 +468,12 @@ function ContextPanel({ detail, usage, contextWindow }: WorkbenchProps) {
     ],
     [t('context.workdir'), homeLabel(session.workdir)],
   ]
+  if (memory.data) {
+    rows.push([
+      t('context.memory'),
+      t('context.memoryValue', { project: memory.data.project, personal: memory.data.personal }),
+    ])
+  }
   if (usage.input || usage.output) {
     rows.push([
       t('context.tokens'),
@@ -485,6 +518,22 @@ function ContextPanel({ detail, usage, contextWindow }: WorkbenchProps) {
           />
         </div>
         <div className="text-[0.923rem] text-fg-muted leading-[1.6]">{t('context.note')}</div>
+        {session.turns > 0 ? (
+          <div className="flex items-start gap-2.5 pt-1">
+            <span className="min-w-0 flex-1 text-[0.885rem] text-fg-label leading-[1.6]">
+              {compactError ? (
+                <span role="alert" className="text-danger">
+                  {compactError}
+                </span>
+              ) : (
+                t('context.compactHint')
+              )}
+            </span>
+            <Button className="h-[26px] px-2" disabled={busy} onClick={() => void compact()}>
+              {t('context.compact')}
+            </Button>
+          </div>
+        ) : null}
       </div>
       {rows.map(([k, v]) => (
         <div key={k} className="flex gap-3 border-line-soft border-b py-2.5">
