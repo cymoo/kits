@@ -240,6 +240,11 @@ export function Composer({
         setAtIndex((i) => (i + (e.key === 'ArrowDown' ? 1 : n - 1)) % n)
         return
       }
+      // 技能列表还没回来：回车 / Tab 先别把一个光秃秃的 / 发出去
+      if ((e.key === 'Enter' || e.key === 'Tab') && !skills.isFetched) {
+        e.preventDefault()
+        return
+      }
       if ((e.key === 'Enter' || e.key === 'Tab') && skillItems[atIndex]) {
         e.preventDefault()
         pickSkill(skillItems[atIndex].name)

@@ -1,4 +1,4 @@
-import { mkdirSync, realpathSync } from 'node:fs'
+import { existsSync, mkdirSync, realpathSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -236,7 +236,8 @@ app.whenReady().then(() => {
       },
       skills: {
         list: ({ workdir }) => {
-          const dir = workdir ? realpathSync(workdir) : undefined
+          // 工作目录可能已经被删了：那就只列内置和个人的
+          const dir = workdir && existsSync(workdir) ? realpathSync(workdir) : undefined
           const { skills, errors } = loadSkills(config, builtinFolder(), dir)
           return {
             skills: skills.map((s) => ({
