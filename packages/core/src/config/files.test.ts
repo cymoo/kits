@@ -45,6 +45,14 @@ describe('loadAgentsDir', () => {
     expect(errors[0]?.message).toContain('type')
   })
 
+  it('rejects an output schema whose root is a boolean', () => {
+    write('agents/a.md', '---\nname: a\noutput: o.json\n---\n')
+    write('agents/o.json', 'false')
+    const { items, errors } = loadAgentsDir(path.join(root, 'agents'), 'personal')
+    expect(items).toEqual([])
+    expect(errors[0]?.message).toContain('对象')
+  })
+
   it('returns nothing for a missing dir', () => {
     expect(loadAgentsDir(path.join(root, 'nope'), 'project')).toEqual({ items: [], errors: [] })
   })
@@ -96,6 +104,11 @@ describe('parseFrontmatter', () => {
     const text = stringifyFrontmatter({}, '正文')
     expect(text).toBe('---\n---\n\n正文')
     expect(parseFrontmatter(text)).toEqual({ data: {}, body: '正文' })
+  })
+
+  it('keeps a --- line in the body after an empty frontmatter', () => {
+    const body = '第一段\n\n---\n\n第二段'
+    expect(parseFrontmatter(stringifyFrontmatter({}, body))).toEqual({ data: {}, body })
   })
 
   it('rejects a frontmatter that is a list', () => {

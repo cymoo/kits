@@ -8,11 +8,14 @@ export interface Frontmatter {
   body: string
 }
 
-// 两条 `---` 可以紧挨着（空 frontmatter）
-const FENCE = /^---\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/
+// 先认两条 `---` 紧挨着的空 frontmatter，否则正文里的 `---` 会被当成结束线
+const EMPTY = /^---\r?\n---[ \t]*(?:\r?\n|$)/
+const FENCE = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/
 
 export function parseFrontmatter(text: string): Frontmatter {
   const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  const empty = EMPTY.exec(source)
+  if (empty) return { data: {}, body: source.slice(empty[0].length).replace(/^\r?\n/, '') }
   const match = FENCE.exec(source)
   if (!match) return { data: {}, body: source }
   const parsed: unknown = parse(match[1] ?? '')

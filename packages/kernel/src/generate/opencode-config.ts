@@ -1,11 +1,11 @@
 import {
   type AgentProfile,
   checkJsonSchema,
+  effectiveLevel,
   expandVars,
   findModel,
   findVars,
   KITS_MCP_SERVER,
-  levelFor,
   type McpFile,
   type McpServerConfig,
   type PermissionLevel,
@@ -49,6 +49,8 @@ export interface ConfigProblem {
 export type GenerateResult =
   | { ok: true; files: GeneratedFiles; config: Record<string, unknown> }
   | { ok: false; problems: ConfigProblem[] }
+
+const VAR_REF = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
 
 // OpenCode 1.19.5 的内置工具（GET /experimental/tool/ids，去掉 invalid 和 question）
 export const OPENCODE_BUILTIN_TOOLS = [
@@ -116,10 +118,10 @@ export function agentPermissions(
     }
   }
   // 技能允许列表和已有的 skill 权限取交集：列表外的拒绝，列表内的保留原来的档位（deny、ask 照旧）
-  if (agent?.skills && result.skill !== 'deny') {
-    const current = result.skill
+  // 已有规则按顺序算，包括 `*` 这类通配键（Agent 写了 `'*': deny` 时列表里的技能也是 deny）
+  if (agent?.skills) {
     const rules: Record<string, PermissionLevel> = { '*': 'deny' }
-    for (const name of agent.skills) rules[name] = levelFor(current, name) ?? 'allow'
+    for (const name of agent.skills) rules[name] = effectiveLevel(result, 'skill', name) ?? 'allow'
     delete result.skill
     result.skill = rules
   }
@@ -204,6 +206,9 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
   // 变量名转成环境变量名时会转大写，${TOKEN} 和 ${token} 会撞到同一个 KITS_MCP_TOKEN
   const varOwners = new Map<string, string>()
   const toEnvRef = (server: string, value: string): string => {
+    // 停用的服务不连接，只做占位符转换，不查变量、不参与撞名检查
+    if (!input.mcp.servers[server]?.enabled)
+      return value.replace(VAR_REF, (_, n: string) => `{env:${envName('KITS_MCP_', n)}}`)
     for (const name of findVars(value)) {
       const target = envName('KITS_MCP_', name)
       const owner = varOwners.get(target)
@@ -218,18 +223,12 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
       varOwners.set(target, name)
       const { value: resolved, missing } = expandVars(`\${${name}}`, input.lookupVar)
       if (missing.length > 0) {
-        // 停用的服务缺变量不拦启动
-        if (input.mcp.servers[server]?.enabled) {
-          problems.push({ section: 'mcp', target: server, message: `找不到变量 ${name}` })
-        }
+        problems.push({ section: 'mcp', target: server, message: `找不到变量 ${name}` })
       } else {
         env[envName('KITS_MCP_', name)] = resolved
       }
     }
-    return value.replace(
-      /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g,
-      (_, n: string) => `{env:${envName('KITS_MCP_', n)}}`,
-    )
+    return value.replace(VAR_REF, (_, n: string) => `{env:${envName('KITS_MCP_', n)}}`)
   }
   const mapValues = (server: string, record: Record<string, string>) =>
     Object.fromEntries(Object.entries(record).map(([k, v]) => [k, toEnvRef(server, v)]))

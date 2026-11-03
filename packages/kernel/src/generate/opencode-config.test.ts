@@ -260,6 +260,19 @@ describe('generateOpencodeConfig', () => {
     ])
   })
 
+  it('ignores variable collisions in disabled servers', () => {
+    const mcp = parseMcpFile({
+      mcpServers: {
+        off: { url: 'https://b.local/mcp', headers: { B: '${token}' } },
+        on: { url: 'https://a.local/mcp', headers: { A: '${TOKEN}' } },
+      },
+      enabled: { off: false },
+    })
+    const result = ok(generateOpencodeConfig(input({ mcp, lookupVar: () => 'v' })))
+    expect((result.config.mcp as any).off.headers.B).toBe('{env:KITS_MCP_TOKEN}')
+    expect(result.files.env.KITS_MCP_TOKEN).toBe('v')
+  })
+
   it('reserves the kits mcp server name', () => {
     const mcp = parseMcpFile({ mcpServers: { kits: { url: 'https://a.local/mcp' } } })
     const result = generateOpencodeConfig(input({ mcp }))
@@ -305,9 +318,16 @@ describe('agentPermissions', () => {
     })
   })
 
+  it('keeps an agent wildcard deny over the skill list', () => {
+    const a = agent({ name: 'a', skills: ['review'], permissions: { '*': 'deny' } })
+    for (const mode of ['ask', 'read', 'auto'] as const) {
+      expect(agentPermissions(a, mode, mcp).skill).toEqual({ '*': 'deny', review: 'deny' })
+    }
+  })
+
   it('keeps an agent skill deny over the skill list', () => {
     const a = agent({ name: 'a', skills: ['review'], permissions: { skill: 'deny' } })
-    expect(agentPermissions(a, 'ask', mcp).skill).toBe('deny')
+    expect(agentPermissions(a, 'ask', mcp).skill).toEqual({ '*': 'deny', review: 'deny' })
   })
 })
 

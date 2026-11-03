@@ -35,6 +35,10 @@ export function loadAgentFile(file: string, source: ConfigSource): AgentProfile 
   } catch (e) {
     throw new Error(`输出格式文件 ${profile.output} 读取失败：${message(e)}`)
   }
+  // 布尔 schema 只能出现在子 schema 里；根是 true / false 等于没写格式，当错误报出来
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
+    throw new Error(`输出格式文件 ${profile.output} 的根必须是一个 JSON Schema 对象`)
+  }
   const problems = checkJsonSchema(schema)
   if (problems.length > 0) {
     throw new Error(`输出格式文件 ${profile.output} 不是合法的 JSON Schema：${problems.join('；')}`)

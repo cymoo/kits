@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   defaultPermissions,
+  effectiveLevel,
   isWriteTool,
   levelFor,
   matchPattern,
@@ -151,5 +152,15 @@ describe('levelFor', () => {
     ).toBe('ask')
     expect(levelFor('deny', 'anything')).toBe('deny')
     expect(levelFor({ a: 'allow' }, 'b')).toBeUndefined()
+  })
+})
+
+describe('effectiveLevel', () => {
+  it('follows wildcard tool keys in order', () => {
+    const set = { skill: 'allow' as const, '*': 'deny' as const }
+    expect(effectiveLevel(set, 'skill', 'review')).toBe('deny')
+    expect(effectiveLevel({ '*': 'deny', skill: { review: 'allow' } }, 'skill', 'review')).toBe(
+      'allow',
+    )
   })
 })

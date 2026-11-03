@@ -93,6 +93,20 @@ export function levelFor(
   return level
 }
 
+// 整个权限集对某个工具、某个输入的最终档位：工具名的键也可以带通配（`*`、`wiki_*`），按顺序后匹配的优先
+export function effectiveLevel(
+  set: PermissionSet,
+  tool: string,
+  input: string,
+): PermissionLevel | undefined {
+  let level: PermissionLevel | undefined
+  for (const [key, value] of Object.entries(set)) {
+    if (!matchPattern(key, tool)) continue
+    level = levelFor(value, input) ?? level
+  }
+  return level
+}
+
 export function mcpToolKey(server: string, tool: string): string {
   return `${server}_${tool}`
 }
