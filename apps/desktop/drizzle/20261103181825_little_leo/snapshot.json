@@ -637,6 +637,28 @@
       "entityType": "indexes"
     },
     {
+      "table": "parts",
+      "name": "parts_session",
+      "columns": [
+        {
+          "value": "session_id",
+          "isExpression": false
+        },
+        {
+          "value": "created_at",
+          "isExpression": false
+        },
+        {
+          "value": "seq",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
       "table": "sessions",
       "name": "sessions_updated_at",
       "columns": [

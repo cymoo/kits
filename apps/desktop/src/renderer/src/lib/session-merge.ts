@@ -15,6 +15,19 @@ function upsert<T extends { id: string }>(list: T[], item: T, keep: (old: T) => 
   return copy
 }
 
+// 会话列表的快照回来时，查询期间推来的更新可能比快照新：按 updatedAt 取新的，快照里没有的（刚建的）也留着
+export function mergeSessionList(
+  fresh: SessionSummary[],
+  cached: SessionSummary[] | undefined,
+): SessionSummary[] {
+  const byId = new Map(fresh.map((s) => [s.id, s]))
+  for (const c of cached ?? []) {
+    const f = byId.get(c.id)
+    if (!f || c.updatedAt > f.updatedAt) byId.set(c.id, c)
+  }
+  return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
 export const mergeSession =
   (s: SessionSummary): Reducer =>
   (d) =>

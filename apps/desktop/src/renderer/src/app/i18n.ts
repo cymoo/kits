@@ -122,6 +122,7 @@ const zhCN = {
   'nav.yesterday': '昨天',
   'nav.week': '本周',
   'nav.earlier': '更早',
+  'nav.tag.running': '运行中',
   'nav.tag.waiting': '等确认',
   'nav.tag.error': '出错',
   'onboarding.title': '先把三件事配好',
