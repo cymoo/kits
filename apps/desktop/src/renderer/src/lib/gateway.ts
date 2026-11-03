@@ -18,8 +18,11 @@ export function suggestGatewayId(baseUrl: string, taken: string[]): string {
   } catch {
     // 地址不对就用默认名
   }
+  // 按环境变量名的规则比较（大写、- 和 _ 不分）：corp_2 和 corp-2 会撞到同一个 KITS_GW_CORP_2_KEY
+  const envKey = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '_')
+  const takenKeys = new Set(taken.map(envKey))
   let id = base
-  for (let i = 2; taken.includes(id); i++) id = `${base}-${i}`
+  for (let i = 2; takenKeys.has(envKey(id)); i++) id = `${base}-${i}`
   return id
 }
 
