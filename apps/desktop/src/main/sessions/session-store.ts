@@ -1,4 +1,5 @@
 import type {
+  FileDiffView,
   MessageView,
   PartPayload,
   PartView,
@@ -10,6 +11,7 @@ import type {
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { Database } from '../db'
 import {
+  diffs,
   type MessageRecord,
   messages,
   type PartRecord,
@@ -55,6 +57,7 @@ export function toMessage(r: MessageRecord): MessageView {
       cacheWrite: r.tokensCacheWrite,
     },
     cost: r.cost,
+    contextTokens: r.contextTokens,
   }
 }
 
@@ -137,6 +140,7 @@ export class SessionStore {
       tokensCacheRead: m.tokens.cacheRead,
       tokensCacheWrite: m.tokens.cacheWrite,
       cost: m.cost,
+      contextTokens: m.contextTokens,
     }
     this.db
       .insert(messages)
@@ -158,6 +162,57 @@ export class SessionStore {
       updatedAt: new Date(p.updatedAt),
     }
     this.db.insert(parts).values(values).onConflictDoUpdate({ target: parts.id, set: values }).run()
+  }
+
+  // 记下这条用户消息是内核会话里的第几条；at 不给就接着已记下的最大值往后编
+  assignKernelTurn(sessionId: string, messageId: string, at?: number): number {
+    const rows = this.db
+      .select({ k: messages.kernelTurn })
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .all()
+    const next = at ?? rows.reduce((n, r) => Math.max(n, r.k ?? 0), 0) + 1
+    this.db.update(messages).set({ kernelTurn: next }).where(eq(messages.id, messageId)).run()
+    return next
+  }
+
+  // 内核的第几条用户消息 → 本地第几轮
+  kernelTurns(sessionId: string): Map<number, number> {
+    const rows = this.db
+      .select({ k: messages.kernelTurn, turn: messages.turn })
+      .from(messages)
+      .where(eq(messages.sessionId, sessionId))
+      .all()
+    return new Map(rows.flatMap((r) => (r.k ? [[r.k, r.turn] as [number, number]] : [])))
+  }
+
+  diffs(sessionId: string): FileDiffView[] {
+    return this.db
+      .select()
+      .from(diffs)
+      .where(eq(diffs.sessionId, sessionId))
+      .orderBy(asc(diffs.turn), asc(diffs.path))
+      .all()
+      .map((r) => ({
+        turn: r.turn,
+        path: r.path,
+        status: r.status as FileDiffView['status'],
+        additions: r.additions,
+        deletions: r.deletions,
+        patch: r.patch,
+      }))
+  }
+
+  // 内核每次给的是整个会话的改动，整份替换
+  replaceDiffs(sessionId: string, list: FileDiffView[]): void {
+    this.db.delete(diffs).where(eq(diffs.sessionId, sessionId)).run()
+    for (const d of list) {
+      this.db
+        .insert(diffs)
+        .values({ id: `${sessionId}:${d.turn}:${d.path}`, sessionId, ...d })
+        .onConflictDoUpdate({ target: diffs.id, set: { ...d } })
+        .run()
+    }
   }
 
   // 某个会话里的提问 part（回答不阻塞的提问时用）

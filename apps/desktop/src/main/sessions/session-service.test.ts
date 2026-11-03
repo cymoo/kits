@@ -15,7 +15,11 @@ afterEach(() => {
 })
 
 // gate：内核启动卡住，直到调用 open（模拟真实内核冷启动）
-function setup(scenario: MockScenarioName | 'broken', gate?: Promise<void>) {
+function setup(
+  scenario: MockScenarioName | 'broken',
+  gate?: Promise<void>,
+  diffDelays: number[] = [],
+) {
   const db = openDatabase(':memory:', migrations)
   close = db.close
   const store = new SessionStore(db.db)
@@ -50,6 +54,7 @@ function setup(scenario: MockScenarioName | 'broken', gate?: Promise<void>) {
     registry: { register: (...args: unknown[]) => void registered.push(args) },
     push: (channel, payload) => void pushed.push({ channel, payload }),
     flushMs: 5,
+    diffDelays,
   })
   const statusOf = (id: string) => store.session(id)?.status
   const waitFor = (id: string, statuses: SessionStatus[]) =>
@@ -88,7 +93,7 @@ describe('SessionService', () => {
       tokens: { input: 21_400 },
     })
     const types = detail?.parts.map((p) => p.type)
-    expect(types).toEqual(['reasoning', 'tool', 'tool', 'text'])
+    expect(types).toEqual(['reasoning', 'tool', 'tool', 'tool', 'text'])
     const answer = detail?.parts.at(-1)
     expect(answer?.payload).toMatchObject({ text: expect.stringContaining('改好了') })
   })
@@ -374,6 +379,22 @@ describe('SessionStore.markInterrupted', () => {
   })
 })
 
+describe('SessionService diffs', () => {
+  it('stores the files changed in a turn once the kernel has them and pushes them', async () => {
+    const { service, waitFor, pushed } = setup('done', undefined, [0])
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    await vi.waitFor(() => expect(service.diffs(s.id)).toHaveLength(1))
+    expect(service.diffs(s.id)[0]).toMatchObject({
+      turn: 1,
+      path: 'src/points/redeem.py',
+      status: 'modified',
+      additions: 6,
+    })
+    expect(pushed.some((p) => p.channel === 'session.diffs')).toBe(true)
+  })
+})
+
 describe('SessionStore.markInterrupted with questions', () => {
   it('keeps a non-blocking question pending so it can still be answered after a restart', async () => {
     const { service, waitFor, store } = setup('permission')
@@ -386,6 +407,70 @@ describe('SessionStore.markInterrupted with questions', () => {
     expect(parts.find((p) => p.type === 'permission')?.status).toBe('expired')
     await service.abort(s.id)
     await waitFor(s.id, ['aborted', 'error'])
+  })
+})
+
+describe('SessionService diffs across turns', () => {
+  it('maps the kernel turns back to local turns when a turn was stopped before reaching the kernel', async () => {
+    const { service, waitFor, store } = setup('done', undefined, [0])
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    // 第 2 轮刚发就停了，还没发到内核
+    await service.prompt(s.id, '算了')
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+    await service.prompt(s.id, '再改一遍')
+    await vi.waitFor(() => expect(store.session(s.id)?.turns).toBe(3))
+    await waitFor(s.id, ['done'])
+    await vi.waitFor(() => expect(service.diffs(s.id).map((d) => d.turn)).toEqual([1, 3]))
+  })
+})
+
+describe('SessionService diff refresh order', () => {
+  it('drops a slow diff result of an earlier turn that comes back after the newer one', async () => {
+    const { service, waitFor, store, kernel } = setup('done', undefined, [0])
+    const real = kernel.diff.bind(kernel)
+    let calls = 0
+    vi.spyOn(kernel, 'diff').mockImplementation(async (ks) => {
+      calls += 1
+      const result = await real(ks)
+      // 第一轮的那次刷新很慢，第二轮的先回来
+      if (calls === 1) await new Promise((r) => setTimeout(r, 80))
+      return result
+    })
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    await service.prompt(s.id, '再改一遍')
+    await vi.waitFor(() => expect(store.session(s.id)?.turns).toBe(2))
+    await waitFor(s.id, ['done'])
+    await vi.waitFor(() => expect(service.diffs(s.id).map((d) => d.turn)).toEqual([1, 2]))
+    await new Promise((r) => setTimeout(r, 120))
+    expect(service.diffs(s.id).map((d) => d.turn)).toEqual([1, 2])
+  })
+})
+
+describe('SessionService kernel reads', () => {
+  it('releases the kernel even when reading the diff never returns', async () => {
+    const db = openDatabase(':memory:', migrations)
+    close = db.close
+    const store = new SessionStore(db.db)
+    const kernel = new MockKernel({ scenario: 'done', speed: 0 })
+    vi.spyOn(kernel, 'diff').mockImplementation(() => new Promise(() => {}))
+    const release = vi.fn()
+    const service = new SessionService({
+      store,
+      kernels: { acquire: async () => kernel, release },
+      resolveAgent: () => builtinAssistant,
+      loadMcp: () => parseMcpFile({}),
+      registry: { register: () => {} },
+      push: () => {},
+      flushMs: 5,
+      diffDelays: [0],
+      readTimeoutMs: 30,
+    })
+    const s = await service.create(input)
+    await vi.waitFor(() => expect(store.session(s.id)?.status).toBe('done'))
+    await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1))
   })
 })
 

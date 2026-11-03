@@ -10,7 +10,16 @@ export type KernelEvent =
   | { type: 'text-delta'; partId: string; text: string }
   | { type: 'reasoning-delta'; partId: string; text: string }
   | { type: 'tool-start'; callId: string; name: string; input: unknown }
-  | { type: 'tool-end'; callId: string; output: unknown; error?: string; title?: string }
+  | {
+      type: 'tool-end'
+      callId: string
+      output: unknown
+      error?: string
+      title?: string
+      // 命令的退出码（bash）和工具耗时，内核给了才有
+      exitCode?: number
+      durationMs?: number
+    }
   | {
       type: 'permission-request'
       requestId: string

@@ -3,6 +3,7 @@ import type {
   AskUserInput,
   AskUserResult,
   CreateSessionInput,
+  FileDiffView,
   KernelEvent,
   KitsToolContext,
   MessageView,
@@ -33,6 +34,19 @@ export interface SessionServiceDeps {
   id?: () => string
   // 正文增量的落库和推送间隔
   flushMs?: number
+  // 一轮结束后隔多久去内核取改动：内核是异步算的，取几次，变了才落库推送
+  diffDelays?: number[]
+  // 取改动、补轮次号读内核的截止时间：请求挂住也要收尾、释放内核
+  readTimeoutMs?: number
+}
+
+// 给读内核的请求加截止时间：超时就当失败，后面照常收尾
+function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`读内核超过 ${ms} ms 没有返回`)), ms)
+  })
+  return Promise.race([p, deadline]).finally(() => clearTimeout(timer))
 }
 
 // 一轮从 startTurn 起就登记：内核冷启动期间也能拦住重复的 prompt、接住停止
@@ -44,6 +58,9 @@ interface Running {
   questions: Map<string, (result: AskUserResult) => void>
   // 内核还没起来、内核会话还没建好时点了停止
   cancelled: boolean
+  // 这一轮的用户消息和轮次（改动对回本地轮次用）
+  userMessageId: string
+  turn: number
 }
 
 type PermissionReply = 'once' | 'always' | 'reject'
@@ -60,15 +77,23 @@ export class SessionService {
   private readonly now: () => number
   private readonly id: () => string
   private readonly flushMs: number
+  private readonly diffDelays: number[]
+  private readonly readTimeoutMs: number
 
   constructor(private readonly deps: SessionServiceDeps) {
     this.now = deps.now ?? Date.now
     this.id = deps.id ?? randomUUID
     this.flushMs = deps.flushMs ?? 50
+    this.diffDelays = deps.diffDelays ?? [300, 1_500, 4_000]
+    this.readTimeoutMs = deps.readTimeoutMs ?? 10_000
   }
 
   list(): SessionSummary[] {
     return this.deps.store.list().map((s) => this.view(s))
+  }
+
+  diffs(id: string): FileDiffView[] {
+    return this.deps.store.diffs(id)
   }
 
   get(id: string) {
@@ -242,6 +267,7 @@ export class SessionService {
       finishReason: null,
       tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       cost: 0,
+      contextTokens: 0,
     }
     const assistant: MessageView = {
       ...user,
@@ -261,6 +287,8 @@ export class SessionService {
       recorder,
       questions: new Map(),
       cancelled: false,
+      userMessageId: user.id,
+      turn,
     }
     this.running.set(session.id, run)
     void this.runTurn(session, text, run)
@@ -321,7 +349,13 @@ export class SessionService {
         this.apply(session.id, recorder, { type: 'done', reason: 'aborted' })
         return
       }
+      let submitted = false
       for await (const event of kernel.prompt(ks, { text })) {
+        // 内核有了动静（不是准备阶段就结束）才算这条消息真的进了内核：这时记下它是内核里第几条用户消息
+        if (!submitted && event.type !== 'done') {
+          submitted = true
+          await this.assignKernelTurn(session, run, kernel, ks)
+        }
         // kits 工具的调用登记到关联表，工具服务收到调用时按参数对到这个会话
         if (event.type === 'tool-start' && event.name.startsWith('kits_')) {
           this.deps.registry.register(session.id, event.name.slice('kits_'.length), event.input)
@@ -338,8 +372,75 @@ export class SessionService {
       this.flush()
       for (const resolve of run.questions.values()) resolve({ answered: false })
       this.running.delete(session.id)
-      kernels.release(session.kernel)
+      // 取改动要用这个内核实例：取完再释放，期间排着的重启会等它
+      if (run.ks) {
+        void this.refreshDiffs(session.id, kernel, run.ks, run.turn).finally(() =>
+          kernels.release(session.kernel),
+        )
+      } else {
+        kernels.release(session.kernel)
+      }
       this.sendQueued(session.id)
+    }
+  }
+
+  // 这一轮的用户消息是内核会话里的第几条。升级前建的会话旧消息没有记录：第一次时按内核里已有的用户消息数补上
+  private async assignKernelTurn(
+    session: SessionSummary,
+    run: Running,
+    kernel: AgentKernel,
+    ks: KernelSession,
+  ): Promise<void> {
+    const { store } = this.deps
+    let at: number | undefined
+    if (run.turn > 1 && store.kernelTurns(session.id).size === 0) {
+      const history = await withDeadline(kernel.messages(ks), this.readTimeoutMs).catch(() => [])
+      const users = history.filter((m) => m.info.role === 'user').length
+      if (users > 0) at = users
+    }
+    store.assignKernelTurn(session.id, run.userMessageId, at)
+  }
+
+  // 内核在一轮结束后才把这一轮的改动算出来（OpenCode 写在用户消息的 summary 上），隔几次去取。
+  // 内核按自己的用户消息编号，用发出时记下的对应关系换回本地轮次；内核没给编号（Mock）就算在刚结束的这一轮
+  private diffGen = new Map<string, number>()
+
+  private async refreshDiffs(
+    id: string,
+    kernel: AgentKernel,
+    ks: KernelSession,
+    turn: number,
+  ): Promise<void> {
+    // 每个会话只认最新一次刷新：上一轮的刷新还在路上、晚回来的旧结果不覆盖新的
+    const gen = (this.diffGen.get(id) ?? 0) + 1
+    this.diffGen.set(id, gen)
+    let last = JSON.stringify(this.deps.store.diffs(id))
+    for (const delay of this.diffDelays) {
+      await new Promise((r) => setTimeout(r, delay))
+      if (this.diffGen.get(id) !== gen) return
+      try {
+        const found = await withDeadline(kernel.diff(ks), this.readTimeoutMs)
+        if (this.diffGen.get(id) !== gen) return
+        const turns = this.deps.store.kernelTurns(id)
+        const files: FileDiffView[] = found
+          .filter((d) => d.path)
+          .map((d) => ({
+            turn: d.turn ? (turns.get(d.turn) ?? d.turn) : turn,
+            path: d.path,
+            status: d.status,
+            additions: d.additions,
+            deletions: d.deletions,
+            patch: d.patch,
+          }))
+        const next = JSON.stringify(files)
+        if (next === last) continue
+        last = next
+        this.deps.store.replaceDiffs(id, files)
+        this.deps.push('session.diffs', { sessionId: id, files })
+      } catch {
+        // 内核重启了、应用在退出：下一轮结束时再取
+        return
+      }
     }
   }
 

@@ -455,6 +455,22 @@ describe('OpencodeFamilyKernel', () => {
     expect(fake.promptCount).toBe(0)
   })
 
+  it('numbers the turns of collected diffs by the user messages of the session', async () => {
+    const s = await setup()
+    const user = (id: string, diffs: unknown[]) => ({
+      info: { id, role: 'user', summary: { diffs } },
+      parts: [],
+    })
+    fake.messages = [
+      user('msg_1', []),
+      { info: { id: 'msg_1a', role: 'assistant' }, parts: [] },
+      user('msg_2', [{ file: 'a.ts', patch: '@@', additions: 1, deletions: 0, status: 'added' }]),
+    ]
+    expect(await kernel.diff(s)).toEqual([
+      expect.objectContaining({ path: 'a.ts', status: 'added', turn: 2, messageId: 'msg_2' }),
+    ])
+  })
+
   it('summarizes a session on the default model with the model of its last reply', async () => {
     const s = await setup()
     fake.messages = [

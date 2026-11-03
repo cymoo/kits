@@ -1,4 +1,5 @@
 import type {
+  FileDiffView,
   MessageView,
   PartView,
   SessionActivity,
@@ -138,4 +139,21 @@ export function useLiveSession(id: string | undefined): LiveSession {
     [id],
   )
   return useSyncExternalStore(subscribe, () => (id ? (states.get(id) ?? EMPTY) : EMPTY))
+}
+
+// 会话的改动（右侧面板、总结卡片）。一轮结束后主进程取到内核算好的改动，推过来直接替换
+export function useSessionDiffs(id: string | undefined) {
+  const client = useQueryClient()
+  useEffect(
+    () =>
+      kits.on('session.diffs', ({ sessionId, files }) =>
+        client.setQueryData<FileDiffView[]>(['session', sessionId, 'diffs'], files),
+      ),
+    [client],
+  )
+  return useQuery({
+    queryKey: ['session', id, 'diffs'],
+    queryFn: () => (id ? kits.session.diffs(id) : Promise.resolve([])),
+    enabled: !!id,
+  })
 }

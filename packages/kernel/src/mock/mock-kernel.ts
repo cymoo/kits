@@ -54,6 +54,8 @@ export class MockKernel implements AgentKernel {
   private earlyReplies = new Map<string, PermissionReply>()
   // 已经发出、还没回复的权限请求；只有它们的回复会被接受（包括比等待者先到的）
   private issued = new Set<string>()
+  // 每个会话发过几轮（内核里的用户消息条数）
+  private prompts = new Map<string, number>()
   private aborted = new Set<string>()
   private abortWaiters = new Map<string, () => void>()
   private exitListeners: ((exit: KernelExit) => void)[] = []
@@ -114,6 +116,7 @@ export class MockKernel implements AgentKernel {
 
   async *prompt(session: KernelSession, _input: UserInput): AsyncIterable<KernelEvent> {
     this.aborted.delete(session.id)
+    this.prompts.set(session.id, (this.prompts.get(session.id) ?? 0) + 1)
     const ctx: KitsToolContext = { sessionId: session.id }
     const self = this
     async function* run(
@@ -140,6 +143,8 @@ export class MockKernel implements AgentKernel {
             callId: step.callId,
             output: step.output,
             ...(step.error ? { error: step.error } : {}),
+            ...(step.exitCode !== undefined ? { exitCode: step.exitCode } : {}),
+            ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
           }
         } else if ('permission' in step) {
           nextRequest += 1
@@ -272,8 +277,12 @@ export class MockKernel implements AgentKernel {
     this.abortWaiters.delete(session.id)
   }
 
-  async diff(): Promise<FileDiff[]> {
-    return this.scenario.diff ?? []
+  // 每发一轮场景就改一遍场景里的文件，按内核的轮次编号给出来（和 OpenCode 一样按用户消息编号）
+  async diff(session: KernelSession): Promise<FileDiff[]> {
+    const rounds = this.prompts.get(session.id) ?? 0
+    return Array.from({ length: rounds }, (_, i) =>
+      (this.scenario.diff ?? []).map((d) => ({ ...d, turn: i + 1 })),
+    ).flat()
   }
 
   async summarize(): Promise<void> {}

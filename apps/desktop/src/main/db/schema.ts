@@ -49,6 +49,11 @@ export const messages = sqliteTable(
     tokensCacheRead: integer('tokens_cache_read').notNull().default(0),
     tokensCacheWrite: integer('tokens_cache_write').notNull().default(0),
     cost: real('cost').notNull().default(0),
+    // 助手消息：这一轮最后一次模型调用的输入 token（上下文条用；上面几项是整轮累计）
+    contextTokens: integer('context_tokens').notNull().default(0),
+    // 用户消息：它在内核会话里是第几条用户消息（发给内核时记下）。改动按这个对回本地轮次；
+    // 内核启动期间就停掉的轮次没发出去，这里为空
+    kernelTurn: integer('kernel_turn'),
   },
   (t) => [index('messages_session').on(t.sessionId, t.turn)],
 )
@@ -79,6 +84,26 @@ export const parts = sqliteTable(
     index('parts_message').on(t.messageId, t.seq),
     index('parts_session').on(t.sessionId, t.createdAt, t.seq),
   ],
+)
+
+// 每轮改了的文件（改动面板）。内核在一轮结束后才异步算出来，会话服务拿到就整份替换
+export const diffs = sqliteTable(
+  'diffs',
+  {
+    // `<会话 id>:<轮次>:<路径>`
+    id: text('id').primaryKey(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    turn: integer('turn').notNull(),
+    path: text('path').notNull(),
+    // added / modified / deleted
+    status: text('status').notNull(),
+    additions: integer('additions').notNull().default(0),
+    deletions: integer('deletions').notNull().default(0),
+    patch: text('patch').notNull().default(''),
+  },
+  (t) => [index('diffs_session').on(t.sessionId, t.turn)],
 )
 
 export const attachments = sqliteTable('attachments', {
@@ -123,3 +148,4 @@ export const permissionLog = sqliteTable('permission_log', {
 export type SessionRecord = typeof sessions.$inferSelect
 export type MessageRecord = typeof messages.$inferSelect
 export type PartRecord = typeof parts.$inferSelect
+export type DiffRecord = typeof diffs.$inferSelect

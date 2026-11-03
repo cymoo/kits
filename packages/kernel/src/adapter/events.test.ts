@@ -125,6 +125,20 @@ describe('createOpencodeEventMapper', () => {
     })
   })
 
+  it('carries the exit code and duration of a finished command', () => {
+    const { out } = feed([
+      assistant,
+      tool('running', { input: { command: 'ls' } }),
+      tool('completed', {
+        input: { command: 'ls' },
+        output: 'a',
+        metadata: { exit: 1, output: 'a' },
+        time: { start: 1_000, end: 2_250 },
+      }),
+    ])
+    expect(out[1]).toMatchObject({ type: 'tool-end', exitCode: 1, durationMs: 1_250 })
+  })
+
   it('emits both start and end when a tool shows up already completed', () => {
     const { out } = feed([assistant, tool('completed', { input: { a: 1 }, output: 'x' })])
     expect(out.map((e) => e.type)).toEqual(['tool-start', 'tool-end'])

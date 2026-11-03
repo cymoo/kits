@@ -14,6 +14,8 @@ export interface PlatformBridge {
   readonly encryptor: Encryptor
   openExternal(url: string): Promise<void>
   openPath(path: string): Promise<void>
+  // 在访达 / 资源管理器里选中
+  revealPath(path: string): void
   // 系统的目录选择框；取消时返回 null
   pickDirectory(): Promise<string | null>
 }
@@ -43,6 +45,7 @@ export function createElectronPlatform(): PlatformBridge {
         : await dialog.showOpenDialog(options)
       return result.canceled ? null : (result.filePaths[0] ?? null)
     },
+    revealPath: (target) => shell.showItemInFolder(target),
     openPath: async (target) => {
       const error = await shell.openPath(target)
       if (error) throw new Error(error)

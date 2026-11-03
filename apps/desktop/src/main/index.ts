@@ -171,6 +171,7 @@ app.whenReady().then(() => {
         }),
         openExternal: (url) => platform.openExternal(url),
         openPath: (target) => platform.openPath(target),
+        revealPath: (target) => platform.revealPath(target),
       },
       settings: {
         get: () => config.getSettings(),
@@ -190,6 +191,7 @@ app.whenReady().then(() => {
         abort: (id) => sessions.abort(id),
         respondPermission: (input) => sessions.respondPermission(input),
         answerQuestion: (input) => sessions.answerQuestion(input),
+        diffs: (id) => sessions.diffs(id),
       },
       workdir: {
         pick: async () => {

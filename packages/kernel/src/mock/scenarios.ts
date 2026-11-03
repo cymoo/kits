@@ -18,6 +18,8 @@ export type MockStep =
       input: unknown
       output: unknown
       error?: string
+      exitCode?: number
+      durationMs?: number
     }
   // 权限请求：等 respondPermission，按回复走 allow 或 reject 分支
   | {
@@ -109,6 +111,16 @@ const editRedeem: MockStep = {
   output: 'Edit applied successfully.',
 }
 
+const runTests: MockStep = {
+  delay: 200,
+  tool: 'bash',
+  callId: 'call_test',
+  input: { command: 'uv run pytest tests/points -q', description: '跑 points 的测试' },
+  output: '............\n12 passed in 0.84s',
+  exitCode: 0,
+  durationMs: 1_200,
+}
+
 const answer =
   '改好了：把幂等检查抽成了装饰器 `@idempotent`，兑换接口加了一行。\n\n' +
   '| 文件 | 改动 |\n|---|---|\n| src/points/redeem.py | +6 −1 |\n\n跑一下 `tests/points` 确认没有回归。'
@@ -125,6 +137,7 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
       },
       readRedeem,
       editRedeem,
+      runTests,
       { delay: 200, text: answer, partId: 'prt_answer' },
       usage(21_400, 320),
     ],
@@ -178,6 +191,8 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
               callId: 'call_bash',
               output: '12 passed in 3.41s',
               title: 'uv run pytest tests/points -q',
+              exitCode: 0,
+              durationMs: 3_410,
             },
           },
           { delay: 200, text: '12 个测试全部通过。', partId: 'prt_after' },

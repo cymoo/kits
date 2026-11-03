@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react'
 export const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform)
 export const modLabel = isMac ? '⌘' : 'Ctrl+'
 
-export type ShortcutId = 'newSession' | 'search' | 'settings' | 'stop' | 'toggleNav'
+export type ShortcutId = 'newSession' | 'search' | 'settings' | 'stop' | 'toggleNav' | 'widePanel'
 
 export const shortcuts: Record<ShortcutId, { key: string; label: string }> = {
   newSession: { key: 'n', label: `${modLabel}N` },
@@ -14,6 +14,8 @@ export const shortcuts: Record<ShortcutId, { key: string; label: string }> = {
   settings: { key: ',', label: `${modLabel},` },
   stop: { key: '.', label: `${modLabel}.` },
   toggleNav: { key: 'b', label: `${modLabel}B` },
+  // 会话页：放大 / 缩回右侧工作区面板
+  widePanel: { key: '\\', label: `${modLabel}\\` },
 }
 
 export function matchShortcut(e: KeyboardEvent, id: ShortcutId, mac = isMac): boolean {

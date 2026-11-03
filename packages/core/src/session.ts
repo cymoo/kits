@@ -33,8 +33,11 @@ export interface MessageView {
   createdAt: number
   completedAt: number | null
   finishReason: string | null
+  // 整轮累计；input 已经含缓存读写
   tokens: { input: number; output: number; cacheRead: number; cacheWrite: number }
   cost: number
+  // 这一轮最后一次模型调用的输入 token，也就是现在上下文有多大
+  contextTokens: number
 }
 
 export type PartPayload =
@@ -48,6 +51,8 @@ export type PartPayload =
       output?: unknown
       error?: string
       title?: string
+      exitCode?: number
+      durationMs?: number
     }
   | {
       type: 'permission'
@@ -102,6 +107,17 @@ export interface CreateSessionInput {
   model: string
   kernel: 'opencode' | 'codeagent'
   permissionMode: PermissionMode
+}
+
+// 一轮改了的一个文件（改动面板）。内核在这一轮结束后才算出来，落库后推给界面
+export interface FileDiffView {
+  turn: number
+  path: string
+  status: 'added' | 'modified' | 'deleted'
+  additions: number
+  deletions: number
+  // unified diff
+  patch: string
 }
 
 // 内核报告的忙闲（状态行用），不落库
