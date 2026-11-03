@@ -137,7 +137,8 @@ export function Palette() {
               type="button"
               role="option"
               aria-selected={i === active}
-              onMouseEnter={() => setActive(i)}
+              // 鼠标真的移动了才跟着选；面板弹出来时正好在光标下面的那一项不算（mouseenter 会误选）
+              onPointerMove={() => setActive(i)}
               onClick={a.run}
               className={cx(
                 'flex min-h-9 w-full cursor-pointer items-center gap-3 rounded-[8px] px-2.5 py-[5px] text-left',
