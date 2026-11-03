@@ -166,6 +166,13 @@ function agentConfigPermission(agent: AgentProfile, mcp: McpFile): PermissionSet
   return result
 }
 
+// 规则串 → OpenCode 建会话时的 permission 数组（顺序不变，后面的优先）
+export function toOpencodeRuleset(
+  rules: PermissionRule[],
+): { permission: string; pattern: string; action: PermissionLevel }[] {
+  return rules.map((r) => ({ permission: r.tool, pattern: r.pattern, action: r.level }))
+}
+
 function enabledServers(mcp: McpFile): string[] {
   return Object.entries(mcp.servers)
     .filter(([name, s]) => s.enabled && name !== KITS_MCP_SERVER)

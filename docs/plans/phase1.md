@@ -92,27 +92,34 @@ flowchart LR
 接口放在“会话”这一层：输入一份 Agent 配置和一句话，输出统一格式的事件流和结果。不抽象到“模型调用 + 工具执行”这一层，因为 CodeAgent 和 OpenCode 自己掌管 Agent 循环、内置工具和会话存储，在那一层统一不了。
 
 ```ts
+// 会话整个传进来（id + 工作目录 + Agent + 模型），适配器不记会话，应用重启后从数据库读出来照样能续上
+interface KernelSession { id: string; workdir: string; agent: string; model?: string }
+
 interface AgentKernel {
   readonly id: 'codeagent' | 'opencode'           // 以后可能加 'ai-sdk' 等
   readonly capabilities: { subagents: boolean; revert: boolean }
   start(cfg: KernelConfig): Promise<void>        // 启动 serve 子进程，等待就绪
-  createSession(opts: { profile: AgentProfile; workdir: string }): Promise<string>
-  prompt(sessionId: string, input: UserInput): AsyncIterable<KernelEvent>
-  respondPermission(requestId: string, decision: 'allow' | 'deny'): Promise<void>
-  abort(sessionId: string): Promise<void>
-  diff(sessionId: string): Promise<FileDiff[]>   // 本次会话改了哪些文件
-  revert(sessionId: string, messageId: string): Promise<void>
+  createSession(opts: { workdir: string; agent: string; model?: string; title?: string; permission: PermissionSet }): Promise<KernelSession>
+  prompt(session: KernelSession, input: UserInput): AsyncIterable<KernelEvent>   // 以一条 done 结束
+  respondPermission(session: KernelSession, requestId: string, reply: 'once' | 'always' | 'reject', message?: string): Promise<void>
+  abort(session: KernelSession): Promise<void>
+  diff(session: KernelSession): Promise<FileDiff[]>   // 本次会话改了哪些文件（unified diff）
+  summarize(session: KernelSession): Promise<void>    // 上下文压缩
+  messages(session: KernelSession): Promise<KernelMessage[]>   // 断线补齐、恢复会话
+  revert(session: KernelSession, messageId: string): Promise<void>
   dispose(): Promise<void>
 }
 
 type KernelEvent =
-  | { type: 'text-delta'; text: string }
-  | { type: 'reasoning-delta'; text: string }
+  | { type: 'text-delta'; partId: string; text: string }
+  | { type: 'reasoning-delta'; partId: string; text: string }
   | { type: 'tool-start'; callId: string; name: string; input: unknown }
-  | { type: 'tool-end'; callId: string; output: unknown; error?: string }
-  | { type: 'permission-request'; requestId: string; tool: string; input: unknown }
-  | { type: 'usage'; inputTokens: number; outputTokens: number }
+  | { type: 'tool-end'; callId: string; output: unknown; error?: string; title?: string }
+  | { type: 'permission-request'; requestId: string; tool: string; input: unknown; patterns: string[]; always: string[]; callId?: string }
+  | { type: 'usage'; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; cost: number }
   | { type: 'retry'; attempt: number; message: string; nextAt: number }
+  | { type: 'status'; state: 'busy' | 'idle' | 'retry' }
+  | { type: 'compaction'; summary: string }
   | { type: 'done'; reason: 'completed' | 'aborted' | 'max-steps' | 'error'; error?: string }
 ```
 
