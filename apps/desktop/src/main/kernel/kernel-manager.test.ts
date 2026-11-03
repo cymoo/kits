@@ -110,3 +110,88 @@ describe('KernelManager', () => {
     expect(made[0]?.raw.dispose).toHaveBeenCalled()
   })
 })
+
+describe('KernelManager lifecycle', () => {
+  it('never runs two processes while a restart is shutting the old one down', async () => {
+    let alive = 0
+    let maxAlive = 0
+    const manager = new KernelManager({
+      create: () => {
+        const kernel = {
+          start: async () => {
+            alive += 1
+            maxAlive = Math.max(maxAlive, alive)
+          },
+          // 关得慢
+          dispose: async () => {
+            await new Promise((r) => setTimeout(r, 30))
+            alive -= 1
+          },
+          onExit: () => {},
+        }
+        return kernel as unknown as AgentKernel
+      },
+      prepare: async () => ok,
+    })
+    await manager.acquire('opencode')
+    manager.release('opencode')
+    const restart = manager.restart('opencode')
+    await manager.acquire('opencode')
+    await restart
+    expect(maxAlive).toBe(1)
+    expect(manager.status('opencode').state).toBe('running')
+  })
+
+  it('restarts after starting when the config changed during the start', async () => {
+    let release: () => void = () => {}
+    let prepares = 0
+    const { manager, made } = setup(async () => {
+      prepares += 1
+      if (prepares === 1) await new Promise<void>((r) => (release = r))
+      return ok
+    })
+    const first = manager.acquire('opencode')
+    await vi.waitFor(() => expect(prepares).toBe(1))
+    manager.configChanged()
+    release()
+    await first
+    // 第一轮还在跑：先标待重启
+    expect(manager.status('opencode').state).toBe('restart-pending')
+    manager.release('opencode')
+    await vi.waitFor(() => expect(made).toHaveLength(2))
+  })
+
+  it('reports a factory error instead of staying in starting', async () => {
+    const manager = new KernelManager({
+      create: () => {
+        throw new Error('CodeAgent 方言还没接入')
+      },
+      prepare: async () => ok,
+    })
+    await expect(manager.acquire('codeagent')).rejects.toThrow('CodeAgent')
+    expect(manager.status('codeagent')).toMatchObject({
+      state: 'error',
+      error: 'CodeAgent 方言还没接入',
+    })
+  })
+
+  it('cleans up a kernel that finishes starting after dispose began', async () => {
+    let release: (() => void) | undefined
+    const { manager, made } = setup(async () => {
+      await new Promise<void>((r) => {
+        release = r
+      })
+      return ok
+    })
+    const starting = manager.acquire('opencode').catch(() => {})
+    // 等到真的在 prepare 里了再开始退出
+    await vi.waitFor(() => expect(release).toBeDefined())
+    const disposing = manager.dispose()
+    release?.()
+    await starting
+    await disposing
+    expect(made).toHaveLength(1)
+    expect(made[0]?.raw.dispose).toHaveBeenCalled()
+    await expect(manager.acquire('opencode')).rejects.toThrow('退出')
+  })
+})

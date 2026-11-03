@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { createWriteStream, mkdirSync } from 'node:fs'
+import { createWriteStream, mkdirSync, type WriteStream } from 'node:fs'
 import { createServer } from 'node:net'
 import path from 'node:path'
 import { writeGeneratedFiles } from '../generate/write'
@@ -32,11 +32,29 @@ async function freePort(): Promise<number> {
   })
 }
 
+// 日志写不了（目录没权限、磁盘满）不能变成主进程的未捕获异常：出错后就不再写文件，输出照样留在内存里
 function openLog(file: string) {
-  mkdirSync(path.dirname(file), { recursive: true })
-  const stream = createWriteStream(file, { flags: 'a' })
-  stream.write(`\n--- ${new Date().toISOString()} opencode serve ---\n`)
-  return stream
+  let stream: WriteStream | undefined
+  try {
+    mkdirSync(path.dirname(file), { recursive: true })
+    stream = createWriteStream(file, { flags: 'a' })
+  } catch {
+    return undefined
+  }
+  const log = {
+    write(chunk: Buffer | string) {
+      stream?.write(chunk)
+    },
+    end() {
+      stream?.end()
+    },
+  }
+  stream.on('error', () => {
+    stream?.destroy()
+    stream = undefined
+  })
+  log.write(`\n--- ${new Date().toISOString()} opencode serve ---\n`)
+  return log
 }
 
 function tail(buf: string, lines = 20): string {

@@ -166,7 +166,8 @@ app.whenReady().then(() => {
   })
 })
 
-// will-quit 不等异步清理：先拦下退出，清理完再真的退（只做一次）
+// will-quit 不等异步清理：先拦下退出，清理完再直接退出（只做一次）。
+// 用 app.exit 而不是再调 app.quit：清理很快时 quit 还处在被取消的那一轮里，会被忽略，进程就退不掉
 let quitting = false
 app.on('will-quit', (event) => {
   if (quitting || !shutdown) return
@@ -174,7 +175,7 @@ app.on('will-quit', (event) => {
   quitting = true
   void shutdown()
     .catch(() => {})
-    .finally(() => app.quit())
+    .finally(() => app.exit(0))
 })
 
 app.on('window-all-closed', () => {

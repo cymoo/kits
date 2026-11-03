@@ -117,26 +117,40 @@ export class MockKernel implements AgentKernel {
         } else if ('permission' in step) {
           const p = step.permission
           yield { type: 'permission-request', ...p }
-          const early = self.earlyReplies.get(p.requestId)
-          self.earlyReplies.delete(p.requestId)
+          const key = `${session.id}:${p.requestId}`
+          const early = self.earlyReplies.get(key)
+          self.earlyReplies.delete(key)
           const reply = self.aborted.has(session.id)
             ? 'aborted'
             : (early ??
               (await new Promise<PermissionReply | 'aborted'>((resolve) => {
-                self.permissionWaiters.set(p.requestId, resolve)
+                self.permissionWaiters.set(key, resolve)
                 self.abortWaiters.set(session.id, () => resolve('aborted'))
               })))
-          self.permissionWaiters.delete(p.requestId)
+          self.permissionWaiters.delete(key)
           if (reply === 'aborted') return 'aborted'
           const branch = yield* run(reply === 'reject' ? step.reject : step.allow)
           if (branch !== 'ok') return branch
         } else if ('ask' in step) {
           const input = { ...step.ask }
           yield { type: 'tool-start', callId: step.callId, name: 'kits_ask_user', input }
-          const result: AskUserResult = self.options.tools
-            ? await self.options.tools.askUser(input, ctx)
-            : { answered: false, ...(input.assumption ? { assumption: input.assumption } : {}) }
+          // 消费方可能在拿到 tool-start 时就 abort 了，那时还没开始等
           if (self.aborted.has(session.id)) return 'aborted'
+          const asked: Promise<AskUserResult> = self.options.tools
+            ? self.options.tools.askUser(input, ctx)
+            : Promise.resolve({
+                answered: false,
+                ...(input.assumption ? { assumption: input.assumption } : {}),
+              })
+          // 阻塞提问可能一直没人回答：abort / dispose 时不再等它
+          const result = await Promise.race([
+            asked,
+            new Promise<'aborted'>((resolve) =>
+              self.abortWaiters.set(session.id, () => resolve('aborted')),
+            ),
+          ])
+          self.abortWaiters.delete(session.id)
+          if (result === 'aborted' || self.aborted.has(session.id)) return 'aborted'
           yield { type: 'tool-end', callId: step.callId, output: JSON.stringify(result) }
         } else if ('output' in step) {
           yield {
@@ -183,13 +197,15 @@ export class MockKernel implements AgentKernel {
   }
 
   async respondPermission(
-    _session: KernelSession,
+    session: KernelSession,
     requestId: string,
     reply: PermissionReply,
   ): Promise<void> {
-    const waiter = this.permissionWaiters.get(requestId)
+    // 每个会话的场景都用同样的 requestId，按会话区分
+    const key = `${session.id}:${requestId}`
+    const waiter = this.permissionWaiters.get(key)
     if (waiter) waiter(reply)
-    else this.earlyReplies.set(requestId, reply)
+    else this.earlyReplies.set(key, reply)
   }
 
   async abort(session: KernelSession): Promise<void> {

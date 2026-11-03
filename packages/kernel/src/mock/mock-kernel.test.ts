@@ -137,4 +137,30 @@ describe('MockKernel', () => {
     const { kernel } = await start({ scenario: 'done' })
     expect((await kernel.diff())[0]?.path).toBe('src/points/redeem.py')
   })
+  it('routes permission replies to the right session when both wait on the same request id', async () => {
+    const kernel = new MockKernel({ scenario: 'permission', speed: 0 })
+    await kernel.start()
+    const a = await kernel.createSession({ workdir: '/w', agent: 'assistant', permission: [] })
+    const b = await kernel.createSession({ workdir: '/w', agent: 'assistant', permission: [] })
+    const run = (s: KernelSession, reply: 'once' | 'reject') =>
+      collect(kernel, s, (e) =>
+        e.type === 'permission-request'
+          ? kernel.respondPermission(s, e.requestId, reply)
+          : undefined,
+      )
+    const [ea, eb] = await Promise.all([run(a, 'once'), run(b, 'reject')])
+    expect(ea.find((e) => e.type === 'tool-end')).toMatchObject({ output: '12 passed in 3.41s' })
+    expect(eb.find((e) => e.type === 'tool-end')).toMatchObject({ error: '用户拒绝了这条命令' })
+  })
+
+  it('stops waiting for an unanswered blocking question on abort', async () => {
+    const { kernel, session } = await start({
+      scenario: 'question',
+      tools: { askUser: () => new Promise(() => {}), onOutput: async () => {} },
+    })
+    const events = await collect(kernel, session, (e) =>
+      e.type === 'tool-start' && e.name === 'kits_ask_user' ? kernel.abort(session) : undefined,
+    )
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+  })
 })

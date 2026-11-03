@@ -27,16 +27,10 @@ export async function kernelInfo(options: {
   // KITS_KERNEL=mock：两个内核都当作已装，版本写 mock
   mock?: boolean
 }): Promise<KernelInfo[]> {
-  return Promise.all(
+  const found = await Promise.all(
     KERNELS.map(async (id) => {
       if (options.mock) {
-        return {
-          ...options.runtime(id),
-          installed: true,
-          version: 'mock',
-          binary: null,
-          logsDir: kernelLogsDir(options.userDataDir, id),
-        }
+        return { id, installed: true, version: 'mock', binary: null }
       }
       const binary =
         resolveKernelBinary(id, {
@@ -46,12 +40,17 @@ export async function kernelInfo(options: {
           ...(options.resourcesPath ? { resourcesPath: options.resourcesPath } : {}),
         }) ?? null
       return {
-        ...options.runtime(id),
+        id,
         installed: binary !== null,
         version: binary ? await version(binary) : null,
         binary,
-        logsDir: kernelLogsDir(options.userDataDir, id),
       }
     }),
   )
+  // 版本探测要几秒，运行状态在探测完之后再取，不用探测前的旧快照
+  return found.map((k) => ({
+    ...options.runtime(k.id),
+    ...k,
+    logsDir: kernelLogsDir(options.userDataDir, k.id),
+  }))
 }
