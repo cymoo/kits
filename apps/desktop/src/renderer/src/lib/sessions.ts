@@ -9,7 +9,13 @@ import type {
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { kits } from './kits'
-import { mergeMessage, mergePart, mergeSession, type Reducer } from './session-merge'
+import {
+  mergeMessage,
+  mergePart,
+  mergeSession,
+  mergeSessionList,
+  type Reducer,
+} from './session-merge'
 
 // 会话数据：列表走 TanStack Query，单个会话的对话流放在下面这个小仓库里——
 // 打开时用 session.get 拿一次快照，之后主进程推来的 message / part 按 id 合进去，界面只订阅自己那个会话。
@@ -17,7 +23,16 @@ import { mergeMessage, mergePart, mergeSession, type Reducer } from './session-m
 export const sessionKeys = { list: ['sessions'] as const }
 
 export function useSessions() {
-  return useQuery({ queryKey: sessionKeys.list, queryFn: () => kits.session.list() })
+  const client = useQueryClient()
+  return useQuery({
+    queryKey: sessionKeys.list,
+    // 查询期间推来的更新（比如后台会话做完了）比列表快照新，合并时不被盖掉
+    queryFn: async () =>
+      mergeSessionList(
+        await kits.session.list(),
+        client.getQueryData<SessionSummary[]>(sessionKeys.list),
+      ),
+  })
 }
 
 // 列表跟着推送更新（侧栏、⌘K、首页都用）

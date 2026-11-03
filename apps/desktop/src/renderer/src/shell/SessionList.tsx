@@ -1,8 +1,10 @@
 import type { SessionSummary } from '@kits/core/ipc'
+import { useMemo } from 'react'
 import { NavLink } from 'react-router'
 import { type MessageKey, t } from '../app/i18n'
 import { type Group, groupSessions } from '../lib/session-groups'
 import { useSessions } from '../lib/sessions'
+import { useToday } from '../lib/use-today'
 import { cx } from '../ui/cx'
 
 // 侧栏的会话列表（原型 shell.js）：按今天 / 昨天 / 本周 / 更早分组；运行中蓝点闪，等处理黄点，出错红点并带状态字。
@@ -32,12 +34,16 @@ export function StatusDot({ status }: { status: SessionSummary['status'] }) {
 export function SessionList() {
   const sessions = useSessions()
   const list = sessions.data ?? []
+  // 跨过午夜要重新分组
+  const today = useToday()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: today 变了要重算
+  const groups = useMemo(() => groupSessions(list), [list, today])
   if (sessions.isSuccess && list.length === 0) {
     return <p className="px-2 py-2 text-[0.885rem] text-fg-subtle">{t('nav.empty')}</p>
   }
   return (
     <>
-      {groupSessions(list).map(([group, items]) => (
+      {groups.map(([group, items]) => (
         <div key={group} className="flex flex-col gap-px">
           <div className="px-2 pt-2 pb-1 font-medium text-[0.885rem] text-fg-label">
             {t(GROUP_LABEL[group])}
@@ -56,6 +62,10 @@ export function SessionList() {
             >
               <StatusDot status={s.status} />
               <span className="min-w-0 flex-1 truncate">{s.title}</span>
+              {/* 运行中只有一个圆点，给读屏补上状态 */}
+              {s.status === 'running' ? (
+                <span className="sr-only">{t('nav.tag.running')}</span>
+              ) : null}
               {s.status === 'waiting' || s.status === 'error' ? (
                 <span
                   className={cx(

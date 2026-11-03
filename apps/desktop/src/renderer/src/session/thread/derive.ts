@@ -52,7 +52,14 @@ export type Block =
     }
   | { kind: 'retry'; id: string; attempt: number; message: string; nextAt: number }
   // last：是不是最后一轮（只有最后一轮能“继续”）
-  | { kind: 'error'; id: string; message: string; last: boolean }
+  | {
+      kind: 'error'
+      id: string
+      message: string
+      last: boolean
+      // 这一轮还没发到内核就失败了（配置不完整、内核起不来）：内核里没有原任务，要重发原文而不是说“继续”
+      resend?: string
+    }
 
 type ToolPayload = Extract<PartPayload, { type: 'tool' }>
 
@@ -178,9 +185,11 @@ export function deriveBlocks(
     (a, b) => a.createdAt - b.createdAt || (a.role === 'user' ? -1 : 1),
   )
   const lastAssistant = messages.filter((m) => m.role === 'assistant').at(-1)?.id
+  let lastUserText = ''
   for (const m of messages) {
     if (m.role === 'user') {
       blocks.push({ kind: 'user', id: m.id, text: m.text })
+      lastUserText = m.text
       continue
     }
     const parts = (byMessage.get(m.id) ?? []).sort((a, b) => a.seq - b.seq)
@@ -302,8 +311,11 @@ export function deriveBlocks(
     blocks.push(...cards)
     // 重试条：最近更新的 part 是重试，说明还没恢复。按更新时间看，不按 seq：
     // 重试后接着写的正文复用原来的 part，seq 还在重试之前
+    // 确认和提问的更新是本地回复造成的，不代表内核恢复了：它们只看出现的时间
+    const kernelAt = (p: PartView) =>
+      p.type === 'question' || p.type === 'permission' ? p.createdAt : p.updatedAt
     const lastPart = parts.reduce<PartView | undefined>(
-      (a, p) => (!a || p.updatedAt >= a.updatedAt ? p : a),
+      (a, p) => (!a || kernelAt(p) >= kernelAt(a) ? p : a),
       undefined,
     )
     const retrying = running && lastPart?.payload.type === 'retry'
@@ -319,6 +331,7 @@ export function deriveBlocks(
         id: `${m.id}:error`,
         message: error,
         last: m.id === lastAssistant,
+        ...(parts.every((p) => p.type === 'error') ? { resend: lastUserText } : {}),
       })
     }
     // 状态行：这一轮还在跑，而且最近 2 秒没有新内容（等模型首字、工具在跑）；
