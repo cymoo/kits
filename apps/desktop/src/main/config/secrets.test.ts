@@ -1,8 +1,31 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type Encryptor, SecretStore } from './secrets'
+
+// 模拟磁盘满：写文件、复制备份按开关失败
+const disk = vi.hoisted(() => ({ writeFails: false, copyFails: false }))
+vi.mock('./atomic', async (orig) => {
+  const real = await orig<typeof import('./atomic')>()
+  return {
+    ...real,
+    writeFileAtomic: (...args: Parameters<typeof real.writeFileAtomic>) => {
+      if (disk.writeFails) throw new Error('ENOSPC')
+      return real.writeFileAtomic(...args)
+    },
+  }
+})
+vi.mock('node:fs', async (orig) => {
+  const real = await orig<typeof import('node:fs')>()
+  return {
+    ...real,
+    copyFileSync: (...args: Parameters<typeof real.copyFileSync>) => {
+      if (disk.copyFails) throw new Error('ENOSPC')
+      return real.copyFileSync(...args)
+    },
+  }
+})
 
 // 假的加密：把字节反过来，够验证“存的不是明文、读回来是原文”
 const fake = (available: boolean): Encryptor => ({
@@ -16,6 +39,8 @@ beforeEach(() => {
   file = path.join(mkdtempSync(path.join(os.tmpdir(), 'kits-secrets-')), 'secrets.json')
 })
 afterEach(() => {
+  disk.writeFails = false
+  disk.copyFails = false
   rmSync(path.dirname(file), { recursive: true, force: true })
 })
 
@@ -51,6 +76,30 @@ describe('SecretStore', () => {
     expect(readdirSync(path.dirname(file)).some((f) => f.startsWith('secrets.json.broken-'))).toBe(
       true,
     )
+  })
+
+  it('keeps the previous value when writing the file fails', () => {
+    const store = new SecretStore(file, fake(true))
+    store.set('k', 'old')
+    disk.writeFails = true
+    expect(() => store.set('k', 'new')).toThrow('ENOSPC')
+    expect(() => store.remove('k')).toThrow('ENOSPC')
+    expect(store.get('k')).toBe('old')
+    disk.writeFails = false
+    store.remove('k')
+    expect(store.has('k')).toBe(false)
+  })
+
+  it('refuses to overwrite a broken file until it has been backed up', () => {
+    writeFileSync(file, '{not json')
+    disk.copyFails = true
+    const store = new SecretStore(file, fake(true))
+    expect(store.loadError).toBeDefined()
+    expect(() => store.set('k', 'v')).toThrow('备份失败')
+    expect(readFileSync(file, 'utf8')).toBe('{not json')
+    disk.copyFails = false
+    store.set('k', 'v')
+    expect(readdirSync(path.dirname(file)).some((f) => f.includes('.broken-'))).toBe(true)
   })
 
   it('treats a value it cannot decrypt as missing', () => {

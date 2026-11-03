@@ -28,6 +28,8 @@ export class SecretStore {
   private values: Record<string, Stored> = {}
   // 文件坏了或读不了时的原因；坏文件备份成 secrets.json.broken-<时间>，从空表开始，不让应用打不开
   readonly loadError: string | undefined
+  // 坏文件还没备份成功：保存前要先补上备份，补不上就不保存，免得把还能恢复的旧密钥盖掉
+  private backup: string | undefined
 
   constructor(
     private readonly file: string,
@@ -41,12 +43,21 @@ export class SecretStore {
       this.values = parsed
     } catch (e) {
       const stamp = new Date(now()).toISOString().replace(/[:.]/g, '-')
-      try {
-        copyFileSync(file, `${file}.broken-${stamp}`)
-      } catch {
-        // 备份失败也不拦启动
-      }
+      this.backup = `${file}.broken-${stamp}`
+      // 备份失败也不拦启动，保存时再试
+      this.tryBackup()
       this.loadError = `${file} 读取失败（${e instanceof Error ? e.message : String(e)}），已备份，需要重新填写密钥`
+    }
+  }
+
+  private tryBackup(): boolean {
+    if (!this.backup) return true
+    try {
+      copyFileSync(this.file, this.backup)
+      this.backup = undefined
+      return true
+    } catch {
+      return false
     }
   }
 
@@ -55,10 +66,10 @@ export class SecretStore {
   }
 
   set(key: string, value: string): void {
-    this.values[key] = this.encryptor.isAvailable()
+    const stored: Stored = this.encryptor.isAvailable()
       ? { enc: 'safe', data: this.encryptor.encrypt(value).toString('base64') }
       : { enc: 'plain', data: Buffer.from(value, 'utf8').toString('base64') }
-    this.save()
+    this.save({ ...this.values, [key]: stored })
   }
 
   get(key: string): string | undefined {
@@ -80,11 +91,14 @@ export class SecretStore {
 
   remove(key: string): void {
     if (!(key in this.values)) return
-    delete this.values[key]
-    this.save()
+    const { [key]: _, ...rest } = this.values
+    this.save(rest)
   }
 
-  private save(): void {
-    writeFileAtomic(this.file, `${JSON.stringify(this.values, null, 2)}\n`, 0o600)
+  // 先落盘，成功了再换内存里的表：写失败时 get / has 还是旧值，可以重试
+  private save(next: Record<string, Stored>): void {
+    if (!this.tryBackup()) throw new Error(`${this.file} 损坏且备份失败，先腾出磁盘空间再保存`)
+    writeFileAtomic(this.file, `${JSON.stringify(next, null, 2)}\n`, 0o600)
+    this.values = next
   }
 }

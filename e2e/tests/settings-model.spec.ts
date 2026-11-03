@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { launchApp } from './app'
@@ -136,5 +136,47 @@ test('rejects an invalid gateway address before saving anything', async () => {
   } finally {
     await close()
     await gw.close()
+  }
+})
+
+test('shows a context window changed in settings.json after the window regains focus', async () => {
+  const settings = (contextWindow: number) =>
+    JSON.stringify({
+      onboardingDone: true,
+      defaultModel: 'corp/m',
+      gateways: [
+        {
+          id: 'corp',
+          name: '公司网关',
+          baseUrl: 'http://127.0.0.1:9',
+          models: [{ id: 'm', contextWindow }],
+        },
+      ],
+    })
+  const { app, page, configDir, close } = await launchApp({}, (dir) => {
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(path.join(dir, 'settings.json'), settings(128_000))
+  })
+  try {
+    await page.goto(`${page.url().split('#')[0]}#/settings/model`)
+    const card = page.getByTestId('gateway-corp')
+    await card.getByRole('button', { name: /公司网关/ }).click()
+    const input = card.getByLabel('m 的上下文窗口（K）')
+    await expect(input).toHaveValue('128')
+    writeFileSync(path.join(configDir, 'settings.json'), settings(96_000))
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.emit('focus'))
+    await expect(input).toHaveValue('96')
+    // 聚焦再移开不会把旧值存回去
+    await input.focus()
+    await input.blur()
+    await expect
+      .poll(
+        () =>
+          JSON.parse(readFileSync(path.join(configDir, 'settings.json'), 'utf8')).gateways[0]
+            .models[0].contextWindow,
+      )
+      .toBe(96_000)
+  } finally {
+    await close()
   }
 })

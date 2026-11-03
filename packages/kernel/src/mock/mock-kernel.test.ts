@@ -116,6 +116,29 @@ describe('MockKernel', () => {
     expect(exits).toHaveLength(1)
   })
 
+  it('notifies exit listeners before done so a consumer that stops at done sees the crash', async () => {
+    const { kernel, session } = await start({ scenario: 'crash' })
+    const exits: KernelExit[] = []
+    kernel.onExit((e) => exits.push(e))
+    for await (const e of kernel.prompt(session, { text: 'hi' })) if (e.type === 'done') break
+    expect(exits).toHaveLength(1)
+    expect(kernel.running).toBe(false)
+  })
+
+  it('gives sessions ids that stay unique across kernel instances', async () => {
+    const a = await start({ scenario: 'done' })
+    const b = await start({ scenario: 'done' })
+    expect(a.session.id).not.toBe(b.session.id)
+  })
+
+  it('ends the turn when disposed right after a permission request was handed out', async () => {
+    const { kernel, session } = await start({ scenario: 'permission' })
+    const events = await collect(kernel, session, (e) =>
+      e.type === 'permission-request' ? kernel.dispose() : undefined,
+    )
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+  })
+
   it('stops with aborted while waiting for a permission reply', async () => {
     const { kernel, session } = await start({ scenario: 'permission' })
     const events = await collect(kernel, session, (e) =>

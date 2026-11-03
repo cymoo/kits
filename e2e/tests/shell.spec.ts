@@ -88,3 +88,18 @@ test('opens the command palette with an empty query after running an action', as
     await close()
   }
 })
+
+test('closes the command palette when a shortcut jumps to another page', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await page.keyboard.press(`${mod}+K`)
+    const dialog = page.getByRole('dialog', { name: '搜索和跳转' })
+    await expect(dialog).toBeVisible()
+    await page.keyboard.press(`${mod}+Comma`)
+    await expect(dialog).toBeHidden()
+    await expect(page).toHaveURL(/#\/settings\/general$/)
+  } finally {
+    await close()
+  }
+})
