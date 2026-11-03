@@ -27,6 +27,16 @@ describe('testGateway', () => {
     expect(auth).toBe('Bearer sk')
   })
 
+  it('fails on a 200 reply that is not a model list', async () => {
+    const baseUrl = await serve((_req, res) => {
+      res.end(JSON.stringify({ error: { message: 'quota exceeded' } }))
+    })
+    expect(await testGateway({ baseUrl })).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('data'),
+    })
+  })
+
   it('explains an auth failure', async () => {
     const baseUrl = await serve((_req, res) => {
       res.writeHead(401).end()

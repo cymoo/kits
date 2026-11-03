@@ -86,6 +86,9 @@ function allowedBuiltinTools(agent: AgentProfile): Set<string> | undefined {
 
 export const KITS_TOOLS_TOKEN_ENV = 'KITS_TOOLS_TOKEN'
 
+// 不需要鉴权的网关写进配置的 key：openai-compatible 要求有值，内容随意
+export const NO_KEY = 'kits-no-key'
+
 // 1.19.5 默认 60 s 掐断 MCP 工具调用（契约测试实测），阻塞的 ask_user 要等人回答，放宽到 24 小时
 export const KITS_TOOLS_TIMEOUT_MS = 24 * 60 * 60 * 1000
 
@@ -236,16 +239,16 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
     }
     envOwners.set(keyEnv, gw.id)
     if (!gw.baseUrl) problems.push({ section: 'model', target: gw.id, message: '网关地址为空' })
+    // 不需要鉴权的网关（内网自建的 vLLM 之类）可以不填 key，配置里写一个占位值
     const key = input.gatewayKeys[gw.id]
-    if (!key) problems.push({ section: 'model', target: gw.id, message: '没有填 API Key' })
-    else env[keyEnv] = key
+    if (key) env[keyEnv] = key
     if (gw.models.length === 0) {
       problems.push({ section: 'model', target: gw.id, message: '没有可用的模型' })
     }
     provider[gw.id] = {
       npm: '@ai-sdk/openai-compatible',
       name: gw.name || gw.id,
-      options: { baseURL: gw.baseUrl, apiKey: `{env:${keyEnv}}` },
+      options: { baseURL: gw.baseUrl, apiKey: key ? `{env:${keyEnv}}` : NO_KEY },
       models: Object.fromEntries(
         gw.models.map((m) => [m.id, { name: m.id, tool_call: m.toolCall }]),
       ),

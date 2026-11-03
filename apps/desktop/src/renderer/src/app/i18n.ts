@@ -52,6 +52,7 @@ const zhCN = {
   'onboarding.testHint': '测试只列一下模型，不发对话请求，不计入用量',
   'onboarding.defaultHint': '写代码和跑测试用这个，每个 Agent 可以单独改',
   'onboarding.next': '下一步',
+  'onboarding.noModels': '连上了，但网关没有列出任何模型，检查一下地址是不是指到了 /v1',
   'onboarding.finish': '先到这里，进入首页',
   'common.esc': 'Esc',
   'common.cancel': '取消',
