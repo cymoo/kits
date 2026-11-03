@@ -64,6 +64,9 @@ const zhCN = {
   'model.namePlaceholder': '比如：测试环境网关',
   'model.url': '地址',
   'model.keyHint': '存在系统钥匙串，不写进配置文件',
+  'model.keyHintPlain':
+    '这台机器的系统钥匙串不可用，key 会以明文存在本机的 secrets.json 里（不写进配置文件）',
+  'model.badUrl': '地址要以 http:// 或 https:// 开头',
   'model.keyPlaceholder': '留空表示不需要鉴权',
   'model.keySaved': '已保存，留空不改',
   'model.testAndAdd': '测试并添加',

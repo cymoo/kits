@@ -123,6 +123,7 @@ app.whenReady().then(() => {
       secrets: {
         set: ({ key, value }) => secrets.set(key, value),
         has: (key) => secrets.has(key),
+        encrypted: () => secrets.encrypted,
         remove: (key) => secrets.remove(key),
       },
     },

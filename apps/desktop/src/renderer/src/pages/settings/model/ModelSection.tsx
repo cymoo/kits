@@ -1,7 +1,7 @@
 import type { Gateway, GatewayTestResult, KernelInfo } from '@kits/core/ipc'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { t } from '../../../app/i18n'
 import { kits, useSettings, useUpdateSettings } from '../../../lib/kits'
 import { gatewaySecretKey } from '../../../lib/secret-keys'
@@ -13,6 +13,24 @@ import { Switch } from '../../../ui/Switch'
 import { useGateways } from './useGateways'
 
 // 设置 · 内核与模型（原型 settings.html#model）：网关增删改、测试连接、模型列表、默认模型、内核选择、日志目录。
+
+// 钥匙串不可用时如实说明 key 存成了明文
+export function useKeyHint(): string {
+  const encrypted = useQuery({
+    queryKey: ['secrets', 'encrypted'],
+    queryFn: () => kits.secrets.encrypted(),
+  })
+  return encrypted.data === false ? t('model.keyHintPlain') : t('model.keyHint')
+}
+
+export function isHttpUrl(v: string): boolean {
+  try {
+    const u = new URL(v)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
 
 export function TestResult({ result }: { result: GatewayTestResult | undefined }) {
   if (!result) return null
@@ -33,8 +51,18 @@ function AddGatewayForm({ onDone }: { onDone(): void }) {
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [result, setResult] = useState<GatewayTestResult>()
+  const keyHint = useKeyHint()
+  // 点了“取消”或表单收起后，还在路上的测试回来也不再保存
+  const alive = useRef(true)
+  useEffect(
+    () => () => {
+      alive.current = false
+    },
+    [],
+  )
   const submit = async () => {
     const r = await test.mutateAsync({ baseUrl, ...(apiKey ? { apiKey } : {}) })
+    if (!alive.current) return
     // 连上了但没有模型：不保存，没有模型的启用网关会让整份内核配置生成失败
     if (r.ok && r.models.length === 0) {
       setResult({ ok: false, latencyMs: r.latencyMs, error: t('onboarding.noModels') })
@@ -72,7 +100,7 @@ function AddGatewayForm({ onDone }: { onDone(): void }) {
           />
         </Field>
       </div>
-      <Field label="API Key" hint={t('model.keyHint')}>
+      <Field label="API Key" hint={keyHint}>
         <Input
           mono
           type="password"
@@ -85,7 +113,13 @@ function AddGatewayForm({ onDone }: { onDone(): void }) {
         <span className="mr-auto">
           <TestResult result={result} />
         </span>
-        <Button onClick={onDone} className="h-[30px]">
+        <Button
+          onClick={() => {
+            alive.current = false
+            onDone()
+          }}
+          className="h-[30px]"
+        >
           {t('common.cancel')}
         </Button>
         <Button variant="primary" type="submit" disabled={!baseUrl || test.isPending}>
@@ -120,6 +154,11 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
     return r
   }
   const saveConnection = async () => {
+    // 先校验地址，再动密钥和设置：地址不对时什么都不写
+    if (!isHttpUrl(url)) {
+      setResult({ ok: false, latencyMs: 0, error: t('model.badUrl') })
+      return
+    }
     if (key) {
       await setKey(gateway.id, key)
       setKeyInput('')
@@ -223,6 +262,15 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                 onClick={async () => {
                   const sent = gateway.baseUrl
                   const r = await runTest(sent)
+                  // 网关一个模型都没列出来时不覆盖已有的模型，没有模型的启用网关会让内核配置生成失败
+                  if (r.ok && r.models.length === 0) {
+                    setResult({
+                      ok: false,
+                      latencyMs: r.latencyMs,
+                      error: t('onboarding.noModels'),
+                    })
+                    return
+                  }
                   if (r.ok) await refreshModels(gateway.id, r.models, sent)
                 }}
               >
