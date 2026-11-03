@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, realpathSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -11,9 +11,12 @@ import { SecretStore } from './config/secrets'
 import { openDatabase } from './db'
 import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc, trustedUrl } from './ipc/register'
+import { kernelSettingsKey, loadAgents, loadMcp } from './kernel/kernel-config'
 import { kernelInfo, kernelLogsDir } from './kernel/kernel-info'
 import { createKernelManager } from './kernel/runtime'
 import { createElectronPlatform } from './platform'
+import { SessionService } from './sessions/session-service'
+import { SessionStore } from './sessions/session-store'
 import { KitsToolHost } from './tools/kits-tool-host'
 
 // 主进程入口：读配置、打开数据库、注册 IPC、开窗口。会话、内核等按模块往里加。
@@ -99,7 +102,7 @@ function createWindow(onFocus: () => void): void {
 
 app.whenReady().then(() => {
   const platform = createElectronPlatform()
-  openDatabase(path.join(platform.userDataDir, 'kits.db'), migrationsFolder())
+  const { db } = openDatabase(path.join(platform.userDataDir, 'kits.db'), migrationsFolder())
   const secrets = new SecretStore(
     path.join(platform.userDataDir, 'secrets.json'),
     platform.encryptor,
@@ -107,13 +110,19 @@ app.whenReady().then(() => {
   const tools = new KitsToolHost()
   // 设置变了要重启内核、内核启动要读设置，两边互相引用
   let onConfigChanged = () => {}
+  // 只有进内核配置的字段变了才重启：最近目录、外观这些改了不动内核，免得新建会话时撞上重启
+  let kernelInputs: string | undefined
   const config = new ConfigService({
     dir: resolveConfigDir(),
     onSettingsChanged: (settings) => {
       push('settings.changed', settings)
+      const next = kernelSettingsKey(settings)
+      if (next === kernelInputs) return
+      kernelInputs = next
       onConfigChanged()
     },
   })
+  kernelInputs = kernelSettingsKey(config.getSettings())
   const kernels = createKernelManager({
     platform,
     config,
@@ -122,6 +131,25 @@ app.whenReady().then(() => {
     onStatus: (status) => push('kernel.status', status),
   })
   onConfigChanged = () => kernels.configChanged()
+
+  const store = new SessionStore(db)
+  // 上次退出时还在跑的会话标成中断
+  store.markInterrupted(Date.now())
+  const sessions = new SessionService({
+    store,
+    kernels,
+    resolveAgent: (name) => loadAgents(config).find((a) => a.name === name),
+    loadMcp: () => loadMcp(config),
+    registry: tools.registry,
+    push,
+  })
+  // 最近用过的工作目录放在最前面，最多记 10 个
+  const rememberWorkdir = (dir: string) => {
+    const rest = config.getSettings().workdirs.filter((w) => w.path !== dir)
+    config.updateSettings({
+      workdirs: [{ path: dir, lastUsedAt: Date.now() }, ...rest].slice(0, 10),
+    })
+  }
 
   registerIpc(
     {
@@ -142,6 +170,34 @@ app.whenReady().then(() => {
         get: () => config.getSettings(),
         update: (patch) => config.updateSettings(patch),
         loadError: () => config.loadError ?? secrets.loadError ?? null,
+      },
+      session: {
+        create: async (input) => {
+          // 用真实路径：macOS 的 /var 等是软链接，内核按真实路径判断目录内外
+          const workdir = realpathSync(input.workdir)
+          rememberWorkdir(workdir)
+          return sessions.create({ ...input, workdir, kernel: kernelName(input.kernel) })
+        },
+        list: () => sessions.list(),
+        get: (id) => sessions.get(id),
+        prompt: ({ id, text }) => sessions.prompt(id, text),
+        abort: (id) => sessions.abort(id),
+      },
+      workdir: {
+        pick: async () => {
+          const dir = await platform.pickDirectory()
+          if (dir) rememberWorkdir(dir)
+          return dir
+        },
+      },
+      agents: {
+        list: () =>
+          loadAgents(config).map((a) => ({
+            name: a.name,
+            description: a.description,
+            source: a.source,
+            ...(a.model ? { model: a.model } : {}),
+          })),
       },
       gateway: {
         test: ({ baseUrl, apiKey, gatewayId }) => {

@@ -6,9 +6,9 @@ import { isMac, shortcuts } from '../lib/shortcuts'
 import { useUi } from '../lib/ui-store'
 import { cx } from '../ui/cx'
 import { Kbd } from '../ui/Kbd'
+import { SessionList } from './SessionList'
 
 // 侧栏（原型 shell.js 的 <k-nav>）：新会话、搜索、按时间分组的会话列表、设置；⌘B 折叠成图标栏。
-// 会话列表在 PR7 接数据，这里先是空状态。
 
 const item =
   'flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-[8px] px-2 text-left text-fg no-underline hover:bg-hover'
@@ -117,10 +117,10 @@ export function Nav({ forceCollapsed = false }: { forceCollapsed?: boolean }) {
         <div className="flex-1" />
       ) : (
         <div
-          className="mt-1.5 flex min-h-0 flex-1 flex-col gap-px overflow-y-auto"
+          className="mt-1.5 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto"
           data-testid="session-list"
         >
-          <p className="px-2 py-2 text-[0.885rem] text-fg-subtle">{t('nav.empty')}</p>
+          <SessionList />
         </div>
       )}
       <div

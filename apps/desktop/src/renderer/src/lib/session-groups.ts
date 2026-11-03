@@ -1,0 +1,30 @@
+import type { SessionSummary } from '@kits/core/ipc'
+
+// 侧栏会话分组：按自然日算今天 / 昨天 / 本周（7 天内）/ 更早
+
+export type Group = 'today' | 'yesterday' | 'week' | 'earlier'
+
+export function groupOf(at: number, now = new Date()): Group {
+  // 按本地日历构造零点，不用减 24 小时：夏令时切换那天一天不是 24 小时
+  const midnight = (back: number) =>
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() - back).getTime()
+  if (at >= midnight(0)) return 'today'
+  if (at >= midnight(1)) return 'yesterday'
+  if (at >= midnight(6)) return 'week'
+  return 'earlier'
+}
+
+export function groupSessions(
+  list: SessionSummary[],
+  now = new Date(),
+): [Group, SessionSummary[]][] {
+  const groups = new Map<Group, SessionSummary[]>()
+  for (const s of list) {
+    const g = groupOf(s.updatedAt, now)
+    groups.set(g, [...(groups.get(g) ?? []), s])
+  }
+  return (['today', 'yesterday', 'week', 'earlier'] as const).flatMap((g) => {
+    const items = groups.get(g)
+    return items ? [[g, items] as [Group, SessionSummary[]]] : []
+  })
+}

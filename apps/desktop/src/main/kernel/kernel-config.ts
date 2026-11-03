@@ -8,6 +8,7 @@ import {
   mergeBySource,
   parseMcpFile,
   resolveSkills,
+  type Settings,
 } from '@kits/core'
 import type { KernelName } from '@kits/core/ipc'
 import { generateOpencodeConfig, type KernelConfig } from '@kits/kernel'
@@ -43,6 +44,17 @@ export interface PrepareInput {
   env?: NodeJS.ProcessEnv
 }
 
+// 内置和个人两级 Agent，按来源合并（会话服务建会话时也用）
+export function loadAgents(config: ConfigService) {
+  return mergeBySource([builtinAssistant], loadAgentsDir(config.paths.agents, 'personal').items)
+}
+
+export function loadMcp(config: ConfigService) {
+  return existsSync(config.paths.mcp)
+    ? parseMcpFile(JSON.parse(readFileSync(config.paths.mcp, 'utf8')))
+    : parseMcpFile({})
+}
+
 export function prepareKernelConfig(input: PrepareInput) {
   const { config, secrets } = input
   const env = input.env ?? process.env
@@ -60,13 +72,10 @@ export function prepareKernelConfig(input: PrepareInput) {
     }
   }
   const skills = loadSkillsDir(config.paths.skills, 'personal')
-  const mcpFile = existsSync(config.paths.mcp)
-    ? parseMcpFile(JSON.parse(readFileSync(config.paths.mcp, 'utf8')))
-    : parseMcpFile({})
   return generateOpencodeConfig({
     settings,
-    agents: mergeBySource([builtinAssistant], agents.items),
-    mcp: mcpFile,
+    agents: loadAgents(config),
+    mcp: loadMcp(config),
     skills: resolveSkills([skills.items], settings.skillsDisabled).filter((s) => s.enabled),
     instructions: existsSync(config.paths.memory) ? [config.paths.memory] : [],
     gatewayKeys: Object.fromEntries(
@@ -82,3 +91,8 @@ export function prepareKernelConfig(input: PrepareInput) {
 }
 
 export type { KernelConfig }
+
+// 生成内核配置用到的设置字段；只有它们变了才需要重启内核（最近目录、外观等不算）
+export function kernelSettingsKey(s: Settings): string {
+  return JSON.stringify([s.gateways, s.defaultModel, s.skillsDisabled])
+}

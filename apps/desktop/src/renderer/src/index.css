@@ -161,3 +161,111 @@ html[data-scale="l"] {
     opacity: 0.3;
   }
 }
+
+/* 回复正文的排版（原型 session.html 的正文：14px、行高 1.7、行内代码浅灰底） */
+.k-md {
+  font-size: 1.077rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.k-md > :first-child {
+  margin-top: 0;
+}
+.k-md > :last-child {
+  margin-bottom: 0;
+}
+.k-md p,
+.k-md ul,
+.k-md ol,
+.k-md pre,
+.k-md table,
+.k-md blockquote {
+  margin: 0 0 0.6em;
+}
+.k-md ul,
+.k-md ol {
+  padding-left: 1.4em;
+}
+/* Preflight 把列表符号清掉了，正文里的步骤要有编号和圆点；GFM 任务列表用勾选框，不要圆点 */
+.k-md ul {
+  list-style: disc;
+}
+.k-md ol {
+  list-style: decimal;
+}
+.k-md li.task-list-item {
+  list-style: none;
+}
+.k-md ul.contains-task-list {
+  padding-left: 0.2em;
+}
+.k-md li + li {
+  margin-top: 0.2em;
+}
+.k-md h1,
+.k-md h2,
+.k-md h3 {
+  margin: 1em 0 0.4em;
+  font-size: 1.154rem;
+  font-weight: 600;
+}
+.k-md code {
+  font-family: var(--k-mono);
+  font-size: 0.92em;
+  background: var(--k-bg-active);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.k-md pre {
+  font-family: var(--k-mono);
+  font-size: var(--k-code-size);
+  background: var(--k-bg-muted);
+  border: 1px solid var(--k-border-soft);
+  border-radius: var(--k-radius-md);
+  padding: 10px 14px;
+  overflow-x: auto;
+}
+.k-md pre code {
+  background: none;
+  padding: 0;
+}
+.k-md table {
+  border-collapse: collapse;
+  font-size: 0.962rem;
+}
+.k-md th,
+.k-md td {
+  border: 1px solid var(--k-border);
+  padding: 5px 10px;
+  text-align: left;
+}
+.k-md th {
+  background: var(--k-bg-muted);
+  font-weight: 600;
+}
+.k-md blockquote {
+  border-left: 2px solid var(--k-border);
+  padding-left: 12px;
+  color: var(--k-fg-muted);
+}
+/* 流式输出时末尾的光标 */
+.k-md-caret > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 15px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  border-radius: 1px;
+  background: var(--k-fg);
+  animation: k-caret 1s steps(1) infinite;
+}
+@keyframes k-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
