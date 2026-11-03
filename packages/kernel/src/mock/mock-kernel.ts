@@ -38,6 +38,8 @@ const CHUNK = 12
 
 // 会话 id 跨实例唯一：KernelManager 重启后会建新的 MockKernel，旧会话可能接着在新实例上跑
 let nextSession = 0
+// 权限请求 id 每次都不一样（场景里写的 per_1 加上序号）：上一轮迟到的回复不会放行下一轮的同名请求
+let nextRequest = 0
 
 export class MockKernel implements AgentKernel {
   readonly id = 'opencode' as const
@@ -50,6 +52,8 @@ export class MockKernel implements AgentKernel {
   private permissionWaiters = new Map<string, (reply: PermissionReply) => void>()
   // 回复可能在事件被消费方拿到、生成器还没往下走时就到了，先记下
   private earlyReplies = new Map<string, PermissionReply>()
+  // 已经发出、还没回复的权限请求；只有它们的回复会被接受（包括比等待者先到的）
+  private issued = new Set<string>()
   private aborted = new Set<string>()
   private abortWaiters = new Map<string, () => void>()
   private exitListeners: ((exit: KernelExit) => void)[] = []
@@ -138,9 +142,11 @@ export class MockKernel implements AgentKernel {
             ...(step.error ? { error: step.error } : {}),
           }
         } else if ('permission' in step) {
-          const p = step.permission
-          yield { type: 'permission-request', ...p }
+          nextRequest += 1
+          const p = { ...step.permission, requestId: `${step.permission.requestId}-${nextRequest}` }
           const key = `${session.id}:${p.requestId}`
+          self.issued.add(key)
+          yield { type: 'permission-request', ...p }
           const early = self.earlyReplies.get(key)
           self.earlyReplies.delete(key)
           const reply = self.stopped(session.id)
@@ -151,6 +157,8 @@ export class MockKernel implements AgentKernel {
                 self.abortWaiters.set(session.id, () => resolve('aborted'))
               })))
           self.permissionWaiters.delete(key)
+          self.earlyReplies.delete(key)
+          self.issued.delete(key)
           if (reply === 'aborted') return 'aborted'
           const branch = yield* run(reply === 'reject' ? step.reject : step.allow)
           if (branch !== 'ok') return branch
@@ -240,8 +248,9 @@ export class MockKernel implements AgentKernel {
     requestId: string,
     reply: PermissionReply,
   ): Promise<void> {
-    // 每个会话的场景都用同样的 requestId，按会话区分
     const key = `${session.id}:${requestId}`
+    // 不是正在等的请求（已经结束、被取消的轮次里的）：丢掉
+    if (!this.issued.has(key)) return
     const waiter = this.permissionWaiters.get(key)
     if (waiter) waiter(reply)
     else this.earlyReplies.set(key, reply)
