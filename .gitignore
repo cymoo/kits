@@ -7,9 +7,11 @@ node_modules/
 dist/
 out/
 coverage/
-.turbo/
+release/
 test-results/
 playwright-report/
+*.tsbuildinfo
+vendor/
 
 .idea/
 .vscode/

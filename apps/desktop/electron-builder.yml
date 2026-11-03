@@ -1,0 +1,29 @@
+appId: dev.kits.desktop
+productName: kits
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**
+  - package.json
+extraResources:
+  # 内核二进制按平台放进 resources/bin/，不进 asar（asar 里的文件不能执行）。
+  # 先跑 pnpm vendor:kernel 把当前平台的 opencode 拷到 vendor/ 下。
+  - from: ../../vendor/opencode/${os}-${arch}
+    to: bin/opencode
+  - from: drizzle
+    to: drizzle
+asar: true
+mac:
+  category: public.app-category.developer-tools
+  target: [dmg, zip]
+  hardenedRuntime: true
+win:
+  target: [nsis]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+publish:
+  # 内网更新：放一个静态目录即可，地址待定
+  provider: generic
+  url: https://updates.example.internal/kits

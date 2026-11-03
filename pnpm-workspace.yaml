@@ -1,0 +1,20 @@
+packages:
+  - apps/*
+  - packages/*
+  - e2e
+
+# pnpm 默认不跑依赖的安装脚本，这里列出需要跑的
+allowBuilds:
+  "@biomejs/biome": true
+  "@swc/core": true
+  "@tailwindcss/oxide": true
+  electron: true
+  electron-winstaller: true
+  esbuild: true
+  opencode-ai: true
+
+minimumReleaseAgeExclude:
+  - "@tailwindcss/vite@4.3.4"
+  - "@vitejs/plugin-react@6.2.1"
+  - "@vitest/mocker@5.1.0"
+  - vitest@5.1.0

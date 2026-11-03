@@ -348,10 +348,10 @@ tr:last-child td { border-bottom: 0; }
             <tr><td>状态</td><td>zustand + TanStack Query</td><td>会话是高频事件流，用 zustand 在 IPC 回调里直接写；设置页是“请求 + 缓存”，交给 Query。</td></tr>
             <tr><td>Agent 内核</td><td>CodeAgent（默认）/ OpenCode，经 <code>AgentKernel</code> 适配器</td><td>两者同源，只调公共接口，差异收在方言层。OpenCode 开源，能断点，CI 用它加 mock 模型跑契约测试。</td></tr>
             <tr><td>kits 工具</td><td><code>@modelcontextprotocol/sdk</code> + zod，本机 MCP 服务</td><td><code>ask_user</code>、<code>submit_output</code> 定义一次，两个内核都通过 MCP 调用；结构化产出按 Agent 上配的 JSON Schema 校验。</td></tr>
-            <tr><td>本地存储</td><td>SQLite（better-sqlite3）+ Drizzle；Electron safeStorage</td><td>会话、产出、AI 原稿和人工修改、token 用量从第一天就记；以后上服务端，schema 可以平移到 Postgres。</td></tr>
+            <tr><td>本地存储</td><td>SQLite（Node 内置 <code>node:sqlite</code>）+ Drizzle；Electron safeStorage</td><td>不用 better-sqlite3：它是原生依赖，要为 Electron 重编，内网机器不一定装得上；<code>node:sqlite</code> 随 Electron 自带的 Node 24 一起来，Drizzle 1.0 有官方驱动。会话、产出、AI 原稿和人工修改、token 用量从第一天就记；以后上服务端，schema 可以平移到 Postgres。</td></tr>
             <tr><td>文档转换</td><td>mammoth（Word）、pdfjs-dist（PDF）</td><td>需求附件先转 Markdown 再进上下文，纯 JS，不需要系统依赖。图片直接走模型的视觉输入。</td></tr>
             <tr><td>测试结果</td><td>JUnit XML 解析</td><td>各组执行器不一样，只约定报告格式，执行命令由用户配置。</td></tr>
-            <tr><td>工程</td><td>pnpm workspace + Turborepo；Biome；Vitest；Playwright；electron-builder + electron-updater</td><td>lint 和 format 用一套工具；UT、E2E 第一周就要能跑；内网更新用 generic provider。</td></tr>
+            <tr><td>工程</td><td>pnpm workspace；Biome；Vitest；Playwright；electron-builder + electron-updater</td><td>三个包、两三个人，不上 Turborepo，CI 慢了再加；lint 和 format 用一套工具；UT、E2E 第一周就要能跑；内网更新用 generic provider。</td></tr>
             <tr><td>评测</td><td><code>evals/</code> JSONL + Node 脚本</td><td>先做最小可用的，不上框架。</td></tr>
           </tbody>
         </table>

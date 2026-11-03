@@ -1,0 +1,29 @@
+{
+  "name": "kits",
+  "version": "0.1.0",
+  "private": true,
+  "description": "本地运行的 AI 测试作业平台",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=22.16"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @kits/desktop dev",
+    "build": "pnpm -r --filter './packages/*' --filter @kits/desktop build",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "pnpm --filter @kits/e2e test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "vendor:kernel": "node scripts/vendor-kernel.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  },
+  "type": "module"
+}
