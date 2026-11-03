@@ -1,5 +1,6 @@
 import type { GatewayTestResult } from '@kits/core/ipc'
 import { Check } from 'lucide-react'
+import { RadioGroup } from 'radix-ui'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../app/i18n'
@@ -103,8 +104,9 @@ function GatewayStep({ onNext }: { onNext(): void }) {
             <span className="font-medium">{t('model.defaultModel')}</span>
             <span className="text-[0.923rem] text-fg-muted">{t('onboarding.defaultHint')}</span>
           </div>
-          <div
-            role="radiogroup"
+          <RadioGroup.Root
+            value={defaultModel}
+            onValueChange={(ref) => void setDefault(ref)}
             aria-label={t('model.defaultModel')}
             className="grid grid-cols-2 gap-2"
           >
@@ -112,15 +114,11 @@ function GatewayStep({ onNext }: { onNext(): void }) {
               const ref = `${added.id}/${m.id}`
               const on = ref === defaultModel
               return (
-                // biome-ignore lint/a11y/useSemanticElements: 和原型一致的卡片单选
-                <button
+                <RadioGroup.Item
                   key={m.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => void setDefault(ref)}
+                  value={ref}
                   className={cx(
-                    'flex cursor-pointer items-center gap-2 rounded-[10px] border px-3.5 py-2.5 text-left',
+                    'flex cursor-pointer items-center gap-2 rounded-[10px] border px-3.5 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
                     on ? 'border-accent bg-accent-bg/60' : 'border-line hover:border-line-strong',
                   )}
                 >
@@ -128,10 +126,10 @@ function GatewayStep({ onNext }: { onNext(): void }) {
                     {m.id}
                   </span>
                   {on ? <Check size={14} className="text-accent" /> : null}
-                </button>
+                </RadioGroup.Item>
               )
             })}
-          </div>
+          </RadioGroup.Root>
         </div>
       ) : null}
       <div className="flex justify-end border-line-soft border-t py-4">

@@ -90,17 +90,46 @@ describe('MockKernel', () => {
     })
   })
 
-  it('hands structured output to onOutput', async () => {
+  const findingsSchema = {
+    type: 'object',
+    required: ['findings'],
+    properties: { findings: { type: 'array' } },
+  }
+
+  it('hands structured output that matches the schema to onOutput', async () => {
     const outputs: unknown[] = []
     const { kernel, session } = await start({
       scenario: 'output-structured',
       tools: {
         askUser: async () => ({ answered: false }),
+        outputSchema: () => findingsSchema,
         onOutput: async (o) => void outputs.push(o),
       },
     })
-    await collect(kernel, session)
+    const events = await collect(kernel, session)
     expect(outputs).toHaveLength(1)
+    expect(events.find((e) => e.type === 'tool-end' && e.callId === 'call_output')).toMatchObject({
+      output: '已提交',
+    })
+  })
+
+  it('rejects structured output without a schema or not matching it, like the real tool', async () => {
+    for (const outputSchema of [() => undefined, () => ({ type: 'string' })]) {
+      const outputs: unknown[] = []
+      const { kernel, session } = await start({
+        scenario: 'output-structured',
+        tools: {
+          askUser: async () => ({ answered: false }),
+          outputSchema,
+          onOutput: async (o) => void outputs.push(o),
+        },
+      })
+      const events = await collect(kernel, session)
+      expect(outputs).toHaveLength(0)
+      expect(events.find((e) => e.type === 'tool-end' && e.callId === 'call_output')).toMatchObject(
+        { error: expect.any(String) },
+      )
+    }
   })
 
   it('reports a crash as done error and notifies exit listeners', async () => {
@@ -203,6 +232,7 @@ describe('MockKernel', () => {
       scenario: 'output-structured',
       tools: {
         askUser: async () => ({ answered: false }),
+        outputSchema: () => findingsSchema,
         onOutput: async () => {
           outputs += 1
         },

@@ -114,8 +114,29 @@ test('keeps the option picked with the arrow keys in view at the large ui scale'
     const n = await options.count()
     for (let i = 0; i < n; i++) await page.keyboard.press('ArrowDown')
     await expect(options.last()).toHaveAttribute('aria-selected', 'true')
-    await expect(options.last()).toBeInViewport({ ratio: 1 })
+    // 没滚过去时比例是 0；留一点余量给亚像素
+    await expect(options.last()).toBeInViewport({ ratio: 0.9 })
     await expect(page.getByRole('combobox', { name: '搜索' })).toBeFocused()
+  } finally {
+    await close()
+  }
+})
+
+test('switches the kernel in the composer model menu with the keyboard', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await page.getByTitle('内核与模型').focus()
+    await page.keyboard.press('Enter')
+    const menu = page.getByRole('menu')
+    const codeagent = menu.getByRole('menuitemradio', { name: 'CodeAgent' })
+    await expect(menu.getByRole('menuitemradio', { name: 'OpenCode' })).toBeFocused()
+    await page.keyboard.press('ArrowDown')
+    await expect(codeagent).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(codeagent).toHaveAttribute('aria-checked', 'true')
+    // 选了内核菜单不关，接着选模型
+    await expect(menu).toBeVisible()
   } finally {
     await close()
   }

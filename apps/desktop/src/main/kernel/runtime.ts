@@ -44,6 +44,7 @@ export function createKernelManager(deps: KernelRuntimeDeps): KernelManager {
         scenario: mockScenario(env),
         tools: {
           askUser: (input, ctx) => deps.tools.current.askUser(input, ctx),
+          outputSchema: (ctx) => deps.tools.current.outputSchema(ctx),
           onOutput: (output, ctx) => deps.tools.current.onOutput(output, ctx),
         },
         speed: Number(env.KITS_MOCK_SPEED ?? 1),

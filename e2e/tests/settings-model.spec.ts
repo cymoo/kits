@@ -33,6 +33,17 @@ test('adds a gateway, picks the default model and keeps the key out of settings.
       'aria-checked',
       'true',
     )
+    // 单选组能用方向键切换（Radix 在按键后的下一个 tick 才移动焦点并选中，按住一小会儿像真人按键）
+    await page.keyboard.press('ArrowUp', { delay: 50 })
+    await expect(card.getByRole('radio', { name: /deepseek-v4-pro/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    await page.keyboard.press('ArrowDown', { delay: 50 })
+    await expect(card.getByRole('radio', { name: /qwen-coder/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
 
     await card.getByRole('button', { name: '测试', exact: true }).click()
     await expect(card.getByRole('status')).toContainText('连接正常')

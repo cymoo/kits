@@ -367,6 +367,21 @@ describe('SessionService diffs', () => {
   })
 })
 
+describe('SessionStore.markInterrupted with questions', () => {
+  it('keeps a non-blocking question pending so it can still be answered after a restart', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.askUser({ question: '用哪个库？', blocking: false }, { sessionId: s.id })
+    store.markInterrupted(99)
+    const parts = store.detail(s.id)?.parts ?? []
+    expect(parts.find((p) => p.type === 'question')?.status).toBe('pending')
+    expect(parts.find((p) => p.type === 'permission')?.status).toBe('expired')
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted', 'error'])
+  })
+})
+
 describe('titleOf', () => {
   it('folds whitespace and cuts at 40 characters', () => {
     expect(titleOf('  修 一下\n bug ')).toBe('修 一下 bug')

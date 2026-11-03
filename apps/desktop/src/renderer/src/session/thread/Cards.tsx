@@ -149,7 +149,7 @@ export function PermissionCard({
         <span className="text-[0.923rem] text-warn">{t('perm.waiting')}</span>
       </div>
       {block.subject ? (
-        <pre className="m-0 whitespace-pre-wrap break-all rounded-[9px] bg-code-bg px-3.5 py-2.5 font-mono text-[1rem] text-code-fg leading-[1.6]">
+        <pre className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-[9px] bg-code-bg px-3.5 py-2.5 font-mono text-[1rem] text-code-fg leading-[1.6]">
           {block.tool === 'bash' ? <span className="text-fg-label">$ </span> : null}
           {block.subject}
         </pre>

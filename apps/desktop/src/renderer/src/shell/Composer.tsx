@@ -21,10 +21,10 @@ import {
   MenuLabel,
   MenuRadioGroup,
   MenuRadioItem,
+  MenuSegmented,
   MenuSeparator,
   MenuTrigger,
 } from '../ui/Menu'
-import { Segmented } from '../ui/Segmented'
 
 // 输入框（原型 shell.js 的 <k-composer>）：文本区自动长高；目录、Agent、权限、内核与模型四个浮层；↵ 发送、⇧↵ 换行。
 // 首页（big）发送时新建会话；会话页发送时在当前会话里接着说。`/`、`@` 菜单和 `+` 在 PR11、PR13 做。
@@ -292,7 +292,7 @@ export function Composer({
               <ChevronDown size={12} />
             </MenuTrigger>
             <MenuContent align="end">
-              <Segmented
+              <MenuSegmented
                 label={t('composer.kernel')}
                 value={resolved.kernel}
                 onChange={(v) => prefs.set({ kernel: v })}
@@ -300,7 +300,6 @@ export function Composer({
                   { value: 'opencode', label: 'OpenCode' },
                   { value: 'codeagent', label: 'CodeAgent' },
                 ]}
-                className="mx-1.5 mt-0.5 mb-1.5"
               />
               {gateways.length === 0 ? (
                 <p className="m-0 px-2 py-2 text-fg-muted">{t('composer.noGateway')}</p>
