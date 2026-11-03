@@ -100,6 +100,29 @@ describe('KernelManager', () => {
     expect(made[0]?.raw.dispose).toHaveBeenCalled()
   })
 
+  it('keeps a manual restart asked for while the kernel is still starting', async () => {
+    let open = () => {}
+    const gate = new Promise<void>((r) => {
+      open = r
+    })
+    let preparing = false
+    const { manager, made } = setup(async () => {
+      preparing = true
+      await gate
+      return ok
+    })
+    const acquired = manager.acquire('opencode')
+    // 已经在启动（prepare 在跑）时点重启
+    await vi.waitFor(() => expect(preparing).toBe(true))
+    await manager.requestRestart('opencode')
+    open()
+    await acquired
+    // 启动完不是直接 running：还有一轮在跑，等它结束再重启
+    expect(manager.status('opencode').state).toBe('restart-pending')
+    manager.release('opencode')
+    await vi.waitFor(() => expect(made).toHaveLength(2))
+  })
+
   it('restarts right away on a manual restart when nothing is running', async () => {
     const { manager, made } = setup()
     await manager.acquire('opencode')

@@ -177,6 +177,9 @@
   - Mock 内核：会话 id 跨实例唯一（重启后新建的会话不会和旧会话撞 id）；崩溃时先通知退出再交出 `done`，崩溃是整个实例的事，其他会话在跑的轮次也以出错结束、退出只通知一次；`dispose` 后还没开始的等待也立刻结束；停在 `submit_output` 时不再交产出；注入的 `askUser` / `onOutput` 抛错时以 `done: error` 结束。
   - 同一批并发的 `acquire` 共用一次启动（失败也共用），健康检查超时不会被串行重试 N 次；之后单独的请求照常重试。
   - 内核日志在子进程 `close`（stdio 都关了）时才结束，退出前最后几行诊断不会丢。
+  - 健康检查刚通过进程就退了，按启动失败处理，不会把已退出的实例标成运行中。
+  - 启动途中点“重启”：记成和“启动途中改了配置”一样的意图，启动完再按有没有轮次决定立即重启还是待重启；启动还排在队列里时不用再重启（它本身就按最新配置起）。
+  - Mock 内核的 `submit_output` 和真工具共用 `submitOutput`（core）：没有输出格式、格式不对都不交给 `onOutput`，返回错误。
   - `kernel/kernel-config.ts`：从 `~/.kits`（设置、个人 Agent、个人技能、`mcp.json`、个人记忆）和密钥表收拢成内核配置，写进 `{userData}/kernel/<id>/config`，日志在 `{userData}/kernel/<id>/logs/<日期>.log`。
   - `kernel/runtime.ts`：真内核 / Mock 内核的工厂；找不到内核二进制时报“内核没有安装”。
   - `tools/kits-tool-host.ts`：kits 工具服务的宿主（一个应用一个 HTTP MCP 服务），处理函数可替换，PR7 由会话服务接上。
