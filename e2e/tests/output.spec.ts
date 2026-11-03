@@ -120,3 +120,44 @@ test('shows the JSON submitted by an agent with an output format and exports it'
     await close()
   }
 })
+
+test('exports and reverts right after typing without losing or resurrecting edits', async () => {
+  const { page, configDir, userDataDir, close } = await launchApp(mock('done'))
+  try {
+    await send(page, configDir, '给兑换接口加幂等校验')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    const panel = page.getByRole('complementary', { name: '工作区面板' })
+    await panel.getByRole('tab', { name: '产出' }).click()
+    const editor = panel.getByLabel('产出内容')
+    const draft = await editor.inputValue()
+    const atEnd = () =>
+      editor.evaluate((el: HTMLTextAreaElement) => {
+        el.focus()
+        el.setSelectionRange(el.value.length, el.value.length)
+      })
+
+    // 打完字马上导出（自动保存还没到时间）：导出的是最新内容
+    await atEnd()
+    await editor.pressSequentially('\n刚打的字')
+    await panel.getByRole('button', { name: '导出' }).click()
+    await page.getByRole('menuitem', { name: '导出 Markdown 文件' }).click()
+    await expect(panel.getByRole('status')).toContainText('已导出到')
+    const dir = path.join(userDataDir, 'exports')
+    const file = readdirSync(dir).find((f) => f.endsWith('.md')) ?? ''
+    expect(readFileSync(path.join(dir, file), 'utf8')).toContain('刚打的字')
+
+    // 再打几个字马上还原：还没存的那次自动保存不会把它写回来
+    await atEnd()
+    await editor.pressSequentially('又改了')
+    await panel.getByRole('button', { name: '还原为 AI 原稿' }).click()
+    await expect(editor).toHaveValue(draft)
+    await page.waitForTimeout(900)
+    await expect(editor).toHaveValue(draft)
+    const [saved] = await page.evaluate(() =>
+      window.kits.output.list(location.hash.split('/').pop() ?? ''),
+    )
+    expect(saved?.edited).toBeNull()
+  } finally {
+    await close()
+  }
+})

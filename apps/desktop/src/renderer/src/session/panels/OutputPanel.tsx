@@ -1,6 +1,6 @@
 import type { OutputView } from '@kits/core/ipc'
 import { ChevronDown, FileText } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { t } from '../../app/i18n'
 import { kits } from '../../lib/kits'
 import { Button } from '../../ui/Button'
@@ -27,6 +27,7 @@ export function OutputPanel({
   const [picked, setPicked] = useState<string>()
   const current = outputs.find((o) => o.id === picked) ?? latest
   const [notice, setNotice] = useState<{ path: string } | { copied: true }>()
+  const editor = useRef<EditorHandle>(null)
 
   if (!current) {
     return (
@@ -43,15 +44,23 @@ export function OutputPanel({
   }
 
   const content = current.edited ?? current.aiDraft
+  // 导出前先把编辑框里还没存的改动存掉，导出的是最新内容
   const exportAs = async (format: 'markdown' | 'json') => {
+    await editor.current?.flush()
     const { path } = await kits.output.export({ id: current.id, format })
     setNotice({ path })
   }
   const copy = async () => {
+    const text = editor.current?.value() ?? content
     await navigator.clipboard.writeText(
-      typeof content === 'string' ? content : JSON.stringify(content, null, 2),
+      typeof text === 'string' ? text : JSON.stringify(text, null, 2),
     )
     setNotice({ copied: true })
+  }
+  // 还原：先撤掉还没发出去的自动保存、等在路上的保存落地，再存 null，旧保存不会把改动写回来
+  const revert = async () => {
+    await editor.current?.discard()
+    await kits.output.save({ id: current.id, edited: null })
   }
 
   return (
@@ -77,10 +86,7 @@ export function OutputPanel({
           </Menu>
         ) : null}
         {current.kind === 'text' && current.edited !== null ? (
-          <Button
-            className="h-[26px] px-2 text-[0.923rem]"
-            onClick={() => void kits.output.save({ id: current.id, edited: null })}
-          >
+          <Button className="h-[26px] px-2 text-[0.923rem]" onClick={() => void revert()}>
             {t('output.revert')}
           </Button>
         ) : null}
@@ -122,7 +128,11 @@ export function OutputPanel({
       ) : null}
       {current.kind === 'text' ? (
         // 换了一份产出（另一轮、AI 交了新原稿）就重建编辑框
-        <TextEditor key={`${current.id}:${current.aiDraft.length}`} output={current} />
+        <TextEditor
+          key={`${current.id}:${current.aiDraft.length}`}
+          output={current}
+          handle={editor}
+        />
       ) : (
         <>
           <pre className="m-0 min-h-0 flex-1 overflow-auto bg-raised px-4 py-3.5 font-mono text-[0.923rem] text-fg leading-[1.7]">
@@ -137,7 +147,20 @@ export function OutputPanel({
   )
 }
 
-function TextEditor({ output }: { output: Extract<OutputView, { kind: 'text' }> }) {
+// 产出面板对编辑框的操作：导出前存掉、复制取最新、还原前丢掉还没存的
+interface EditorHandle {
+  flush(): Promise<void>
+  discard(): Promise<void>
+  value(): string
+}
+
+function TextEditor({
+  output,
+  handle,
+}: {
+  output: Extract<OutputView, { kind: 'text' }>
+  handle: Ref<EditorHandle>
+}) {
   const [text, setText] = useState(output.edited ?? output.aiDraft)
   const [saving, setSaving] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -153,15 +176,35 @@ function TextEditor({ output }: { output: Extract<OutputView, { kind: 'text' }> 
     if (incoming !== latest.current) setText(incoming)
   }, [output.edited, output.aiDraft])
 
-  const save = async (value: string) => {
+  // 保存一个接一个排队，先发的先落地；还原时等它们都完了再存 null
+  const chain = useRef<Promise<void>>(Promise.resolve())
+  const save = (value: string) => {
     sent.current = value
     setSaving(true)
-    try {
-      await kits.output.save({ id: output.id, edited: value })
-    } finally {
-      setSaving(false)
-    }
+    chain.current = chain.current
+      .then(() => kits.output.save({ id: output.id, edited: value }))
+      .then(
+        () => setSaving(false),
+        () => setSaving(false),
+      )
+    return chain.current
   }
+  useImperativeHandle(handle, () => ({
+    async flush() {
+      if (timer.current) {
+        clearTimeout(timer.current)
+        timer.current = undefined
+        await save(latest.current)
+      }
+      await chain.current
+    },
+    async discard() {
+      if (timer.current) clearTimeout(timer.current)
+      timer.current = undefined
+      await chain.current
+    },
+    value: () => latest.current,
+  }))
   // 离开时没存的先存
   useEffect(
     () => () => {

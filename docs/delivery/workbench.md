@@ -29,12 +29,12 @@ phase1-implementation PR9（6.4 节的右侧面板和总结卡片）：会话页
   - `diff()` 给每个文件标上 `turn`（内核会话里第几条用户消息）。
   - Mock：工具步骤可以带退出码和耗时；`done` 场景加一条跑测试的命令。
 - 数据库：新表 `diffs`（会话、轮次、路径、状态、增删行数、patch），迁移 `drizzle/20261103195203_overrated_goliath`；`messages` 加 `context_tokens`（这一轮最后一次模型调用的输入 token）和 `kernel_turn`（用户消息在内核会话里是第几条），迁移 `drizzle/20261103202118_melted_the_hunter`。旧库直接迁移。
-- `apps/desktop/src/main/sessions/session-service.ts`：一轮结束后隔 0.3 / 1.5 / 4 秒去内核取改动（OpenCode 在一轮结束后才异步算出来），变了才整份替换落库并推给界面。每轮真正发给内核时记下 `kernel_turn`，内核的轮次按它换回本地轮次（内核启动期间就停掉的轮次不占号）。
+- `apps/desktop/src/main/sessions/session-service.ts`：一轮结束后隔 0.3 / 1.5 / 4 秒去内核取改动（OpenCode 在一轮结束后才异步算出来），变了才整份替换落库并推给界面。内核对这一轮有了第一个动静（不是准备阶段就结束）时才记下 `kernel_turn`，内核的轮次按它换回本地轮次（内核启动期间、读历史期间就停掉的轮次不占号）；升级前建的会话第一次接着说时，按内核里已有的用户消息数补上。每个会话只认最新一次刷新，晚回来的旧结果丢掉；取完改动才释放内核，期间排着的重启会等它。
 - `apps/desktop/src/renderer/src/`：
   - `session/panels/patch.ts`：unified diff → 带行号的行；并排时一段删除和紧跟的新增左右配对。
   - `session/panels/derive.ts`：改动按轮分组（最新在上，进行中的一轮先按编辑步骤列文件）、终端命令（去掉 OpenCode 附给模型看的 `<shell_metadata>`）、本会话允许规则、上下文用量（上下文条用最后一次模型调用的输入；累计输入已经含缓存，命中率 = 缓存读 / 输入）；这一轮已经结束但没收到结束事件的命令显示“中断”，不算进“都成功了”。“在编辑器打开”对工作目录外的绝对路径直接用原路径。
   - `session/panels/Workbench.tsx`、`Summary.tsx`：三个页签和总结卡片，样子照原型。
-  - `pages/session/SessionPage.tsx`：对话 + 面板两栏，窄栏 / 放大 / 收起三种（`lib/ui-store.ts` 的 `panel`，记在 localStorage）；快捷键 ⌘\ 放大 / 缩回（`lib/shortcuts.ts` 的 `widePanel`）。
+  - `pages/session/SessionPage.tsx`：对话 + 面板两栏，窄栏 / 放大 / 收起三种（放大时侧栏自动收成图标栏，900px 宽的窗口也放得下文件列表和 diff；并排视图长行折行，不截断）（`lib/ui-store.ts` 的 `panel`，记在 localStorage）；快捷键 ⌘\ 放大 / 缩回（`lib/shortcuts.ts` 的 `widePanel`）。
   - `index.css`：面板底色令牌 `--k-bg-panel`。
 - 原型没画到、按风格补的：面板收起 / 显示按钮（窗口最小宽度 900px 时三栏太挤）；终端和改动的空状态图标；上下文用量条只有一段（原型三段要按系统提示 / 历史 / 最近拆，内核不给这个拆分）；进行中一轮“结束后显示 diff”的提示。
 

@@ -142,10 +142,10 @@ phase1-implementation PR10（5.4 节 `outputs` 表、6.4 节产出页签）：�
 - `packages/core`：`OutputView`；IPC `output.list / save / export`、`app.revealPath`；推送 `session.output`。
 - `apps/desktop/src/main/sessions/`：
   - `thread.ts`：`answerText()`，最后一个工具之后的正文。
-  - `session-service.ts`：一轮正常结束、Agent 没有输出格式时把回复正文存成这一轮的 text 产出；`outputSchema / onOutput` 接到 kits 工具服务，`submit_output` 校验通过后存成 structured 产出（同一轮再交一次就替换，人工修改作废）；`saveOutput`（改回和原稿一样就当没改）；`exportOutput` 写到 `{userData}/exports/<日期>-<标题>[-第N轮].md|json`，记下导出时间和格式。
+  - `session-service.ts`：一轮正常结束、Agent 没有输出格式时把回复正文存成这一轮的 text 产出；`outputSchema / onOutput` 接到 kits 工具服务，`submit_output` 校验通过后存成 structured 产出（同一轮再交一次就替换，人工修改作废）；`saveOutput`（改回和原稿一样就当没改）；`exportOutput` 写到 `{userData}/exports/<日期>-<标题>[-第N轮].md|json`（重名时加 `-2`、`-3`，不覆盖之前导出的），记下导出时间和格式。
   - `session-store.ts`：产出的读写。
 - `apps/desktop/src/main/platform.ts`：`revealPath`（`shell.showItemInFolder`）。
-- `apps/desktop/src/renderer/src/session/panels/`：`OutputPanel.tsx`（产出页签）、`edits.ts`（按行对齐算“改了几处”）；`Workbench.tsx` 加“产出”页签；`Summary.tsx` 第三格换成产出。
+- `apps/desktop/src/renderer/src/session/panels/`：`OutputPanel.tsx`（产出页签；导出前先把编辑框里没存的改动存掉，复制取编辑框里的最新内容，还原时先撤掉待发的自动保存、等在路上的保存落地，不会被旧保存写回来）、`edits.ts`（按行对齐算“改了几处”）；`Workbench.tsx` 加“产出”页签；`Summary.tsx` 第三格换成产出。
 - 原型没画到、按风格补的：导出后的提示条；多轮时的轮次切换；结构化结果的只读 JSON 视图（原型是逐条审核，那是后续）。原型顶栏完成后的“导出”按钮没做，导出放在产出页签里。
 
 ### 测试

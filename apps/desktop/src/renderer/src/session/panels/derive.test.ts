@@ -128,6 +128,38 @@ describe('deriveRounds', () => {
   })
 })
 
+describe('deriveRounds with apply_patch', () => {
+  it('lists every file of a patch in a running turn with its operation', () => {
+    seq = 0
+    const running = msg('a1', 1, { completedAt: null, finishReason: null })
+    const patchText = [
+      '*** Begin Patch',
+      '*** Add File: src/new.py',
+      '*** Update File: /repo/member-svc/src/old.py',
+      '*** Delete File: src/gone.py',
+      '*** End Patch',
+    ].join('\n')
+    const rounds = deriveRounds(
+      detail(
+        [running],
+        [
+          part(
+            'a1',
+            { type: 'tool', callId: 'p', name: 'apply_patch', input: { patchText } },
+            'completed',
+          ),
+        ],
+      ),
+      [],
+    )
+    expect(rounds[0]?.files.map((f) => [f.path, f.badge])).toEqual([
+      ['src/new.py', 'A'],
+      ['src/old.py', 'M'],
+      ['src/gone.py', 'D'],
+    ])
+  })
+})
+
 describe('deriveCommands', () => {
   it('shows each command with its exit code, duration and how it was allowed', () => {
     seq = 0
@@ -186,6 +218,62 @@ describe('deriveCommands', () => {
       state: 'waiting',
       how: '等待确认',
     })
+  })
+
+  it('matches a permission to the command of the same turn when call ids repeat', () => {
+    seq = 0
+    const first = part(
+      'a1',
+      {
+        type: 'tool',
+        callId: 'call_bash',
+        name: 'bash',
+        input: { command: 'pytest' },
+        exitCode: 0,
+      },
+      'completed',
+    )
+    const firstPerm = part(
+      'a1',
+      {
+        type: 'permission',
+        requestId: 'r1',
+        tool: 'bash',
+        input: {},
+        patterns: [],
+        always: [],
+        callId: 'call_bash',
+      },
+      'once',
+    )
+    const second = part(
+      'a2',
+      { type: 'tool', callId: 'call_bash', name: 'bash', input: { command: 'pytest' } },
+      'running',
+    )
+    const secondPerm = part(
+      'a2',
+      {
+        type: 'permission',
+        requestId: 'r2',
+        tool: 'bash',
+        input: {},
+        patterns: [],
+        always: [],
+        callId: 'call_bash',
+      },
+      'pending',
+    )
+    const commands = deriveCommands(
+      detail(
+        [msg('a1', 1), msg('a2', 2, { completedAt: null, finishReason: null })],
+        [first, firstPerm, second, secondPerm],
+      ),
+    )
+    expect(commands.map((c) => [c.state, c.how])).toEqual([
+      ['done', '已允许'],
+      ['waiting', '等待确认'],
+    ])
   })
 
   it('drops the shell metadata opencode appends for the model', () => {

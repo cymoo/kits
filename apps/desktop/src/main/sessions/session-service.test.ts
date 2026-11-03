@@ -484,6 +484,17 @@ describe('SessionService outputs', () => {
     expect(service.outputs(s.id)[0]).toMatchObject({ exportFormat: 'markdown' })
   })
 
+  it('does not overwrite an earlier export with the same name', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const id = service.outputs(s.id)[0]?.id ?? ''
+    const first = service.exportOutput({ id, format: 'markdown' }).path
+    const second = service.exportOutput({ id, format: 'markdown' }).path
+    expect(second).not.toBe(first)
+    expect(second).toMatch(/-2\.md$/)
+  })
+
   it('stores submit_output of an agent with an output format as the structured output', async () => {
     const { service, waitFor } = setup('output-structured')
     const s = await service.create({ ...input, agent: 'api-reviewer' })
@@ -502,6 +513,29 @@ describe('exportName', () => {
     const at = new Date(2026, 10, 4).getTime()
     expect(exportName('a/b: c?', 2, 3, at)).toBe('20261104-a-b-c-第2轮')
     expect(exportName('', 1, 1, at)).toBe('20261104-产出')
+  })
+})
+
+describe('SessionService diff refresh order', () => {
+  it('drops a slow diff result of an earlier turn that comes back after the newer one', async () => {
+    const { service, waitFor, store, kernel } = setup('done', undefined, [0])
+    const real = kernel.diff.bind(kernel)
+    let calls = 0
+    vi.spyOn(kernel, 'diff').mockImplementation(async (ks) => {
+      calls += 1
+      const result = await real(ks)
+      // 第一轮的那次刷新很慢，第二轮的先回来
+      if (calls === 1) await new Promise((r) => setTimeout(r, 80))
+      return result
+    })
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    await service.prompt(s.id, '再改一遍')
+    await vi.waitFor(() => expect(store.session(s.id)?.turns).toBe(2))
+    await waitFor(s.id, ['done'])
+    await vi.waitFor(() => expect(service.diffs(s.id).map((d) => d.turn)).toEqual([1, 2]))
+    await new Promise((r) => setTimeout(r, 120))
+    expect(service.diffs(s.id).map((d) => d.turn)).toEqual([1, 2])
   })
 })
 
