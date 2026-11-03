@@ -6,7 +6,7 @@ import type {
   SessionSummary,
 } from '@kits/core/ipc'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { kits } from './kits'
 
 // 会话数据：列表走 TanStack Query，单个会话的对话流放在下面这个小仓库里——
@@ -94,21 +94,31 @@ export function useLiveSession(id: string | undefined): LiveSession {
     if (!cur || (!cur.detail && !cur.loading)) set(id, { ...EMPTY })
     // 每次打开都重新拿一次快照：推送只在打开期间合并，离开期间的变化靠它补
     void kits.session.get(id).then((detail) => {
+      // 快照回来时已经没人看这个会话了，就不存
+      if (!listeners.get(id)?.size) return
       const now = states.get(id)
       set(id, { detail, loading: false, activity: now?.activity })
     })
   }, [id])
-  return useSyncExternalStore(
-    (cb) => {
+  const subscribe = useCallback(
+    (cb: Listener) => {
       if (!id) return () => {}
-      let set = listeners.get(id)
-      if (!set) {
-        set = new Set()
-        listeners.set(id, set)
+      let subs = listeners.get(id)
+      if (!subs) {
+        subs = new Set()
+        listeners.set(id, subs)
       }
-      set.add(cb)
-      return () => set?.delete(cb)
+      subs.add(cb)
+      return () => {
+        subs?.delete(cb)
+        // 最后一个订阅走了就不再留这个会话的数据，推送也不再往里合；下次打开重新拿快照
+        if (!subs?.size) {
+          listeners.delete(id)
+          states.delete(id)
+        }
+      }
     },
-    () => (id ? (states.get(id) ?? EMPTY) : EMPTY),
+    [id],
   )
+  return useSyncExternalStore(subscribe, () => (id ? (states.get(id) ?? EMPTY) : EMPTY))
 }

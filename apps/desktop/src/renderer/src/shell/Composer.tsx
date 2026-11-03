@@ -67,10 +67,13 @@ export function Composer({
   const navigate = useNavigate()
   const settings = useSettings()
   const prefs = usePrefs()
-  const resolved = resolvePrefs(prefs, settings.data)
   const agents = useQuery({ queryKey: ['agents'], queryFn: () => kits.agents.list() })
+  const agentModel = agents.data?.find((a) => a.name === prefs.agent)?.model
+  const resolved = resolvePrefs(prefs, settings.data, agentModel)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  // 发送失败的原因（比如工作目录被删了）；草稿留着，改了再发
+  const [error, setError] = useState<string>()
   const area = useRef<HTMLTextAreaElement>(null)
 
   // 自动长高，最多 220px
@@ -94,9 +97,13 @@ export function Composer({
   const submit = async () => {
     if (!canSend) return
     setSending(true)
+    setError(undefined)
     try {
       await onSubmit({ ...resolved, workdir: resolved.workdir ?? '', text: text.trim() })
       setText('')
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      setError(message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
     } finally {
       setSending(false)
     }
@@ -142,6 +149,14 @@ export function Composer({
           big ? 'px-[18px] pt-4 pb-2 text-[1.154rem]' : 'px-3.5 pt-3 pb-1 text-[1.077rem]',
         )}
       />
+      {error ? (
+        <p
+          role="alert"
+          className={cx('m-0 text-[0.923rem] text-danger', big ? 'px-[18px]' : 'px-3.5')}
+        >
+          {error}
+        </p>
+      ) : null}
       <div
         className={cx(
           'flex flex-wrap items-center gap-0.5',

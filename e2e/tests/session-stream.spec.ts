@@ -1,4 +1,4 @@
-import { mkdirSync, realpathSync } from 'node:fs'
+import { mkdirSync, realpathSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 import { launchApp, mod } from './app'
@@ -126,6 +126,24 @@ test('starts another session right after one finishes', async () => {
     // 记最近目录只改了设置里的 workdirs，内核不会因此重启
     const status = await page.evaluate(() => window.kits.kernel.status())
     expect(status.find((k) => k.id === 'opencode')?.state).toBe('running')
+  } finally {
+    await close()
+  }
+})
+
+test('keeps the draft and says why when sending fails', async () => {
+  const { page, configDir, close } = await launchApp({ KITS_KERNEL: 'mock' })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const workdir = await prepare(page, configDir)
+    // 最近用过的目录被删掉了
+    rmSync(workdir, { recursive: true, force: true })
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('给兑换接口加幂等校验')
+    await box.press('Enter')
+    await expect(page.getByRole('alert')).toContainText('ENOENT')
+    await expect(box).toHaveValue('给兑换接口加幂等校验')
+    await expect(page).not.toHaveURL(/#\/s\//)
   } finally {
     await close()
   }

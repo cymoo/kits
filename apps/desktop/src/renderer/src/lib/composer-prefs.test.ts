@@ -29,6 +29,12 @@ describe('resolvePrefs', () => {
     expect(resolvePrefs(prefs('old/x'), settings({})).model).toBe('corp/m')
   })
 
+  it('uses the model of the picked agent before the global default', () => {
+    expect(resolvePrefs(prefs(undefined), settings({}), 'corp/n').model).toBe('corp/n')
+    expect(resolvePrefs(prefs('corp/m'), settings({}), 'corp/n').model).toBe('corp/m')
+    expect(resolvePrefs(prefs(undefined), settings({}), 'gone/x').model).toBe('corp/m')
+  })
+
   it('leaves the model empty when nothing usable is configured', () => {
     expect(resolvePrefs(prefs('corp/n'), settings({ gateways: [] })).model).toBe('')
   })

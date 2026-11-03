@@ -122,7 +122,8 @@ export function SessionPage() {
           <button
             type="button"
             onClick={() => void kits.session.abort(session.id)}
-            className="inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded-[8px] border border-line bg-raised px-2.5 text-[0.923rem] text-fg hover:bg-active"
+            // macOS 顶部有一条全宽的拖动窗口层，按钮要浮在它上面、不参与拖动
+            className="relative z-20 inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded-[8px] border border-line bg-raised px-2.5 text-[0.923rem] text-fg [-webkit-app-region:no-drag] hover:bg-active"
           >
             <Square size={10} fill="currentColor" />
             {t('session.stop')}
@@ -159,6 +160,8 @@ export function SessionPage() {
         </div>
         <div className="sticky bottom-0 mx-auto w-full max-w-[760px] bg-gradient-to-b from-transparent to-raised to-[14px] pt-3 pb-4">
           <Composer
+            // 每个会话一个输入框：草稿不会跟到别的会话里
+            key={session.id}
             locked
             lockedAs={session}
             disabled={running}
