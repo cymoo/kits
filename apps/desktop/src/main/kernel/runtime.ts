@@ -1,12 +1,14 @@
 import type { KernelName } from '@kits/core/ipc'
 import {
   type AgentKernel,
+  codeagentDialect,
   MockKernel,
   type MockScenarioName,
   mockScenarioNames,
   OpencodeFamilyKernel,
   opencodeDialect,
   resolveKernelBinary,
+  toCodeagentFiles,
 } from '@kits/kernel'
 import type { ConfigService } from '../config/config-service'
 import type { SecretStore } from '../config/secrets'
@@ -15,8 +17,8 @@ import type { KitsToolHost } from '../tools/kits-tool-host'
 import { kernelDirs, logFileFor, prepareKernelConfig } from './kernel-config'
 import { KernelManager, type PrepareResult } from './kernel-manager'
 
-// 把 KernelManager 接到真实环境：OpenCode 走适配器，KITS_KERNEL=mock 时用 Mock 内核（E2E、界面开发）。
-// CodeAgent 的方言在 PR19，现在选它会报“未安装”。
+// 把 KernelManager 接到真实环境：OpenCode、CodeAgent 走同一个适配器、各自的方言，
+// KITS_KERNEL=mock 时用 Mock 内核（E2E、界面开发）。
 
 export interface KernelRuntimeDeps {
   platform: PlatformBridge
@@ -52,8 +54,7 @@ export function createKernelManager(deps: KernelRuntimeDeps): KernelManager {
         speed: Number(env.KITS_MOCK_SPEED ?? 1),
       })
     }
-    if (id === 'codeagent') throw new Error('CodeAgent 方言还没接入')
-    return new OpencodeFamilyKernel(opencodeDialect)
+    return new OpencodeFamilyKernel(id === 'codeagent' ? codeagentDialect : opencodeDialect)
   }
 
   const prepare = async (id: KernelName): Promise<PrepareResult> => {
@@ -78,14 +79,16 @@ export function createKernelManager(deps: KernelRuntimeDeps): KernelManager {
       ...(deps.builtinDir ? { builtinDir: deps.builtinDir } : {}),
     })
     if (!generated.ok) return { ok: false, problems: generated.problems }
-    await opencodeDialect.writeConfig(dirs.config, generated.files)
+    // 两个内核的配置字段一样，CodeAgent 只是文件名不同（generate/codeagent-config.ts）
+    const files = id === 'codeagent' ? toCodeagentFiles(generated.files) : generated.files
+    await (id === 'codeagent' ? codeagentDialect : opencodeDialect).writeConfig(dirs.config, files)
     return {
       ok: true,
       cfg: {
         binary,
         configDir: dirs.config,
         dataDir: dirs.data,
-        env: generated.files.env,
+        env: files.env,
         logFile: logFileFor(dirs),
       },
     }

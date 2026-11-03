@@ -347,3 +347,45 @@ describe('createSseParser', () => {
     expect(got).toEqual(['{"a":\n1}'])
   })
 })
+
+describe('CodeAgent events', () => {
+  it('finishes on prompt.completed of this session only', () => {
+    expect(feed([ev('prompt.completed', { sessionID: 'other' })]).out).toEqual([])
+    expect(feed([ev('prompt.completed', { sessionID: S, status: 'completed' })]).out).toEqual([
+      { type: 'done', reason: 'completed' },
+    ])
+  })
+
+  it('maps prompt.failed to an error, or to aborted after abort', () => {
+    const failed = ev('prompt.failed', { sessionID: S, error: { data: { message: '超时' } } })
+    expect(feed([failed]).out).toEqual([{ type: 'done', reason: 'error', error: '超时' }])
+    const m = createOpencodeEventMapper(S)
+    m.markAborted()
+    expect(m.map(failed)).toEqual([{ type: 'done', reason: 'aborted' }])
+  })
+
+  it('maps session.next.retried to a retry once', () => {
+    const retried = ev('session.next.retried', {
+      sessionID: S,
+      attempt: 2,
+      next: 1_000,
+      error: { data: { message: 'gateway 503' } },
+    })
+    expect(feed([retried, retried]).out).toEqual([
+      { type: 'status', state: 'retry' },
+      { type: 'retry', attempt: 2, message: 'gateway 503', nextAt: 1_000 },
+    ])
+  })
+
+  it('treats permission.requested like permission.asked', () => {
+    const out = feed([
+      ev('permission.requested', {
+        id: 'per_1',
+        sessionID: S,
+        permission: 'bash',
+        patterns: ['ls'],
+      }),
+    ]).out
+    expect(out[0]).toMatchObject({ type: 'permission-request', requestId: 'per_1', tool: 'bash' })
+  })
+})

@@ -261,6 +261,25 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
         return p.sessionID === sessionId ? [{ type: 'compaction', summary: '' }] : []
       case 'session.idle':
         return p.sessionID === sessionId ? finish('completed') : []
+      // CodeAgent：一次 prompt 的结束（比 session.idle 早到，idle 留着兜底）；
+      // 中止时是 prompt.failed，markAborted 之后 finish 会记成 aborted
+      case 'prompt.completed':
+        return p.sessionID === sessionId ? finish('completed') : []
+      case 'prompt.failed':
+        return p.sessionID === sessionId ? finish('error', errorMessage(p.error)) : []
+      // CodeAgent：模型网关调用重试
+      case 'session.next.retried': {
+        if (p.sessionID !== sessionId) return []
+        const attempt = num(p.attempt)
+        const nextAt = num(p.next) || Date.now()
+        const key = `${attempt}:${nextAt}`
+        if (key === lastRetry) return []
+        lastRetry = key
+        return [
+          { type: 'status', state: 'retry' },
+          { type: 'retry', attempt, message: errorMessage(p.error) ?? '', nextAt },
+        ]
+      }
       case 'session.error': {
         if (p.sessionID !== sessionId) return []
         const error = p.error as { name?: string } | undefined

@@ -1,8 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { createWriteStream, mkdirSync, type WriteStream } from 'node:fs'
 import { createServer } from 'node:net'
-import path from 'node:path'
 import { writeGeneratedFiles } from '../generate/write'
 import type {
   GeneratedFiles,
@@ -11,6 +9,7 @@ import type {
   KernelExit,
   SpawnedKernel,
 } from '../kernel'
+import { openLog, stopChild, tail } from './child'
 
 // OpenCode 方言：指定空闲端口启动 `opencode serve`，轮询 /global/health 等待就绪。
 // 每次启动生成随机密码，服务端走 Basic Auth（用户名固定为 opencode），同机其他进程调不了内核接口。
@@ -30,35 +29,6 @@ async function freePort(): Promise<number> {
       )
     })
   })
-}
-
-// 日志写不了（目录没权限、磁盘满）不能变成主进程的未捕获异常：出错后就不再写文件，输出照样留在内存里
-function openLog(file: string) {
-  let stream: WriteStream | undefined
-  try {
-    mkdirSync(path.dirname(file), { recursive: true })
-    stream = createWriteStream(file, { flags: 'a' })
-  } catch {
-    return undefined
-  }
-  const log = {
-    write(chunk: Buffer | string) {
-      stream?.write(chunk)
-    },
-    end() {
-      stream?.end()
-    },
-  }
-  stream.on('error', () => {
-    stream?.destroy()
-    stream = undefined
-  })
-  log.write(`\n--- ${new Date().toISOString()} opencode serve ---\n`)
-  return log
-}
-
-function tail(buf: string, lines = 20): string {
-  return buf.split(/\r?\n/).filter(Boolean).slice(-lines).join('\n')
 }
 
 async function waitForHealth(
@@ -121,15 +91,6 @@ export function spawnEnv(
   }
 }
 
-// Windows：taskkill /T 结束进程树；taskkill 本身起不来时退回 child.kill
-function killTree(pid: number, fallback: () => void): void {
-  const killer = spawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
-    stdio: 'ignore',
-    windowsHide: true,
-  })
-  killer.once('error', fallback)
-}
-
 export const opencodeDialect: KernelDialect = {
   id: 'opencode',
   apiPrefix: '',
@@ -158,7 +119,7 @@ export const opencodeDialect: KernelDialect = {
     })
     // 输出只在内存里留最后 64 KB（出错时给 tail 用），完整的写日志文件
     let stderr = ''
-    const log = cfg.logFile ? openLog(cfg.logFile) : undefined
+    const log = cfg.logFile ? openLog(cfg.logFile, 'opencode serve') : undefined
     const onOutput = (chunk: Buffer) => {
       stderr = (stderr + chunk.toString()).slice(-65_536)
       log?.write(chunk)
@@ -178,23 +139,7 @@ export const opencodeDialect: KernelDialect = {
 
     const close = async (): Promise<void> => {
       closing = true
-      if (child.exitCode !== null || child.signalCode !== null) return
-      await new Promise<void>((resolve) => {
-        child.once('exit', () => resolve())
-        if (process.platform === 'win32' && child.pid !== undefined) {
-          // Windows 上 kill 只杀直接子进程，OpenCode 拉起的 stdio MCP 服务、命令会留下来；整棵树一起结束
-          killTree(child.pid, () => {
-            if (child.exitCode === null) child.kill()
-          })
-        } else {
-          child.kill()
-        }
-        // 给 2 秒自己退，还不退就强杀
-        setTimeout(() => {
-          if (child.exitCode === null) child.kill('SIGKILL')
-          resolve()
-        }, 2_000).unref()
-      })
+      await stopChild(child)
     }
 
     const baseUrl = `http://127.0.0.1:${port}`

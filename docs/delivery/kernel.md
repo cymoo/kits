@@ -204,3 +204,41 @@
 - 项目级（`<工作目录>/.agents/`）的 Agent、技能、记忆还没进内核配置：内核配置是整个进程一份，而工作目录跟着会话走。PR13、PR14、PR16 做三级来源时一起定（候选做法：把最近用过的工作目录的项目配置都列进去，同名时按会话的工作目录选）。
 - CodeAgent 方言在 PR19；现在默认内核选 CodeAgent 会报“CodeAgent 方言还没接入”。
 - MCP 配置里 `${VAR}` 的值先查密钥表的 `env:<VAR>` 再查环境变量；设置页填 MCP 密钥的界面在 PR12。
+
+## 2026-11-04　CodeAgent 方言、假服务契约测试、真机核对清单
+
+> 日期：2026-11-04　PR：见本分支 `feat/kernel-codeagent`　作者：Claude Code
+
+### 原始需求
+
+phase1-implementation PR19（4.3 节）：CodeAgent 方言和配置转换、假服务契约测试、`codeagent-checklist.md`；设置页内核卡片显示“未安装”时的引导（`KITS_CODEAGENT_BIN` 或 resources）。CodeAgent 只能在 Windows 真机验证，方言按文档写、假服务测，清单交给负责人跑，结果回填再改一版。
+
+### 怎么验收
+
+1. 单测和契约测试：`pnpm -F @kits/kernel test`，`dialects/codeagent.contract.test.ts` 起按文档写的假 CodeAgent 服务，跑完“就绪行 → Bearer → 配置核对 → 建会话 → prompt → permission.requested → 回复 → prompt.completed”、重试、中止。
+2. 没装 CodeAgent 时：设置 → 内核与模型，CodeAgent 卡片“未安装”，下面一行说明怎么装（`KITS_CODEAGENT_BIN` 指到可执行文件，或放到 `resources/bin/codeagent/`）。
+3. 有真机的同学：照 [codeagent-checklist.md](../references/codeagent-checklist.md) 跑一遍，把结果填进表里。
+
+### 主要改动
+
+- `packages/kernel/src/dialects/codeagent.ts`：`codeagent serve --host 127.0.0.1 --port 0 --token <随机> --config-dir <目录>`，从 stdout 的就绪行拿地址和 token，接口前缀 `/api/v1`、Bearer 鉴权；就绪后 `GET /global/config` 核对默认模型，没读到配置文件就 `PATCH`（`{env:…}` 先换成值）；`.cmd` / `.bat` 启动脚本经 shell 起。
+- `packages/kernel/src/dialects/child.ts`：两个方言共用的日志文件、输出尾巴、结束进程树（从 OpenCode 方言里挪出来，行为不变）。
+- `packages/kernel/src/generate/codeagent-config.ts`：文档里 Global.Config 的字段和 opencode.json 一样，直接用 OpenCode 的转换结果，改名 `codeagent.json`、去掉 `$schema`；`resolveEnvRefs`。
+- `packages/kernel/src/adapter/events.ts`：CodeAgent 的 `prompt.completed`、`prompt.failed`、`session.next.retried`（`permission.requested` 原来就归一了）。
+- `packages/kernel/src/testing/fake-codeagent-server.mjs` + `fake-codeagent.ts`：按文档写的假服务和启动脚本。
+- `apps/desktop/src/main/kernel/runtime.ts`：CodeAgent 用自己的方言和配置文件；设置页内核卡片的“未安装”引导。
+- `docs/references/codeagent-checklist.md`：24 项真机核对清单。
+
+### 测试
+
+- 单元测试：`dialects/codeagent.test.ts`（6 个：就绪行、子进程环境、配置改名、`{env:…}` 替换）；`adapter/events.test.ts` 补 4 个（`prompt.completed` 只认本会话、`prompt.failed` 出错 / 中止、`session.next.retried`、`permission.requested`）。
+- 契约测试：`dialects/codeagent.contract.test.ts`（4 个）。OpenCode 的契约测试照旧（方言的进程管理挪到 `child.ts` 后行为不变）。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- **没在真机上跑过**：配置文件名、`{env:…}` 引用、联网开关、改动和压缩的数据形状都是按文档猜的，见清单 5～8、19、20。走 `PATCH /global/config` 时网关 Key 会以明文交给内核，要确认它会不会落盘。
+- 内核自带的 AI Market、账户等联网功能怎么关，文档没写（清单 8）。
