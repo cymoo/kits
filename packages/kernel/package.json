@@ -1,0 +1,22 @@
+{
+  "name": "@kits/kernel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AgentKernel 接口和 OpenCode 系适配器（CodeAgent / OpenCode 共用，差异收在方言层）",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@kits/core": "workspace:*"
+  },
+  "devDependencies": {
+    "opencode-ai": "1.19.5",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}

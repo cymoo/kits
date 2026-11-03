@@ -1,0 +1,23 @@
+{
+  "name": "@kits/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "kits 的共享层：统一配置模型、事件类型、本机 MCP 工具",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7",
+    "@cfworker/json-schema": "4.1.4"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}
