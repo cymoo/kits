@@ -1,4 +1,4 @@
-import { AlertCircle, Check, ChevronDown } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, FileText } from 'lucide-react'
 import { useState } from 'react'
 import { t } from '../../app/i18n'
 import { formatDuration, useNow } from '../../lib/use-now'
@@ -29,15 +29,35 @@ export function Spinner({
   )
 }
 
-export function UserBlock({ text }: { text: string }) {
+export function UserBlock({
+  text,
+  attachments = [],
+}: {
+  text: string
+  attachments?: { name: string; size: number }[]
+}) {
   return (
-    <div
-      className="flex max-w-[84%] flex-col items-end gap-1.5 self-end"
-      data-testid="user-message"
-    >
-      <div className="whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-active px-3.5 py-2.5 text-[1.077rem] leading-[1.6]">
+    <div className="flex max-w-[84%] flex-col items-end gap-1.5 self-end">
+      <div
+        data-testid="user-message"
+        className="whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-active px-3.5 py-2.5 text-[1.077rem] leading-[1.6]"
+      >
         {text}
       </div>
+      {attachments.length ? (
+        <div className="flex flex-wrap justify-end gap-1.5" data-testid="message-attachments">
+          {attachments.map((a, i) => (
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: 同名附件按位置区分
+              key={i}
+              className="inline-flex items-center gap-1.5 rounded-[7px] border border-line px-2 py-0.5 text-[0.923rem] text-fg-muted"
+            >
+              <FileText size={12} />
+              {a.name}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -14,7 +14,7 @@ export interface Step {
 }
 
 export type Block =
-  | { kind: 'user'; id: string; text: string }
+  | { kind: 'user'; id: string; text: string; attachments: { name: string; size: number }[] }
   | {
       kind: 'turn'
       id: string
@@ -197,7 +197,14 @@ export function deriveBlocks(
   let lastUserText = ''
   for (const m of messages) {
     if (m.role === 'user') {
-      blocks.push({ kind: 'user', id: m.id, text: m.text })
+      blocks.push({
+        kind: 'user',
+        id: m.id,
+        text: m.text,
+        attachments: (detail.attachments ?? [])
+          .filter((a) => a.messageId === m.id)
+          .map((a) => ({ name: a.name, size: a.size })),
+      })
       lastUserText = m.text
       continue
     }

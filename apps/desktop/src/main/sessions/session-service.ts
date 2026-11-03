@@ -4,6 +4,7 @@ import path from 'node:path'
 import type {
   AskUserInput,
   AskUserResult,
+  AttachmentInput,
   CreateSessionInput,
   FileDiffView,
   KernelEvent,
@@ -16,6 +17,7 @@ import type {
   ToolCallRegistry,
 } from '@kits/core'
 import { type AgentKernel, agentPermissions, type KernelSession } from '@kits/kernel'
+import { extractText } from '../attachments/extract'
 import type { KernelManager } from '../kernel/kernel-manager'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
 import type { SessionStore } from './session-store'
@@ -41,6 +43,30 @@ export interface SessionServiceDeps {
   diffDelays?: number[]
   // 导出的产出写到这里（{userData}/exports）
   exportsDir: string
+  // 附件原文件和转出来的文字放这里（{userData}/attachments），每个会话一个子目录
+  attachmentsDir: string
+  // 附件转文本，测试里可以换掉
+  extractText?: (name: string, mime: string, data: Uint8Array) => Promise<string>
+}
+
+// 单个附件的大小上限
+export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+
+// 存好、转好文字的附件，等这一轮的用户消息建好再落库
+interface StagedAttachment {
+  id: string
+  name: string
+  mime: string
+  size: number
+  path: string
+  textPath: string
+  text: string
+}
+
+// 运行中发的一条消息，排队到这一轮结束
+interface Queued {
+  text: string
+  attachments: StagedAttachment[]
 }
 
 // 导出文件名：日期-标题[-第 N 轮]，去掉文件名里不能用的字符
@@ -67,6 +93,8 @@ interface Running {
   // 这一轮的用户消息和轮次（改动对回本地轮次用）
   userMessageId: string
   turn: number
+  // 这一轮带的附件（已经转成文字），随消息发给内核
+  attachments: { name: string; text: string }[]
 }
 
 type PermissionReply = 'once' | 'always' | 'reject'
@@ -79,7 +107,7 @@ export function titleOf(text: string): string {
 
 export class SessionService {
   private running = new Map<string, Running>()
-  private queues = new Map<string, string[]>()
+  private queues = new Map<string, Queued[]>()
   private readonly now: () => number
   private readonly id: () => string
   private readonly flushMs: number
@@ -170,7 +198,7 @@ export class SessionService {
   // 排队的消息不落库，推给界面时带上
   private view(s: SessionSummary): SessionSummary {
     const queued = this.queues.get(s.id)
-    return queued?.length ? { ...s, queued: [...queued] } : s
+    return queued?.length ? { ...s, queued: queued.map((q) => q.text) } : s
   }
 
   isRunning(id: string): boolean {
@@ -178,9 +206,12 @@ export class SessionService {
   }
 
   async create(input: CreateSessionInput): Promise<SessionSummary> {
+    const id = this.id()
+    // 先存附件、转文字：读不了的文件直接报错，会话不建
+    const staged = await this.stage(id, input.attachments ?? [])
     const at = this.now()
     const session: SessionSummary = {
-      id: this.id(),
+      id,
       title: titleOf(input.text),
       agent: input.agent,
       kernel: input.kernel,
@@ -195,19 +226,52 @@ export class SessionService {
     }
     this.deps.store.insertSession(session)
     this.deps.push('session.changed', session)
-    this.startTurn(session, input.text)
+    this.startTurn(session, input.text, staged)
     return session
   }
 
-  async prompt(id: string, text: string): Promise<void> {
+  async prompt(id: string, text: string, attachments: AttachmentInput[] = []): Promise<void> {
+    if (!this.deps.store.session(id)) throw new Error(`没有这个会话：${id}`)
+    const staged = await this.stage(id, attachments)
+    // 转附件要时间，回来时会话的状态可能变了，重新读
     const session = this.deps.store.session(id)
     if (!session) throw new Error(`没有这个会话：${id}`)
     if (this.running.has(id)) {
-      this.queues.set(id, [...(this.queues.get(id) ?? []), text])
+      this.queues.set(id, [...(this.queues.get(id) ?? []), { text, attachments: staged }])
       this.deps.push('session.changed', this.view(session))
       return
     }
-    this.startTurn(session, text)
+    this.startTurn(session, text, staged)
+  }
+
+  // 附件存到 {attachmentsDir}/<会话>/，原文件和转出来的文字各一份
+  private async stage(sessionId: string, inputs: AttachmentInput[]): Promise<StagedAttachment[]> {
+    if (!inputs.length) return []
+    const extract = this.deps.extractText ?? extractText
+    const dir = path.join(this.deps.attachmentsDir, sessionId)
+    const staged: StagedAttachment[] = []
+    for (const a of inputs) {
+      if (a.data.byteLength > MAX_ATTACHMENT_BYTES) {
+        throw new Error(`${a.name} 超过 20 MB，先拆小一点再发`)
+      }
+      const text = await extract(a.name, a.mime, a.data)
+      const id = this.id()
+      const safe = a.name.replace(/[\\/:*?"<>|]+/g, '_')
+      const file = path.join(dir, `${id}-${safe}`)
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(file, a.data)
+      writeFileSync(`${file}.txt`, text)
+      staged.push({
+        id,
+        name: a.name,
+        mime: a.mime,
+        size: a.data.byteLength,
+        path: file,
+        textPath: `${file}.txt`,
+        text,
+      })
+    }
+    return staged
   }
 
   async abort(id: string): Promise<void> {
@@ -319,7 +383,11 @@ export class SessionService {
     this.deps.push('session.message', m)
   }
 
-  private startTurn(session: SessionSummary, text: string): void {
+  private startTurn(
+    session: SessionSummary,
+    text: string,
+    attachments: StagedAttachment[] = [],
+  ): void {
     const turn = session.turns + 1
     const at = this.now()
     const user: MessageView = {
@@ -344,6 +412,24 @@ export class SessionService {
       createdAt: at + 1,
     }
     this.saveMessage(user)
+    for (const a of attachments) {
+      this.deps.store.saveAttachment({
+        id: a.id,
+        sessionId: session.id,
+        messageId: user.id,
+        name: a.name,
+        mime: a.mime,
+        size: a.size,
+        path: a.path,
+        textPath: a.textPath,
+      })
+    }
+    if (attachments.length) {
+      this.deps.push('session.attachments', {
+        sessionId: session.id,
+        attachments: this.deps.store.attachments(session.id),
+      })
+    }
     this.saveMessage(assistant)
     this.update(session.id, { turns: turn, status: 'running', lastError: null })
     const recorder = new TurnRecorder(session.id, assistant, this.now)
@@ -355,6 +441,7 @@ export class SessionService {
       cancelled: false,
       userMessageId: user.id,
       turn,
+      attachments: attachments.map((a) => ({ name: a.name, text: a.text })),
     }
     this.running.set(session.id, run)
     void this.runTurn(session, text, run)
@@ -416,7 +503,7 @@ export class SessionService {
         return
       }
       let submitted = false
-      for await (const event of kernel.prompt(ks, { text })) {
+      for await (const event of kernel.prompt(ks, { text, attachments: run.attachments })) {
         // 内核有了动静（不是准备阶段就结束）才算这条消息真的进了内核：这时记下它是内核里第几条用户消息
         if (!submitted && event.type !== 'done') {
           submitted = true
@@ -516,7 +603,13 @@ export class SessionService {
     if (!queued?.length) return
     this.queues.delete(id)
     const session = this.deps.store.session(id)
-    if (session) this.startTurn(session, queued.join('\n\n'))
+    if (session) {
+      this.startTurn(
+        session,
+        queued.map((q) => q.text).join('\n\n'),
+        queued.flatMap((q) => q.attachments),
+      )
+    }
   }
 
   // 正文增量攒一下再落库：模型一秒吐几十个 token，每个都写库、推送太浪费

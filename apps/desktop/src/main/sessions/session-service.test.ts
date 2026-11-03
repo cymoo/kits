@@ -73,6 +73,7 @@ function setup(
     flushMs: 5,
     diffDelays,
     exportsDir,
+    attachmentsDir: exportsDir,
   })
   const statusOf = (id: string) => store.session(id)?.status
   const waitFor = (id: string, statuses: SessionStatus[]) =>
@@ -505,6 +506,60 @@ describe('SessionService outputs', () => {
     expect(outputs[0]?.aiDraft).toMatchObject({ findings: expect.any(Array) })
     const { path: file } = service.exportOutput({ id: outputs[0]?.id ?? '', format: 'json' })
     expect(JSON.parse(readFileSync(file, 'utf8')).findings).toHaveLength(2)
+  })
+})
+
+describe('SessionService attachments', () => {
+  const md = (text: string) => ({
+    name: '需求.md',
+    mime: 'text/markdown',
+    data: new TextEncoder().encode(text),
+  })
+
+  it('stores the attachment, shows it on the user message and sends its text to the kernel', async () => {
+    const { service, waitFor, store, kernel } = setup('done')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create({
+      ...input,
+      attachments: [md('# 积分兑换\n同一个请求号只兑换一次')],
+    })
+    await waitFor(s.id, ['done'])
+    expect(prompt.mock.calls[0]?.[1]).toEqual({
+      text: input.text,
+      attachments: [{ name: '需求.md', text: '# 积分兑换\n同一个请求号只兑换一次' }],
+    })
+    const detail = store.detail(s.id)
+    const user = detail?.messages.find((m) => m.role === 'user')
+    expect(detail?.attachments).toEqual([
+      expect.objectContaining({ messageId: user?.id, name: '需求.md', mime: 'text/markdown' }),
+    ])
+  })
+
+  it('does not create the session when an attachment cannot be read', async () => {
+    const { service, store } = setup('done')
+    const png = { name: 'shot.png', mime: 'image/png', data: new Uint8Array([1, 2, 3]) }
+    await expect(service.create({ ...input, attachments: [png] })).rejects.toThrow('shot.png')
+    expect(store.list()).toEqual([])
+  })
+
+  it('keeps the attachments of a queued follow-up and sends them with the next turn', async () => {
+    const { service, waitFor, store, kernel } = setup('permission')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下这个', [md('附加说明')])
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'once',
+    })
+    await vi.waitFor(() => expect(prompt).toHaveBeenCalledTimes(2))
+    expect(prompt.mock.calls[1]?.[1]).toMatchObject({
+      text: '顺便看下这个',
+      attachments: [{ name: '需求.md', text: '附加说明' }],
+    })
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
   })
 })
 

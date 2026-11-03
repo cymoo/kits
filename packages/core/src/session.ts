@@ -98,6 +98,23 @@ export interface SessionDetail {
   session: SessionSummary
   messages: MessageView[]
   parts: PartView[]
+  attachments: AttachmentView[]
+}
+
+// 发消息时带的附件：渲染进程读成字节发过来，主进程存到 {userData}/attachments/<会话>/ 并转成文本
+export interface AttachmentInput {
+  name: string
+  mime: string
+  data: Uint8Array
+}
+
+// 用户消息下面的附件芯片
+export interface AttachmentView {
+  id: string
+  messageId: string | null
+  name: string
+  mime: string
+  size: number
 }
 
 export interface CreateSessionInput {
@@ -107,6 +124,7 @@ export interface CreateSessionInput {
   model: string
   kernel: 'opencode' | 'codeagent'
   permissionMode: PermissionMode
+  attachments?: AttachmentInput[]
 }
 
 // 一轮改了的一个文件（改动面板）。内核在这一轮结束后才算出来，落库后推给界面

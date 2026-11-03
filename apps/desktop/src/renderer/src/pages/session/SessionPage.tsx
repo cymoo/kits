@@ -272,7 +272,7 @@ export function SessionPage() {
             {blocks.map((b) => {
               switch (b.kind) {
                 case 'user':
-                  return <UserBlock key={b.id} text={b.text} />
+                  return <UserBlock key={b.id} text={b.text} attachments={b.attachments} />
                 case 'turn':
                   return <TurnBlock key={b.id} block={b} />
                 case 'text':
@@ -329,7 +329,9 @@ export function SessionPage() {
               locked
               lockedAs={session}
               placeholder={running ? t('composer.followUpRunning') : t('composer.followUp')}
-              onSubmit={({ text }) => kits.session.prompt({ id: session.id, text })}
+              onSubmit={({ text, attachments }) =>
+                kits.session.prompt({ id: session.id, text, attachments })
+              }
             />
           </div>
         </section>

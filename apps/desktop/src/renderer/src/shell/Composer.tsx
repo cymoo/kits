@@ -1,12 +1,18 @@
+import type { AttachmentInput } from '@kits/core/ipc'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowUp,
+  AtSign,
   Bot,
   ChevronDown,
+  FileText,
   Folder,
   FolderOpen,
+  Paperclip,
+  Plus,
   Shield,
   SlidersHorizontal,
+  X,
 } from 'lucide-react'
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -25,9 +31,16 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from '../ui/Menu'
+import { type AtQuery, atQuery, formatSize, insertAt } from './composer-at'
 
 // 输入框（原型 shell.js 的 <k-composer>）：文本区自动长高；目录、Agent、权限、内核与模型四个浮层；↵ 发送、⇧↵ 换行。
-// 首页（big）发送时新建会话；会话页发送时在当前会话里接着说。`/`、`@` 菜单和 `+` 在 PR11、PR13 做。
+// 首页（big）发送时新建会话；会话页发送时在当前会话里接着说。
+// `+` 上传附件、引用文件；附件也能直接拖进来；打 @ 弹出工作目录里的文件。`/` 技能菜单在 PR13。
+
+// 渲染进程这边先挡一下，主进程还会再查
+const MAX_BYTES = 20 * 1024 * 1024
+const ACCEPT =
+  '.docx,.pdf,.md,.markdown,.txt,.log,.csv,.tsv,.json,.jsonl,.yaml,.yml,.xml,.html,.sql,.py,.js,.ts,.tsx,.java,.go,.kt,.rs,.sh'
 
 const PERMS = ['ask', 'read', 'auto'] as const
 
@@ -38,6 +51,7 @@ export interface ComposerSubmit {
   permissionMode: (typeof PERMS)[number]
   kernel: 'opencode' | 'codeagent'
   model: string
+  attachments: AttachmentInput[]
 }
 
 const chip =
@@ -75,6 +89,61 @@ export function Composer({
   // 发送失败的原因（比如工作目录被删了）；草稿留着，改了再发
   const [error, setError] = useState<string>()
   const area = useRef<HTMLTextAreaElement>(null)
+  const picker = useRef<HTMLInputElement>(null)
+  const [files, setFiles] = useState<File[]>([])
+  const [dragging, setDragging] = useState(false)
+  // @ 菜单：光标前面的 @ 查询，选中的那一项，按了 Esc 的那个 @ 不再弹
+  const [at, setAt] = useState<AtQuery>()
+  const [atIndex, setAtIndex] = useState(0)
+  const [atDismissed, setAtDismissed] = useState<number>()
+  const workdir = locked ? lockedAs?.workdir : resolved.workdir
+  const atOpen = !!at && at.start !== atDismissed
+  const matches = useQuery({
+    queryKey: ['files', workdir, at?.query ?? ''],
+    queryFn: () => kits.files.search({ workdir: workdir ?? '', query: at?.query ?? '' }),
+    enabled: atOpen && !!workdir,
+    placeholderData: (prev) => prev,
+  })
+  const found = atOpen ? (matches.data ?? []) : []
+
+  const addFiles = (list: FileList | File[]) => {
+    const next = [...list]
+    const big = next.find((f) => f.size > MAX_BYTES)
+    if (big) setError(t('composer.tooBig', { name: big.name }))
+    setFiles((cur) => [...cur, ...next.filter((f) => f.size <= MAX_BYTES)])
+  }
+  const updateAt = (value: string, caret: number) => {
+    const q = atQuery(value, caret)
+    setAt(q)
+    setAtIndex(0)
+    if (!q) setAtDismissed(undefined)
+  }
+  const pick = (path: string) => {
+    const el = area.current
+    if (!el || !at) return
+    const next = insertAt(text, at, el.selectionStart, path)
+    setText(next.text)
+    setAt(undefined)
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(next.caret, next.caret)
+    })
+  }
+  // + 菜单的“引用文件”：在光标处插一个 @，弹出文件菜单
+  const startReference = () => {
+    const el = area.current
+    if (!el) return
+    const caret = el.selectionStart ?? text.length
+    const pad = caret > 0 && !/\s/.test(text[caret - 1] ?? '') ? ' ' : ''
+    const value = `${text.slice(0, caret)}${pad}@${text.slice(caret)}`
+    setText(value)
+    const pos = caret + pad.length + 1
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(pos, pos)
+      updateAt(value, pos)
+    })
+  }
 
   // 自动长高，最多 220px
   // biome-ignore lint/correctness/useExhaustiveDependencies: 文本变了才需要重算高度
@@ -99,8 +168,21 @@ export function Composer({
     setSending(true)
     setError(undefined)
     try {
-      await onSubmit({ ...resolved, workdir: resolved.workdir ?? '', text: text.trim() })
+      const attachments = await Promise.all(
+        files.map(async (f) => ({
+          name: f.name,
+          mime: f.type,
+          data: new Uint8Array(await f.arrayBuffer()),
+        })),
+      )
+      await onSubmit({
+        ...resolved,
+        workdir: resolved.workdir ?? '',
+        text: text.trim(),
+        attachments,
+      })
       setText('')
+      setFiles([])
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       setError(message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
@@ -110,6 +192,24 @@ export function Composer({
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (atOpen && !e.nativeEvent.isComposing) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        const n = Math.max(found.length, 1)
+        setAtIndex((i) => (i + (e.key === 'ArrowDown' ? 1 : n - 1)) % n)
+        return
+      }
+      if ((e.key === 'Enter' || e.key === 'Tab') && found[atIndex]) {
+        e.preventDefault()
+        pick(found[atIndex] as string)
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setAtDismissed(at?.start)
+        return
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       void submit()
@@ -127,12 +227,115 @@ export function Composer({
     : t('composer.noModel')
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: 拖文件进来的落点，键盘用户走 + 菜单
     <div
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return
+        e.preventDefault()
+        setDragging(true)
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false)
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.files.length) return
+        e.preventDefault()
+        setDragging(false)
+        addFiles(e.dataTransfer.files)
+      }}
       className={cx(
         'relative border border-line bg-raised shadow-[0_1px_2px_rgba(0,0,0,.03),0_6px_20px_rgba(0,0,0,.05)] transition-[border-color,box-shadow] focus-within:border-line-strong focus-within:shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_28px_rgba(0,0,0,.08)]',
         big ? 'rounded-[16px]' : 'rounded-[14px]',
+        dragging && 'border-accent',
       )}
     >
+      {dragging ? (
+        <div className="pointer-events-none absolute inset-1 z-10 flex items-center justify-center rounded-[12px] border-2 border-accent/40 border-dashed bg-accent-bg/80 font-medium text-accent-fg">
+          {t('composer.drop')}
+        </div>
+      ) : null}
+      {atOpen ? (
+        <div
+          role="listbox"
+          aria-label={t('composer.atTitle')}
+          data-testid="at-menu"
+          className="absolute right-3 bottom-[calc(100%+8px)] left-3 z-40 flex max-h-[360px] flex-col gap-px overflow-y-auto rounded-[12px] border border-line bg-raised p-1.5 shadow-pop"
+        >
+          <div className="px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
+            {t('composer.atTitle')}
+          </div>
+          {!workdir ? (
+            <div className="px-2.5 py-2 text-fg-muted">{t('composer.atNoDir')}</div>
+          ) : found.length === 0 && matches.isFetched ? (
+            <div className="px-2.5 py-2 text-fg-muted">{t('composer.atEmpty')}</div>
+          ) : null}
+          {found.map((f, i) => (
+            <button
+              key={f}
+              type="button"
+              role="option"
+              aria-selected={i === atIndex}
+              // 不抢输入框的焦点
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pick(f)}
+              onPointerMove={() => setAtIndex(i)}
+              ref={i === atIndex ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+              className={cx(
+                'flex min-h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[8px] px-2.5 py-1 text-left',
+                i === atIndex && 'bg-accent-bg',
+              )}
+            >
+              <FileText size={13} className="shrink-0 text-fg-muted" />
+              <span className="min-w-0 flex-1 truncate font-mono text-[0.923rem]">{f}</span>
+            </button>
+          ))}
+          <div className="mt-1 flex items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.885rem] text-fg-label">
+            <span>{t('composer.atHint.pick')}</span>
+            <span>{t('composer.atHint.insert')}</span>
+            <span>{t('composer.atHint.close')}</span>
+          </div>
+        </div>
+      ) : null}
+      {files.length ? (
+        <div
+          className={cx('flex flex-wrap gap-1.5', big ? 'px-[18px] pt-3.5' : 'px-3 pt-2.5')}
+          data-testid="attachments"
+        >
+          {files.map((f, i) => (
+            <span
+              // biome-ignore lint/suspicious/noArrayIndexKey: 同名文件可以加两次，按位置
+              key={`${f.name}:${i}`}
+              className="inline-flex h-7 max-w-[260px] items-center gap-1.5 rounded-[8px] border border-line bg-bg pr-1 pl-2 text-[0.923rem]"
+            >
+              <Paperclip size={12} className="shrink-0 text-fg-muted" />
+              <span className="min-w-0 truncate" title={f.name}>
+                {f.name}
+              </span>
+              <span className="shrink-0 text-fg-subtle">{formatSize(f.size)}</span>
+              <button
+                type="button"
+                aria-label={t('composer.removeFile', { name: f.name })}
+                onClick={() => setFiles((cur) => cur.filter((_, j) => j !== i))}
+                className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-[5px] text-fg-subtle hover:bg-active hover:text-fg"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <input
+        ref={picker}
+        type="file"
+        multiple
+        accept={ACCEPT}
+        className="hidden"
+        data-testid="file-input"
+        onChange={(e) => {
+          if (e.target.files) addFiles(e.target.files)
+          e.target.value = ''
+        }}
+      />
       <label htmlFor={big ? 'composer-home' : 'composer-session'} className="sr-only">
         {t('composer.label')}
       </label>
@@ -141,7 +344,12 @@ export function Composer({
         id={big ? 'composer-home' : 'composer-session'}
         rows={big ? 3 : 1}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value)
+          updateAt(e.target.value, e.target.selectionStart)
+        }}
+        onSelect={(e) => updateAt(e.currentTarget.value, e.currentTarget.selectionStart)}
+        onBlur={() => setAt(undefined)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         className={cx(
@@ -163,6 +371,27 @@ export function Composer({
           big ? 'px-2.5 pt-1.5 pb-2.5' : 'px-2 pt-1 pb-2',
         )}
       >
+        <Menu>
+          <MenuTrigger
+            aria-label={t('composer.add')}
+            title={t('composer.add')}
+            className={cx(chip, 'w-7 justify-center px-0')}
+          >
+            <Plus size={15} strokeWidth={1.6} />
+          </MenuTrigger>
+          <MenuContent>
+            <MenuItem onSelect={() => picker.current?.click()}>
+              <Paperclip size={14} className="text-fg-muted" />
+              <span className="flex-1">{t('composer.upload')}</span>
+              <small className="text-[0.885rem] text-fg-label">{t('composer.uploadNote')}</small>
+            </MenuItem>
+            <MenuItem onSelect={() => setTimeout(startReference, 0)}>
+              <AtSign size={14} className="text-fg-muted" />
+              <span className="flex-1">{t('composer.reference')}</span>
+              <small className="text-[0.885rem] text-fg-label">@</small>
+            </MenuItem>
+          </MenuContent>
+        </Menu>
         {locked && lockedAs ? (
           // 会话页：目录、Agent、模型跟着会话走，只显示不能改
           <>
