@@ -41,7 +41,14 @@ export async function testGateway(
     }
     if (!res.ok) return { ok: false, latencyMs: elapsed(), error: `网关返回 HTTP ${res.status}` }
     // 有的网关出错也回 200 带一个错误对象；没有 data 数组就当失败，不能当成“模型列表是空的”
-    const body = (await res.json().catch(() => null)) as { data?: unknown } | null
+    // 读响应体时超时、断开交给外层 catch；只有解析不了的 JSON 算“不是模型列表”
+    const raw = await res.text()
+    let body: { data?: unknown } | null = null
+    try {
+      body = JSON.parse(raw) as { data?: unknown } | null
+    } catch {
+      body = null
+    }
     if (!body || !Array.isArray(body.data)) {
       return { ok: false, latencyMs: elapsed(), error: '网关返回的不是模型列表（缺少 data 数组）' }
     }

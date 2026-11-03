@@ -1,6 +1,6 @@
 import type { GatewayTestResult } from '@kits/core/ipc'
 import { Check } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../app/i18n'
 import { Button } from '../../ui/Button'
@@ -24,11 +24,21 @@ function GatewayStep({ onNext }: { onNext(): void }) {
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [result, setResult] = useState<GatewayTestResult>()
-  const added = gateways[0]
+  // 只认启用且有模型的网关；停用的、空的不算配好了，表单留着
+  const added = gateways.find((g) => g.enabled && g.models.length > 0)
   const keyHint = useKeyHint()
+  // 换了步骤或离开引导后，还在路上的测试回来也不再保存
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
 
   const run = async () => {
     const r = await test.mutateAsync({ baseUrl, ...(apiKey ? { apiKey } : {}) })
+    if (!alive.current) return
     // 连上了但一个模型都没有：不保存，留着表单让人改地址再试
     if (r.ok && r.models.length === 0) {
       setResult({ ok: false, latencyMs: r.latencyMs, error: t('onboarding.noModels') })

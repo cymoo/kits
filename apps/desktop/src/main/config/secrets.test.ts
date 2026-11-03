@@ -94,12 +94,20 @@ describe('SecretStore', () => {
     writeFileSync(file, '{not json')
     disk.copyFails = true
     const store = new SecretStore(file, fake(true))
-    expect(store.loadError).toBeDefined()
+    expect(store.loadError).toContain('备份也没成功')
     expect(() => store.set('k', 'v')).toThrow('备份失败')
     expect(readFileSync(file, 'utf8')).toBe('{not json')
     disk.copyFails = false
     store.set('k', 'v')
     expect(readdirSync(path.dirname(file)).some((f) => f.includes('.broken-'))).toBe(true)
+  })
+
+  it('clears the load error once a key is saved over the broken file', () => {
+    writeFileSync(file, '{not json')
+    const store = new SecretStore(file, fake(true))
+    expect(store.loadError).toContain('已备份')
+    store.set('k', 'v')
+    expect(store.loadError).toBeUndefined()
   })
 
   it('treats a value it cannot decrypt as missing', () => {
