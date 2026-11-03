@@ -37,6 +37,18 @@ describe('testGateway', () => {
     })
   })
 
+  it('reports a connection dropped while reading the body instead of a bad model list', async () => {
+    const baseUrl = await serve((_req, res) => {
+      res.writeHead(200, { 'content-length': '1000' })
+      res.write('{"data": [')
+      // 发了一半就断开
+      setTimeout(() => res.destroy(), 20)
+    })
+    const r = await testGateway({ baseUrl })
+    expect(r.ok).toBe(false)
+    expect(r.ok === false && r.error).toMatch(/^连不上/)
+  })
+
   it('explains an auth failure', async () => {
     const baseUrl = await serve((_req, res) => {
       res.writeHead(401).end()

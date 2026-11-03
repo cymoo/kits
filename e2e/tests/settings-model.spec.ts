@@ -180,3 +180,24 @@ test('shows a context window changed in settings.json after the window regains f
     await close()
   }
 })
+
+test('shows the onboarding form again when the only gateway is disabled', async () => {
+  const { page, close } = await launchApp({}, (dir) => {
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(
+      path.join(dir, 'settings.json'),
+      JSON.stringify({
+        gateways: [
+          { id: 'corp', baseUrl: 'http://127.0.0.1:9/v1', enabled: false, models: [{ id: 'm' }] },
+        ],
+      }),
+    )
+  })
+  try {
+    await page.goto(`${page.url().split('#')[0]}#/onboarding`)
+    await expect(page.getByLabel('网关地址')).toBeVisible()
+    await expect(page.getByRole('button', { name: '测试连接' })).toBeVisible()
+  } finally {
+    await close()
+  }
+})
