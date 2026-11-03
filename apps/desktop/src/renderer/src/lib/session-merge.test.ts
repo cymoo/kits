@@ -1,6 +1,6 @@
 import type { MessageView, PartView, SessionDetail } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { mergeMessage, mergePart, mergeSession, mergeSessionList } from './session-merge'
+import { mergeMessage, mergePart, mergeSession, replaySessionList } from './session-merge'
 
 const session = {
   id: 's1',
@@ -47,17 +47,21 @@ const snapshot: SessionDetail = {
   attachments: [],
 }
 
-describe('mergeSessionList', () => {
-  it('keeps a summary pushed while the list was loading when it is newer', () => {
-    const fresh = [{ ...session, status: 'running' as const, updatedAt: 5 }]
-    const cached = [
+describe('replaySessionList', () => {
+  it('lets a push received during the list query win even with the same timestamp', () => {
+    const fresh = [{ ...session, status: 'running' as const, updatedAt: 9 }]
+    const pushes = [
       { ...session, status: 'done' as const, updatedAt: 9 },
       { ...session, id: 's2', updatedAt: 8 },
     ]
-    expect(mergeSessionList(fresh, cached).map((s) => [s.id, s.status])).toEqual([
+    expect(replaySessionList(fresh, pushes).map((s) => [s.id, s.status])).toEqual([
       ['s1', 'done'],
       ['s2', 'done'],
     ])
+  })
+
+  it('keeps the snapshot when nothing was pushed meanwhile', () => {
+    expect(replaySessionList([{ ...session, updatedAt: 3 }], [])[0]?.updatedAt).toBe(3)
   })
 })
 

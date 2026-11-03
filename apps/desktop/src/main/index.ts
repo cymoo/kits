@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { gatewaySecretKey } from '@kits/core'
+import type { KernelName } from '@kits/core/ipc'
 import { app, BrowserWindow, shell } from 'electron'
 import { ConfigService } from './config/config-service'
 import { resolveConfigDir } from './config/paths'
@@ -45,6 +46,12 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let shutdown: (() => Promise<void>) | undefined
+
+// IPC 传来的内核名只认这两个
+function kernelName(v: unknown): KernelName {
+  if (v !== 'opencode' && v !== 'codeagent') throw new Error(`不认识的内核：${String(v)}`)
+  return v
+}
 
 // 家目录下的路径写成 ~/…，结尾带 /，和原型一致
 function homeLabel(dir: string): string {
@@ -182,7 +189,7 @@ app.whenReady().then(() => {
           // 用真实路径：macOS 的 /var 等是软链接，内核按真实路径判断目录内外
           const workdir = realpathSync(input.workdir)
           rememberWorkdir(workdir)
-          return sessions.create({ ...input, workdir })
+          return sessions.create({ ...input, workdir, kernel: kernelName(input.kernel) })
         },
         list: () => sessions.list(),
         get: (id) => sessions.get(id),
@@ -230,9 +237,10 @@ app.whenReady().then(() => {
             runtime: (id) => kernels.status(id),
             mock: process.env.KITS_KERNEL === 'mock',
           }),
-        restart: (id) => kernels.requestRestart(id),
+        // 类型只管编译期，渲染进程传来的值要在这里挡住：它会拼进目录和可执行文件路径
+        restart: (id) => kernels.requestRestart(kernelName(id)),
         openLogs: async (id) => {
-          const dir = kernelLogsDir(platform.userDataDir, id)
+          const dir = kernelLogsDir(platform.userDataDir, kernelName(id))
           mkdirSync(dir, { recursive: true })
           await platform.openPath(dir)
         },
