@@ -11,6 +11,8 @@ describe('suggestGatewayId', () => {
   it('adds a suffix when the id is taken and falls back for bad urls', () => {
     expect(suggestGatewayId('https://api.corp.example/v1', ['corp', 'corp-2'])).toBe('corp-3')
     expect(suggestGatewayId('nope', [])).toBe('gateway')
+    // corp_2 已经占了 KITS_GW_CORP_2_KEY，不能再给 corp-2
+    expect(suggestGatewayId('https://api.corp.example/v1', ['corp', 'corp_2'])).toBe('corp-3')
     expect(suggestGatewayId('http://10.0.0.8:8000/v1', [])).toBe('10-0-0-8')
   })
 })

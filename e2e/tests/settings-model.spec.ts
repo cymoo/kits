@@ -95,3 +95,23 @@ test('keeps the onboarding form when the gateway lists no models', async () => {
     await gw.close()
   }
 })
+
+test('keeps the add form in settings when the gateway lists no models', async () => {
+  const gw = await startFakeGateway([])
+  const { page, close } = await launchApp()
+  try {
+    await page.goto(`${page.url().split('#')[0]}#/settings/model`)
+    await page.getByRole('button', { name: '添加网关' }).click()
+    await page.getByLabel('地址').fill(gw.baseUrl)
+    await page.getByLabel('API Key').fill(gw.key)
+    await page.getByRole('button', { name: '测试并添加' }).click()
+    await expect(page.getByRole('status')).toContainText('没有列出任何模型')
+    await expect(page.getByRole('button', { name: '测试并添加' })).toBeVisible()
+    expect(
+      await page.evaluate(() => window.kits.settings.get().then((s) => s.gateways.length)),
+    ).toBe(0)
+  } finally {
+    await close()
+    await gw.close()
+  }
+})

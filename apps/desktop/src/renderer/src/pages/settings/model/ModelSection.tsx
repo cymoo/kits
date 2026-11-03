@@ -35,6 +35,11 @@ function AddGatewayForm({ onDone }: { onDone(): void }) {
   const [result, setResult] = useState<GatewayTestResult>()
   const submit = async () => {
     const r = await test.mutateAsync({ baseUrl, ...(apiKey ? { apiKey } : {}) })
+    // 连上了但没有模型：不保存，没有模型的启用网关会让整份内核配置生成失败
+    if (r.ok && r.models.length === 0) {
+      setResult({ ok: false, latencyMs: r.latencyMs, error: t('onboarding.noModels') })
+      return
+    }
     setResult(r)
     if (!r.ok) return
     await add({ name, baseUrl, apiKey, models: r.models })
@@ -96,6 +101,11 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
   const { patch, setKey, test, refreshModels, remove, setDefault, defaultModel } = useGateways()
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState(gateway.baseUrl)
+  // 用户没动过地址框时，跟着保存的地址走（settings.json 被手改、别处改了地址）
+  const [urlEdited, setUrlEdited] = useState(false)
+  useEffect(() => {
+    if (!urlEdited) setUrl(gateway.baseUrl)
+  }, [gateway.baseUrl, urlEdited])
   const [key, setKeyInput] = useState('')
   const [result, setResult] = useState<GatewayTestResult>()
   const hasKey = useQuery({
@@ -116,6 +126,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
       void hasKey.refetch()
     }
     if (url !== gateway.baseUrl) await patch(gateway.id, { baseUrl: url })
+    setUrlEdited(false)
     await runTest(url)
   }
   const statusDot = !gateway.enabled ? 'bg-[#D4D4D8]' : result?.ok === false ? 'bg-danger' : 'bg-ok'
@@ -165,7 +176,10 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                 mono
                 type="url"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => {
+                  setUrl(e.target.value)
+                  setUrlEdited(true)
+                }}
                 className="h-8"
               />
             </Field>
@@ -207,8 +221,9 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
               <Button
                 variant="link"
                 onClick={async () => {
-                  const r = await runTest()
-                  if (r.ok) await refreshModels(gateway.id, r.models)
+                  const sent = gateway.baseUrl
+                  const r = await runTest(sent)
+                  if (r.ok) await refreshModels(gateway.id, r.models, sent)
                 }}
               >
                 {t('model.refresh')}
@@ -256,6 +271,8 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                       aria-label={t('model.contextOf', { model: m.id })}
                       defaultValue={Math.round(m.contextWindow / 1000)}
                       onBlur={(e) => {
+                        // 只在真的改过数字时保存：131072 显示成 131，光看一眼不能把它改成 131000
+                        if (e.target.value === e.target.defaultValue) return
                         const k = Number(e.target.value)
                         if (k > 0 && k * 1000 !== m.contextWindow) {
                           void patch(gateway.id, {

@@ -58,9 +58,11 @@ export function useGateways() {
     async setKey(id: string, apiKey: string) {
       await kits.secrets.set({ key: gatewaySecretKey(id), value: apiKey })
     },
-    // 网关在刷新期间被删掉了就什么都不做
-    refreshModels(id: string, listed: string[]) {
-      return patchOne(id, (g) => ({ ...g, models: mergeModels(g.models, listed) }))
+    // 刷新结果只对发请求时的那个地址有效：期间网关被删、地址被改了就丢掉
+    refreshModels(id: string, listed: string[], baseUrl: string) {
+      return patchOne(id, (g) =>
+        g.baseUrl === baseUrl ? { ...g, models: mergeModels(g.models, listed) } : g,
+      )
     },
     async remove(id: string) {
       await kits.secrets.remove(gatewaySecretKey(id))
