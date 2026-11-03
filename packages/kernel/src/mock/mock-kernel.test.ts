@@ -247,6 +247,32 @@ describe('MockKernel', () => {
     expect(outputs).toBe(0)
   })
 
+  it('ignores a late reply to a stopped turn so the next turn still waits', async () => {
+    const { kernel, session } = await start({ scenario: 'permission' })
+    let first = ''
+    const stopped = await collect(kernel, session, async (e) => {
+      if (e.type !== 'permission-request') return
+      first = e.requestId
+      await kernel.abort(session)
+    })
+    expect(stopped.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+    // 上一轮的回复迟到了
+    await kernel.respondPermission(session, first, 'once')
+    let second = ''
+    const seen: KernelEvent[] = []
+    const next = await collect(kernel, session, async (e) => {
+      seen.push(e)
+      if (e.type !== 'permission-request') return
+      second = e.requestId
+      // 迟到的回复没有放行这一轮：它还停在确认上，回复了才继续
+      await new Promise((r) => setTimeout(r, 20))
+      expect(seen.some((x) => x.type === 'tool-end')).toBe(false)
+      await kernel.respondPermission(session, e.requestId, 'reject')
+    })
+    expect(second).not.toBe(first)
+    expect(next.find((e) => e.type === 'tool-end')).toMatchObject({ error: '用户拒绝了这条命令' })
+  })
+
   it('ends every running turn when the simulated process crashes and notifies the exit once', async () => {
     const kernel = new MockKernel({
       speed: 0,
@@ -280,7 +306,7 @@ describe('MockKernel', () => {
         if (e.type !== 'permission-request') return
         asked.a = true
         while (!asked.b) await new Promise((r) => setTimeout(r, 5))
-        await kernel.respondPermission(a, 'per_1', 'once')
+        await kernel.respondPermission(a, e.requestId, 'once')
       }),
       collect(kernel, b, (e) => {
         if (e.type === 'permission-request') asked.b = true
