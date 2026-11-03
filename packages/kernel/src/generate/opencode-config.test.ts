@@ -130,6 +130,8 @@ describe('generateOpencodeConfig', () => {
       headers: { Authorization: 'Bearer {env:KITS_TOOLS_TOKEN}' },
       enabled: true,
       oauth: false,
+      // 阻塞提问要等人回答，内核默认 60 s 就掐断
+      timeout: 24 * 60 * 60 * 1000,
     })
     expect(result.files.env.KITS_TOOLS_TOKEN).toBe('tok')
   })
@@ -187,6 +189,16 @@ describe('generateOpencodeConfig', () => {
     expect(c.agent['kits-r'].permission).toMatchObject({ bash: 'deny', edit: 'deny' })
     expect(c.agent['kits-r'].permission.read).toBeUndefined()
     expect(c.permission.bash).toMatchObject({ '*': 'ask', 'git status': 'allow' })
+  })
+
+  it('appends the output schema to the prompt of agents with an output format', () => {
+    const c = config({
+      agents: [agent({ name: 'cases', prompt: '写用例', outputSchema: { type: 'object' } })],
+    })
+    const prompt: string = c.agent['kits-cases'].prompt
+    expect(prompt.startsWith('写用例\n\n## 输出格式')).toBe(true)
+    expect(prompt).toContain('kits_submit_output')
+    expect(prompt).toContain('"type": "object"')
   })
 
   it('leaves the prompt out when empty so the kernel prompt is used', () => {
