@@ -56,7 +56,11 @@ describe.skipIf(!binary)('opencodeDialect.spawn', () => {
       path.join(dataDir, '.opencode', 'opencode.json'),
       JSON.stringify({ username: 'kits-fixture' }),
     )
-    const kernel = await opencodeDialect.spawn({ ...cfg, configDir: path.join(root, 'config'), dataDir })
+    const kernel = await opencodeDialect.spawn({
+      ...cfg,
+      configDir: path.join(root, 'config'),
+      dataDir,
+    })
     try {
       const anonymous = await fetch(`${kernel.baseUrl}/global/health`)
       expect(anonymous.status).toBe(401)
