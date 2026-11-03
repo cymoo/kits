@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>产出 · 编辑与导出</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F2}
+a{color:#3659E3}a:hover{color:#2744B8}
+.k-ghost:hover{background:#EFEEEA}
+.k-nav:hover{background:#E9E8E3}
+.k-row:hover{background:#F4F3F0}
+.k-opt:hover{background:#F4F3F0}
+.k-in:focus{outline:none;border-color:#3659E3;box-shadow:0 0 0 3px rgba(54,89,227,.15)}
+</style>
+</helmet>
+<div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 13px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
+
+  <nav aria-label="侧栏" style="flex: 0 0 56px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px 8px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F1F0EC">
+    <span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 6px; background: #1B1B1F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; margin: 5px 0 8px">k</span>
+    <a href="Home.dc.html" aria-label="新会话" class="k-nav" style="width: 32px; height: 32px; border-radius: 8px; color: #1B1B1F; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg></a>
+    <a href="History-Search.dc.html" aria-label="搜索" class="k-nav" style="width: 32px; height: 32px; border-radius: 8px; color: #1B1B1F; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg></a>
+    <span style="flex: 1"></span>
+    <button type="button" aria-label="展开侧栏" class="k-nav" style="width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: #6E6E76; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M6 3v10"></path></svg></button>
+    <a href="Settings-Model.dc.html" aria-label="设置" class="k-nav" style="width: 32px; height: 32px; border-radius: 8px; color: #1B1B1F; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4.5h6.5M13 4.5h1M2 11.5h1M7.5 11.5H14"></path><circle cx="10.7" cy="4.5" r="1.7"></circle><circle cx="5.3" cy="11.5" r="1.7"></circle></svg></a>  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #FFFFFF">
+    <header style="display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px 0 20px; box-sizing: border-box; border-bottom: 1px solid #ECEBE7; flex: 0 0 auto">
+      <h1 style="margin: 0; font-size: 14px; font-weight: 600">接口文档和实现对不上的地方</h1>
+      <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: #15613A; background: #E3F3E9; border-radius: 10px; padding: 1px 9px"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg>已完成 · 1 轮</span>
+      <span style="flex: 1"></span>
+      <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #6E6E76"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 13V4.2l2.6 2.2h4.8L13 4.2V13z"></path></svg>api-reviewer</span>
+      <span style="font-size: 12px; color: #6E6E76; font-family: 'JetBrains Mono', monospace">member-svc · coder-main</span>
+    </header>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+      <section aria-label="对话（已收窄）" style="flex: 0 0 400px; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 20px 20px 0; box-sizing: border-box; border-right: 1px solid #ECEBE7; background: #FBFBF9">
+        <div style="display: flex; flex-direction: column; gap: 14px; flex: 1; font-size: 13px">
+          <div style="align-self: flex-end; max-width: 90%; display: flex; flex-direction: column; gap: 6px; align-items: flex-end">
+            <div style="background: #F0EFEB; border-radius: 12px 12px 4px 12px; padding: 8px 12px; line-height: 1.6">对照 docs/api/points.md 和 src/points/api.py，把文档和实现对不上的地方列出来。</div>
+          </div>
+          <div style="border: 1px solid #ECEBE7; border-radius: 10px; background: #FFFFFF; overflow: hidden">
+            <div style="display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 10px; color: #4A4A52; font-size: 12px"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#1E7F43" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg><span style="flex: 1"><span style="font-weight: 500; color: #1B1B1F">第 1 轮 · 工作过程</span> · 6 步 · 1:48</span></div>
+            <div style="border-top: 1px solid #ECEBE7; background: #FCFCFB; display: flex; flex-direction: column; padding: 4px 0 6px; font-size: 12px">
+              <div style="display: flex; align-items: baseline; gap: 8px; padding: 3px 10px 3px 30px"><span style="color: #6E6E76; flex: 0 0 52px">读取文件</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">docs/api/points.md</span></div>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding: 3px 10px 3px 30px"><span style="color: #6E6E76; flex: 0 0 52px">读取文件</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">src/points/api.py</span></div>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding: 3px 10px 3px 30px"><span style="color: #6E6E76; flex: 0 0 52px">读取文件</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">src/points/schemas.py</span></div>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding: 3px 10px 3px 30px"><span style="color: #6E6E76; flex: 0 0 52px">提交产出</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">submit_output · 7 条</span><span style="color: #B42318">格式不符</span></div>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding: 0 10px 3px 90px; font-size: 11.5px; color: #8A8A92">第 3 条缺 severity，已把错误返回给模型</div>
+              <div style="display: flex; align-items: baseline; gap: 8px; padding: 3px 10px 3px 30px"><span style="color: #6E6E76; flex: 0 0 52px">提交产出</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">submit_output · 7 条</span><span style="color: #1E7F43">通过校验</span></div>
+            </div>
+          </div>
+          <p style="margin: 0; line-height: 1.65">找到 7 处不一致，2 处严重（接口行为和文档相反）、3 处中等、2 处轻微。已按 api-reviewer 的输出格式提交，在右侧逐条看。严重的两处建议先改代码而不是改文档。</p>
+          <div style="flex: 1"></div>
+        </div>
+        <div style="position: sticky; bottom: 0; padding: 12px 0 16px; background: linear-gradient(to bottom, rgba(251,251,249,0), #FBFBF9 14px)">
+          <div style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 12px; background: #FFFFFF">
+            <label for="s-input" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">给 Agent 发消息</label>
+            <input id="s-input" type="text" placeholder="比如：第 2 条再查一下" style="flex: 1; border: 0; outline: none; font: inherit; color: #1B1B1F; background: transparent">
+            <button type="button" aria-label="发送" disabled style="width: 26px; height: 26px; border: 0; border-radius: 7px; background: #1B1B1F; color: #FFFFFF; opacity: .25; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M4 7l4-4 4 4"></path></svg></button>
+          </div>
+        </div>
+      </section>
+
+      <section aria-label="产出" style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #FFFFFF; position: relative">
+        <div style="display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 12px 0 16px; border-bottom: 1px solid #ECEBE7; flex: 0 0 auto">
+          <span style="font-weight: 600">产出</span>
+          <span style="font-size: 12px; color: #6E6E76">api-reviewer · 格式 <span style="font-family: 'JetBrains Mono', monospace">api-findings</span> · {{counts}}</span>
+          <span style="flex: 1"></span>
+          <button type="button" class="k-ghost" style="height: 28px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">新增一条</button>
+          <button type="button" class="k-ghost" style="height: 28px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">对比 AI 原稿</button>
+          <button type="button" onClick="{{toggleExport}}" aria-haspopup="menu" aria-expanded="{{exportOpen}}" style="height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: #1B1B1F; font: inherit; font-size: 12px; font-weight: 500; color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 6px">导出<svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+        </div>
+
+        <sc-if value="{{exportOpen}}" hint-placeholder-val="{{true}}">
+          <div role="menu" style="position: absolute; top: 46px; right: 12px; z-index: 5; width: 300px; background: #FFFFFF; border: 1px solid #E5E4DF; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,.04), 0 16px 40px rgba(0,0,0,.12); padding: 6px; display: flex; flex-direction: column; gap: 1px">
+            <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 6px 10px 4px">导出 6 条（已删除的 1 条不含）</span>
+            <button type="button" role="menuitem" class="k-opt" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="flex: 1">Excel</span><span style="font-size: 11.5px; color: #8A8A92">一行一条，字段做列</span></button>
+            <button type="button" role="menuitem" class="k-opt" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="flex: 1">Markdown</span><span style="font-size: 11.5px; color: #8A8A92">按严重度分节</span></button>
+            <button type="button" role="menuitem" class="k-opt" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="flex: 1">JSON</span><span style="font-size: 11.5px; color: #8A8A92">原始结构，给脚本用</span></button>
+            <button type="button" role="menuitem" class="k-opt" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="flex: 1">复制为表格</span><span style="font-size: 11.5px; color: #8A8A92">粘到飞书、Wiki</span></button>
+            <div style="height: 1px; background: #ECEBE7; margin: 5px 2px"></div>
+            <button type="button" role="menuitem" class="k-opt" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="flex: 1">推送到缺陷平台</span><span style="font-size: 11.5px; color: #8A8A92">MCP · 会先确认</span></button>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px 4px; font-size: 11.5px; color: #8A8A92">导出的是人工修改后的版本；AI 原稿留在本机，用于评测。</div>
+          </div>
+        </sc-if>
+
+        <div style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-bottom: 1px solid #F0EFEB; font-size: 12px; flex: 0 0 auto">
+          <sc-for list="{{filters}}" as="ft" hint-placeholder-count="4">
+            <button type="button" onClick="{{ft.pick}}" aria-pressed="{{ft.on}}" style="{{ft.style}}">{{ft.label}}</button>
+          </sc-for>
+          <span style="flex: 1"></span>
+          <span style="color: #8A8A92">采纳：保留 {{kept}} · 修改 {{edited}} · 删除 {{removed}}</span>
+        </div>
+
+        <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 10px 16px 24px; display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{items}}" as="it" hint-placeholder-count="7">
+            <div style="{{it.cardStyle}}">
+              <button type="button" onClick="{{it.toggle}}" aria-expanded="{{it.open}}" class="k-row" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 6px 12px; border: 0; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left">
+                <span style="{{it.sevStyle}}">{{it.sev}}</span>
+                <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+                  <span style="{{it.titleStyle}}">{{it.title}}</span>
+                  <span style="font-size: 11.5px; color: #8A8A92; font-family: 'JetBrains Mono', monospace">{{it.where}}</span>
+                </span>
+                <span style="{{it.stateStyle}}">{{it.state}}</span>
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A9AA1" stroke-width="1.5" stroke-linecap="round" style="{{it.chev}}"><path d="m4 6 4 4 4-4"></path></svg>
+              </button>
+              <sc-if value="{{it.open}}" hint-placeholder-val="{{false}}">
+                <div style="display: flex; flex-direction: column; gap: 10px; padding: 4px 12px 12px 12px; border-top: 1px solid #F0EFEB">
+                  <div style="display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 8px 12px; font-size: 12.5px; line-height: 1.6; padding-top: 8px">
+                    <span style="color: #8A8A92">文档说</span><span>{{it.doc}}</span>
+                    <span style="color: #8A8A92">代码做</span><span>{{it.code}}</span>
+                    <span style="color: #8A8A92">建议</span>
+                    <label style="display: flex; flex-direction: column"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">建议</span><textarea class="k-in" rows="2" style="padding: 6px 8px; border: 1px solid #E5E4DF; border-radius: 7px; font: inherit; font-size: 12.5px; line-height: 1.6; color: #1B1B1F; background: #FFFFFF; resize: vertical">{{it.advice}}</textarea></label>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 6px">
+                    <sc-if value="{{it.edited}}" hint-placeholder-val="{{false}}"><span style="font-size: 11.5px; color: #8A8A92">改过“建议”字段 · </span><button type="button" class="k-ghost" style="height: 24px; padding: 0 6px; border: 0; border-radius: 5px; background: transparent; font: inherit; font-size: 11.5px; color: #3659E3; cursor: pointer">看 AI 原稿</button></sc-if>
+                    <span style="flex: 1"></span>
+                    <sc-if value="{{it.removed}}" hint-placeholder-val="{{false}}"><button type="button" onClick="{{it.restore}}" class="k-ghost" style="height: 28px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">恢复</button></sc-if>
+                    <sc-if value="{{it.notRemoved}}" hint-placeholder-val="{{true}}"><button type="button" onClick="{{it.remove}}" class="k-ghost" style="height: 28px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; color: #9A2C1F; cursor: pointer">删除这条</button></sc-if>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { open: 1, filter: 'all', exportOpen: true, removed: [6], edited: [2] };
+  }
+  renderVals() {
+    const s = this.state;
+    const sevs = { high: ['严重', 'color: #7A1E12; background: #F8D4CD'], mid: ['中等', 'color: #6B4600; background: #FBF0D9'], low: ['轻微', 'color: #4A4A52; background: #ECEBE7'] };
+    const defs = [
+      [1, 'high', '兑换失败时文档说退还积分，代码没有退', 'POST /redeem · api.py:88', '兑换失败（优惠券已领完）时积分原路退回。', 'redeem() 在 CouponSoldOut 分支直接 raise，没有调用 refund_points()，积分已扣除。', '改代码：在 CouponSoldOut 分支补 refund_points(user_id, cost)，并加测试。'],
+      [2, 'high', '查询积分的 user_id 文档说可选，代码必填', 'GET /balance · api.py:31', 'user_id 可选，不传时返回当前登录用户。', 'schemas.BalanceQuery 里 user_id 是必填字段，不传返回 422。', '改代码：user_id 改为 Optional，缺省取 current_user.id。调用方已经依赖这个行为。'],
+      [3, 'mid', '冻结接口的错误码文档和实现不一致', 'POST /freeze · api.py:142', '积分不足返回 400 INSUFFICIENT_POINTS。', '返回 409，错误码字符串是 NOT_ENOUGH。', '改文档，409 更合适；错误码字符串建议统一成 INSUFFICIENT_POINTS。'],
+      [4, 'mid', '流水接口分页参数名不一致', 'GET /ledger · api.py:170', 'page / page_size。', 'offset / limit。', '改文档。'],
+      [5, 'mid', '解冻接口文档缺少 reason 字段', 'POST /unfreeze · schemas.py:60', '只有 freeze_id。', '还接受 reason，且会写入流水备注。', '改文档，补上 reason。'],
+      [6, 'low', '退款接口文档的示例时间格式和实际不同', 'POST /refund · 文档示例', '示例是 2026-11-02 22:00:00。', '实际返回 ISO 8601 带时区。', '改文档示例。'],
+      [7, 'low', '文档里的“积分有效期 12 个月”代码里是 365 天', 'rules.yaml:4', '12 个月。', 'expire_days: 365。', '改文档，写成 365 天，避免闰年歧义。']
+    ];
+    const items = defs.filter(([id, sev]) => s.filter === 'all' || sev === s.filter).map(([id, sev, title, where, doc, code, advice]) => {
+      const open = s.open === id;
+      const removed = s.removed.includes(id);
+      const edited = s.edited.includes(id);
+      const state = removed ? '已删除' : edited ? '已修改' : '保留';
+      return {
+        id, title, where, doc, code, advice, open, removed, notRemoved: !removed, edited,
+        sev: sevs[sev][0], sevStyle: 'flex: 0 0 auto; font-size: 11px; font-weight: 600; border-radius: 4px; padding: 1px 6px; ' + sevs[sev][1],
+        toggle: () => this.setState({ open: open ? null : id }),
+        remove: () => this.setState({ removed: s.removed.concat(id) }),
+        restore: () => this.setState({ removed: s.removed.filter((x) => x !== id) }),
+        cardStyle: 'border: 1px solid ' + (open ? '#D9D8D2' : '#ECEBE7') + '; border-radius: 10px; background: #FFFFFF; overflow: hidden; ' + (removed ? 'opacity: .55' : ''),
+        titleStyle: 'font-weight: 500; ' + (removed ? 'text-decoration: line-through; color: #6E6E76' : ''),
+        state, stateStyle: 'flex: 0 0 auto; font-size: 11.5px; ' + (removed ? 'color: #9A2C1F' : edited ? 'color: #2744B8' : 'color: #8A8A92'),
+        chev: open ? 'transform: rotate(180deg)' : ''
+      };
+    });
+    const filters = [['all', '全部 7'], ['high', '严重 2'], ['mid', '中等 3'], ['low', '轻微 2']].map(([k, label]) => {
+      const on = s.filter === k;
+      return { label, on, pick: () => this.setState({ filter: k }), style: 'height: 26px; padding: 0 10px; border: 1px solid ' + (on ? '#1B1B1F' : '#E5E4DF') + '; border-radius: 13px; background: ' + (on ? '#1B1B1F' : '#FFFFFF') + '; font: inherit; font-size: 12px; color: ' + (on ? '#FFFFFF' : '#1B1B1F') + '; cursor: pointer' };
+    });
+    const removedN = s.removed.length;
+    const editedN = s.edited.filter((x) => !s.removed.includes(x)).length;
+    return {
+      items, filters,
+      counts: (7 - removedN) + ' 条',
+      kept: String(7 - removedN - editedN), edited: String(editedN), removed: String(removedN),
+      exportOpen: s.exportOpen, toggleExport: () => this.setState({ exportOpen: !s.exportOpen })
+    };
+  }
+}
+</script>
+</body>
+</html>

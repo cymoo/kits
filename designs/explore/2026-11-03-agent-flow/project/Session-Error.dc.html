@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>会话 · 重试与出错</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F2}
+a{color:#3659E3}a:hover{color:#2744B8}
+.k-ghost:hover{background:#EFEEEA}
+.k-nav:hover{background:#E9E8E3}
+.k-chip:hover{background:#EFEEEA;color:#1B1B1F}
+.k-row:hover{background:#F4F3F0}
+@keyframes k-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes k-spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 13px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
+
+  <nav aria-label="侧栏" style="flex: 0 0 232px; display: flex; flex-direction: column; gap: 6px; padding: 12px 8px 8px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F1F0EC">
+    <div style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px">
+      <span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; background: #1B1B1F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px">k</span>
+      <span style="font-weight: 650; font-size: 14px; letter-spacing: -0.01em">kits</span>
+      <span style="flex: 1"></span>
+      <button type="button" aria-label="收起侧栏" class="k-ghost" style="width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: #6E6E76; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M6 3v10"></path></svg></button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1px">
+      <a href="Home.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg><span style="flex: 1">新会话</span><span style="font-size: 11px; color: #9A9AA1">⌘N</span></a>
+      <a href="History-Search.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg><span style="flex: 1">搜索</span><span style="font-size: 11px; color: #9A9AA1">⌘K</span></a>
+    </div>
+    <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; margin-top: 6px">
+      <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 8px 8px 4px">今天</span>
+      <a href="Session-Error.dc.html" aria-current="page" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; background: #E9E8E3; color: #1B1B1F; text-decoration: none; font-weight: 500"><span aria-hidden="true" style="{{sideDot}}"></span><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">生成积分模块接口文档</span><span style="{{sideTagStyle}}">{{sideTag}}</span></a>
+      <a href="Session-Streaming.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; background: #3659E3; flex: 0 0 auto; animation: k-pulse 1.4s ease-in-out infinite"></span><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">给兑换接口加幂等校验</span></a>
+      <a href="Session-Done.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">梳理会员等级规则</span></a>
+      <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 10px 8px 4px">昨天</span>
+      <a href="Session-Done.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">优惠券过期任务为什么没跑</span></a>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1px; padding-top: 6px; border-top: 1px solid #E5E4DF">
+      <a href="Settings-Model.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4.5h6.5M13 4.5h1M2 11.5h1M7.5 11.5H14"></path><circle cx="10.7" cy="4.5" r="1.7"></circle><circle cx="5.3" cy="11.5" r="1.7"></circle></svg><span style="flex: 1">设置</span><span style="font-size: 11px; color: #9A9AA1">⌘,</span></a>    </div>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #FFFFFF">
+    <header style="display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px 0 20px; box-sizing: border-box; border-bottom: 1px solid #ECEBE7; flex: 0 0 auto">
+      <h1 style="margin: 0; font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">生成积分模块接口文档</h1>
+      <span style="{{pillStyle}}"><span aria-hidden="true" style="{{pillDot}}"></span>{{pillText}}</span>
+      <span style="flex: 1"></span>
+      <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #6E6E76"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg><span style="font-family: 'JetBrains Mono', monospace">member-svc</span></span>
+      <span style="font-size: 12px; color: #6E6E76; font-family: 'JetBrains Mono', monospace">CodeAgent · coder-main</span>
+      <sc-if value="{{isRetry}}" hint-placeholder-val="{{true}}"><button type="button" class="k-ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"></rect></svg>停止</button></sc-if>
+      <button type="button" aria-label="收起工作区面板" class="k-ghost" style="width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: #6E6E76; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M10 3v10"></path></svg></button>
+    </header>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+      <section aria-label="对话" style="flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 24px 28px 0; box-sizing: border-box">
+        <div style="width: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; flex: 1">
+
+          <div style="align-self: flex-end; max-width: 84%; display: flex; flex-direction: column; gap: 6px; align-items: flex-end">
+            <div style="background: #F4F3F0; border-radius: 14px 14px 4px 14px; padding: 10px 14px; font-size: 14px; line-height: 1.6">给 src/points 下所有对外接口写一份接口文档，Markdown，放到 docs/api/points.md。</div>
+          </div>
+
+          <div style="border: 1px solid #D5DCF7; border-radius: 12px; overflow: hidden">
+            <div style="display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 12px; color: #4A4A52">
+              <sc-if value="{{isRetry}}" hint-placeholder-val="{{true}}"><span aria-hidden="true" style="width: 12px; height: 12px; border: 2px solid #D5DCF7; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box; margin: 0 1px"></span></sc-if>
+              <sc-if value="{{isCrash}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#B42318" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5M8 11v.1"></path></svg></sc-if>
+              <span style="flex: 1"><span style="font-weight: 500; color: #1B1B1F">第 1 轮 · 工作过程</span> · {{turnMeta}}</span>
+            </div>
+            <div style="border-top: 1px solid #ECEBE7; background: #FCFCFB; display: flex; flex-direction: column; padding: 4px 0 8px">
+              <div style="display: flex; align-items: baseline; gap: 10px; padding: 4px 14px 4px 34px; font-size: 12.5px"><span style="color: #6E6E76; flex: 0 0 56px">搜索</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; flex: 1">glob src/points/**/*.py</span><span style="font-size: 12px; color: #9A9AA1">14 个文件</span></div>
+              <div style="display: flex; align-items: baseline; gap: 10px; padding: 4px 14px 4px 34px; font-size: 12.5px"><span style="color: #6E6E76; flex: 0 0 56px">读取文件</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; flex: 1">src/points/api.py</span><span style="font-size: 12px; color: #9A9AA1">318 行</span></div>
+              <div style="display: flex; align-items: baseline; gap: 10px; padding: 4px 14px 4px 34px; font-size: 12.5px"><span style="color: #6E6E76; flex: 0 0 56px">读取文件</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; flex: 1">src/points/schemas.py</span><span style="font-size: 12px; color: #9A9AA1">96 行</span></div>
+              <div style="display: flex; align-items: baseline; gap: 10px; padding: 4px 14px 4px 34px; font-size: 12.5px"><span style="color: #6E6E76; flex: 0 0 56px">新建文件</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; flex: 1">docs/api/points.md</span><span style="font-size: 12px; color: #1E7F43">+212</span></div>
+            </div>
+          </div>
+
+          <p style="margin: 0; font-size: 14px; line-height: 1.7">文档已经写了前 6 个接口（查询积分、兑换、退款、流水、冻结、解冻），正在补剩下 3 个的请求示例和错误码</p>
+
+          <sc-if value="{{isRetry}}" hint-placeholder-val="{{true}}">
+            <div style="border: 1px solid #E9B949; background: #FFFBF0; border-radius: 12px; overflow: hidden">
+              <button type="button" onClick="{{toggleRetry}}" aria-expanded="{{retryOpen}}" class="k-row" style="width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 8px 14px; border: 0; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left">
+                <span aria-hidden="true" style="width: 12px; height: 12px; border: 2px solid #F3D9A4; border-top-color: #B4650A; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span>
+                <span style="flex: 1"><span style="font-weight: 600">模型网关断开，正在重试</span><span style="color: #6B4600"> · 第 2 次，共 5 次 · 12 秒后重试</span></span>
+                <span style="font-size: 12px; color: #8A5A00">已写的内容不会丢</span>
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A9AA1" stroke-width="1.5" stroke-linecap="round" style="{{retryChev}}"><path d="m4 6 4 4 4-4"></path></svg>
+              </button>
+              <sc-if value="{{retryOpen}}" hint-placeholder-val="{{true}}">
+                <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 14px 12px 36px; font-size: 12.5px; color: #4A4A52">
+                  <div style="display: flex; gap: 10px"><span style="color: #8A8A92; flex: 0 0 48px">原因</span><span>网关约 150 秒没有输出就会断开连接（<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">stream closed before done</span>），这次是模型长时间没吐字。</span></div>
+                  <div style="display: flex; gap: 10px"><span style="color: #8A8A92; flex: 0 0 48px">记录</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; white-space: pre-line">14:02:11 第 1 次 · 等 5 秒 · 失败
+14:02:48 第 2 次 · 等 12 秒 · 进行中</span></div>
+                  <div style="display: flex; gap: 8px; padding-top: 2px">
+                    <button type="button" class="k-ghost" style="height: 28px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">立即重试</button>
+                    <button type="button" onClick="{{toCrash}}" class="k-ghost" style="height: 28px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">不等了，停在这里</button>
+                    <a href="Settings-Model.dc.html" style="display: inline-flex; align-items: center; height: 28px; padding: 0 6px; font-size: 12px; text-decoration: none; margin-left: auto">换个模型试试</a>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{isCrash}}" hint-placeholder-val="{{false}}">
+            <div style="border: 1px solid #F2B8AE; background: #FEF4F2; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+              <div style="display: flex; align-items: center; gap: 8px">
+                <span style="width: 22px; height: 22px; border-radius: 6px; background: #F8D4CD; color: #7A1E12; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5M8 11v.1"></path></svg></span>
+                <span style="font-weight: 600">这一轮没有完成：内核进程退出了</span>
+                <span style="flex: 1"></span>
+                <span style="font-size: 12px; color: #9A2C1F">14:05:30 · 重试 5 次都没连上后退出</span>
+              </div>
+              <div style="font-size: 13px; line-height: 1.6; color: #4A4A52">已经写进 <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">docs/api/points.md</span> 的 212 行保留在工作目录里，可以在右侧“改动”里查看。点“继续”会从中断的地方接着做，上下文会用消息列表补齐。</div>
+              <pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.6; background: #FFFFFF; border: 1px solid #F2B8AE; border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; color: #4A4A52; max-height: 96px; overflow: auto">codeagent serve exited with code 1
+Error: upstream request failed after 5 retries: ECONNRESET
+    at Gateway.stream (gateway.ts:142)</pre>
+              <div style="display: flex; gap: 8px; align-items: center">
+                <button type="button" onClick="{{toRetry}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: #1B1B1F; font: inherit; font-weight: 500; color: #FFFFFF; cursor: pointer">继续这一轮</button>
+                <button type="button" class="k-ghost" style="height: 32px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF; font: inherit; color: #1B1B1F; cursor: pointer">用 OpenCode 继续</button>
+                <span style="flex: 1"></span>
+                <button type="button" class="k-ghost" style="height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #6E6E76; cursor: pointer">复制诊断信息</button>
+                <button type="button" class="k-ghost" style="height: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #6E6E76; cursor: pointer">打开内核日志</button>
+              </div>
+            </div>
+          </sc-if>
+          <div style="flex: 1; min-height: 24px"></div>
+        </div>
+
+        <div style="width: 100%; max-width: 760px; margin: 0 auto; position: sticky; bottom: 0; padding: 12px 0 16px; background: linear-gradient(to bottom, rgba(255,255,255,0), #FFFFFF 14px)">
+          <div style="display: flex; flex-direction: column; border: 1px solid #E5E4DF; border-radius: 14px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.03), 0 6px 20px rgba(0,0,0,.05)">
+            <label for="s-input" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">给 Agent 发消息</label>
+            <textarea id="s-input" rows="1" placeholder="{{placeholder}}" style="display: block; width: 100%; box-sizing: border-box; border: 0; resize: none; padding: 12px 14px 4px; font: inherit; font-size: 14px; line-height: 1.6; color: #1B1B1F; background: transparent; outline: none"></textarea>
+            <div style="display: flex; align-items: center; gap: 2px; padding: 4px 8px 8px">
+              <button type="button" aria-label="添加文件或引用" class="k-chip" style="width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: #6E6E76; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg></button>
+              <button type="button" aria-haspopup="menu" class="k-chip" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 12px; color: #6E6E76; cursor: pointer"><span style="font-family: 'JetBrains Mono', monospace">coder-main</span><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+              <span style="flex: 1"></span>
+              <button type="button" aria-label="发送" disabled style="width: 30px; height: 30px; border: 0; border-radius: 9px; background: #1B1B1F; color: #FFFFFF; opacity: .25; cursor: default; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M4 7l4-4 4 4"></path></svg></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside aria-label="工作区面板" style="flex: 0 0 380px; min-width: 0; border-left: 1px solid #ECEBE7; background: #FBFBF9; display: flex; flex-direction: column">
+        <div role="tablist" aria-label="面板" style="display: flex; gap: 2px; padding: 8px 10px 0; border-bottom: 1px solid #ECEBE7; flex: 0 0 auto">
+          <button type="button" role="tab" aria-selected="true" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 0; background: transparent; font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -1px; color: #1B1B1F; font-weight: 600; border-bottom: 2px solid #1B1B1F">改动<span style="font-size: 11px; font-weight: 500; color: #1B1B1F; background: #ECEBE7; border-radius: 8px; padding: 0 6px">1</span></button>
+          <button type="button" role="tab" aria-selected="false" style="height: 34px; padding: 0 10px; border: 0; background: transparent; font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -1px; color: #6E6E76; border-bottom: 2px solid transparent">产出</button>
+          <button type="button" role="tab" aria-selected="false" style="height: 34px; padding: 0 10px; border: 0; background: transparent; font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -1px; color: #6E6E76; border-bottom: 2px solid transparent">终端</button>
+          <button type="button" role="tab" aria-selected="false" style="height: 34px; padding: 0 10px; border: 0; background: transparent; font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -1px; color: #6E6E76; border-bottom: 2px solid transparent">上下文</button>
+        </div>
+        <div style="flex: 1; min-height: 0; display: flex; flex-direction: column">
+          <div style="display: flex; flex-direction: column; padding: 8px 8px 6px; gap: 2px; border-bottom: 1px solid #ECEBE7">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 6px 2px; font-size: 11.5px; color: #8A8A92; font-weight: 500"><span style="flex: 1">第 1 轮 · {{roundMeta}}</span></div>
+            <div style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 6px; border-radius: 7px; background: #ECEBE7"><span style="font-size: 10.5px; font-weight: 600; border-radius: 4px; padding: 0 5px; color: #1E7F43; background: #E3F3E9">A</span><span style="flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px">docs/api/points.md</span><span style="font-size: 11.5px; color: #1E7F43">+212</span></div>
+          </div>
+          <div style="flex: 1; min-height: 0; overflow: auto">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px; color: #6E6E76; position: sticky; top: 0; background: #FBFBF9; border-bottom: 1px solid #ECEBE7"><span style="font-family: 'JetBrains Mono', monospace; color: #1B1B1F; flex: 1">docs/api/points.md</span><button type="button" class="k-ghost" style="height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #3659E3; cursor: pointer">在编辑器打开</button></div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.75; padding-bottom: 12px">
+              <div style="white-space: pre; padding: 0 12px; background: #F4F3F0; color: #6E6E76"><span style="display: inline-block; width: 28px; margin-right: 10px"></span>@@ -0,0 +1,212 @@</div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">1</span>+ # 积分模块接口</div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">2</span>+ </div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">3</span>+ 基础路径 `/api/points`，鉴权走网关统一的 Bearer。</div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">4</span>+ </div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">5</span>+ ## 1. 查询积分 `GET /balance`</div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">6</span>+ </div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">7</span>+ | 参数 | 类型 | 说明 |</div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">8</span>+ |---|---|---|</div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">9</span>+ | user_id | int | 必填 |</div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">10</span>+ </div>
+              <div style="white-space: pre; padding: 0 12px; background: #EEF8F1; color: #15613A"><span style="display: inline-block; width: 28px; color: #B0B0B6; text-align: right; margin-right: 10px">11</span>+ ## 2. 兑换 `POST /redeem`</div>
+              <div style="white-space: pre; padding: 0 12px; color: #9A9AA1"><span style="display: inline-block; width: 28px; margin-right: 10px"></span>  … 还有 201 行</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'retry', retryOpen: true };
+  }
+  renderVals() {
+    const s = this.state;
+    const retry = s.mode === 'retry';
+    return {
+      isRetry: retry, isCrash: !retry,
+      retryOpen: s.retryOpen, retryChev: s.retryOpen ? 'transform: rotate(180deg)' : '',
+      toggleRetry: () => this.setState({ retryOpen: !s.retryOpen }),
+      toCrash: () => this.setState({ mode: 'crash' }),
+      toRetry: () => this.setState({ mode: 'retry', retryOpen: true }),
+      turnMeta: retry ? '进行中 · 4 步 · 3:40' : '中断 · 4 步 · 5:02',
+      roundMeta: retry ? '进行中' : '中断，改动已保留',
+      placeholder: retry ? '重试期间也可以继续输入' : '也可以换个说法重新来',
+      pillStyle: 'display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; border-radius: 10px; padding: 1px 9px; flex: 0 0 auto; ' + (retry ? 'color: #8A5A00; background: #FBF0D9' : 'color: #9A2C1F; background: #FDE8E4'),
+      pillDot: 'width: 6px; height: 6px; border-radius: 50%; background: ' + (retry ? '#B4650A; animation: k-pulse 1.4s ease-in-out infinite' : '#C8381F'),
+      pillText: retry ? '重试中 · 第 2 次' : '出错 · 未完成',
+      sideDot: 'width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: ' + (retry ? '#B4650A; animation: k-pulse 1.4s ease-in-out infinite' : '#C8381F'),
+      sideTag: retry ? '重试中' : '出错',
+      sideTagStyle: 'font-size: 11px; flex: 0 0 auto; font-weight: 400; color: ' + (retry ? '#B4650A' : '#C8381F')
+    };
+  }
+}
+</script>
+</body>
+</html>

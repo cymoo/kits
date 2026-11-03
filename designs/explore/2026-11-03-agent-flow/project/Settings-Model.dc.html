@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>设置 · 内核与模型</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F2}
+a{color:#3659E3}a:hover{color:#2744B8}
+.k-ghost:hover{background:#EFEEEA}
+.k-nav:hover{background:#E9E8E3}
+.k-snav:hover{background:#EFEEEA}
+.k-in:focus{outline:none;border-color:#3659E3;box-shadow:0 0 0 3px rgba(54,89,227,.15)}
+</style>
+</helmet>
+<div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 13px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
+
+  <nav aria-label="侧栏" style="flex: 0 0 56px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px 8px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F1F0EC">
+    <span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 6px; background: #1B1B1F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; margin: 5px 0 8px">k</span>
+    <a href="Home.dc.html" aria-label="新会话" class="k-nav" style="width: 32px; height: 32px; border-radius: 8px; color: #1B1B1F; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg></a>
+    <a href="History-Search.dc.html" aria-label="搜索" class="k-nav" style="width: 32px; height: 32px; border-radius: 8px; color: #1B1B1F; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg></a>
+    <span style="flex: 1"></span>
+    <a href="Settings-Model.dc.html" aria-label="设置" aria-current="page" class="k-nav" style="width: 32px; height: 32px; border-radius: 8px; background: #E9E8E3; color: #1B1B1F; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4.5h6.5M13 4.5h1M2 11.5h1M7.5 11.5H14"></path><circle cx="10.7" cy="4.5" r="1.7"></circle><circle cx="5.3" cy="11.5" r="1.7"></circle></svg></a>  </nav>
+
+  <nav aria-label="设置分类" style="flex: 0 0 200px; display: flex; flex-direction: column; gap: 1px; padding: 20px 10px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F6F5F2">
+    <h1 style="margin: 0 0 12px 10px; font-size: 15px; font-weight: 600">设置</h1>
+    <a href="Settings-General.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">通用</a>
+    <a href="Settings-Model.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; background: #FFFFFF; box-shadow: 0 0 0 1px #E5E4DF; color: #1B1B1F; text-decoration: none; font-weight: 500">内核与模型</a>
+    <a href="Settings-MCP.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1">MCP 服务</span><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; background: #C8381F"></span></a>
+    <a href="Settings-Skills.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">技能与记忆</a>
+    <a href="Settings-Agent.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">Agent</a>
+    <a href="Settings-Agent.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">权限</a>
+    <a href="Settings-Agent.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">数据与隐私</a>
+    <span style="flex: 1"></span>
+    <a href="Settings-Agent.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 50%; background: #3659E3; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; flex: 0 0 auto">林</span><span style="display: flex; flex-direction: column; min-width: 0"><span style="font-weight: 500">林晓</span><span style="font-size: 11.5px; color: #6E6E76; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">lin.xiao@corp.example</span></span></a>
+    <span style="font-size: 11.5px; color: #8A8A92; padding: 4px 10px 0">kits 0.1.0 · 配置文件在 ~/.kits/</span>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; overflow-y: auto; padding: 28px 40px 48px; box-sizing: border-box">
+    <div style="width: 100%; max-width: 760px; display: flex; flex-direction: column; gap: 28px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">内核与模型</h2>
+        <p style="margin: 0; color: #6E6E76">模型只走配置好的网关，不直连外网；内核随应用打包，两个内核共用一份配置。</p>
+      </div>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 0 2px">
+          <span style="font-weight: 600">模型网关</span>
+          <span style="font-size: 12px; color: #6E6E76">可以加多个，都是 OpenAI 兼容接口；模型按网关分组，默认模型在下面选</span>
+          <span style="flex: 1"></span>
+          <button type="button" onClick="{{toggleAdd}}" aria-expanded="{{adding}}" style="height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: #1B1B1F; font: inherit; font-size: 12px; font-weight: 500; color: #FFFFFF; cursor: pointer">添加网关</button>
+        </div>
+
+        <sc-if value="{{adding}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid #3659E3; border-radius: 14px; background: #FFFFFF; box-shadow: 0 0 0 4px rgba(54,89,227,.08)">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 14px">
+              <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 500">名称</span><input class="k-in" type="text" placeholder="比如：测试环境网关" style="height: 34px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; color: #1B1B1F; background: #FFFFFF"></label>
+              <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 500">地址</span><input class="k-in" type="url" placeholder="https://…/v1" style="height: 34px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #1B1B1F; background: #FFFFFF"></label>
+            </div>
+            <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 500">API Key</span><input class="k-in" type="password" placeholder="留空表示不需要鉴权" style="height: 34px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #1B1B1F; background: #FFFFFF"><span style="font-size: 12px; color: #6E6E76">存在系统钥匙串，不写进配置文件</span></label>
+            <div style="display: flex; gap: 8px; justify-content: flex-end"><button type="button" onClick="{{toggleAdd}}" class="k-ghost" style="height: 30px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF; font: inherit; color: #1B1B1F; cursor: pointer">取消</button><button type="button" onClick="{{toggleAdd}}" style="height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: #1B1B1F; font: inherit; font-weight: 500; color: #FFFFFF; cursor: pointer">测试并添加</button></div>
+          </div>
+        </sc-if>
+
+        <sc-for list="{{gateways}}" as="g" hint-placeholder-count="2">
+          <div style="{{g.cardStyle}}">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #F0EFEB">
+              <button type="button" onClick="{{g.toggle}}" aria-expanded="{{g.open}}" class="k-ghost" style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left; padding: 0">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A9AA1" stroke-width="1.6" stroke-linecap="round" style="{{g.chev}}"><path d="m6 4 4 4-4 4"></path></svg>
+                <span aria-hidden="true" style="{{g.dot}}"></span>
+                <span style="font-weight: 600">{{g.name}}</span>
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #6E6E76; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{g.url}}</span>
+              </button>
+              <span style="{{g.statusStyle}}">{{g.status}}</span>
+              <button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 1px solid #E5E4DF; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">测试</button>
+              <button type="button" onClick="{{g.flip}}" role="switch" aria-checked="{{g.on}}" aria-label="启用" style="{{g.swStyle}}"><span style="{{g.swKnob}}"></span></button>
+            </div>
+            <sc-if value="{{g.open}}" hint-placeholder-val="{{true}}">
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 14px 16px; border-bottom: 1px solid #F0EFEB">
+                <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 12px; color: #6E6E76">地址</span><input class="k-in" type="url" value="{{g.url}}" style="height: 32px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #1B1B1F; background: #FFFFFF"></label>
+                <label style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 12px; color: #6E6E76">API Key</span><input class="k-in" type="password" value="{{g.key}}" style="height: 32px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #1B1B1F; background: #FFFFFF"></label>
+              </div>
+              <div role="radiogroup" aria-label="默认模型" style="display: flex; flex-direction: column">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px 16px 4px; font-size: 12px; color: #8A8A92"><span style="flex: 1">{{g.modelNote}}</span><button type="button" class="k-ghost" style="height: 24px; padding: 0 6px; border: 0; border-radius: 5px; background: transparent; font: inherit; font-size: 12px; color: #3659E3; cursor: pointer">刷新列表</button></div>
+                <sc-for list="{{g.models}}" as="m" hint-placeholder-count="3">
+                  <button type="button" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="{{m.style}}">
+                    <span style="{{m.radio}}"><span style="{{m.radioDot}}"></span></span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500; flex: 0 0 150px">{{m.id}}</span>
+                    <span style="flex: 1; min-width: 0; color: #6E6E76; font-size: 12px">{{m.note}}</span>
+                    <span style="font-size: 12px; color: #8A8A92; font-family: 'JetBrains Mono', monospace">{{m.ctx}}</span>
+                    <sc-if value="{{m.on}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-weight: 500; color: #2744B8; background: #EEF2FF; border-radius: 8px; padding: 1px 7px">默认</span></sc-if>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <p style="margin: 0 2px; font-size: 12px; color: #8A8A92">默认模型只能有一个；每个 Agent 可以单独指定任一网关下的模型。停用的网关下的模型在会话里选不到。</p>
+      </section>
+
+      <section style="display: flex; flex-direction: column; border: 1px solid #E5E4DF; border-radius: 14px; background: #FFFFFF; overflow: hidden">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid #F0EFEB">
+          <span style="font-weight: 600">Agent 内核</span>
+          <span style="font-size: 12px; color: #6E6E76">新会话用哪个内核；已开始的会话不换</span>
+        </div>
+        <div role="radiogroup" aria-label="默认内核" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 18px">
+          <sc-for list="{{kernels}}" as="k" hint-placeholder-count="2">
+            <button type="button" role="radio" aria-checked="{{k.on}}" onClick="{{k.pick}}" style="{{k.style}}">
+              <span style="display: flex; align-items: center; gap: 8px; width: 100%"><span style="font-weight: 600; font-size: 14px">{{k.name}}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #6E6E76">{{k.ver}}</span><span style="flex: 1"></span><span style="{{k.tagStyle}}">{{k.tag}}</span></span>
+              <span style="font-size: 12.5px; color: #4A4A52; line-height: 1.55; text-align: left">{{k.note}}</span>
+              <span style="display: flex; gap: 12px; font-size: 12px; color: #8A8A92; margin-top: 2px"><span>{{k.cap1}}</span><span>{{k.cap2}}</span><span>{{k.cap3}}</span></span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 18px 18px">
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: #F6F5F2; font-size: 12.5px">
+            <span style="color: #6E6E76; flex: 0 0 auto">内核联网</span>
+            <span style="flex: 1">自动更新、分享、模型目录、LSP 下载都已关闭；内核只监听本机地址。</span>
+            <button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #3659E3; cursor: pointer">查看生成的配置</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; background: #F6F5F2; font-size: 12.5px">
+            <span style="color: #6E6E76; flex: 0 0 auto">内核日志</span>
+            <span style="flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 12px">~/Library/Application Support/kits/kernel/</span>
+            <button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #3659E3; cursor: pointer">打开目录</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { model: 'coder-main', kernel: 'codeagent', adding: false, open: 'corp', enabled: { corp: true, vllm: true } };
+  }
+  renderVals() {
+    const s = this.state;
+    const mkModel = ([id, note, ctx]) => {
+      const on = s.model === id;
+      return { id, note, ctx, on, pick: () => this.setState({ model: id }),
+        style: 'display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 6px 16px; border: 0; border-top: 1px solid #F6F5F2; background: ' + (on ? '#F7F8FF' : '#FFFFFF') + '; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left',
+        radio: 'width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid ' + (on ? '#3659E3' : '#C9C8C1') + '; display: flex; align-items: center; justify-content: center; flex: 0 0 auto',
+        radioDot: 'width: 8px; height: 8px; border-radius: 50%; background: #3659E3; ' + (on ? '' : 'visibility: hidden') };
+    };
+    const gwDefs = [
+      ['corp', '公司网关', 'https://llm-gateway.corp.example/v1', 'sk-corp-xxxxxxxxxxxxxxxxxxxxxxxx', 'ok', '已连接 · 320 ms', '从网关拉到 3 个模型', [['coder-main', '主力 · 写代码、跑测试', '200K'], ['coder-fast', '快 · 小改动和问答', '128K'], ['reasoner-pro', '慢 · 复杂分析，输出带思考过程', '128K']]],
+      ['vllm', '内网自建 vLLM', 'http://10.20.3.14:8000/v1', '', 'ok', '已连接 · 45 ms', '从网关拉到 1 个模型 · 不需要 API Key', [['qwen-coder-32b', '网关不可用时的备选', '32K']]]
+    ];
+    const gateways = gwDefs.map(([id, name, url, key, st, statusText, modelNote, models]) => {
+      const on = s.enabled[id];
+      const open = s.open === id;
+      return { id, name, url, key, modelNote, on, open, models: models.map(mkModel),
+        status: on ? statusText : '已停用', statusStyle: 'font-size: 12px; color: ' + (on ? '#1E7F43' : '#8A8A92'),
+        dot: 'width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; background: ' + (on ? '#1E7F43' : '#C9C8C1'),
+        chev: open ? 'transform: rotate(90deg)' : '',
+        toggle: () => this.setState({ open: open ? null : id }),
+        flip: () => this.setState({ enabled: { ...s.enabled, [id]: !on } }),
+        cardStyle: 'display: flex; flex-direction: column; border: 1px solid #E5E4DF; border-radius: 14px; background: #FFFFFF; overflow: hidden',
+        swStyle: 'width: 32px; height: 18px; border: 0; border-radius: 9px; cursor: pointer; position: relative; padding: 0; flex: 0 0 auto; background: ' + (on ? '#1B1B1F' : '#D4D4D8'),
+        swKnob: 'position: absolute; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2); left: ' + (on ? '16px' : '2px') };
+    });
+    const kernels = [
+      ['codeagent', 'CodeAgent', 'v0.9.4', '默认', '公司内部版本，带 AI Market 和账户，kits 已关掉这些联网功能。', '子 Agent', '回滚', '取消回滚：不支持'],
+      ['opencode', 'OpenCode', 'v1.2.0', '兜底', '开源，CodeAgent 出问题时切到这里不用改任何配置。CI 用它跑契约测试。', '子 Agent', '回滚', '取消回滚']
+    ].map(([id, name, ver, tag, note, cap1, cap2, cap3]) => {
+      const on = s.kernel === id;
+      return { name, ver, tag, note, cap1, cap2, cap3, on, pick: () => this.setState({ kernel: id }),
+        style: 'display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 16px; border: 1px solid ' + (on ? '#3659E3' : '#E5E4DF') + '; border-radius: 12px; background: ' + (on ? '#F7F8FF' : '#FFFFFF') + '; font: inherit; color: #1B1B1F; cursor: pointer',
+        tagStyle: 'font-size: 11px; font-weight: 500; border-radius: 8px; padding: 1px 7px; ' + (on ? 'color: #2744B8; background: #EEF2FF' : 'color: #6E6E76; background: #ECEBE7') };
+    });
+    return { gateways, kernels, adding: s.adding, toggleAdd: () => this.setState({ adding: !s.adding }) };
+  }
+}
+</script>
+</body>
+</html>
