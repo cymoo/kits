@@ -1,4 +1,4 @@
-import type { SessionDetail } from '@kits/core/ipc'
+import type { OutputView, SessionDetail } from '@kits/core/ipc'
 import { SquareTerminal } from 'lucide-react'
 import { Tabs as T } from 'radix-ui'
 import { type ReactNode, useMemo, useState } from 'react'
@@ -10,18 +10,20 @@ import { cx } from '../../ui/cx'
 import { Segmented } from '../../ui/Segmented'
 import { Spinner } from '../thread/Blocks'
 import { type ChangedFile, type Command, formatTokens, type Round, type Usage } from './derive'
+import { OutputPanel } from './OutputPanel'
 import { type DiffLine, parsePatch, splitRows } from './patch'
 
-// 会话页右侧的工作区面板（原型 session.html 的 aside）：改动、终端、上下文三个页签。
-// 产出页签在 PR10。放大模式下改动是左右两栏（文件列表 + diff），diff 可以切并排。
+// 会话页右侧的工作区面板（原型 session.html 的 aside）：改动、产出、终端、上下文四个页签。
+// 放大模式下改动是左右两栏（文件列表 + diff），diff 可以切并排。
 
-export type PanelTab = 'changes' | 'terminal' | 'context'
+export type PanelTab = 'changes' | 'output' | 'terminal' | 'context'
 
 export interface WorkbenchProps {
   detail: SessionDetail
   rounds: Round[]
   commands: Command[]
   rules: string[]
+  outputs: OutputView[]
   usage: Usage
   // 当前模型的上下文窗口；不知道时为 0
   contextWindow: number
@@ -69,6 +71,7 @@ export function Workbench(props: WorkbenchProps) {
           {(
             [
               ['changes', t('panel.changes'), files],
+              ['output', t('panel.output'), 0],
               ['terminal', t('panel.terminal'), commands.length],
               ['context', t('panel.context'), 0],
             ] as const
@@ -99,6 +102,15 @@ export function Workbench(props: WorkbenchProps) {
       </div>
       <T.Content value="changes" className="flex min-h-0 flex-1 flex-col outline-none">
         <ChangesPanel {...props} view={wide ? view : 'unified'} />
+      </T.Content>
+      <T.Content value="output" className="flex min-h-0 flex-1 flex-col outline-none">
+        <OutputPanel
+          outputs={props.outputs}
+          running={
+            props.detail.session.status === 'running' || props.detail.session.status === 'waiting'
+          }
+          agent={props.detail.session.agent}
+        />
       </T.Content>
       <T.Content value="terminal" className="flex min-h-0 flex-1 flex-col outline-none">
         <TerminalPanel commands={commands} rules={props.rules} />

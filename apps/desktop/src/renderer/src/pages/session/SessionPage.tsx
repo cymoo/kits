@@ -14,7 +14,7 @@ import { useParams } from 'react-router'
 import { t } from '../../app/i18n'
 import { basename } from '../../lib/composer-prefs'
 import { kits, useSettings } from '../../lib/kits'
-import { useLiveSession, useSessionDiffs } from '../../lib/sessions'
+import { useLiveSession, useSessionDiffs, useSessionOutputs } from '../../lib/sessions'
 import { shortcuts, useShortcuts } from '../../lib/shortcuts'
 import { useUi } from '../../lib/ui-store'
 import { formatDuration, useNow } from '../../lib/use-now'
@@ -171,6 +171,7 @@ export function SessionPage() {
   }, [blocks])
 
   const diffs = useSessionDiffs(id)
+  const outputs = useSessionOutputs(id)
   const settings = useSettings()
   const panel = useUi((u) => u.panel)
   const setPanel = useUi((u) => u.setPanel)
@@ -309,7 +310,7 @@ export function SessionPage() {
               <SummaryCard
                 rounds={rounds}
                 commands={commands}
-                usage={usage}
+                output={outputs.data?.at(-1)}
                 answer={lastAnswerText}
                 onOpen={openTab}
               />
@@ -345,6 +346,7 @@ export function SessionPage() {
               rounds={rounds}
               commands={commands}
               rules={rules}
+              outputs={outputs.data ?? []}
               usage={usage}
               contextWindow={contextWindow}
               wide={panel === 'wide'}

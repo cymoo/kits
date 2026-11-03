@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 import type {
   AskUserInput,
   AskUserResult,
@@ -7,6 +9,7 @@ import type {
   KernelEvent,
   KitsToolContext,
   MessageView,
+  OutputView,
   PartView,
   PushEvents,
   SessionSummary,
@@ -36,6 +39,20 @@ export interface SessionServiceDeps {
   flushMs?: number
   // 一轮结束后隔多久去内核取改动：内核是异步算的，取几次，变了才落库推送
   diffDelays?: number[]
+  // 导出的产出写到这里（{userData}/exports）
+  exportsDir: string
+}
+
+// 导出文件名：日期-标题[-第 N 轮]，去掉文件名里不能用的字符
+export function exportName(title: string, turn: number, turns: number, at: number): string {
+  const d = new Date(at)
+  const date = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
+  const slug =
+    title
+      .replace(/[\\/:*?"<>|\s]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || '产出'
+  return `${date}-${slug}${turns > 1 ? `-第${turn}轮` : ''}`
 }
 
 // 一轮从 startTurn 起就登记：内核冷启动期间也能拦住重复的 prompt、接住停止
@@ -81,6 +98,67 @@ export class SessionService {
 
   diffs(id: string): FileDiffView[] {
     return this.deps.store.diffs(id)
+  }
+
+  outputs(id: string): OutputView[] {
+    return this.deps.store.outputs(id)
+  }
+
+  // 产出面板的自动保存；null 是还原为 AI 原稿
+  saveOutput(input: { id: string; edited: unknown | null }): OutputView {
+    const current = this.deps.store.output(input.id)
+    if (!current) throw new Error('没有这份产出')
+    // 改回和原稿一样就当没改
+    const same = JSON.stringify(input.edited) === JSON.stringify(current.aiDraft)
+    const saved = this.deps.store.saveEdited(input.id, same ? null : input.edited, this.now())
+    if (!saved) throw new Error('没有这份产出')
+    this.deps.push('session.output', saved)
+    return saved
+  }
+
+  exportOutput(input: { id: string; format: 'markdown' | 'json' }): { path: string } {
+    const output = this.deps.store.output(input.id)
+    if (!output) throw new Error('没有这份产出')
+    const session = this.deps.store.session(output.sessionId)
+    const content = output.edited ?? output.aiDraft
+    const at = this.now()
+    const text =
+      input.format === 'markdown'
+        ? typeof content === 'string'
+          ? content
+          : `\`\`\`json\n${JSON.stringify(content, null, 2)}\n\`\`\`\n`
+        : JSON.stringify(content, null, 2)
+    mkdirSync(this.deps.exportsDir, { recursive: true })
+    const base = exportName(session?.title ?? '', output.turn, session?.turns ?? 1, at)
+    const file = path.join(
+      this.deps.exportsDir,
+      `${base}.${input.format === 'markdown' ? 'md' : 'json'}`,
+    )
+    writeFileSync(file, text.endsWith('\n') ? text : `${text}\n`)
+    const marked = this.deps.store.markExported(input.id, input.format, at)
+    if (marked) this.deps.push('session.output', marked)
+    return { path: file }
+  }
+
+  // kits 工具服务：会话的 Agent 的输出格式（有它才提供 submit_output）
+  outputSchema(ctx: KitsToolContext): Record<string, unknown> | undefined {
+    const found = this.findRun(ctx.sessionId)
+    const session = found ? this.deps.store.session(found[0]) : undefined
+    return session ? this.deps.resolveAgent(session.agent)?.outputSchema : undefined
+  }
+
+  // submit_output 校验通过后：存成这一轮的结构化产出
+  async onOutput(output: unknown, ctx: KitsToolContext): Promise<void> {
+    const found = this.findRun(ctx.sessionId)
+    if (!found) return
+    const [sessionId, run] = found
+    const saved = this.deps.store.saveDraft({
+      sessionId,
+      turn: run.turn,
+      kind: 'structured',
+      aiDraft: output,
+    })
+    this.deps.push('session.output', saved)
   }
 
   get(id: string) {
@@ -428,6 +506,23 @@ export class SessionService {
     const change = recorder.apply(event)
     const isDelta = event.type === 'text-delta' || event.type === 'reasoning-delta'
     this.commit(sessionId, change, isDelta)
+    if (event.type === 'done' && event.reason === 'completed')
+      this.saveTextOutput(sessionId, recorder)
+  }
+
+  // 没有输出格式的 Agent：这一轮的回复正文就是产出
+  private saveTextOutput(sessionId: string, recorder: TurnRecorder): void {
+    const session = this.deps.store.session(sessionId)
+    if (!session || this.deps.resolveAgent(session.agent)?.outputSchema) return
+    const text = recorder.answerText()
+    if (!text) return
+    const saved = this.deps.store.saveDraft({
+      sessionId,
+      turn: recorder.view.turn,
+      kind: 'text',
+      aiDraft: text,
+    })
+    this.deps.push('session.output', saved)
   }
 
   // recorder 的变化落库并推给界面；正文增量攒着批量写

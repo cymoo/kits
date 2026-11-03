@@ -1,18 +1,30 @@
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { builtinAssistant, type PushEvents, parseMcpFile, type SessionStatus } from '@kits/core'
 import { MockKernel, type MockScenarioName } from '@kits/kernel'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openDatabase } from '../db'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
-import { SessionService, titleOf } from './session-service'
+import { exportName, SessionService, titleOf } from './session-service'
 import { SessionStore } from './session-store'
 
 const migrations = path.resolve(import.meta.dirname, '../../../drizzle')
 let close: (() => void) | undefined
+let exportsDir = ''
 afterEach(() => {
   close?.()
   close = undefined
+  if (exportsDir) rmSync(exportsDir, { recursive: true, force: true })
+  exportsDir = ''
 })
+
+// api-reviewer 那种有输出格式的 Agent
+const findingsSchema = {
+  type: 'object',
+  required: ['findings'],
+  properties: { findings: { type: 'array' } },
+}
 
 // gate：内核启动卡住，直到调用 open（模拟真实内核冷启动）
 function setup(
@@ -22,6 +34,7 @@ function setup(
 ) {
   const db = openDatabase(':memory:', migrations)
   close = db.close
+  exportsDir = mkdtempSync(path.join(os.tmpdir(), 'kits-exports-'))
   const store = new SessionStore(db.db)
   const pushed: { channel: keyof PushEvents; payload: unknown }[] = []
   // Mock 内核的 ask_user 走会话服务，和应用里一样
@@ -31,7 +44,8 @@ function setup(
     speed: 0,
     tools: {
       askUser: (i, ctx) => (service as SessionService).askUser(i, ctx),
-      onOutput: async () => {},
+      outputSchema: (ctx) => (service as SessionService).outputSchema(ctx),
+      onOutput: (o, ctx) => (service as SessionService).onOutput(o, ctx),
     },
   })
   const registered: unknown[] = []
@@ -49,12 +63,16 @@ function setup(
       },
       release: () => {},
     },
-    resolveAgent: () => builtinAssistant,
+    resolveAgent: () =>
+      scenario === 'output-structured'
+        ? { ...builtinAssistant, name: 'api-reviewer', outputSchema: findingsSchema }
+        : builtinAssistant,
     loadMcp: () => parseMcpFile({}),
     registry: { register: (...args: unknown[]) => void registered.push(args) },
     push: (channel, payload) => void pushed.push({ channel, payload }),
     flushMs: 5,
     diffDelays,
+    exportsDir,
   })
   const statusOf = (id: string) => store.session(id)?.status
   const waitFor = (id: string, statuses: SessionStatus[]) =>
@@ -107,6 +125,7 @@ describe('SessionService', () => {
       'session.activity',
       'session.changed',
       'session.message',
+      'session.output',
       'session.part',
     ])
   })
@@ -423,6 +442,66 @@ describe('SessionService diffs across turns', () => {
     await vi.waitFor(() => expect(store.session(s.id)?.turns).toBe(3))
     await waitFor(s.id, ['done'])
     await vi.waitFor(() => expect(service.diffs(s.id).map((d) => d.turn)).toEqual([1, 3]))
+  })
+})
+
+describe('SessionService outputs', () => {
+  it('keeps the reply of a finished turn as the text output', async () => {
+    const { service, waitFor, pushed } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const [output] = service.outputs(s.id)
+    expect(output).toMatchObject({ kind: 'text', turn: 1, edited: null })
+    expect(output?.kind === 'text' && output.aiDraft).toContain('改好了')
+    expect(pushed.some((p) => p.channel === 'session.output')).toBe(true)
+  })
+
+  it('stores edits apart from the AI draft and reverts when edited back', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const id = service.outputs(s.id)[0]?.id ?? ''
+    const draft = service.outputs(s.id)[0]?.aiDraft
+    const edited = service.saveOutput({ id, edited: '改过的正文' })
+    expect(edited).toMatchObject({ edited: '改过的正文', aiDraft: draft })
+    expect(edited.editedAt).not.toBeNull()
+    expect(service.saveOutput({ id, edited: draft })).toMatchObject({
+      edited: null,
+      editedAt: null,
+    })
+  })
+
+  it('exports the edited text as markdown into the exports folder', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const id = service.outputs(s.id)[0]?.id ?? ''
+    service.saveOutput({ id, edited: '## 改过的\n' })
+    const { path: file } = service.exportOutput({ id, format: 'markdown' })
+    expect(path.dirname(file)).toBe(exportsDir)
+    expect(file).toMatch(/\d{8}-给兑换接口加幂等校验.*\.md$/)
+    expect(readFileSync(file, 'utf8')).toBe('## 改过的\n')
+    expect(service.outputs(s.id)[0]).toMatchObject({ exportFormat: 'markdown' })
+  })
+
+  it('stores submit_output of an agent with an output format as the structured output', async () => {
+    const { service, waitFor } = setup('output-structured')
+    const s = await service.create({ ...input, agent: 'api-reviewer' })
+    await waitFor(s.id, ['done'])
+    const outputs = service.outputs(s.id)
+    expect(outputs).toHaveLength(1)
+    expect(outputs[0]).toMatchObject({ kind: 'structured', turn: 1 })
+    expect(outputs[0]?.aiDraft).toMatchObject({ findings: expect.any(Array) })
+    const { path: file } = service.exportOutput({ id: outputs[0]?.id ?? '', format: 'json' })
+    expect(JSON.parse(readFileSync(file, 'utf8')).findings).toHaveLength(2)
+  })
+})
+
+describe('exportName', () => {
+  it('drops characters that cannot go into a file name and adds the turn when there are several', () => {
+    const at = new Date(2026, 10, 4).getTime()
+    expect(exportName('a/b: c?', 2, 3, at)).toBe('20261104-a-b-c-第2轮')
+    expect(exportName('', 1, 1, at)).toBe('20261104-产出')
   })
 })
 

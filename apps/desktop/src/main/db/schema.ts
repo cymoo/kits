@@ -115,11 +115,14 @@ export const attachments = sqliteTable('attachments', {
   textPath: text('text_path'),
 })
 
+// 每轮一份产出：没有输出格式的 Agent 是回复正文（text），有的是 submit_output 交上来的 JSON（structured）
 export const outputs = sqliteTable('outputs', {
+  // `<会话 id>:<轮次>`
   id: text('id').primaryKey(),
   sessionId: text('session_id')
     .notNull()
     .references(() => sessions.id, { onDelete: 'cascade' }),
+  turn: integer('turn').notNull().default(0),
   // text / structured
   kind: text('kind').notNull(),
   // AI 原稿和人工修改分开存，导出评测数据时用
@@ -145,3 +148,4 @@ export type SessionRecord = typeof sessions.$inferSelect
 export type MessageRecord = typeof messages.$inferSelect
 export type PartRecord = typeof parts.$inferSelect
 export type DiffRecord = typeof diffs.$inferSelect
+export type OutputRecord = typeof outputs.$inferSelect

@@ -1,23 +1,24 @@
+import type { OutputView } from '@kits/core/ipc'
 import { type ReactNode, useState } from 'react'
 import { t } from '../../app/i18n'
 import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
-import { type Command, formatTokens, type Round, type Usage } from './derive'
+import type { Command, Round } from './derive'
 import type { PanelTab } from './Workbench'
 
-// 会话做完时对话末尾的总结卡片（原型 session.html 的 isSummary）：改动、命令、用量三格，点了跳到右侧对应的页签。
-// 原型第三格是“产出”，产出面板在 PR10，先放用量。
+// 会话做完时对话末尾的总结卡片（原型 session.html 的 isSummary）：改动、命令、产出三格，点了跳到右侧对应的页签。
 
 export function SummaryCard({
   rounds,
   commands,
-  usage,
+  output,
   answer,
   onOpen,
 }: {
   rounds: Round[]
   commands: Command[]
-  usage: Usage
+  // 最新一轮的产出
+  output: OutputView | undefined
   // 最后一段回复正文，“复制回复”用
   answer: string
   onOpen(tab: PanelTab): void
@@ -53,10 +54,20 @@ export function SummaryCard({
         : null,
     },
     {
-      tab: 'context',
-      label: t('summary.usage'),
-      value: `${formatTokens(usage.input)} / ${formatTokens(usage.output)}`,
-      note: usage.cost ? `约 ¥${usage.cost.toFixed(2)}` : t('summary.usageNote'),
+      tab: 'output',
+      label: t('summary.output'),
+      value: output
+        ? output.kind === 'text'
+          ? t('summary.outputText')
+          : t('summary.outputStructured')
+        : t('summary.noOutput'),
+      note: output
+        ? output.edited !== null
+          ? t('summary.outputEdited')
+          : output.exportedAt
+            ? t('summary.outputExported')
+            : t('summary.outputHint')
+        : null,
     },
   ]
   return (

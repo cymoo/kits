@@ -114,3 +114,51 @@ phase1-implementation PR8：会话里 Agent 要你动手的地方都在对话流
 - 本会话允许后，同一会话里规则命中的命令不再问；规则只存在内核会话里，界面上还没有地方查看或撤销（原型右侧“本会话的允许规则”在 PR9 面板里做）。
 - 侧栏的状态只分“等确认”，等回答的会话在侧栏也显示“等确认”。
 - “本会话允许”的规则由内核给（OpenCode 的 `always`），内核没给时不显示这个按钮。
+
+## 2026-11-04　产出面板：回复正文编辑、自动保存、导出；结构化产出 JSON
+
+> 日期：2026-11-04　PR：见本分支 `feat/session-output`　作者：Claude Code
+
+### 原始需求
+
+phase1-implementation PR10（5.4 节 `outputs` 表、6.4 节产出页签）：一轮做完，Agent 的产出可以在右侧“产出”页签里改、自动保存，导出 Markdown；有输出格式的 Agent 用 `submit_output` 交的结构化结果能看 JSON、导出 JSON。AI 原稿和人工修改分开存，以后导出评测数据用。原型 `designs/app/session.html?s=output`。
+
+做到什么程度算完：没有输出格式的 Agent，每轮正常结束后回复正文就是这一轮的产出；编辑后 600 ms 自动保存，底部说改了几处；能还原为 AI 原稿；导出到 `{userData}/exports/`，能在文件夹中显示，也能复制；结构化产出这一版只能看和导出（逐条审核在后续）。总结卡片第三格换成“产出”。
+
+### 怎么验收
+
+用 Mock 内核（`KITS_KERNEL=mock`）：
+
+1. `KITS_MOCK_SCENARIO=done`：首页发任意任务。完成后总结卡片第三格是“产出 · 回复正文 · 可以编辑后导出”，点它打开右侧“产出”页签，编辑框里是回复正文（Markdown 源码）。
+2. 在末尾加一句。顶上变成“回复正文 · Markdown · 已编辑”，底部“改了 1 处，和 AI 原稿的差异会记下来 · 自动保存”。切到别的会话再回来，改的内容还在。
+3. 点“导出 → 导出 Markdown 文件”：出现“已导出到 20261104-<标题>.md · 在文件夹中显示”，点后者在访达 / 资源管理器里选中文件，内容是改过的版本。“复制到剪贴板”复制同样的内容。
+4. 点“还原为 AI 原稿”：编辑框回到原稿，“已编辑”消失。
+5. 结构化：在 `~/.kits/agents/` 放 `api-reviewer.md`（frontmatter 写 `output: findings.schema.json`）和对应的 schema，`KITS_MOCK_SCENARIO=output-structured`，选这个 Agent 发任务。完成后“产出”页签是“结构化结果 · JSON”，导出 JSON 文件内容就是 Agent 交的结果。
+6. 同一个会话接着说第 2 轮：产出页签右上能切“第 1 轮 / 第 2 轮”，导出文件名带“-第N轮”。
+
+### 主要改动
+
+- 数据库：`outputs` 加 `turn` 列（每轮一份，id 是 `<会话 id>:<轮次>`），迁移 `drizzle/20261103202521_ordinary_sunfire`。
+- `packages/core`：`OutputView`；IPC `output.list / save / export`、`app.revealPath`；推送 `session.output`。
+- `apps/desktop/src/main/sessions/`：
+  - `thread.ts`：`answerText()`，最后一个工具之后的正文。
+  - `session-service.ts`：一轮正常结束、Agent 没有输出格式时把回复正文存成这一轮的 text 产出；`outputSchema / onOutput` 接到 kits 工具服务，`submit_output` 校验通过后存成 structured 产出（同一轮再交一次就替换，人工修改作废）；`saveOutput`（改回和原稿一样就当没改）；`exportOutput` 写到 `{userData}/exports/<日期>-<标题>[-第N轮].md|json`，记下导出时间和格式。
+  - `session-store.ts`：产出的读写。
+- `apps/desktop/src/main/platform.ts`：`revealPath`（`shell.showItemInFolder`）。
+- `apps/desktop/src/renderer/src/session/panels/`：`OutputPanel.tsx`（产出页签）、`edits.ts`（按行对齐算“改了几处”）；`Workbench.tsx` 加“产出”页签；`Summary.tsx` 第三格换成产出。
+- 原型没画到、按风格补的：导出后的提示条；多轮时的轮次切换；结构化结果的只读 JSON 视图（原型是逐条审核，那是后续）。原型顶栏完成后的“导出”按钮没做，导出放在产出页签里。
+
+### 测试
+
+- 单元测试：`session-service.test.ts` 补 5 个（回复正文成为产出、修改和原稿分开存 / 改回原稿、导出 Markdown 到 exports、submit_output 存成结构化产出并导出 JSON、文件名）；`edits.test.ts`（3 个）。
+- E2E：`output.spec.ts`（2 个）：改回复正文 → 自动保存（原稿不变）→ 导出 Markdown → 还原；有输出格式的 Agent 交的 JSON → 导出。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 结构化产出不能改，只能看和导出；逐条审核、Excel 导出、推送到缺陷平台在后续。
+- 导出到固定的 `exports/` 目录，没有“另存为”。
+- 评测数据（原稿 + 修改的 JSONL）的导出入口还没有，数据已经分开存好。

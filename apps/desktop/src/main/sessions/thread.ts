@@ -28,6 +28,17 @@ export class TurnRecorder {
     return this.message
   }
 
+  // 回复正文：最后一个工具之后的文字（和会话页的“正文”块一样）
+  answerText(): string {
+    const ordered = [...this.parts.values()].sort((a, b) => a.seq - b.seq)
+    const lastTool = ordered.map((p) => p.type).lastIndexOf('tool')
+    return ordered
+      .slice(lastTool + 1)
+      .flatMap((p) => (p.payload.type === 'text' ? [p.payload.text] : []))
+      .join('')
+      .trim()
+  }
+
   private upsert(
     key: string,
     type: PartView['type'],
