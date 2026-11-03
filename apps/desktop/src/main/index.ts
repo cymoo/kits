@@ -228,6 +228,8 @@ app.whenReady().then(() => {
         },
         list: () => sessions.list(),
         get: (id) => sessions.get(id),
+        search: (query) => sessions.search(query),
+        remove: (id) => sessions.remove(id),
         prompt: ({ id, text, attachments }) => sessions.prompt(id, text, attachments),
         abort: (id) => sessions.abort(id),
         respondPermission: (input) => sessions.respondPermission(input),

@@ -14,11 +14,12 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react'
-import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../app/i18n'
 import { basename, resolvePrefs, usePrefs } from '../lib/composer-prefs'
 import { kits, useSettings } from '../lib/kits'
+import { useUi } from '../lib/ui-store'
 import { cx } from '../ui/cx'
 import {
   Menu,
@@ -95,6 +96,20 @@ export function Composer({
   const agentModel = agents.data?.find((a) => a.name === agentName)?.model
   const resolved = { ...resolvePrefs(prefs, settings.data, agentModel), agent: agentName }
   const [text, setText] = useState('')
+  // 首页建议、⌘K 的“新会话：…”：填进首页的输入框，光标放到末尾
+  const homeDraft = useUi((s) => s.homeDraft)
+  useEffect(() => {
+    if (!big || !homeDraft) return
+    setText(homeDraft.text)
+    // 填一次就清掉：下次回到首页不再填
+    useUi.setState({ homeDraft: undefined })
+    requestAnimationFrame(() => {
+      const el = area.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(homeDraft.text.length, homeDraft.text.length)
+    })
+  }, [big, homeDraft])
   const [sending, setSending] = useState(false)
   // 发送失败的原因（比如工作目录被删了）；草稿留着，改了再发
   const [error, setError] = useState<string>()

@@ -153,6 +153,14 @@ export type OutputView = {
   | { kind: 'structured'; aiDraft: unknown; edited: unknown | null }
 )
 
+// ⌘K 搜会话：命中的部分夹在 \u0001 和 \u0002 之间，渲染进程按它高亮
+export interface SessionSearchHit {
+  session: SessionSummary
+  title: string
+  // 正文里命中的那一段；只有标题命中时为 null
+  snippet: string | null
+}
+
 // 内核报告的忙闲（状态行用），不落库
 export interface SessionActivity {
   sessionId: string
