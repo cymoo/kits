@@ -194,6 +194,7 @@ const zhCN = {
   'composer.skillsTitle': '技能',
   'composer.skillsEmpty': '没有匹配的技能',
   'composer.skillsManage': '管理技能',
+  'composer.slashHint': '↵ 填入',
   'panel.label': '工作区面板',
   'panel.tabs': '面板',
   'panel.changes': '改动',

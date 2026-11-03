@@ -115,6 +115,20 @@ export function Composer({
     placeholderData: (prev) => prev,
   })
   const found = atOpen ? (matches.data ?? []) : []
+  // / 菜单：输入框开头打 /，列出这个工作目录下启用的技能
+  const [slash, setSlash] = useState<string>()
+  const [slashDismissed, setSlashDismissed] = useState(false)
+  const slashOpen = slash !== undefined && !slashDismissed
+  const skills = useQuery({
+    queryKey: ['skills', workdir ?? ''],
+    queryFn: () => kits.skills.list(workdir ? { workdir } : {}),
+    enabled: slashOpen,
+  })
+  const skillItems = slashOpen
+    ? (skills.data?.skills ?? []).filter(
+        (s) => s.enabled && (s.name.includes(slash.toLowerCase()) || s.description.includes(slash)),
+      )
+    : []
 
   const addFiles = (list: FileList | File[]) => {
     const next = [...list]
@@ -127,6 +141,21 @@ export function Composer({
     setAt(q)
     setAtIndex(0)
     if (!q) setAtDismissed(undefined)
+    const s = /^\/([\w-]*)$/.exec(value.slice(0, caret))
+    setSlash(s ? (s[1] ?? '') : undefined)
+    if (!s) setSlashDismissed(false)
+  }
+  const pickSkill = (name: string) => {
+    const el = area.current
+    if (!el) return
+    const rest = text.slice(el.selectionStart).replace(/^ /, '')
+    const value = `/${name} ${rest}`
+    setText(value)
+    setSlash(undefined)
+    requestAnimationFrame(() => {
+      el.focus()
+      el.setSelectionRange(name.length + 2, name.length + 2)
+    })
   }
   const pick = (path: string) => {
     const el = area.current
@@ -204,6 +233,24 @@ export function Composer({
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (slashOpen && !e.nativeEvent.isComposing) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        const n = Math.max(skillItems.length, 1)
+        setAtIndex((i) => (i + (e.key === 'ArrowDown' ? 1 : n - 1)) % n)
+        return
+      }
+      if ((e.key === 'Enter' || e.key === 'Tab') && skillItems[atIndex]) {
+        e.preventDefault()
+        pickSkill(skillItems[atIndex].name)
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setSlashDismissed(true)
+        return
+      }
+    }
     if (atOpen && !e.nativeEvent.isComposing) {
       // 这次查询的结果还没回来：回车 / Tab 先别发送，也别选到上一次查询的结果
       if (
@@ -272,6 +319,57 @@ export function Composer({
       {dragging ? (
         <div className="pointer-events-none absolute inset-1 z-10 flex items-center justify-center rounded-[12px] border-2 border-accent/40 border-dashed bg-accent-bg/80 font-medium text-accent-fg">
           {t('composer.drop')}
+        </div>
+      ) : null}
+      {slashOpen ? (
+        <div
+          id={`${inputId}-slash`}
+          role="listbox"
+          aria-label={t('composer.skillsTitle')}
+          data-testid="slash-menu"
+          className="absolute right-3 bottom-[calc(100%+8px)] left-3 z-40 flex max-h-[360px] flex-col gap-px overflow-y-auto rounded-[12px] border border-line bg-raised p-1.5 shadow-pop"
+        >
+          <div className="px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
+            {t('composer.skillsTitle')}
+          </div>
+          {skills.isFetched && skillItems.length === 0 ? (
+            <div className="px-2.5 py-2 text-fg-muted">{t('composer.skillsEmpty')}</div>
+          ) : null}
+          {skillItems.map((s, i) => (
+            <button
+              key={s.name}
+              id={`${inputId}-slash-${i}`}
+              type="button"
+              role="option"
+              aria-selected={i === atIndex}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pickSkill(s.name)}
+              onPointerMove={() => setAtIndex(i)}
+              ref={i === atIndex ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+              className={cx(
+                'flex min-h-[38px] w-full cursor-pointer items-center gap-3 rounded-[8px] px-2.5 py-1 text-left',
+                i === atIndex && 'bg-accent-bg',
+              )}
+            >
+              <span className="shrink-0 basis-[120px] font-medium font-mono text-[0.962rem]">
+                /{s.name}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-fg-muted">{s.description}</span>
+            </button>
+          ))}
+          <div className="mt-1 flex items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.885rem] text-fg-label">
+            <span>{t('composer.atHint.pick')}</span>
+            <span>{t('composer.slashHint')}</span>
+            <span>{t('composer.atHint.close')}</span>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => navigate('/settings/skills')}
+              className="ml-auto cursor-pointer text-accent"
+            >
+              {t('composer.skillsManage')}
+            </button>
+          </div>
         </div>
       ) : null}
       {atOpen ? (
@@ -371,13 +469,22 @@ export function Composer({
           updateAt(e.target.value, e.target.selectionStart)
         }}
         onSelect={(e) => updateAt(e.currentTarget.value, e.currentTarget.selectionStart)}
-        onBlur={() => setAt(undefined)}
+        onBlur={() => {
+          setAt(undefined)
+          setSlash(undefined)
+        }}
         // @ 菜单打开时焦点还在输入框里：用组合框的写法告诉读屏当前选中的是哪个文件
         role="combobox"
         aria-autocomplete="list"
-        aria-expanded={atOpen}
-        aria-controls={atOpen ? `${inputId}-at` : undefined}
-        aria-activedescendant={atOpen && found[atIndex] ? `${inputId}-at-${atIndex}` : undefined}
+        aria-expanded={atOpen || slashOpen}
+        aria-controls={atOpen ? `${inputId}-at` : slashOpen ? `${inputId}-slash` : undefined}
+        aria-activedescendant={
+          atOpen && found[atIndex]
+            ? `${inputId}-at-${atIndex}`
+            : slashOpen && skillItems[atIndex]
+              ? `${inputId}-slash-${atIndex}`
+              : undefined
+        }
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         className={cx(
