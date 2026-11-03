@@ -120,7 +120,7 @@
   - 会话用 `KernelSession`（id + 工作目录 + Agent + 模型）整个传进来，适配器不记会话：OpenCode 每个请求都要带工作目录，应用重启后从数据库读出来照样能续。
   - `createSession` 接收按会话模式解析好的权限（`agentPermissions` 的结果），转成内核的规则数组随建会话一起发，所以三档模式（执行前确认 / 只读 / 全部自动）是会话级的，不用重启内核。
   - `respondPermission` 的回复改成 `once | always | reject`，拒绝可带说明：1.19.5 的回复接口原生支持 `message`，内核把它当反馈交给模型，不用再另发一条用户消息。
-  - `FileDiff` 改成 `{ path, status, additions, deletions, patch, messageId }`：内核给的是 unified diff，不是前后全文。**1.19.5 的 `GET /session/{id}/diff` 不带 `messageID` 时返回空**，每一轮的改动记在那一轮用户消息的 `summary.diffs` 上，适配器从消息里按轮收集，`messageId` 标出是哪一轮（改动面板按轮分组用）。
+  - `FileDiff` 改成 `{ path, status, additions, deletions, patch, messageId }`：内核给的是 unified diff，不是前后全文。**1.19.5 的 `GET /session/{id}/diff` 不带 `messageID` 时返回空**，每一轮的改动记在那一轮用户消息的 `summary.diffs` 上，适配器从消息里按轮收集，`messageId` 标出是哪一轮（改动面板按轮分组用）。这份数据是内核在一轮结束后异步算出来的，`done` 之后立刻读可能还是空的，改动面板要在会话变化后重新取。
   - 新增 `summarize`（上下文压缩）和 `messages`（补齐、恢复）。
   - 方言多一个 `apiPrefix`（CodeAgent 是 `/api/v1`）。
 - `packages/core/src/events.ts`：`text-delta` / `reasoning-delta` 带 `partId`（落库时同一个 part 的增量合并）；`permission-request` 带 `patterns`、`always`、`callId`；`usage` 拆出缓存读写和费用；新增 `status`、`compaction`；`PermissionDecision` 换成 `PermissionReply`。

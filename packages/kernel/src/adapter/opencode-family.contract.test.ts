@@ -189,7 +189,12 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
   it('maps the diff of a file the agent wrote', async () => {
     const s = await session('writer')
     await run(s, '建一个 hello.txt', (e) => kernel.respondPermission(s, e.requestId, 'once'))
-    const diff = await kernel.diff(s)
+    // 每轮的改动是内核在这一轮结束后异步算出来写到用户消息上的，CI 上要等一会儿
+    let diff = await kernel.diff(s)
+    for (let i = 0; i < 30 && diff.length === 0; i++) {
+      await new Promise((r) => setTimeout(r, 500))
+      diff = await kernel.diff(s)
+    }
     expect(diff).toEqual([
       expect.objectContaining({ path: 'hello.txt', status: 'added', additions: 1, deletions: 0 }),
     ])
