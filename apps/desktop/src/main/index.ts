@@ -137,7 +137,7 @@ app.whenReady().then(() => {
             runtime: (id) => kernels.status(id),
             mock: process.env.KITS_KERNEL === 'mock',
           }),
-        restart: (id) => kernels.restart(id),
+        restart: (id) => kernels.requestRestart(id),
         openLogs: async (id) => {
           const dir = kernelLogsDir(platform.userDataDir, id)
           mkdirSync(dir, { recursive: true })
