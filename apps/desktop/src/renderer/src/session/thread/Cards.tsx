@@ -1,8 +1,8 @@
 import { AlertCircle, Check, ChevronDown, CircleHelp, SquareTerminal } from 'lucide-react'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../app/i18n'
-import { kits } from '../../lib/kits'
+import { kits, useHomeLabel } from '../../lib/kits'
 import { isMac, modLabel } from '../../lib/shortcuts'
 import { useNow } from '../../lib/use-now'
 import { Button } from '../../ui/Button'
@@ -26,7 +26,11 @@ function useAction() {
     try {
       await fn()
     } catch (e) {
-      setError(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': /, '') : String(e))
+      setError(
+        e instanceof Error
+          ? e.message.replace(/^Error invoking remote method '[^']+': /, '')
+          : String(e),
+      )
     } finally {
       setBusy(false)
     }
@@ -34,7 +38,7 @@ function useAction() {
   return { busy, error, run }
 }
 
-function CardIcon({ tone, children }: { tone: 'warn' | 'accent' | 'danger'; children: React.ReactNode }) {
+function CardIcon({ tone, children }: { tone: 'warn' | 'accent' | 'danger'; children: ReactNode }) {
   return (
     <span
       aria-hidden="true"
@@ -84,10 +88,11 @@ export function PermissionCard({
   // 同时有几张待确认的卡片时，只有第一张响应快捷键
   active: boolean
 }) {
+  const homeLabel = useHomeLabel()
   const [denying, setDenying] = useState(false)
   const [reason, setReason] = useState('')
   const { busy, error, run } = useAction()
-  const card = useRef<HTMLDivElement>(null)
+  const card = useRef<HTMLElement>(null)
   const reply = (r: 'once' | 'always' | 'reject', message?: string) =>
     run(() =>
       kits.session.respondPermission({
@@ -129,9 +134,8 @@ export function PermissionCard({
   const always = block.always[0]
 
   return (
-    <div
+    <section
       ref={card}
-      role="group"
       aria-label={permissionHead(block.tool)}
       data-testid="permission-card"
       className="flex flex-col gap-2.5 rounded-[12px] border border-warn-line bg-warn-soft px-4 py-3.5 shadow-[0_0_0_4px_rgb(233_185_73/0.12)]"
@@ -151,7 +155,10 @@ export function PermissionCard({
         </pre>
       ) : null}
       <div className="text-[0.923rem] text-fg-muted">
-        {t('perm.workdir')} <span className="font-mono">{workdir}</span>
+        {t('perm.workdir')}{' '}
+        <span className="font-mono" title={workdir}>
+          {homeLabel(workdir)}
+        </span>
       </div>
       {denying ? (
         <div className="flex flex-col gap-2 pt-0.5">
@@ -206,7 +213,7 @@ export function PermissionCard({
         </div>
       )}
       <ActionError message={error} />
-    </div>
+    </section>
   )
 }
 
@@ -219,13 +226,14 @@ export function QuestionCard({ block, sessionId }: { block: Of<'question'>; sess
     )
   const waiting = block.blocking && block.state === 'pending'
   return (
-    <div
-      role="group"
+    <section
       aria-label={t('question.head')}
       data-testid="question-card"
       className={cx(
         'flex flex-col gap-3 rounded-[12px] border px-4 py-3.5',
-        block.state === 'pending' ? 'border-accent-line bg-accent-soft' : 'border-line-soft bg-raised',
+        block.state === 'pending'
+          ? 'border-accent-line bg-accent-soft'
+          : 'border-line-soft bg-raised',
       )}
     >
       <div className="flex items-center gap-2">
@@ -296,7 +304,7 @@ export function QuestionCard({ block, sessionId }: { block: Of<'question'>; sess
         <div className="text-[0.923rem] text-fg-muted">{t('question.expired')}</div>
       )}
       <ActionError message={error} />
-    </div>
+    </section>
   )
 }
 
@@ -408,7 +416,9 @@ export function ErrorCard({
             className="h-8"
             disabled={busy}
             onClick={() =>
-              void run(() => kits.session.prompt({ id: session.id, text: t('error.continuePrompt') }))
+              void run(() =>
+                kits.session.prompt({ id: session.id, text: t('error.continuePrompt') }),
+              )
             }
           >
             {t('error.continue')}

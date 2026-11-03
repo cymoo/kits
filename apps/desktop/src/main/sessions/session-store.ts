@@ -185,7 +185,7 @@ export class SessionStore {
       .run()
   }
 
-    detail(id: string): SessionDetail | null {
+  detail(id: string): SessionDetail | null {
     const session = this.session(id)
     if (!session) return null
     return {

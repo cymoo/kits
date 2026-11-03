@@ -163,20 +163,3 @@ export function StatusLine({ block }: { block: Extract<Block, { kind: 'status' }
     </div>
   )
 }
-
-export function ErrorBlock({ block }: { block: Extract<Block, { kind: 'error' }> }) {
-  return (
-    <div
-      role="alert"
-      className="flex flex-col gap-1.5 rounded-[12px] border border-danger/30 bg-danger-bg px-4 py-3"
-    >
-      <span className="flex items-center gap-2 font-semibold text-danger">
-        <AlertCircle size={14} />
-        {t('turn.failed')}
-      </span>
-      <pre className="m-0 whitespace-pre-wrap font-mono text-[0.923rem] text-fg">
-        {block.message}
-      </pre>
-    </div>
-  )
-}

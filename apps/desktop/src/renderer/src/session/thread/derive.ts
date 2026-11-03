@@ -199,11 +199,7 @@ export function deriveBlocks(
               : p.status === 'error'
                 ? 'error'
                 : 'done',
-          ...(reply
-            ? { meta: reply }
-            : p.status === 'error'
-              ? { meta: '失败' }
-              : {}),
+          ...(reply ? { meta: reply } : p.status === 'error' ? { meta: '失败' } : {}),
         })
       } else if (payload.type === 'permission') {
         const subject = permissionSubject(payload.tool, payload.input, session.workdir)
@@ -216,11 +212,17 @@ export function deriveBlocks(
             subject,
             always: payload.always,
           })
-        } else if (!payload.callId || !parts.some((x) => x.payload.type === 'tool' && x.payload.callId === payload.callId)) {
+        } else if (
+          !payload.callId ||
+          !parts.some((x) => x.payload.type === 'tool' && x.payload.callId === payload.callId)
+        ) {
           // 没有对应工具步骤的（拒绝后工具没跑、过期的）单独记一步
           steps.push({
             id: p.id,
-            kind: describeTool({ type: 'tool', callId: '', name: payload.tool, input: payload.input }, session.workdir).kind,
+            kind: describeTool(
+              { type: 'tool', callId: '', name: payload.tool, input: payload.input },
+              session.workdir,
+            ).kind,
             detail: subject,
             state: p.status === 'reject' ? 'error' : 'done',
             meta: REPLY_META[p.status ?? ''] ?? '没有确认',
@@ -270,12 +272,18 @@ export function deriveBlocks(
     const text = answer.join('')
     if (text) blocks.push({ kind: 'text', id: `${m.id}:text`, text, streaming: running })
     if (error) {
-      blocks.push({ kind: 'error', id: `${m.id}:error`, message: error, last: m.id === lastAssistant })
+      blocks.push({
+        kind: 'error',
+        id: `${m.id}:error`,
+        message: error,
+        last: m.id === lastAssistant,
+      })
     }
     // 状态行：这一轮还在跑，而且最近 2 秒没有新内容（等模型首字、工具在跑）；
     // 在等你确认 / 回答、在重试时不显示
     const waiting = cards.some(
-      (c) => c.kind === 'permission' || (c.kind === 'question' && c.blocking && c.state === 'pending'),
+      (c) =>
+        c.kind === 'permission' || (c.kind === 'question' && c.blocking && c.state === 'pending'),
     )
     if (running && !waiting && !retrying) {
       const last = Math.max(m.createdAt, ...parts.map((p) => p.updatedAt))

@@ -164,7 +164,12 @@ describe('SessionService', () => {
     const s = await service.create(input)
     await waitFor(s.id, ['waiting'])
     const result = await service.askUser(
-      { question: '用哪个库？', options: ['测试库', '本地库'], assumption: '测试库', blocking: false },
+      {
+        question: '用哪个库？',
+        options: ['测试库', '本地库'],
+        assumption: '测试库',
+        blocking: false,
+      },
       { sessionId: s.id },
     )
     expect(result).toEqual({ answered: false, assumption: '测试库' })

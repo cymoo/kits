@@ -159,6 +159,7 @@ app.whenReady().then(() => {
           node: process.versions.node,
           configDir: config.paths.dir,
           configDirLabel: homeLabel(config.paths.dir),
+          homeDir: os.homedir(),
           userDataDir: platform.userDataDir,
         }),
         openExternal: (url) => platform.openExternal(url),

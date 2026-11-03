@@ -3,8 +3,8 @@ import type {
   AskUserInput,
   AskUserResult,
   CreateSessionInput,
-  KitsToolContext,
   KernelEvent,
+  KitsToolContext,
   MessageView,
   PartView,
   PushEvents,
@@ -190,7 +190,7 @@ export class SessionService {
     }
     // 不阻塞的提问：Agent 已经按假设往下做了，回答作为下一条消息发过去
     const part = this.deps.store.questionPart(input.id, input.questionId)
-    if (!part || part.payload.type !== 'question') throw new Error('没有这个提问')
+    if (part?.payload.type !== 'question') throw new Error('没有这个提问')
     if (part.payload.blocking && part.status !== 'pending') throw new Error('这个提问已经过期了')
     const answered = run?.recorder.answer(input.questionId, answer)
     if (answered?.parts.length) this.commit(input.id, answered)

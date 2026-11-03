@@ -1,5 +1,5 @@
 import type { SessionSummary } from '@kits/core/ipc'
-import { Check, Folder, Square } from 'lucide-react'
+import { Check, Clock, Folder, Square } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { useParams } from 'react-router'
 import { t } from '../../app/i18n'
@@ -8,13 +8,8 @@ import { kits } from '../../lib/kits'
 import { useLiveSession } from '../../lib/sessions'
 import { shortcuts, useShortcuts } from '../../lib/shortcuts'
 import { formatDuration, useNow } from '../../lib/use-now'
-import {
-  ErrorBlock,
-  StatusLine,
-  TextBlock,
-  TurnBlock,
-  UserBlock,
-} from '../../session/thread/Blocks'
+import { StatusLine, TextBlock, TurnBlock, UserBlock } from '../../session/thread/Blocks'
+import { ErrorCard, PermissionCard, QuestionCard, RetryBar } from '../../session/thread/Cards'
 import { deriveBlocks } from '../../session/thread/derive'
 import { Composer } from '../../shell/Composer'
 import { cx } from '../../ui/cx'
@@ -22,7 +17,16 @@ import { cx } from '../../ui/cx'
 // 会话页（原型 session.html）：顶栏（标题、状态、目录、Agent · 内核 · 模型、停止）+ 对话流 + 输入框。
 // 右侧的改动 / 产出 / 终端 / 上下文面板在 PR9。
 
-function StatusPill({ session, startedAt }: { session: SessionSummary; startedAt: number }) {
+function StatusPill({
+  session,
+  startedAt,
+  answering,
+}: {
+  session: SessionSummary
+  startedAt: number
+  // 在等的是提问的回答，不是确认
+  answering: boolean
+}) {
   const live = session.status === 'running' || session.status === 'waiting'
   const now = useNow(1000, session.status === 'running')
   const tone = {
@@ -35,7 +39,9 @@ function StatusPill({ session, startedAt }: { session: SessionSummary; startedAt
   const text =
     session.status === 'running'
       ? t('pill.running', { n: session.turns, time: formatDuration(now - startedAt) })
-      : t(`pill.${session.status}`, { n: session.turns })
+      : session.status === 'waiting' && answering
+        ? t('pill.answer')
+        : t(`pill.${session.status}`, { n: session.turns })
   return (
     <span
       data-testid="session-status"
@@ -58,6 +64,27 @@ function StatusPill({ session, startedAt }: { session: SessionSummary; startedAt
       {session.status === 'done' ? <Check size={11} strokeWidth={2.4} /> : null}
       {text}
     </span>
+  )
+}
+
+// 运行中发的消息：这一轮结束后合成一条发出去
+function Queued({ items }: { items: string[] }) {
+  return (
+    <div
+      data-testid="queued"
+      className="mb-2 flex flex-col gap-1 rounded-[10px] border border-line-soft border-dashed bg-bg/60 px-3 py-2"
+    >
+      <span className="flex items-center gap-1.5 text-[0.846rem] text-fg-subtle">
+        <Clock size={11} />
+        {t('queue.label')}
+      </span>
+      {items.map((text, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: 排队的消息可能重复，只按位置区分
+        <span key={i} className="line-clamp-2 whitespace-pre-wrap text-[0.962rem] text-fg-muted">
+          {text}
+        </span>
+      ))}
+    </div>
   )
 }
 
@@ -95,12 +122,17 @@ export function SessionPage() {
   }
   if (!session) return null
 
+  const firstPermission = blocks.find((b) => b.kind === 'permission')?.id
+  const answering =
+    !firstPermission &&
+    blocks.some((b) => b.kind === 'question' && b.blocking && b.state === 'pending')
+
   const model = session.model.slice(session.model.indexOf('/') + 1)
   return (
     <div className="flex h-full min-h-0 flex-col bg-raised">
       <header className="flex h-12 shrink-0 items-center gap-2.5 border-line-soft border-b pr-4 pl-5">
         <h1 className="m-0 min-w-0 truncate font-semibold text-[1.077rem]">{session.title}</h1>
-        <StatusPill session={session} startedAt={lastTurnStart} />
+        <StatusPill session={session} startedAt={lastTurnStart} answering={answering} />
         <span className="flex-1" />
         <span
           className="inline-flex items-center gap-1.5 text-[0.923rem] text-fg-muted"
@@ -150,18 +182,39 @@ export function SessionPage() {
                 return <TextBlock key={b.id} block={b} />
               case 'status':
                 return <StatusLine key={b.id} block={b} />
+              case 'permission':
+                return (
+                  <PermissionCard
+                    key={b.id}
+                    block={b}
+                    sessionId={session.id}
+                    workdir={session.workdir}
+                    active={b.id === firstPermission}
+                  />
+                )
+              case 'question':
+                return <QuestionCard key={b.id} block={b} sessionId={session.id} />
+              case 'retry':
+                return <RetryBar key={b.id} block={b} sessionId={session.id} />
               case 'error':
-                return <ErrorBlock key={b.id} block={b} />
+                return (
+                  <ErrorCard
+                    key={b.id}
+                    block={b}
+                    session={session}
+                    canContinue={b.last && !running}
+                  />
+                )
               default:
                 return null
             }
           })}
         </div>
         <div className="sticky bottom-0 mx-auto w-full max-w-[760px] bg-gradient-to-b from-transparent to-raised to-[14px] pt-3 pb-4">
+          {session.queued?.length ? <Queued items={session.queued} /> : null}
           <Composer
             locked
             lockedAs={session}
-            disabled={running}
             placeholder={running ? t('composer.followUpRunning') : t('composer.followUp')}
             onSubmit={({ text }) => kits.session.prompt({ id: session.id, text })}
           />

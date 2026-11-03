@@ -75,7 +75,6 @@ const zhCN = {
   'turn.think': '思考',
   'turn.expand': '展开',
   'turn.collapse': '收起',
-  'turn.failed': '这一轮没做完',
   'perm.head.bash': '执行命令前需要你确认',
   'perm.head.edit': '修改文件前需要你确认',
   'perm.head.webfetch': '访问网页前需要你确认',

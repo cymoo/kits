@@ -40,6 +40,8 @@ export interface AppInfo {
   // 给人看的写法：家目录换成 ~（~/.kits/）
   configDirLabel: string
   userDataDir: string
+  // 家目录，界面上把路径缩写成 ~/…
+  homeDir: string
 }
 
 export type GatewayTestResult =

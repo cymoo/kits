@@ -55,7 +55,12 @@ export class TurnRecorder {
   // ask_user 进来了：记一个提问 part；阻塞的提问让会话进入 waiting
   question(
     questionId: string,
-    input: { question: string; options?: string[] | undefined; assumption?: string | undefined; blocking: boolean },
+    input: {
+      question: string
+      options?: string[] | undefined
+      assumption?: string | undefined
+      blocking: boolean
+    },
   ): TurnChange {
     const part = this.upsert(
       `question:${questionId}`,
@@ -215,7 +220,8 @@ export class TurnRecorder {
         // 这一轮结束了，还没回复的确认 / 提问作废，卡片上不再给按钮
         for (const p of [...this.parts.values()]) {
           // 不阻塞的提问轮次结束后还能回答（回答作为下一条消息）
-          if (p.status !== 'pending' || (p.payload.type === 'question' && !p.payload.blocking)) continue
+          if (p.status !== 'pending' || (p.payload.type === 'question' && !p.payload.blocking))
+            continue
           const key = p.id.slice(this.message.id.length + 1)
           change.parts.push(this.upsert(key, p.type, (prev) => prev as PartPayload, 'expired'))
         }
