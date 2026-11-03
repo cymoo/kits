@@ -40,8 +40,12 @@ export async function testGateway(
       }
     }
     if (!res.ok) return { ok: false, latencyMs: elapsed(), error: `网关返回 HTTP ${res.status}` }
-    const body = (await res.json()) as { data?: { id?: unknown }[] }
-    const models = (body.data ?? [])
+    // 有的网关出错也回 200 带一个错误对象；没有 data 数组就当失败，不能当成“模型列表是空的”
+    const body = (await res.json().catch(() => null)) as { data?: unknown } | null
+    if (!body || !Array.isArray(body.data)) {
+      return { ok: false, latencyMs: elapsed(), error: '网关返回的不是模型列表（缺少 data 数组）' }
+    }
+    const models = (body.data as { id?: unknown }[])
       .map((m) => m.id)
       .filter((id): id is string => typeof id === 'string' && id.length > 0)
     return { ok: true, latencyMs: elapsed(), models: [...new Set(models)].sort() }

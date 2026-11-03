@@ -28,6 +28,11 @@ function GatewayStep({ onNext }: { onNext(): void }) {
 
   const run = async () => {
     const r = await test.mutateAsync({ baseUrl, ...(apiKey ? { apiKey } : {}) })
+    // 连上了但一个模型都没有：不保存，留着表单让人改地址再试
+    if (r.ok && r.models.length === 0) {
+      setResult({ ok: false, latencyMs: r.latencyMs, error: t('onboarding.noModels') })
+      return
+    }
     setResult(r)
     // 测通了就保存，默认模型先取列表第一个，下面可以改
     if (r.ok && !added) await add({ name: '', baseUrl, apiKey, models: r.models })

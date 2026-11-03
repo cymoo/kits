@@ -103,8 +103,9 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
     queryFn: () => kits.secrets.has(gatewaySecretKey(gateway.id)),
   })
 
-  const runTest = async () => {
-    const r = await test.mutateAsync({ baseUrl: gateway.baseUrl, gatewayId: gateway.id })
+  // 显式传地址：保存地址后立刻测试时，这一轮渲染里的 gateway.baseUrl 还是旧的
+  const runTest = async (baseUrl = gateway.baseUrl) => {
+    const r = await test.mutateAsync({ baseUrl, gatewayId: gateway.id })
     setResult(r)
     return r
   }
@@ -115,7 +116,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
       void hasKey.refetch()
     }
     if (url !== gateway.baseUrl) await patch(gateway.id, { baseUrl: url })
-    await runTest()
+    await runTest(url)
   }
   const statusDot = !gateway.enabled ? 'bg-[#D4D4D8]' : result?.ok === false ? 'bg-danger' : 'bg-ok'
 

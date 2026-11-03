@@ -1,4 +1,12 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -60,9 +68,18 @@ describe('ConfigService', () => {
     expect(readFileSync(path.join(dir, backup ?? ''), 'utf8')).toBe('{ not json')
   })
 
-  it('picks up edits made by hand on reload', () => {
-    const config = new ConfigService({ dir })
-    writeFileSync(path.join(dir, 'settings.json'), JSON.stringify({ kernel: 'codeagent' }))
-    expect(config.reload().kernel).toBe('codeagent')
+  it('picks up a hand edit before reading and before saving', () => {
+    const changed: string[] = []
+    const config = new ConfigService({ dir, onSettingsChanged: (s) => changed.push(s.kernel) })
+    config.updateSettings({ general: { theme: 'dark' } })
+    // 编辑器里改了文件（mtime 变了）
+    const file = path.join(dir, 'settings.json')
+    writeFileSync(file, JSON.stringify({ kernel: 'codeagent', general: { theme: 'dark' } }))
+    utimesSync(file, new Date(), new Date(Date.now() + 5_000))
+    expect(config.getSettings().kernel).toBe('codeagent')
+    expect(changed.at(-1)).toBe('codeagent')
+    // 保存补丁时打在手改后的内容上，不用旧缓存覆盖
+    const next = config.updateSettings({ general: { uiScale: 's' } })
+    expect(next.kernel).toBe('codeagent')
   })
 })

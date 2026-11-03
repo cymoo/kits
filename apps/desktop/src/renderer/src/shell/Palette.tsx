@@ -1,5 +1,5 @@
 import { History, Plus, Search, SlidersHorizontal } from 'lucide-react'
-import { type KeyboardEvent, type ReactNode, useState } from 'react'
+import { type KeyboardEvent, type ReactNode, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { type MessageKey, t } from '../app/i18n'
 import { shortcuts } from '../lib/shortcuts'
@@ -26,6 +26,13 @@ export function Palette() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
+  // 不管从哪关的（执行动作、Esc、再按 ⌘K），下次打开都从空查询开始
+  useEffect(() => {
+    if (!open) {
+      setQuery('')
+      setActive(0)
+    }
+  }, [open])
 
   const go = (to: string) => {
     setOpen(false)
@@ -81,21 +88,17 @@ export function Palette() {
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v)
-        if (!v) {
-          setQuery('')
-          setActive(0)
-        }
-      }}
-    >
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent align="top" label={t('palette.label')}>
         <div className="flex h-[52px] items-center gap-2.5 border-line-soft border-b px-4">
           <Search size={16} className="text-fg-muted" />
           <input
             autoFocus
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="palette-list"
+            aria-autocomplete="list"
+            aria-activedescendant={shown[active] ? `palette-${shown[active].id}` : undefined}
             aria-label={t('nav.search')}
             value={query}
             onChange={(e) => {
@@ -116,6 +119,7 @@ export function Palette() {
         </div>
         <div
           className="flex max-h-[440px] flex-col gap-px overflow-y-auto p-1.5"
+          id="palette-list"
           role="listbox"
           aria-label={t('palette.label')}
         >
@@ -129,6 +133,7 @@ export function Palette() {
           {shown.map((a, i) => (
             <button
               key={a.id}
+              id={`palette-${a.id}`}
               type="button"
               role="option"
               aria-selected={i === active}

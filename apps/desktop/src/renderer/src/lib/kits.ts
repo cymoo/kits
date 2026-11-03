@@ -46,7 +46,12 @@ export function useAppInfo() {
 export function useSettingsSync() {
   const client = useQueryClient()
   useEffect(
-    () => kits.on('settings.changed', (s: Settings) => client.setQueryData(queryKeys.settings, s)),
+    () =>
+      kits.on('settings.changed', (s: Settings) => {
+        client.setQueryData(queryKeys.settings, s)
+        // 坏文件修好了（手改或保存）错误提示也要跟着变
+        void client.invalidateQueries({ queryKey: [...queryKeys.settings, 'loadError'] })
+      }),
     [client],
   )
 }

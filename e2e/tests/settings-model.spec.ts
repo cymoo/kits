@@ -76,3 +76,22 @@ test('sets up the first gateway in onboarding step 1', async () => {
     await gw.close()
   }
 })
+
+test('keeps the onboarding form when the gateway lists no models', async () => {
+  const gw = await startFakeGateway([])
+  const { page, close } = await launchApp()
+  try {
+    await page.goto(`${page.url().split('#')[0]}#/onboarding`)
+    await page.getByLabel('网关地址').fill(gw.baseUrl)
+    await page.getByLabel('API Key').fill(gw.key)
+    await page.getByRole('button', { name: '测试连接' }).click()
+    await expect(page.getByRole('status')).toContainText('没有列出任何模型')
+    await expect(page.getByLabel('网关地址')).toBeVisible()
+    expect(
+      await page.evaluate(() => window.kits.settings.get().then((s) => s.gateways.length)),
+    ).toBe(0)
+  } finally {
+    await close()
+    await gw.close()
+  }
+})

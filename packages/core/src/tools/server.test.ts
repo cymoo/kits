@@ -129,6 +129,15 @@ describe('ToolCallRegistry', () => {
     expect(await registry.match('ask_user', { question: 'q' }, 10)).toBeUndefined()
   })
 
+  it('drops expired registrations of other inputs when registering', () => {
+    let now = 0
+    const registry = new ToolCallRegistry({ ttlMs: 10_000, now: () => now })
+    registry.register('s1', 'ask_user', { question: 'old' })
+    now = 10_001
+    registry.register('s2', 'ask_user', { question: 'new' })
+    expect(registry.size).toBe(1)
+  })
+
   it('pairs two sessions asking the same thing in order', async () => {
     const registry = new ToolCallRegistry()
     registry.register('s1', 'ask_user', { question: 'q' })
@@ -163,6 +172,26 @@ describe('startKitsToolHttpServer', () => {
       body: '{}',
     })
     expect(wrong.status).toBe(401)
+  })
+
+  it('answers a malformed request path with 400 instead of crashing', async () => {
+    const server = await start(setup().handlers)
+    const { port } = new URL(server.url)
+    // fetch 会把路径规范化，这里直接写原始请求行
+    const net = await import('node:net')
+    const reply = await new Promise<string>((resolve) => {
+      const socket = net.connect(Number(port), '127.0.0.1', () => {
+        socket.write(
+          'POST //[ HTTP/1.1\r\nHost: x\r\nContent-Length: 0\r\nConnection: close\r\n\r\n',
+        )
+      })
+      let data = ''
+      socket.on('data', (c) => {
+        data += c.toString()
+      })
+      socket.on('end', () => resolve(data))
+    })
+    expect(reply.split('\r\n')[0]).toContain('400')
   })
 
   it('serves the tools to an MCP client that sends the bearer token', async () => {

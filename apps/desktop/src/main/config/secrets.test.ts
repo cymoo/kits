@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -42,5 +42,30 @@ describe('SecretStore', () => {
     store.remove('k')
     expect(store.has('k')).toBe(false)
     expect(new SecretStore(file, fake(true)).get('k')).toBeUndefined()
+  })
+  it('starts empty and keeps a backup when the file is broken', () => {
+    writeFileSync(file, '{ not json')
+    const store = new SecretStore(file, fake(true))
+    expect(store.loadError).toContain('secrets.json')
+    expect(store.has('anything')).toBe(false)
+    expect(readdirSync(path.dirname(file)).some((f) => f.startsWith('secrets.json.broken-'))).toBe(
+      true,
+    )
+  })
+
+  it('treats a value it cannot decrypt as missing', () => {
+    new SecretStore(file, fake(true)).set('k', 'v')
+    const broken: Encryptor = {
+      ...fake(true),
+      decrypt: () => {
+        throw new Error('keychain changed')
+      },
+    }
+    expect(new SecretStore(file, broken).get('k')).toBeUndefined()
+  })
+
+  it.skipIf(process.platform === 'win32')('writes the file readable by the owner only', () => {
+    new SecretStore(file, fake(false)).set('k', 'v')
+    expect(statSync(file).mode & 0o777).toBe(0o600)
   })
 })
