@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { applyAppearance } from '../app/theme'
 import { useSettings, useSettingsSync } from '../lib/kits'
+import { useSessionListSync } from '../lib/sessions'
 import { isMac, useShortcuts } from '../lib/shortcuts'
 import { useUi } from '../lib/ui-store'
 import { Nav } from './Nav'
@@ -16,6 +17,7 @@ export function Layout() {
   const paletteOpen = useUi((s) => s.paletteOpen)
   const settings = useSettings()
   useSettingsSync()
+  useSessionListSync()
 
   useEffect(() => {
     if (settings.data) return applyAppearance(settings.data.general)

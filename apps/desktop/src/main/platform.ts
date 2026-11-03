@@ -1,4 +1,4 @@
-import { app, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, dialog, safeStorage, shell } from 'electron'
 import type { Encryptor } from './config/secrets'
 
 declare const __KITS_VERSION__: string
@@ -14,6 +14,8 @@ export interface PlatformBridge {
   readonly encryptor: Encryptor
   openExternal(url: string): Promise<void>
   openPath(path: string): Promise<void>
+  // 系统的目录选择框；取消时返回 null
+  pickDirectory(): Promise<string | null>
 }
 
 export function createElectronPlatform(): PlatformBridge {
@@ -32,6 +34,14 @@ export function createElectronPlatform(): PlatformBridge {
     openExternal: async (url) => {
       if (!/^https?:\/\//i.test(url)) throw new Error(`refusing to open ${url}`)
       await shell.openExternal(url)
+    },
+    pickDirectory: async () => {
+      const win = BrowserWindow.getFocusedWindow()
+      const options = { properties: ['openDirectory' as const, 'createDirectory' as const] }
+      const result = win
+        ? await dialog.showOpenDialog(win, options)
+        : await dialog.showOpenDialog(options)
+      return result.canceled ? null : (result.filePaths[0] ?? null)
     },
     openPath: async (target) => {
       const error = await shell.openPath(target)

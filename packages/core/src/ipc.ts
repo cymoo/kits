@@ -1,9 +1,19 @@
 import type { GeneralSettings, Settings } from './config/settings'
+import type {
+  AgentSummary,
+  CreateSessionInput,
+  MessageView,
+  PartView,
+  SessionActivity,
+  SessionDetail,
+  SessionSummary,
+} from './session'
 
 // 渲染进程的 tsconfig 不带 Node 类型，不能引 @kits/core 的入口（里面有 node:fs），要用的类型从这里转出去
 export type { Gateway, GatewayModel } from './config/gateway'
 export type { PermissionLevel, PermissionMode } from './config/permission'
 export type { GeneralSettings, Settings } from './config/settings'
+export type * from './session'
 
 // IPC 契约（phase1-implementation 5.5 节）：一个对象字面量声明所有通道的入参和返回值。
 // preload 按它生成 window.kits.<域>.<方法>，主进程 ipc/register.ts 按它逐个 handle，类型不一致编译就报错。
@@ -87,6 +97,20 @@ export const ipcContract = {
     openLogs: method<KernelName, void>(),
     restart: method<KernelName, void>(),
   },
+  session: {
+    create: method<CreateSessionInput, SessionSummary>(),
+    list: method<undefined, SessionSummary[]>(),
+    get: method<string, SessionDetail | null>(),
+    prompt: method<{ id: string; text: string }, void>(),
+    abort: method<string, void>(),
+  },
+  workdir: {
+    // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用
+    pick: method<undefined, string | null>(),
+  },
+  agents: {
+    list: method<undefined, AgentSummary[]>(),
+  },
   secrets: {
     set: method<{ key: string; value: string }, void>(),
     has: method<string, boolean>(),
@@ -122,9 +146,21 @@ export type IpcHandlers = {
 export interface PushEvents {
   'settings.changed': Settings
   'kernel.status': KernelRuntime
+  // 会话的元数据变了（状态、标题、轮次）
+  'session.changed': SessionSummary
+  'session.message': MessageView
+  'session.part': PartView
+  'session.activity': SessionActivity
 }
 export type PushChannel = keyof PushEvents
-export const pushChannels: PushChannel[] = ['settings.changed', 'kernel.status']
+export const pushChannels: PushChannel[] = [
+  'settings.changed',
+  'kernel.status',
+  'session.changed',
+  'session.message',
+  'session.part',
+  'session.activity',
+]
 
 export function channelName(domain: string, method: string): string {
   return `${domain}.${method}`
