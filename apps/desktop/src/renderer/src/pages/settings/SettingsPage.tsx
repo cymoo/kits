@@ -1,6 +1,7 @@
 import { Navigate, NavLink, useParams } from 'react-router'
 import { type MessageKey, t } from '../../app/i18n'
 import { useAppInfo, useSettingsLoadError } from '../../lib/kits'
+import { isMac } from '../../lib/shortcuts'
 import { cx } from '../../ui/cx'
 import { ModelSection } from './model/ModelSection'
 import { isSettingsSection, settingsSections } from './sections'
@@ -15,7 +16,11 @@ export function SettingsPage() {
     <div className="flex h-full min-h-0">
       <nav
         aria-label={t('settings.title')}
-        className="flex w-[200px] min-w-0 shrink-0 flex-col gap-px border-line border-r bg-bg px-2.5 pt-5 pb-5"
+        className={cx(
+          'flex w-[200px] min-w-0 shrink-0 flex-col gap-px border-line border-r bg-bg px-2.5 pb-5',
+          // 红绿灯会横跨到这一栏，标题和侧栏的第一项对齐
+          isMac ? 'pt-11' : 'pt-5',
+        )}
       >
         <h1 className="mt-0 mb-3 ml-2.5 font-semibold text-[1.154rem]">{t('settings.title')}</h1>
         {settingsSections.map((s) => (
