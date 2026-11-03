@@ -5,7 +5,7 @@ import type { GeneratedConfig, KernelConfig, KernelDialect, SpawnedKernel } from
 
 // OpenCode 方言：指定空闲端口启动 `opencode serve`，轮询 /global/health 等待就绪。
 // 每次启动生成随机密码，服务端走 Basic Auth（用户名固定为 opencode），同机其他进程调不了内核接口。
-// 配置目录通过环境变量注入；权限回复接口按锁定版本确定【待实测】。
+// 配置目录通过环境变量注入；权限回复接口已对 1.19.5 实测确认（docs/references/model-poc.md）。
 
 const READY_TIMEOUT_MS = 30_000
 const HEALTH_PROBE_TIMEOUT_MS = 2_000
@@ -58,6 +58,31 @@ async function waitForHealth(
   throw new Error(`opencode did not become healthy within ${timeoutMs}ms\n${tail(stderr())}`)
 }
 
+// 子进程环境变量。XDG_*_HOME 全部指到 kits 的数据目录，内核就不碰用户家目录的 OpenCode 数据；
+// OPENCODE_TEST_HOME 是 1.19.5 里 Global.Path.home 的唯一覆盖口（home = OPENCODE_TEST_HOME ?? os.homedir()），
+// 配置查找会扫 {home}/.opencode，不设它用户的 ~/.opencode/opencode.json 还是会被加载；
+// 三个 DISABLE 关掉自动更新、读 ~/.agents/skills 等外部技能、读 Claude Code 配置（PoC 里这两样每轮多 2.8k 输入 token，
+// 还让内核行为依赖本机环境）。只给子进程设，别 export 到当前 shell：XDG_DATA_HOME 会影响 fnm 之类的工具。
+export function spawnEnv(
+  cfg: KernelConfig,
+  base: NodeJS.ProcessEnv = process.env,
+): Record<string, string | undefined> {
+  return {
+    ...base,
+    OPENCODE_CONFIG_DIR: cfg.configDir,
+    XDG_DATA_HOME: cfg.dataDir,
+    XDG_CACHE_HOME: cfg.dataDir,
+    XDG_CONFIG_HOME: cfg.dataDir,
+    XDG_STATE_HOME: cfg.dataDir,
+    OPENCODE_TEST_HOME: cfg.dataDir,
+    OPENCODE_DISABLE_AUTOUPDATE: '1',
+    OPENCODE_DISABLE_EXTERNAL_SKILLS: '1',
+    OPENCODE_DISABLE_CLAUDE_CODE: '1',
+    OPENAI_BASE_URL: cfg.gateway.baseUrl,
+    OPENAI_API_KEY: cfg.gateway.apiKey,
+  }
+}
+
 export const opencodeDialect: KernelDialect = {
   id: 'opencode',
 
@@ -78,13 +103,7 @@ export const opencodeDialect: KernelDialect = {
       'WARN',
     ]
     const child = spawn(cfg.binary, args, {
-      env: {
-        ...process.env,
-        OPENCODE_SERVER_PASSWORD: password,
-        OPENCODE_CONFIG_DIR: cfg.configDir,
-        OPENAI_BASE_URL: cfg.gateway.baseUrl,
-        OPENAI_API_KEY: cfg.gateway.apiKey,
-      },
+      env: { ...spawnEnv(cfg), OPENCODE_SERVER_PASSWORD: password },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })

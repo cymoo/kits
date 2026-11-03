@@ -110,6 +110,7 @@ type KernelEvent =
   | { type: 'tool-end'; callId: string; output: unknown; error?: string }
   | { type: 'permission-request'; requestId: string; tool: string; input: unknown }
   | { type: 'usage'; inputTokens: number; outputTokens: number }
+  | { type: 'retry'; attempt: number; message: string; nextAt: number }
   | { type: 'done'; reason: 'completed' | 'aborted' | 'max-steps' | 'error'; error?: string }
 ```
 

@@ -9,6 +9,8 @@ export interface KernelConfig {
   binary: string
   // kits 为内核生成的配置目录
   configDir: string
+  // 内核的数据目录（会话存储、缓存、日志）。指到 kits 的用户数据目录下，不让内核读写用户家目录
+  dataDir: string
   // 模型网关（OpenAI 兼容接口）
   gateway: { baseUrl: string; apiKey: string }
 }
