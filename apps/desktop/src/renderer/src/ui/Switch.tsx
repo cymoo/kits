@@ -18,9 +18,9 @@ export function Switch({
       onCheckedChange={onCheckedChange}
       aria-label={label}
       {...(disabled ? { disabled } : {})}
-      className="relative h-[18px] w-8 shrink-0 cursor-pointer rounded-[9px] bg-[#D4D4D8] p-0 data-[state=checked]:bg-primary disabled:opacity-40"
+      className="relative h-[18px] w-8 shrink-0 cursor-pointer rounded-[9px] bg-line-strong p-0 data-[state=checked]:bg-primary disabled:opacity-40"
     >
-      <S.Thumb className="block h-3.5 w-3.5 translate-x-0.5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)] transition-transform data-[state=checked]:translate-x-4" />
+      <S.Thumb className="block h-3.5 w-3.5 translate-x-0.5 rounded-full bg-raised shadow-[0_1px_2px_rgba(0,0,0,.2)] transition-transform data-[state=checked]:translate-x-4" />
     </S.Root>
   )
 }

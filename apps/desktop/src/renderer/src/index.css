@@ -2,7 +2,7 @@
 
 /*
  * 设计令牌（phase1-implementation 6.2 节）：颜色、圆角、字体收成 CSS 变量，组件只用语义名。
- * 浅色值取自 designs/app；深色值是占位，PR17 先在原型里定稿再改这里。
+ * 浅色值取自 designs/app；深色值和原型的深色预览（designs/app/theme.js，?theme=dark）一致。
  * html[data-theme] 由 app/theme.ts 按设置写入：light / dark。
  */
 :root {

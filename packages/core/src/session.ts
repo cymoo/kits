@@ -174,3 +174,11 @@ export interface AgentSummary {
   source: 'builtin' | 'personal' | 'project'
   model?: string
 }
+
+// 首次引导第 2 步：工作目录里发现了什么
+export interface WorkdirInspection {
+  path: string
+  // 不是 Git 仓库就没有；changed 是工作区里有改动的文件数
+  git?: { branch: string; changed: number }
+  found: { file: string; note: string }[]
+}

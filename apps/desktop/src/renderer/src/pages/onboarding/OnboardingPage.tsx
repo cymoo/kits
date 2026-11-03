@@ -1,10 +1,12 @@
 import type { GatewayTestResult, McpTestResult } from '@kits/core/ipc'
-import { Check } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, FolderOpen } from 'lucide-react'
 import { RadioGroup } from 'radix-ui'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../app/i18n'
-import { kits } from '../../lib/kits'
+import { useAppearance } from '../../app/use-appearance'
+import { kits, queryKeys, useHomeLabel, useSettings, useUpdateSettings } from '../../lib/kits'
 import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { Field, Input } from '../../ui/Input'
@@ -14,7 +16,7 @@ import { TestResult, useKeyHint } from '../settings/model/ModelSection'
 import { useGateways } from '../settings/model/useGateways'
 
 // 首次引导（原型 onboarding.html）：左侧三步导航，右侧当前步骤。
-// 第 1 步网关、第 3 步 MCP 在这里做；第 2 步工作目录和首次启动门控在 PR17，先放占位。
+// 第一次启动、还没配网关时 Layout 会跳到这里；完成或跳过后记 onboardingDone，之后不再进来。
 
 const STEPS = [
   { title: '模型网关', sub: '先配一个，能测通就行' },
@@ -143,16 +145,98 @@ function GatewayStep({ onNext }: { onNext(): void }) {
   )
 }
 
-function PendingStep({ onNext }: { onNext(): void }) {
+// 第 2 步：选一个代码仓库，看一眼里面有什么（AGENTS.md、项目技能、项目类型）
+function WorkdirStep({ onBack, onNext }: { onBack(): void; onNext(): void }) {
+  const settings = useSettings()
+  const homeLabel = useHomeLabel()
+  const client = useQueryClient()
+  const dir = settings.data?.workdirs[0]?.path
+  const inspection = useQuery({
+    queryKey: ['workdir-inspect', dir ?? ''],
+    queryFn: () => kits.workdir.inspect(dir ?? ''),
+    enabled: !!dir,
+  })
+  const pick = async () => {
+    const picked = await kits.workdir.pick()
+    if (picked) await client.invalidateQueries({ queryKey: queryKeys.settings })
+  }
+  const git = inspection.data?.git
   return (
-    <div className="flex flex-col gap-4 px-8 py-7">
-      <p className="m-0 text-fg-muted">{t('settings.pending')}</p>
-      <div className="flex justify-end">
-        <Button variant="primary" onClick={onNext}>
+    <>
+      <div className="flex flex-col gap-[22px] px-8 pt-7 pb-2" data-testid="onboarding-workdir">
+        <div className="flex flex-col gap-1">
+          <h2 className="m-0 font-semibold text-[1.385rem]">{t('onboarding.workdirTitle')}</h2>
+          <p className="m-0 text-fg-muted">{t('onboarding.workdirIntro')}</p>
+        </div>
+        {dir ? (
+          <div className="flex flex-col gap-3 pb-2">
+            <div className="flex items-center gap-3 rounded-[12px] border border-line px-4 py-3.5">
+              <FolderOpen size={18} className="shrink-0 text-fg-muted" />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="truncate font-medium font-mono" title={dir}>
+                  {homeLabel(dir)}
+                </span>
+                <span className="text-[0.923rem] text-fg-muted">
+                  {inspection.isPending
+                    ? '…'
+                    : git
+                      ? t(git.changed ? 'onboarding.gitDirty' : 'onboarding.gitClean', {
+                          branch: git.branch,
+                          n: git.changed,
+                        })
+                      : t('onboarding.notGit')}
+                </span>
+              </span>
+              <Button onClick={() => void pick()}>{t('onboarding.changeDir')}</Button>
+            </div>
+            {inspection.data?.found.length ? (
+              <div className="flex flex-col gap-2 rounded-[10px] bg-bg px-4 py-3">
+                <span className="font-medium text-[0.923rem] text-fg-muted">
+                  {t('onboarding.found')}
+                </span>
+                {inspection.data.found.map((f) => (
+                  <div key={f.file} className="flex items-center gap-2">
+                    <Check size={14} className="shrink-0 text-ok" />
+                    <span>
+                      <span className="font-mono text-[0.923rem]">{f.file}</span> · {f.note}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : inspection.isSuccess ? (
+              <p className="m-0 rounded-[10px] bg-bg px-4 py-3 text-[0.923rem] text-fg-muted">
+                {t('onboarding.foundNothing')}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void pick()}
+            className="flex cursor-pointer flex-col items-center gap-2.5 rounded-[12px] border border-line-strong border-dashed bg-bg px-5 py-9 hover:bg-active"
+          >
+            <FolderOpen size={28} strokeWidth={1.3} className="text-fg-muted" />
+            <span className="font-medium">{t('onboarding.pickDir')}</span>
+            <span className="text-[0.923rem] text-fg-muted">{t('onboarding.pickDirHint')}</span>
+          </button>
+        )}
+      </div>
+      <footer className="mt-2 flex items-center gap-2.5 border-line-soft border-t px-8 pt-4 pb-5">
+        <span className="text-[0.923rem] text-fg-muted">{t('onboarding.stepOf', { n: 2 })}</span>
+        <span className="flex-1" />
+        <Button className="h-9 px-3.5" onClick={onBack}>
+          {t('onboarding.back')}
+        </Button>
+        {dir ? null : (
+          <Button variant="ghost" className="h-9 px-3.5" onClick={onNext}>
+            {t('onboarding.skip')}
+          </Button>
+        )}
+        <Button variant="primary" className="h-9 px-[18px]" disabled={!dir} onClick={onNext}>
           {t('onboarding.next')}
         </Button>
-      </div>
-    </div>
+      </footer>
+    </>
   )
 }
 
@@ -238,6 +322,13 @@ function McpStep({ onBack, onDone }: { onBack(): void; onDone(): void }) {
 export function OnboardingPage() {
   const [step, setStep] = useState(0)
   const navigate = useNavigate()
+  const update = useUpdateSettings()
+  useAppearance()
+  // 完成或跳过都算走过引导，之后启动不再进来
+  const finish = () => {
+    update.mutate({ onboardingDone: true })
+    navigate('/')
+  }
   return (
     <div className="flex min-h-full flex-col bg-bg">
       <header className="flex h-[52px] items-center gap-2.5 px-6 [-webkit-app-region:drag]">
@@ -296,9 +387,9 @@ export function OnboardingPage() {
             {step === 0 ? (
               <GatewayStep onNext={() => setStep(1)} />
             ) : step === 1 ? (
-              <PendingStep onNext={() => setStep(2)} />
+              <WorkdirStep onBack={() => setStep(0)} onNext={() => setStep(2)} />
             ) : (
-              <McpStep onBack={() => setStep(1)} onDone={() => navigate('/')} />
+              <McpStep onBack={() => setStep(1)} onDone={finish} />
             )}
           </section>
         </div>

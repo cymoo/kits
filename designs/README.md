@@ -18,6 +18,8 @@
 
 预览：`python3 -m http.server 8765 --directory designs/app`，或 Claude Code 的 `app` 预览配置。
 
+深色：任一页加 `?theme=dark`（设置页“通用”里选深色也行，会记住；`?theme=light` 切回）。`theme.js` 按用途把原型里的浅色值换成深色令牌，和 `apps/desktop` 的 `index.css` 一致；新画的页面照常写浅色值就行，要保持原样的小块（比如主题选项的预览图）加 `data-theme-keep`。
+
 ## 规则
 
 - 原型只画必要的状态（空、加载、正常、出错），不堆功能；评审结论写回需求。

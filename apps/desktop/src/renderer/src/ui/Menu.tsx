@@ -76,12 +76,12 @@ export function MenuSwitchItem({
         aria-hidden="true"
         className={cx(
           'relative h-[18px] w-8 shrink-0 rounded-[9px] transition-colors',
-          checked ? 'bg-primary' : 'bg-[#D4D4D8]',
+          checked ? 'bg-primary' : 'bg-line-strong',
         )}
       >
         <span
           className={cx(
-            'absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)] transition-transform',
+            'absolute top-0.5 h-3.5 w-3.5 rounded-full bg-raised shadow-[0_1px_2px_rgba(0,0,0,.2)] transition-transform',
             checked ? 'translate-x-4' : 'translate-x-0.5',
           )}
         />

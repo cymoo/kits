@@ -16,6 +16,7 @@ import type {
   SessionDetail,
   SessionSearchHit,
   SessionSummary,
+  WorkdirInspection,
 } from './session'
 import type { SkillOverview, SkillSource } from './skill-view'
 
@@ -53,6 +54,8 @@ export interface AppInfo {
   configDir: string
   // 给人看的写法：家目录换成 ~（~/.kits/）
   configDirLabel: string
+  // KITS_SKIP_ONBOARDING=1：不进首次引导（E2E 用）
+  skipOnboarding: boolean
   userDataDir: string
   // 家目录，界面上把路径缩写成 ~/…
   homeDir: string
@@ -96,6 +99,11 @@ export type SettingsPatch = Partial<Omit<Settings, 'version' | 'general'>> & {
 export const ipcContract = {
   app: {
     info: method<undefined, AppInfo>(),
+    // 设置 · 权限页的说明：默认权限（执行前确认模式下）和只读命令白名单
+    permissionDefaults: method<
+      undefined,
+      { tools: Record<string, PermissionLevel>; readonlyCommands: string[] }
+    >(),
     openExternal: method<string, void>(),
     openPath: method<string, void>(),
     // 在访达 / 资源管理器里选中这个文件（不打开它）
@@ -181,6 +189,8 @@ export const ipcContract = {
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用
     pick: method<undefined, string | null>(),
+    // 看一眼目录里有什么（首次引导用）
+    inspect: method<string, WorkdirInspection>(),
   },
   agents: {
     // 输入框的 Agent 浮层：给了工作目录时含项目 Agent

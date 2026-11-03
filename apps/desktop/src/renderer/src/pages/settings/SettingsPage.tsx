@@ -4,12 +4,15 @@ import { useAppInfo, useSettingsLoadError } from '../../lib/kits'
 import { isMac } from '../../lib/shortcuts'
 import { cx } from '../../ui/cx'
 import { AgentSection } from './agent/AgentSection'
+import { GeneralSection } from './general/GeneralSection'
 import { McpSection } from './mcp/McpSection'
 import { ModelSection } from './model/ModelSection'
+import { PermSection } from './perm/PermSection'
+import { PrivacySection } from './privacy/PrivacySection'
 import { isSettingsSection, settingsSections } from './sections'
 import { SkillsSection } from './skills/SkillsSection'
 
-// 设置页外框（原型 settings.html）：左侧分区导航，底部版本和配置目录；各分区的内容在 PR5、PR12～14、PR17 做。
+// 设置页外框（原型 settings.html）：左侧分区导航，底部版本和配置目录。
 export function SettingsPage() {
   const { section } = useParams()
   const info = useAppInfo()
@@ -61,7 +64,13 @@ export function SettingsPage() {
             <p className="m-0 mt-1 break-all font-mono text-[0.923rem]">{loadError.data}</p>
           </div>
         ) : null}
-        {section === 'model' ? (
+        {section === 'general' ? (
+          <GeneralSection />
+        ) : section === 'perm' ? (
+          <PermSection />
+        ) : section === 'privacy' ? (
+          <PrivacySection />
+        ) : section === 'model' ? (
           <ModelSection />
         ) : section === 'mcp' ? (
           <McpSection />
