@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>会话</title>
+<script src="./runtime.js"></script>
+<script src="./shell.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F7F7F5}
+a{color:#2F54EB}a:hover{color:#1D39C4}
+.k-ghost:hover{background:#EFEFEB}
+.k-row:hover{background:#F4F4F1}
+.k-act{opacity:0;transition:opacity .12s}.k-msg:hover .k-act,.k-act:focus-within{opacity:1}
+@keyframes k-spin{to{transform:rotate(360deg)}}
+@keyframes k-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-wrap: wrap; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #18181B; font-size: 13px; line-height: 1.5; background: #F7F7F5">
+
+  <k-nav active="session"></k-nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; background: #FFFFFF">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px; min-height: 52px; padding: 8px 20px; box-sizing: border-box; border-bottom: 1px solid #ECECE8">
+      <h1 style="margin: 0; font-size: 15px; font-weight: 600">给兑换接口加幂等校验</h1>
+      <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: #1D39C4; background: #EEF2FF; border-radius: 10px; padding: 1px 9px">
+        <span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: #2F54EB; animation: k-pulse 1.4s ease-in-out infinite"></span>运行中
+      </span>
+      <span style="flex: 1"></span>
+      <button type="button" class="k-ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #E3E3DE; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; color: #3F3F46; cursor: pointer">
+        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="4" width="8" height="8" rx="1.5"></rect></svg>
+        停止
+      </button>
+    </header>
+
+    <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+
+      <section aria-label="对话" style="flex: 999 1 480px; min-width: 0; display: flex; flex-direction: column; padding: 28px 32px 20px; box-sizing: border-box; gap: 20px">
+        <div style="width: 100%; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+
+          <div class="k-msg" style="align-self: flex-end; max-width: 86%; display: flex; flex-direction: column; gap: 8px; align-items: flex-end">
+            <div style="background: #F4F4F1; border-radius: 14px; padding: 10px 14px; font-size: 14px; line-height: 1.6">给积分兑换接口加上重复提交校验：同一个请求号只处理一次。改完跑一下 tests/points 下的测试。</div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; align-items: center">
+              <span style="display: inline-flex; align-items: center; gap: 6px; border: 1px solid #E3E3DE; border-radius: 8px; padding: 3px 9px; font-size: 12px; color: #3F3F46">
+                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg>
+                docs/api/coupon-api.yaml
+              </span>
+              <span class="k-act" style="display: inline-flex; gap: 2px">
+                <button type="button" class="k-ghost" style="height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #52525B; cursor: pointer">复制</button>
+                <button type="button" class="k-ghost" style="height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #52525B; cursor: pointer">编辑后重发</button>
+              </span>
+            </div>
+          </div>
+
+          <div style="border: 1px solid #ECECE8; border-radius: 12px; overflow: hidden">
+            <button type="button" onClick="{{toggleActivity}}" aria-expanded="{{activityOpen}}" class="k-row" style="width: 100%; display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 0; background: #FFFFFF; font: inherit; color: #3F3F46; cursor: pointer; text-align: left">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+              <span style="flex: 1; font-weight: 500">工作过程 · 5 步 · 41 秒 · 改了 2 个文件</span>
+              <span style="font-size: 12px; color: #5F5F66">{{activityLabel}}</span>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#5F5F66" stroke-width="1.5" stroke-linecap="round" style="{{chevStyle}}"><path d="m4 6 4 4 4-4"></path></svg>
+            </button>
+            <sc-if value="{{activityOpen}}" hint-placeholder-val="{{true}}">
+              <ol style="list-style: none; margin: 0; padding: 4px 0 8px; border-top: 1px solid #ECECE8; background: #FCFCFB">
+                <sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+                  <li style="display: flex; align-items: baseline; gap: 10px; padding: 5px 14px 5px 34px; font-size: 12px">
+                    <span style="color: #3F3F46; flex: 0 0 56px">{{s.kind}}</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; color: #18181B; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{s.detail}}</span>
+                    <span style="{{s.metaStyle}}">{{s.meta}}</span>
+                  </li>
+                </sc-for>
+              </ol>
+            </sc-if>
+          </div>
+
+          <div class="k-msg" style="display: flex; flex-direction: column; gap: 6px">
+            <p style="margin: 0; font-size: 14px; line-height: 1.7">我在 <code style="font-family: 'JetBrains Mono', monospace; font-size: 13px; background: #F4F4F1; border-radius: 4px; padding: 0 4px">redeem()</code> 里加了按请求号的幂等检查，结果缓存放在新文件 <code style="font-family: 'JetBrains Mono', monospace; font-size: 13px; background: #F4F4F1; border-radius: 4px; padding: 0 4px">idempotency.py</code>，改动可以在右侧“改动”里查看。有一处需要你确认：</p>
+            <div class="k-act" style="display: flex; gap: 2px">
+              <button type="button" class="k-ghost" style="height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #52525B; cursor: pointer">复制</button>
+              <button type="button" class="k-ghost" style="height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #52525B; cursor: pointer">重新生成</button>
+              <button type="button" class="k-ghost" style="height: 24px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #52525B; cursor: pointer">从这里分叉</button>
+            </div>
+          </div>
+
+          <div style="border: 1px solid #C7D2FE; background: #F8F9FF; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #1D39C4; font-weight: 600">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M6.3 6.2a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1M8 11.2v.1"></path></svg>
+              Agent 提问
+            </div>
+            <div style="font-size: 14px; font-weight: 500">同一个请求号第二次提交时，接口返回什么？</div>
+            <sc-if value="{{notAnswered}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-direction: column; gap: 10px">
+                <div style="display: flex; flex-wrap: wrap; gap: 8px">
+                  <sc-for list="{{options}}" as="o" hint-placeholder-count="3">
+                    <button type="button" onClick="{{o.pick}}" style="height: 34px; padding: 0 14px; border: 1px solid #C7D2FE; border-radius: 8px; background: #FFFFFF; font: inherit; color: #18181B; cursor: pointer">{{o.label}}</button>
+                  </sc-for>
+                </div>
+                <label style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 1px solid #E3E3DE; border-radius: 8px; background: #FFFFFF">
+                  <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">其他回答</span>
+                  <input type="text" placeholder="其他，自己填写…" style="flex: 1; border: 0; outline: none; font: inherit; color: #18181B; background: transparent">
+                </label>
+                <div style="font-size: 12px; color: #52525B">不回答也会继续，先按“返回第一次的结果”实现。</div>
+              </div>
+            </sc-if>
+            <sc-if value="{{answered}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; align-items: center; gap: 10px; font-size: 13px">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#16A34A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+                <span>已回答：<b style="font-weight: 600">{{answerLabel}}</b></span>
+                <button type="button" onClick="{{resetAnswer}}" style="border: 0; background: transparent; color: #2F54EB; font: inherit; cursor: pointer; padding: 0">修改</button>
+              </div>
+            </sc-if>
+          </div>
+
+          <p style="margin: 0; font-size: 14px; line-height: 1.7">接下来运行 tests/points 下的测试。</p>
+
+          <div id="k-perm" style="{{permCardStyle}}">
+            <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: {{permHeadColor}}">
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 5 3 3-3 3M8 11h5"></path></svg>
+              {{permHead}}
+            </div>
+            <pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; background: #18181B; color: #E4E4E7; border-radius: 8px; padding: 10px 12px; white-space: pre-wrap">$ uv run pytest tests/points -q</pre>
+            <div style="font-size: 12px; color: #52525B">工作目录 <span style="font-family: 'JetBrains Mono', monospace">~/repo/member-svc</span> · 会执行项目里的测试代码</div>
+            <sc-if value="{{permPending}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center">
+                <span style="margin-right: auto"></span>
+                <button type="button" onClick="{{deny}}" style="height: 32px; padding: 0 14px; border: 1px solid #E3E3DE; border-radius: 8px; background: #FFFFFF; font: inherit; color: #3F3F46; cursor: pointer">拒绝</button>
+                <button type="button" onClick="{{allowAlways}}" style="height: 32px; padding: 0 14px; border: 1px solid #E3E3DE; border-radius: 8px; background: #FFFFFF; font: inherit; color: #3F3F46; cursor: pointer">本会话始终允许 <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">uv run pytest</span></button>
+                <button type="button" onClick="{{allowOnce}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: #18181B; font: inherit; color: #FFFFFF; cursor: pointer; font-weight: 500">允许一次</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{permRan}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; background: #FFFFFF; border: 1px solid #ECECE8; border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; color: #3F3F46">.....F......
+FAILED tests/points/test_redeem.py::test_redeem_without_request_id
+1 failed, 11 passed in 0.84s</pre>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #52525B">
+                  <span style="font-weight: 600; color: #B91C1C">退出码 1</span><span>· 0.9 秒 · {{permResult}}</span>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{permDenied}}" hint-placeholder-val="{{false}}">
+              <div style="font-size: 12px; color: #52525B">已拒绝 · Agent 不会执行这条命令，会在总结里列出需要你手动运行的命令</div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{permRan}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 7px 12px; border-radius: 8px; background: #F4F4F1; color: #3F3F46">
+              <span aria-hidden="true" style="width: 12px; height: 12px; border: 2px solid #C9C9C3; border-top-color: #2F54EB; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span>
+              <span style="flex: 1">正在思考 · 查看失败的测试：没有传请求号时应该怎么处理</span>
+              <span style="color: #5F5F66">6 秒</span>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="width: 100%; max-width: 720px; margin: auto auto 0; position: sticky; bottom: 0; padding: 16px 0 4px; background: linear-gradient(to bottom, rgba(255,255,255,0), #FFFFFF 16px)">
+          <k-composer key="session" placeholder="继续对话，Agent 运行中也可以输入"></k-composer>
+        </div>
+      </section>
+
+      <aside aria-label="会话面板" style="flex: 1 1 360px; min-width: 0; border-left: 1px solid #ECECE8; background: #FCFCFB; display: flex; flex-direction: column">
+        <div role="tablist" aria-label="面板内容" style="display: flex; gap: 2px; padding: 10px 14px 0; border-bottom: 1px solid #ECECE8">
+          <sc-for list="{{panelTabs}}" as="pt" hint-placeholder-count="3">
+            <button type="button" role="tab" aria-selected="{{pt.selected}}" onClick="{{pt.pick}}" style="{{pt.style}}">{{pt.label}}</button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{isChanges}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; padding: 12px 12px 16px; gap: 10px">
+            <sc-if value="{{notReverted}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-direction: column; gap: 10px">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 0 6px">
+                  <span style="font-size: 12px; color: #52525B">第 1 轮 · 2 个文件 · <span style="color: #166534">+60</span> <span style="color: #B91C1C">−3</span></span>
+                  <span style="flex: 1"></span>
+                  <button type="button" onClick="{{askRevert}}" class="k-ghost" style="height: 28px; padding: 0 10px; border: 1px solid #E3E3DE; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; color: #3F3F46; cursor: pointer">撤销这一轮的改动</button>
+                </div>
+                <sc-if value="{{confirmRevert}}" hint-placeholder-val="{{false}}">
+                  <div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid #FECACA; background: #FEF2F2; border-radius: 10px">
+                    <span style="font-size: 12px; color: #7F1D1D">会把下面 2 个文件恢复到这一轮之前，<b>撤销后不能恢复</b>（CodeAgent 暂不支持取消回滚）。</span>
+                    <div style="display: flex; gap: 8px; justify-content: flex-end">
+                      <button type="button" onClick="{{cancelRevert}}" style="height: 28px; padding: 0 12px; border: 1px solid #E3E3DE; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; color: #3F3F46; cursor: pointer">取消</button>
+                      <button type="button" onClick="{{doRevert}}" style="height: 28px; padding: 0 12px; border: 0; border-radius: 7px; background: #B91C1C; font: inherit; font-size: 12px; color: #FFFFFF; cursor: pointer; font-weight: 500">撤销改动</button>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-for list="{{files}}" as="f" hint-placeholder-count="2">
+                  <div style="display: flex; flex-direction: column; border: 1px solid #ECECE8; border-radius: 10px; background: #FFFFFF; overflow: hidden">
+                    <button type="button" onClick="{{f.toggle}}" aria-expanded="{{f.open}}" class="k-row" style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; background: transparent; font: inherit; color: #18181B; cursor: pointer; text-align: left">
+                      <span style="{{f.badgeStyle}}">{{f.badge}}</span>
+                      <span style="flex: 1; min-width: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.path}}</span>
+                      <span style="font-size: 12px; color: #166534">{{f.add}}</span>
+                      <span style="font-size: 12px; color: #B91C1C">{{f.del}}</span>
+                    </button>
+                    <sc-if value="{{f.open}}" hint-placeholder-val="{{false}}">
+                      <div style="border-top: 1px solid #ECECE8; font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.7; overflow-x: auto">
+                        <sc-for list="{{f.lines}}" as="ln" hint-placeholder-count="8">
+                          <div style="{{ln.style}}">{{ln.text}}</div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{reverted}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 32px 16px; text-align: center; color: #52525B">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="#16A34A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg>
+                <span style="font-weight: 500; color: #18181B">已撤销第 1 轮的改动</span>
+                <span style="font-size: 12px">2 个文件已恢复。Agent 会知道这些改动被撤销了。</span>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{isContext}}" hint-placeholder-val="{{false}}">
+          <dl style="margin: 0; padding: 8px 18px 16px; display: flex; flex-direction: column">
+            <sc-for list="{{contextRows}}" as="cr" hint-placeholder-count="7">
+              <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F1F1EE">
+                <dt style="flex: 0 0 64px; font-size: 12px; color: #52525B">{{cr.k}}</dt>
+                <dd style="margin: 0; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                  <sc-for list="{{cr.v}}" as="line" hint-placeholder-count="1">
+                    <span style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: #18181B">{{line}}</span>
+                  </sc-for>
+                </dd>
+              </div>
+            </sc-for>
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 0">
+              <div style="display: flex; font-size: 12px"><span style="flex: 1; color: #52525B">上下文用量</span><span style="font-family: 'JetBrains Mono', monospace">62K / 200K</span></div>
+              <div aria-hidden="true" style="height: 6px; border-radius: 3px; background: #ECECE8; overflow: hidden"><div style="width: 31%; height: 100%; background: #2F54EB"></div></div>
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #5F5F66"><span style="flex: 1">接近上限时会提示压缩</span><button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 1px solid #E3E3DE; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 12px; color: #3F3F46; cursor: pointer">压缩上下文</button></div>
+            </div>
+          </dl>
+        </sc-if>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { activityOpen: true, answer: null, perm: 'pending', panel: 'changes', open: 'src/points/redeem.py', revert: 'none' };
+  }
+  renderVals() {
+    const s = this.state;
+    const labels = ['返回第一次的结果', '返回 409 错误', '你来决定'];
+    const ran = s.perm === 'once' || s.perm === 'always';
+    const mono = "font-family: 'JetBrains Mono', monospace; ";
+    const steps = [
+      { kind: '读取文件', detail: 'src/points/redeem.py', meta: '86 行' },
+      { kind: '搜索', detail: 'grep "request_id" src/', meta: '7 处' },
+      { kind: '执行命令', detail: 'git status --short', meta: '自动允许 · 0.1 秒' },
+      { kind: '修改文件', detail: 'src/points/redeem.py', meta: '+18 −3', diff: true },
+      { kind: '新建文件', detail: 'src/points/idempotency.py', meta: '+42', diff: true }
+    ].map((st) => ({ ...st, metaStyle: 'flex: 0 0 auto; color: ' + (st.diff ? '#166534' : '#5F5F66') }));
+
+    const line = (kind, text) => {
+      const bg = kind === '+' ? '#F0FDF4' : kind === '-' ? '#FEF2F2' : kind === '@' ? '#F4F4F1' : '#FFFFFF';
+      const color = kind === '+' ? '#166534' : kind === '-' ? '#991B1B' : kind === '@' ? '#5F5F66' : '#3F3F46';
+      return { text: (kind === '@' ? '' : kind + ' ') + text, style: 'white-space: pre; padding: 0 10px; background: ' + bg + '; color: ' + color };
+    };
+    const fileDefs = [
+      ['src/points/redeem.py', '修改', '+18', '−3', [
+        ['@', '@@ -12,9 +12,24 @@'],
+        ['-', 'def redeem(user_id, coupon_id):'],
+        ['+', 'def redeem(user_id, coupon_id, request_id):'],
+        ['+', '    cached = idempotency.get(request_id)'],
+        ['+', '    if cached is not None:'],
+        ['+', '        return cached'],
+        [' ', '    points = get_points(user_id)'],
+        [' ', '    coupon = get_coupon(coupon_id)'],
+        ['@', '@@ -40,4 +55,7 @@'],
+        ['-', '    return result'],
+        ['+', '    idempotency.put(request_id, result)'],
+        ['+', '    return result']
+      ]],
+      ['src/points/idempotency.py', '新建', '+42', '', [
+        ['@', '@@ -0,0 +1,42 @@'],
+        ['+', '"""按请求号缓存兑换结果，同一个请求号只处理一次。"""'],
+        ['+', 'from functools import lru_cache'],
+        ['+', ''],
+        ['+', '_TTL_SECONDS = 24 * 3600'],
+        ['+', '…']
+      ]]
+    ];
+    const files = fileDefs.map(([path, badge, add, del, lines]) => {
+      const open = s.open === path;
+      return {
+        path, badge, add, del, open,
+        toggle: () => this.setState({ open: open ? null : path }),
+        badgeStyle: 'flex: 0 0 auto; font-size: 11px; border-radius: 4px; padding: 0 5px; ' + (badge === '新建' ? 'color: #166534; background: #DCFCE7' : 'color: #92400E; background: #FEF3C7'),
+        lines: lines.map(([k, t]) => line(k, t))
+      };
+    });
+
+    const permCardBase = 'border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 24px; ';
+    const panelTabs = [['changes', s.revert === 'done' ? '改动' : '改动 2'], ['context', '上下文']].map(([k, l]) => ({
+      label: l,
+      selected: s.panel === k,
+      pick: () => this.setState({ panel: k }),
+      style: 'height: 34px; padding: 0 10px; border: 0; background: transparent; font: inherit; font-size: 13px; cursor: pointer; margin-bottom: -1px; ' + (s.panel === k ? 'color: #18181B; font-weight: 600; border-bottom: 2px solid #18181B' : 'color: #52525B; border-bottom: 2px solid transparent')
+    }));
+    return {
+      activityOpen: s.activityOpen,
+      activityLabel: s.activityOpen ? '收起' : '展开',
+      chevStyle: s.activityOpen ? 'transform: rotate(180deg)' : '',
+      toggleActivity: () => this.setState({ activityOpen: !s.activityOpen }),
+      steps,
+      notAnswered: s.answer === null,
+      answered: s.answer !== null,
+      answerLabel: s.answer,
+      options: labels.map((l) => ({ label: l, pick: () => this.setState({ answer: l }) })),
+      resetAnswer: () => this.setState({ answer: null }),
+      permPending: s.perm === 'pending',
+      permRan: ran,
+      permDenied: s.perm === 'denied',
+      permHead: s.perm === 'pending' ? '执行命令需要你确认' : s.perm === 'denied' ? '命令已拒绝' : '已执行命令',
+      permHeadColor: s.perm === 'pending' ? '#92400E' : '#3F3F46',
+      permCardStyle: permCardBase + (s.perm === 'pending' ? 'border: 1px solid #FCD34D; background: #FFFBEB' : 'border: 1px solid #ECECE8; background: #FCFCFB'),
+      permResult: s.perm === 'always' ? '本会话内 uv run pytest 开头的命令不再询问' : '已允许一次',
+      allowOnce: () => this.setState({ perm: 'once' }),
+      allowAlways: () => this.setState({ perm: 'always' }),
+      deny: () => this.setState({ perm: 'denied' }),
+      panelTabs,
+      isChanges: s.panel === 'changes',
+      isContext: s.panel === 'context',
+      files,
+      notReverted: s.revert !== 'done',
+      reverted: s.revert === 'done',
+      confirmRevert: s.revert === 'confirm',
+      askRevert: () => this.setState({ revert: 'confirm' }),
+      cancelRevert: () => this.setState({ revert: 'none' }),
+      doRevert: () => this.setState({ revert: 'done' }),
+      contextRows: [
+        { k: 'Agent', v: ['assistant'] },
+        { k: '内核', v: ['CodeAgent · coder-main'] },
+        { k: '工作目录', v: ['~/repo/member-svc', 'main 分支'] },
+        { k: '技能', v: ['repo-conventions'] },
+        { k: 'MCP', v: ['req-platform · 6 个工具', 'wiki · 3 个工具'] },
+        { k: '附件', v: ['docs/api/coupon-api.yaml'] },
+        { k: '用量', v: ['输入 62K · 输出 5.3K tokens'] }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

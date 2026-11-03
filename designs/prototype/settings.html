@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>设置</title>
+<script src="./runtime.js"></script>
+<script src="./shell.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+button,input,select,textarea{font:inherit;color:inherit}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px}
+.s-root{min-height:100vh;display:flex;flex-wrap:wrap;font-family:Inter,'PingFang SC','Noto Sans SC',system-ui,sans-serif;color:#18181B;font-size:13px;line-height:1.5;background:#FFFFFF}
+.s-main{flex:999 1 560px;min-width:0;display:flex}
+
+.s-cats{position:sticky;top:0;align-self:flex-start;flex:0 0 200px;box-sizing:border-box;padding:24px 12px;display:flex;flex-direction:column;gap:1px}
+.s-cats h1{margin:0 0 10px;padding:0 10px;font-size:15px;font-weight:600}
+.s-cat{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:#52525B;cursor:pointer;text-align:left}
+.s-cat:hover{background:#F4F4F1;color:#18181B}
+.s-cat[aria-selected="true"]{background:#F1F1EE;color:#18181B;font-weight:500}
+.s-cat-dot{width:6px;height:6px;border-radius:50%;background:#DC2626;margin-left:auto}
+
+.s-page{flex:1;min-width:0;padding:24px 40px 64px;box-sizing:border-box}
+.s-inner{max-width:680px;display:flex;flex-direction:column;gap:28px}
+.s-head{display:flex;align-items:center;gap:12px}
+.s-head h2{margin:0;font-size:18px;font-weight:600;flex:1}
+.s-sub{margin:-22px 0 0;color:#71717A}
+.s-sect{display:flex;flex-direction:column;gap:8px}
+.s-sect-h{font-size:12.5px;font-weight:500;color:#71717A;padding:0 2px}
+
+.s-list{border:1px solid #ECECE8;border-radius:12px;overflow:hidden}
+.s-row{display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 16px;box-sizing:border-box;border-top:1px solid #F1F1EE;background:#FFFFFF}
+.s-list > :first-child,.s-list > div:first-child > .s-row{border-top:0}
+.s-row.btn{width:100%;border-left:0;border-right:0;border-bottom:0;cursor:pointer;text-align:left}
+.s-row.btn:hover{background:#FAFAF8}
+.s-row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.s-row-t{font-weight:500}
+.s-row-d{font-size:12.5px;color:#71717A}
+.s-row-d.err{color:#B91C1C}
+.s-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+.s-tag{font-size:11.5px;color:#71717A;background:#F4F4F1;border-radius:5px;padding:0 6px;font-weight:400}
+.s-chev{color:#A1A1AA;transition:transform .15s;flex:0 0 auto}
+.s-row[aria-expanded="true"] .s-chev,.s-hit[aria-expanded="true"] .s-chev{transform:rotate(90deg)}
+.s-hit{display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:0;border:0;background:transparent;cursor:pointer;text-align:left}
+.s-detail{padding:4px 16px 16px 35px;background:#FFFFFF;display:flex;flex-direction:column;gap:14px}
+.s-kv{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;font-size:12.5px;color:#52525B}
+.s-kv b{font-weight:400;color:#18181B}
+.s-tools{display:flex;flex-direction:column}
+.s-tool{display:flex;align-items:center;gap:12px;padding:6px 0;border-top:1px solid #F4F4F1}
+.s-tool:first-child{border-top:0}
+.s-tool .mono{flex:0 0 170px;color:#18181B}
+.s-tool span{flex:1;min-width:0;color:#71717A;font-size:12.5px}
+
+.s-sel{height:30px;padding:0 26px 0 10px;border:1px solid #E7E7E2;border-radius:8px;background:#FFFFFF url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 16 16' fill='none' stroke='%2371717A' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 9px center;appearance:none;-webkit-appearance:none;font-size:12.5px;cursor:pointer}
+.s-sel:hover{border-color:#C9C9C3}
+.s-sel.ask{color:#92400E}.s-sel.deny{color:#B91C1C}
+.s-input{height:32px;padding:0 10px;border:1px solid #E7E7E2;border-radius:8px;background:#FFFFFF;width:300px;max-width:100%;box-sizing:border-box}
+.s-input:focus,.s-sel:focus{outline:none;border-color:#18181B}
+.s-btn{height:30px;padding:0 12px;border:1px solid #E7E7E2;border-radius:8px;background:#FFFFFF;cursor:pointer;font-size:12.5px;color:#27272A;white-space:nowrap}
+.s-btn:hover{background:#F7F7F5}
+.s-btn.text{border-color:transparent;background:transparent;color:#52525B;padding:0 8px}
+.s-btn.text:hover{background:#F4F4F1;color:#18181B}
+.s-sw{position:relative;width:34px;height:20px;border:0;border-radius:10px;background:#D4D4D8;cursor:pointer;flex:0 0 auto;padding:0;transition:background .12s}
+.s-sw::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .12s}
+.s-sw[aria-checked="true"]{background:#18181B}
+.s-sw[aria-checked="true"]::after{left:16px}
+.s-radio{width:16px;height:16px;border-radius:50%;border:1.5px solid #C9C9C3;box-sizing:border-box;flex:0 0 auto}
+.s-row[aria-checked="true"] .s-radio{border:5px solid #18181B}
+.s-prompt{border:1px solid #E7E7E2;border-radius:10px;padding:10px 12px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.7;white-space:pre-wrap;color:#27272A}
+.s-chips{display:flex;flex-wrap:wrap;gap:6px}
+.s-chip{font-size:12px;border:1px solid #ECECE8;border-radius:6px;padding:1px 8px;color:#3F3F46}
+.s-field{display:grid;grid-template-columns:72px 1fr;gap:10px 12px;align-items:center;font-size:12.5px}
+.s-field > span{color:#71717A}
+</style>
+</helmet>
+<div class="s-root">
+
+  <k-nav active="settings"></k-nav>
+
+  <main class="s-main">
+    <nav class="s-cats" role="tablist" aria-label="设置分类" aria-orientation="vertical">
+      <h1>设置</h1>
+      <sc-for list="{{cats}}" as="c">
+        <button type="button" role="tab" class="s-cat" aria-selected="{{c.on}}" onClick="{{c.pick}}">{{c.label}}<sc-if value="{{c.alert}}"><span class="s-cat-dot" aria-label="有连接异常"></span></sc-if></button>
+      </sc-for>
+    </nav>
+
+    <section class="s-page">
+      <div class="s-inner">
+
+        <sc-if value="{{is.mcp}}">
+          <div class="s-head"><h2>平台连接</h2><button type="button" class="s-btn">添加</button></div>
+          <p class="s-sub">Agent 通过 MCP 读写这些平台</p>
+          <div class="s-list">
+            <sc-for list="{{servers}}" as="sv">
+              <div>
+                <div class="s-row">
+                  <button type="button" class="s-hit" aria-expanded="{{sv.open}}" onClick="{{sv.toggle}}">
+                    <svg class="s-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 4 4 4-4 4"></path></svg>
+                    <span class="s-dot" style="{{sv.dotStyle}}"></span>
+                    <span class="s-row-main"><span class="s-row-t">{{sv.label}}</span><span class="{{sv.noteCls}}">{{sv.note}}</span></span>
+                  </button>
+                  <sc-if value="{{sv.err}}"><button type="button" class="s-btn">重新授权</button></sc-if>
+                  <button type="button" class="s-sw" role="switch" aria-checked="{{sv.on}}" aria-label="{{sv.swLabel}}" onClick="{{sv.flip}}"></button>
+                </div>
+                <sc-if value="{{sv.open}}">
+                  <div class="s-detail">
+                    <div class="s-kv"><span class="mono" style="color: #18181B">{{sv.target}}</span><span>凭据 <b class="mono">{{sv.secret}}</b></span><span style="flex: 1"></span><button type="button" class="s-btn text">测试连接</button><button type="button" class="s-btn text">编辑</button></div>
+                    <div class="s-tools">
+                      <sc-for list="{{sv.tools}}" as="tl">
+                        <div class="s-tool">
+                          <code class="mono">{{tl.name}}</code><span>{{tl.desc}}</span>
+                          <select class="{{tl.cls}}" aria-label="{{tl.aria}}" onChange="{{tl.change}}">
+                            <sc-for list="{{tl.opts}}" as="o"><option value="{{o.v}}" selected="{{o.on}}">{{o.l}}</option></sc-for>
+                          </select>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{is.perm}}">
+          <div class="s-head"><h2>权限</h2></div>
+          <p class="s-sub">新对话默认使用，输入框里可以临时切换</p>
+          <div class="s-list" role="radiogroup" aria-label="默认权限">
+            <sc-for list="{{modes}}" as="m">
+              <button type="button" class="s-row btn" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}">
+                <span class="s-radio"></span>
+                <span class="s-row-main"><span class="s-row-t">{{m.label}}</span><span class="s-row-d">{{m.desc}}</span></span>
+              </button>
+            </sc-for>
+          </div>
+          <div class="s-sect">
+            <div class="s-sect-h">细则</div>
+            <div class="s-list">
+              <sc-for list="{{builtins}}" as="bt">
+                <div class="s-row">
+                  <span class="s-row-main"><span class="s-row-t">{{bt.label}}</span><sc-if value="{{bt.note}}"><span class="s-row-d">{{bt.note}}</span></sc-if></span>
+                  <select class="{{bt.cls}}" aria-label="{{bt.aria}}" onChange="{{bt.change}}">
+                    <sc-for list="{{bt.opts}}" as="o"><option value="{{o.v}}" selected="{{o.on}}">{{o.l}}</option></sc-for>
+                  </select>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{is.model}}">
+          <div class="s-head"><h2>模型</h2></div>
+          <div class="s-list">
+            <div class="s-row">
+              <span class="s-row-main"><span class="s-row-t">默认模型</span></span>
+              <select class="s-sel" aria-label="默认模型"><option>coder-main</option><option>coder-fast</option><option>reasoner-pro</option></select>
+            </div>
+            <div class="s-row">
+              <span class="s-row-main"><span class="s-row-t">生成标题和摘要</span><span class="s-row-d">用小模型，省时间</span></span>
+              <select class="s-sel" aria-label="生成标题和摘要的模型"><option>coder-small</option><option>coder-fast</option></select>
+            </div>
+          </div>
+          <div class="s-sect">
+            <div class="s-sect-h">模型网关</div>
+            <div class="s-list">
+              <div class="s-row">
+                <span class="s-row-main"><span class="s-row-t">地址</span></span>
+                <input class="s-input mono" type="text" value="http://llm-gateway.corp.local/v1" aria-label="模型网关地址">
+              </div>
+              <div class="s-row">
+                <span class="s-row-main"><span class="s-row-t">API Key</span><span class="s-row-d" style="color: #166534">已连接</span></span>
+                <input class="s-input" type="password" value="placeholder-key" aria-label="API Key">
+              </div>
+            </div>
+          </div>
+          <div class="s-sect">
+            <div class="s-sect-h">内核</div>
+            <div class="s-list">
+              <div class="s-row">
+                <span class="s-row-main"><span class="s-row-t">当前内核</span><span class="s-row-d">{{kernelNote}}</span></span>
+                <select class="s-sel" aria-label="内核" onChange="{{pickKernel}}">
+                  <sc-for list="{{kernels}}" as="k"><option value="{{k.v}}" selected="{{k.on}}">{{k.l}}</option></sc-for>
+                </select>
+              </div>
+              <div class="s-row" style="min-height: 44px; gap: 4px">
+                <span style="flex: 1"></span>
+                <button type="button" class="s-btn text">查看日志</button>
+                <button type="button" class="s-btn text">诊断</button>
+                <button type="button" class="s-btn text">重启</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{is.skills}}">
+          <div class="s-head"><h2>技能</h2><button type="button" class="s-btn">添加</button></div>
+          <div class="s-list">
+            <sc-for list="{{skills}}" as="sk">
+              <div class="s-row" title="{{sk.path}}">
+                <span class="s-row-main">
+                  <span class="s-row-t" style="display: flex; align-items: center; gap: 8px"><span class="mono" style="font-size: 12.5px">{{sk.name}}</span><span class="s-tag">{{sk.scope}}</span></span>
+                  <span class="s-row-d">{{sk.desc}}</span>
+                </span>
+                <button type="button" class="s-sw" role="switch" aria-checked="{{sk.on}}" aria-label="{{sk.swLabel}}" onClick="{{sk.flip}}"></button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{is.agents}}">
+          <div class="s-head"><h2>Agent</h2><button type="button" class="s-btn">新建</button></div>
+          <div class="s-list">
+            <sc-for list="{{agents}}" as="ag">
+              <div>
+                <button type="button" class="s-row btn" aria-expanded="{{ag.open}}" onClick="{{ag.toggle}}">
+                  <svg class="s-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 4 4 4-4 4"></path></svg>
+                  <span class="s-row-main">
+                    <span class="s-row-t" style="display: flex; align-items: center; gap: 8px"><span class="mono" style="font-size: 12.5px">{{ag.name}}</span><span class="s-tag">{{ag.scope}}</span></span>
+                    <span class="s-row-d">{{ag.desc}}</span>
+                  </span>
+                </button>
+                <sc-if value="{{ag.open}}">
+                  <div class="s-detail" style="padding-left: 40px">
+                    <div class="s-prompt">{{ag.prompt}}</div>
+                    <div class="s-field">
+                      <span>模型</span><span class="mono">{{ag.model}}</span>
+                      <span>技能</span><div class="s-chips"><sc-for list="{{ag.skills}}" as="x"><span class="s-chip">{{x}}</span></sc-for></div>
+                      <span>平台</span><div class="s-chips"><sc-for list="{{ag.mcp}}" as="x"><span class="s-chip">{{x}}</span></sc-for></div>
+                      <sc-if value="{{ag.output}}"><span>输出格式</span><span>{{ag.output}}</span></sc-if>
+                    </div>
+                    <div><button type="button" class="s-btn">编辑</button></div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{is.data}}">
+          <div class="s-head"><h2>数据与隐私</h2></div>
+          <p class="s-sub">会话和记录只保存在本机</p>
+          <div class="s-list">
+            <div class="s-row">
+              <span class="s-row-main"><span class="s-row-t">数据目录</span><span class="s-row-d mono">~/Library/Application Support/kitty</span></span>
+              <button type="button" class="s-btn text">在访达中显示</button>
+            </div>
+            <sc-for list="{{records}}" as="r">
+              <div class="s-row">
+                <span class="s-row-main"><span class="s-row-t">{{r.label}}</span><span class="s-row-d">{{r.desc}}</span></span>
+                <button type="button" class="s-sw" role="switch" aria-checked="{{r.on}}" aria-label="{{r.label}}" onClick="{{r.flip}}"></button>
+              </div>
+            </sc-for>
+            <div class="s-row">
+              <span class="s-row-main"><span class="s-row-t">导出评测数据</span><span class="s-row-d">输入、AI 原稿和修改后的结果，JSONL 格式</span></span>
+              <button type="button" class="s-btn">导出</button>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+const CATS = [['mcp', '平台连接'], ['perm', '权限'], ['model', '模型'], ['skills', '技能'], ['agents', 'Agent'], ['data', '数据与隐私']];
+const PERM_OPTS = [['allow', '允许'], ['ask', '每次询问'], ['deny', '禁止']];
+
+const SERVERS = [
+  ['req-platform', '需求平台', 'ok', 'npx -y @corp/req-platform-mcp', 'REQ_TOKEN ••••3f2a',
+    [['search_requirements', '搜索需求'], ['get_requirement', '读取需求正文和附件'], ['list_comments', '读取需求评论'], ['add_comment', '添加评论'], ['update_status', '修改需求状态']]],
+  ['case-platform', '用例平台', 'ok', 'http://case.corp.local/mcp', 'Bearer ••••2d07',
+    [['search_cases', '检索已有用例'], ['get_case_format', '读取用例字段格式'], ['create_cases', '批量创建用例']]],
+  ['wiki', '知识库', 'ok', 'http://wiki.corp.local/mcp', 'Bearer ••••91c0',
+    [['search_pages', '搜索文档'], ['get_page', '读取文档'], ['create_page', '新建文档']]],
+  ['gitlab', 'GitLab', 'err', 'http://gitlab.corp.local/mcp', 'Bearer ••••77e1（已过期）',
+    [['list_merge_requests', '查看合并请求'], ['create_merge_request', '创建合并请求']]],
+  ['defect-tracker', '缺陷平台', 'ok', 'http://bug.corp.local/mcp', 'Bearer ••••b4a9',
+    [['get_defect', '读取缺陷'], ['create_defect', '创建缺陷']]]
+];
+const MODES = [
+  ['ask', '执行前确认', '改文件直接进行，执行命令和写外部平台前问你'],
+  ['read', '只读', '只读代码和平台数据，不改文件也不执行命令'],
+  ['auto', '全部自动', '工作目录内改文件、执行命令都不再询问']
+];
+const BUILTINS = [
+  ['read', '读取和搜索文件', '.env 等敏感文件仍会询问'],
+  ['edit', '修改文件', '限于工作目录，可以回滚'],
+  ['bash', '执行命令', 'git status 等只读命令始终允许'],
+  ['external', '访问工作目录以外的路径', ''],
+  ['web', '联网', '']
+];
+const SKILLS = [
+  ['test-design-methods', '内置', '等价类、边界值、判定表等测试设计方法', '内置'],
+  ['points-domain', '项目', '积分业务的术语和规则', '~/repo/member-svc/.agents/skills/points-domain'],
+  ['repo-conventions', '项目', '本仓库的代码风格和目录约定', '~/repo/member-svc/.agents/skills/repo-conventions'],
+  ['git-workflow', '个人', '分支命名、提交信息和合并请求的写法', '~/.agents/skills/git-workflow'],
+  ['sql-safety', '个人', '执行 SQL 之前的检查清单', '~/.agents/skills/sql-safety']
+];
+const AGENTS = [
+  ['assistant', '内置', '通用 Agent，测试任务也由它完成',
+    '你是一个通用的助手，可以阅读和修改工作目录里的代码、执行命令、使用已启用的技能和平台。\n口径不明确时先提问；不阻塞时按合理的假设继续，并在结论里注明。',
+    'coder-main', ['全部已启用的技能'], ['全部已启用的平台'], ''],
+  ['api-doc-writer', '个人', '根据代码整理接口文档',
+    '阅读工作目录里的路由和处理函数，整理出接口清单。\n每个接口写明方法、路径、用途和出处（文件和行号）。',
+    'coder-main', ['repo-conventions'], ['知识库'], '接口清单（JSON Schema）']
+];
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const fromHash = () => {
+      const h = location.hash.slice(1);
+      return CATS.some(([k]) => k === h) ? h : h === 'kernel' ? 'model' : 'mcp';
+    };
+    const tab = fromHash();
+    addEventListener('hashchange', () => this.setState({ tab: fromHash() }));
+    this.state = {
+      tab,
+      open: { gitlab: true },
+      agentOpen: {},
+      servers: { 'req-platform': true, 'case-platform': true, wiki: true, gitlab: true, 'defect-tracker': false },
+      perms: { add_comment: 'ask', update_status: 'deny', create_cases: 'ask', create_page: 'ask', create_merge_request: 'ask', create_defect: 'ask' },
+      mode: 'ask',
+      bperms: { read: 'allow', edit: 'allow', bash: 'ask', external: 'ask', web: 'deny' },
+      kernel: 'codeagent',
+      skills: { 'test-design-methods': true, 'points-domain': true, 'repo-conventions': true, 'git-workflow': true, 'sql-safety': false },
+      records: { drafts: true, tokens: true }
+    };
+  }
+  renderVals() {
+    const s = this.state;
+    const set = (p) => this.setState(p);
+    const flip = (key, id) => () => set({ [key]: Object.assign({}, s[key], { [id]: !s[key][id] }) });
+    const permSelect = (key, id, label) => {
+      const v = s[key][id] || 'allow';
+      return {
+        cls: 's-sel' + (v === 'allow' ? '' : ' ' + v), aria: label + '的权限',
+        opts: PERM_OPTS.map(([ov, l]) => ({ v: ov, l, on: ov === v })),
+        change: (e) => set({ [key]: Object.assign({}, s[key], { [id]: e.target.value }) })
+      };
+    };
+    const is = {};
+    CATS.forEach(([k]) => { is[k] = s.tab === k; });
+
+    return {
+      is,
+      cats: CATS.map(([k, label]) => ({
+        label, on: s.tab === k, alert: k === 'mcp' && s.servers.gitlab,
+        pick: () => { history.replaceState(null, '', '#' + k); set({ tab: k }); }
+      })),
+      servers: SERVERS.map(([id, label, st, target, secret, tools]) => {
+        const on = !!s.servers[id];
+        const err = on && st === 'err';
+        return {
+          label, target, secret, on, err, open: !!s.open[id],
+          swLabel: '启用' + label,
+          note: !on ? '已停用' : err ? '令牌已过期' : tools.length + ' 个工具',
+          noteCls: 's-row-d' + (err ? ' err' : ''),
+          dotStyle: 'background: ' + (!on ? '#D4D4D8' : err ? '#DC2626' : '#16A34A'),
+          toggle: flip('open', id),
+          flip: flip('servers', id),
+          tools: tools.map(([name, desc]) => Object.assign({ name, desc }, permSelect('perms', name, name)))
+        };
+      }),
+      modes: MODES.map(([k, label, desc]) => ({ label, desc, on: s.mode === k, pick: () => set({ mode: k }) })),
+      builtins: BUILTINS.map(([k, label, note]) => Object.assign({ label, note }, permSelect('bperms', k, label))),
+      kernelNote: s.kernel === 'codeagent' ? '运行中 · 版本已锁定' : '已安装 · 新对话开始时启动',
+      kernels: [['codeagent', 'CodeAgent'], ['opencode', 'OpenCode']].map(([v, l]) => ({ v, l, on: s.kernel === v })),
+      pickKernel: (e) => set({ kernel: e.target.value }),
+      skills: SKILLS.map(([name, scope, desc, path]) => ({ name, scope, desc, path, on: !!s.skills[name], swLabel: '启用 ' + name, flip: flip('skills', name) })),
+      agents: AGENTS.map(([name, scope, desc, prompt, model, skills, mcp, output]) => ({
+        name, scope, desc, prompt, model, skills, mcp, output, open: !!s.agentOpen[name], toggle: flip('agentOpen', name)
+      })),
+      records: [['drafts', '记录 AI 原稿和人工修改', '用来评估产出质量'], ['tokens', '记录 token 用量', '按对话、模型统计']].map(([k, label, desc]) => ({
+        label, desc, on: !!s.records[k], flip: flip('records', k)
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>

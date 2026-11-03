@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>测试任务</title>
+<script src="./runtime.js"></script>
+<script src="./shell.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+code,.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+button{font:inherit;color:inherit}
+.t-root{min-height:100vh;display:flex;flex-wrap:wrap;font-family:Inter,'PingFang SC','Noto Sans SC',system-ui,sans-serif;color:#18181B;font-size:13px;line-height:1.5;background:#FFFFFF}
+.t-main{flex:999 1 560px;min-width:0;display:flex;flex-direction:column}
+
+.t-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;height:52px;padding:0 16px 0 24px;box-sizing:border-box;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid #F0F0EC}
+.t-title{margin:0;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.t-steps{display:flex;align-items:center;gap:2px;margin:0;padding:0;list-style:none}
+.t-steps li{display:flex;align-items:center;gap:2px}
+.t-sep{color:#D4D4D8;font-size:12px;padding:0 2px}
+.t-step{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:0;border-radius:7px;background:transparent;font-size:12.5px;color:#71717A;cursor:pointer}
+.t-step:hover{background:#F4F4F1;color:#18181B}
+.t-step.cur{color:#18181B;font-weight:500}
+.t-hbtn{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid #E7E7E2;border-radius:8px;background:#FFFFFF;font-size:12.5px;color:#3F3F46;cursor:pointer}
+.t-hbtn:hover{background:#F7F7F5}
+.t-hbtn[aria-pressed="true"]{background:#F1F1EE;border-color:#E3E3DE;color:#18181B}
+
+.t-i{position:relative;width:14px;height:14px;border-radius:50%;flex:0 0 auto;box-sizing:border-box;display:inline-block}
+.t-i.done{background:#16A34A}
+.t-i.done::after{content:'';position:absolute;left:4.6px;top:2.6px;width:3.2px;height:6.2px;border:solid #fff;border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
+.t-i.run{border:2px solid #E4E4E7;border-top-color:#2F54EB;animation:t-spin .8s linear infinite}
+.t-i.review{border:2px solid #E39B1A}
+.t-i.review::after{content:'';position:absolute;inset:2px;border-radius:50%;background:#E39B1A}
+.t-i.pending{border:1.5px solid #D4D4D8}
+.t-i.stopped{border:1.5px solid #A1A1AA}
+.t-i.stopped::after{content:'';position:absolute;inset:3px;border-radius:1px;background:#A1A1AA}
+@keyframes t-spin{to{transform:rotate(360deg)}}
+
+.t-body{flex:1;display:flex;align-items:flex-start;min-height:0}
+.t-conv{flex:1 1 0;min-width:0;min-height:calc(100vh - 52px);display:flex;flex-direction:column}
+.t-thread{width:100%;max-width:720px;margin:0 auto;padding:32px 24px 8px;box-sizing:border-box;display:flex;flex-direction:column;gap:22px}
+.t-user{align-self:flex-end;max-width:85%;background:#F4F4F1;border-radius:16px;padding:10px 14px;font-size:14px;line-height:1.65}
+.t-agent{display:flex;flex-direction:column;gap:12px}
+.t-p{margin:0;font-size:14px;line-height:1.75;color:#27272A}
+.t-p b{font-weight:600;color:#18181B}
+
+.t-plan{border:1px solid #E7E7E2;border-radius:14px;overflow:hidden}
+.t-prow{display:flex;align-items:flex-start;gap:12px;width:100%;padding:11px 14px;border:0;border-bottom:1px solid #F0F0EC;background:#FFFFFF;cursor:pointer;text-align:left}
+.t-prow:hover{background:#FAFAF8}
+.t-prow[aria-checked="false"] .t-pname,.t-prow[aria-checked="false"] .t-pdesc{color:#A1A1AA}
+.t-box{width:16px;height:16px;margin-top:2px;border-radius:5px;border:1.5px solid #C9C9C3;flex:0 0 auto;box-sizing:border-box;position:relative}
+.t-prow[aria-checked="true"] .t-box{background:#18181B;border-color:#18181B}
+.t-prow[aria-checked="true"] .t-box::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
+.t-pname{flex:0 0 64px;font-weight:500}
+.t-pdesc{flex:1;min-width:0;color:#52525B}
+.t-pfoot{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 14px;background:#FAFAF8}
+.t-gate{display:flex;align-items:center;gap:8px;border:0;background:transparent;padding:0;cursor:pointer;color:#52525B;font-size:12.5px}
+.t-gate .t-box{margin:0;width:14px;height:14px;border-radius:4px}
+.t-gate[aria-checked="true"] .t-box{background:#18181B;border-color:#18181B}
+.t-gate[aria-checked="true"] .t-box::after{content:'';position:absolute;left:3.4px;top:.6px;width:3.4px;height:7px;border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+.t-planline{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12.5px;color:#71717A}
+.t-planline b{font-weight:500;color:#3F3F46}
+
+.t-btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border:1px solid #E3E3DE;border-radius:9px;background:#FFFFFF;font-size:13px;color:#27272A;cursor:pointer;white-space:nowrap}
+.t-btn:hover{background:#F7F7F5}
+.t-btn.primary{border-color:#18181B;background:#18181B;color:#FFFFFF;font-weight:500}
+.t-btn.primary:hover{background:#27272A}
+.t-btn:disabled{opacity:.4;cursor:default}
+.t-btn.ok{border-color:transparent;background:transparent;color:#166534;cursor:default;padding:0 4px}
+
+.t-block{display:flex;flex-direction:column;gap:12px;scroll-margin-top:72px}
+.t-act{display:flex;align-items:center;gap:8px;width:100%;padding:4px 0;border:0;background:transparent;cursor:pointer;text-align:left;color:#52525B;font-size:13px}
+.t-act:hover .t-act-name{color:#18181B}
+.t-act-name{font-weight:500;color:#3F3F46}
+.t-act-detail{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#71717A}
+.t-act-time{color:#A1A1AA;font-size:12px}
+.t-chev{color:#A1A1AA;transition:transform .15s}
+.t-act[aria-expanded="true"] .t-chev{transform:rotate(180deg)}
+.t-log{list-style:none;margin:-4px 0 0;padding:4px 0 4px 22px;display:flex;flex-direction:column;gap:2px;border-left:1px solid #ECECE8;margin-left:6px}
+.t-log li{display:flex;gap:10px;font-size:12px;color:#71717A}
+.t-log li span{flex:0 0 72px}
+.t-log code{color:#3F3F46;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-prog{height:3px;border-radius:2px;background:#F0F0EC;overflow:hidden;margin:-6px 0 0 22px}
+.t-prog i{display:block;height:100%;background:#2F54EB;transition:width .3s}
+
+.t-card{display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border:1px solid #E7E7E2;border-radius:12px;background:#FFFFFF;cursor:pointer;text-align:left;transition:border-color .12s,background .12s}
+.t-card:hover{border-color:#C9C9C3}
+.t-card.on{border-color:#18181B;background:#FAFAF8}
+.t-card-ic{width:32px;height:32px;border-radius:8px;background:#F4F4F1;display:flex;align-items:center;justify-content:center;color:#52525B;flex:0 0 auto}
+.t-card-t{font-weight:500;font-size:13.5px}
+.t-card-m{font-size:12px;color:#71717A}
+.t-card-go{margin-left:auto;font-size:12.5px;color:#71717A}
+
+.t-ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+.t-ul li{display:flex;align-items:baseline;gap:8px;font-size:14px;line-height:1.6;color:#27272A}
+.t-tag{flex:0 0 auto;font-size:11.5px;font-weight:500;border-radius:5px;padding:0 6px;line-height:19px}
+.t-tag.bug{color:#991B1B;background:#FEE2E2}.t-tag.env{color:#92400E;background:#FEF3C7}.t-tag.flaky{color:#3F3F46;background:#F1F1EE}
+
+.t-qs{display:flex;flex-direction:column;border:1px solid #F3E2BF;background:#FFFCF5;border-radius:12px}
+.t-q{display:flex;flex-direction:column;gap:8px;padding:12px 14px}
+.t-q + .t-q{border-top:1px solid #F3E8CF}
+.t-q-text{font-size:13.5px;font-weight:500}
+.t-q-opts{display:flex;flex-wrap:wrap;gap:6px}
+.t-opt{height:30px;padding:0 12px;border:1px solid #E7E7E2;border-radius:8px;background:#FFFFFF;cursor:pointer;font-size:13px}
+.t-opt:hover{border-color:#18181B}
+.t-opt small{color:#A1A1AA;margin-left:6px;font-size:11.5px}
+.t-q-ans{display:flex;align-items:center;gap:8px;font-size:13px;color:#3F3F46}
+.t-link{border:0;background:transparent;padding:0;color:#71717A;cursor:pointer;font-size:12.5px;text-decoration:underline;text-underline-offset:2px}
+.t-link:hover{color:#18181B}
+
+.t-sugs{display:flex;flex-wrap:wrap;gap:8px}
+.t-sug{height:32px;padding:0 12px;border:1px solid #ECECE8;border-radius:16px;background:#FFFFFF;cursor:pointer;color:#52525B;font-size:13px}
+.t-sug:hover{border-color:#C9C9C3;color:#18181B}
+
+.t-composer{position:sticky;bottom:0;margin-top:auto;padding:16px 24px 20px;background:linear-gradient(to bottom,rgba(255,255,255,0),#FFFFFF 20px)}
+.t-composer > *{max-width:672px;margin:0 auto}
+
+.t-panel{position:sticky;top:52px;flex:0 0 44%;max-width:620px;min-width:360px;height:calc(100vh - 52px);overflow-y:auto;border-left:1px solid #F0F0EC;background:#FCFCFB;box-sizing:border-box}
+.p-tabs{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:2px;height:48px;padding:0 10px 0 14px;background:#FCFCFB;border-bottom:1px solid #F0F0EC}
+.p-tab{height:30px;padding:0 10px;border:0;border-radius:7px;background:transparent;cursor:pointer;color:#71717A;font-size:13px}
+.p-tab:hover{color:#18181B}
+.p-tab[aria-selected="true"]{background:#F1F1EE;color:#18181B;font-weight:500}
+.p-x{margin-left:auto;width:30px;height:30px;border:0;border-radius:7px;background:transparent;cursor:pointer;color:#71717A;display:flex;align-items:center;justify-content:center}
+.p-x:hover{background:#F1F1EE;color:#18181B}
+.p-body{padding:18px 20px 28px;display:flex;flex-direction:column;gap:18px}
+.p-lead{font-size:13px;color:#52525B}
+.p-lead b{color:#18181B;font-weight:600}
+.p-group{display:flex;flex-direction:column}
+.p-gh{display:flex;align-items:center;gap:8px;padding:0 0 6px;font-size:12.5px;color:#3F3F46;font-weight:500}
+.p-gh .mono{font-size:12px;font-weight:400}
+.p-row{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid #F0F0EC;font-size:13px}
+.p-id{flex:0 0 52px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;color:#A1A1AA}
+.p-rt{flex:1;min-width:0}
+.p-meta{flex:0 0 auto;font-size:12px;color:#A1A1AA}
+.p-risk{font-size:11px;border-radius:4px;padding:0 5px;font-weight:500}
+.p-risk.hi{color:#991B1B;background:#FEE2E2}.p-risk.mid{color:#92400E;background:#FEF3C7}
+.p-cmd{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;color:#3F3F46;background:#F4F4F1;border-radius:8px;padding:8px 10px}
+.p-h{font-size:12px;font-weight:500;color:#71717A;margin-bottom:-8px}
+.p-fail{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border:1px solid #F0F0EC;border-radius:10px;background:#FFFFFF}
+.p-fail code{font-size:12px;color:#18181B}
+.p-fail span{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11.5px;color:#B91C1C}
+.p-cl{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border:1px solid #F0F0EC;border-radius:12px;background:#FFFFFF}
+.p-clh{display:flex;align-items:baseline;gap:8px;font-weight:600;font-size:13.5px}
+.p-cl p{margin:0;font-size:13px;line-height:1.7;color:#3F3F46}
+.p-cl code{font-size:11.5px;color:#52525B}
+.p-acts{display:flex;flex-wrap:wrap;gap:6px}
+.p-acts .t-btn{height:28px;padding:0 10px;font-size:12.5px}
+.p-foot{position:sticky;bottom:0;display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #F0F0EC;background:#FCFCFB;font-size:12.5px;color:#52525B}
+</style>
+</helmet>
+<div class="t-root">
+
+  <k-nav active="task"></k-nav>
+
+  <main class="t-main">
+    <header class="t-head">
+      <h1 class="t-title">{{title}}</h1>
+      <ol class="t-steps" aria-label="步骤">
+        <sc-for list="{{stepper}}" as="st">
+          <li>
+            <sc-if value="{{st.sep}}"><span class="t-sep" aria-hidden="true">›</span></sc-if>
+            <button type="button" class="{{st.cls}}" onClick="{{st.go}}" title="{{st.tip}}"><span class="{{st.icon}}"></span>{{st.label}}</button>
+          </li>
+        </sc-for>
+      </ol>
+      <span style="flex: 1"></span>
+      <sc-if value="{{canStop}}">
+        <button type="button" class="t-hbtn" onClick="{{togglePause}}">{{pauseLabel}}</button>
+      </sc-if>
+      <sc-if value="{{hasArtifacts}}">
+        <button type="button" class="t-hbtn" aria-pressed="{{panelOpen}}" onClick="{{togglePanel}}" title="查看测试点、用例、执行记录和报告">
+          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M9.5 3v10"></path></svg>
+          产出
+        </button>
+      </sc-if>
+    </header>
+
+    <div class="t-body">
+      <section class="t-conv" aria-label="对话">
+        <div class="t-thread">
+          <div class="t-user">{{request}}</div>
+
+          <div class="t-agent">
+            <p class="t-p">{{planIntro}}</p>
+            <sc-if value="{{planEditable}}">
+              <div class="t-plan">
+                <sc-for list="{{planRows}}" as="r">
+                  <button type="button" class="t-prow" role="checkbox" aria-checked="{{r.on}}" onClick="{{r.toggle}}">
+                    <span class="t-box"></span>
+                    <span class="t-pname">{{r.name}}</span>
+                    <span class="t-pdesc">{{r.desc}}</span>
+                  </button>
+                </sc-for>
+                <div class="t-pfoot">
+                  <sc-if value="{{showGate}}">
+                    <button type="button" class="t-gate" role="checkbox" aria-checked="{{gate}}" onClick="{{toggleGate}}"><span class="t-box"></span>用例写完先给我看</button>
+                  </sc-if>
+                  <span style="flex: 1"></span>
+                  <button type="button" class="t-btn primary" onClick="{{start}}" disabled="{{cannotStart}}">开始</button>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{planLocked}}">
+              <div class="t-planline">
+                <sc-for list="{{planLine}}" as="pl"><sc-if value="{{pl.sep}}"><span>→</span></sc-if><b>{{pl.name}}</b></sc-for>
+                <sc-if value="{{gateNote}}"><span>· 用例写完先给你看</span></sc-if>
+              </div>
+            </sc-if>
+          </div>
+
+          <sc-for list="{{thread}}" as="b">
+            <sc-if value="{{b.isMsg}}">
+              <div class="{{b.cls}}">{{b.text}}</div>
+            </sc-if>
+            <sc-if value="{{b.isBlock}}">
+              <div class="t-block" id="{{b.anchor}}">
+                <button type="button" class="t-act" onClick="{{b.toggle}}" aria-expanded="{{b.open}}">
+                  <span class="{{b.iconCls}}"></span>
+                  <span class="t-act-name">{{b.name}}</span>
+                  <span class="t-act-detail">{{b.detail}}</span>
+                  <span class="t-act-time">{{b.time}}</span>
+                  <svg class="t-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg>
+                </button>
+                <sc-if value="{{b.open}}">
+                  <ol class="t-log">
+                    <sc-for list="{{b.log}}" as="l"><li><span>{{l.0}}</span><code>{{l.1}}</code></li></sc-for>
+                  </ol>
+                </sc-if>
+                <sc-if value="{{b.progress}}"><div class="t-prog"><i style="{{b.progStyle}}"></i></div></sc-if>
+                <sc-if value="{{b.text}}"><p class="t-p">{{b.text}}</p></sc-if>
+                <sc-if value="{{b.bullets}}">
+                  <ul class="t-ul">
+                    <sc-for list="{{b.bullets}}" as="bl"><li><span class="{{bl.tagCls}}">{{bl.tag}}</span><span>{{bl.text}}</span></li></sc-for>
+                  </ul>
+                </sc-if>
+                <sc-if value="{{b.questions}}">
+                  <div class="t-qs">
+                    <sc-for list="{{b.questions}}" as="q">
+                      <div class="t-q">
+                        <div class="t-q-text">{{q.text}}</div>
+                        <sc-if value="{{q.open}}">
+                          <div class="t-q-opts">
+                            <sc-for list="{{q.opts}}" as="o"><button type="button" class="t-opt" onClick="{{o.pick}}">{{o.label}}<sc-if value="{{o.def}}"><small>默认</small></sc-if></button></sc-for>
+                          </div>
+                        </sc-if>
+                        <sc-if value="{{q.done}}">
+                          <div class="t-q-ans"><span class="t-i done"></span>{{q.answer}}<button type="button" class="t-link" onClick="{{q.reset}}">修改</button></div>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+                <sc-if value="{{b.card}}">
+                  <button type="button" class="{{b.card.cls}}" onClick="{{b.card.open}}">
+                    <span class="t-card-ic"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3M6 8.5h4M6 11h4"></path></svg></span>
+                    <span><span class="t-card-t" style="display: block">{{b.card.title}}</span><span class="t-card-m">{{b.card.meta}}</span></span>
+                    <span class="t-card-go">{{b.card.go}}</span>
+                  </button>
+                </sc-if>
+                <sc-if value="{{b.actions}}">
+                  <div style="display: flex; gap: 8px">
+                    <sc-for list="{{b.actions}}" as="a"><button type="button" class="{{a.cls}}" onClick="{{a.run}}">{{a.label}}</button></sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+          </sc-for>
+
+          <sc-if value="{{suggestions}}">
+            <div class="t-sugs">
+              <sc-for list="{{suggestions}}" as="g"><button type="button" class="t-sug" onClick="{{g.pick}}">{{g.text}}</button></sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <div class="t-composer">
+          <k-composer key="task" placeholder="回复 Agent，或告诉它要调整什么"></k-composer>
+        </div>
+      </section>
+
+      <sc-if value="{{panelOpen}}">
+        <aside class="t-panel" data-keep-scroll="panel" aria-label="产出">
+          <div class="p-tabs" role="tablist">
+            <sc-for list="{{panelTabs}}" as="pt"><button type="button" role="tab" class="p-tab" aria-selected="{{pt.on}}" onClick="{{pt.pick}}">{{pt.label}}</button></sc-for>
+            <button type="button" class="p-x" aria-label="关闭" onClick="{{togglePanel}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></button>
+          </div>
+
+          <sc-if value="{{pv.points}}">
+            <div class="p-body">
+              <div class="p-lead"><b>{{pv.points.count}}</b> 个测试点，来自需求 R-1024 的 4 条描述</div>
+              <sc-for list="{{pv.points.groups}}" as="g">
+                <div class="p-group">
+                  <div class="p-gh"><span class="mono">{{g.id}}</span><span style="flex: 1">{{g.title}}</span><span class="{{g.riskCls}}">{{g.risk}}</span></div>
+                  <sc-for list="{{g.items}}" as="it"><div class="p-row"><span class="p-id">{{it.0}}</span><span class="p-rt">{{it.1}}</span><span class="p-meta">{{it.2}} · {{it.3}}</span></div></sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{pv.cases}}">
+            <div class="p-body">
+              <div class="p-lead"><b>{{pv.cases.count}}</b> 条用例，写在 <span class="mono">tests/points/</span> 下的 4 个文件里</div>
+              <sc-for list="{{pv.cases.files}}" as="f">
+                <div class="p-group">
+                  <div class="p-gh"><span class="mono" style="flex: 1">{{f.path}}</span><span class="p-meta">{{f.n}} 条</span></div>
+                  <sc-for list="{{f.items}}" as="it"><div class="p-row"><span class="p-id">{{it.0}}</span><span class="p-rt">{{it.1}}</span><span class="p-meta">{{it.2}}</span></div></sc-for>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{pv.cases.review}}">
+              <div class="p-foot"><span style="flex: 1">要改哪条，直接在对话里说</span><button type="button" class="t-btn primary" onClick="{{continueFlow}}">开始执行</button></div>
+            </sc-if>
+          </sc-if>
+
+          <sc-if value="{{pv.run}}">
+            <div class="p-body">
+              <div class="p-lead">{{pv.run.total}} 条 · <b style="color: #166534">{{pv.run.pass}} 通过</b> · <b style="color: #B91C1C">{{pv.run.fail}} 失败</b> · {{pv.run.dur}}</div>
+              <div class="p-cmd">$ {{pv.run.cmd}}</div>
+              <div class="p-h">失败</div>
+              <sc-for list="{{pv.run.failures}}" as="f"><div class="p-fail"><code>{{f.0}}</code><span>{{f.1}}</span></div></sc-for>
+              <sc-if value="{{pv.run.flaky}}">
+                <div class="p-h">重试后通过</div>
+                <sc-for list="{{pv.run.flaky}}" as="f"><div class="p-fail"><code>{{f.0}}</code><span style="color: #71717A">{{f.1}}</span></div></sc-for>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{pv.report}}">
+            <div class="p-body">
+              <div class="p-lead">{{pv.report.lead}}</div>
+              <sc-for list="{{pv.report.clusters}}" as="c">
+                <div class="p-cl">
+                  <div class="p-clh"><span class="{{c.tagCls}}">{{c.tag}}</span><span>{{c.title}}</span></div>
+                  <p>{{c.summary}}</p>
+                  <div style="display: flex; flex-direction: column; gap: 2px">
+                    <sc-for list="{{c.tests}}" as="tt"><code>{{tt}}</code></sc-for>
+                  </div>
+                  <div class="p-acts">
+                    <sc-for list="{{c.actions}}" as="a"><button type="button" class="{{a.cls}}" onClick="{{a.run}}">{{a.label}}</button></sc-for>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </aside>
+      </sc-if>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+const KEYS = ['analysis', 'cases', 'run', 'report'];
+const META = {
+  analysis: { name: '测试分析', art: '测试点' },
+  cases: { name: '用例编写', art: '用例' },
+  run: { name: '测试执行', art: '执行' },
+  report: { name: '结果分析', art: '报告' }
+};
+const TICKS = { analysis: 9, cases: 9, report: 7 };
+const DEFAULT_REQUEST = '为需求 R-1024「积分兑换优惠券」设计测试用例，写成 pytest 跑一遍，最后给我一份报告';
+
+const QUESTIONS = [
+  ['q1', '“每日”是自然日（0 点重置），还是从第一次兑换起滚动 24 小时？', ['自然日，0 点重置', '滚动 24 小时']],
+  ['q2', '同一请求号第二次提交时，返回第一次的结果，还是报错？', ['返回第一次的结果', '返回 409 错误']]
+];
+const POINTS = [
+  ['D-102', '每人每日限兑 3 次', '高风险', [['TP-05', '当日第 3 次兑换成功', '边界', 'P0'], ['TP-06', '当日第 4 次兑换被拒绝并提示', '边界', 'P0'], ['TP-07', '跨过“每日”边界后次数重置', '边界', 'P1'], ['TP-08', '两个请求同时兑换第 3、4 次', '并发', 'P1'], ['TP-09', '兑换失败不计入次数', '异常', 'P1']]],
+  ['D-103', '同一请求重复提交只处理一次', '高风险', [['TP-10', '同一请求号重复提交只发一张券', '幂等', 'P0'], ['TP-11', '不带请求号时返回 400', '异常', 'P0']]],
+  ['D-101', '积分充足时可以兑换优惠券', '中风险', [['TP-01', '积分充足时兑换成功，积分实时扣减', '正常', 'P0'], ['TP-02', '积分刚好等于所需积分', '边界', 'P1'], ['TP-03', '积分不足时拒绝兑换', '异常', 'P0']]],
+  ['D-104', '库存不足时拒绝兑换并提示', '中风险', [['TP-12', '兑换最后一张券后库存为 0', '边界', 'P1'], ['TP-13', '库存为 0 时拒绝兑换', '异常', 'P0'], ['TP-14', '并发兑换最后一张券', '并发', 'P1']]]
+];
+const caseFiles = (a) => [
+  ['tests/points/test_redeem_coupon.py', [['TC-001', '积分充足时兑换成功，积分实时扣减', 'P0'], ['TC-002', '积分刚好等于所需积分时兑换成功', 'P1'], ['TC-003', '积分不足时兑换被拒绝', 'P0']]],
+  ['tests/points/test_daily_limit.py', [['TC-004', '当日第 3 次兑换成功', 'P0'], ['TC-005', '当日第 4 次兑换被拒绝并提示“今日已达上限”', 'P0'],
+    ['TC-006', a.q1 === 1 ? '距第一次兑换满 24 小时后次数重置' : '0 点后兑换次数重置', 'P1'], ['TC-007', '两个请求同时兑换第 3、4 次，只成功一次', 'P1'], ['TC-008', '兑换失败不计入当日次数', 'P1']]],
+  ['tests/points/test_idempotency.py', [['TC-009', a.q2 === 1 ? '同一请求号重复提交返回 409，只发一张券' : '同一请求号重复提交返回第一次的结果，只发一张券', 'P0'], ['TC-010', '不带请求号时返回 400', 'P0']]],
+  ['tests/points/test_stock.py', [['TC-011', '库存为 0 时兑换被拒绝', 'P0'], ['TC-012', '并发兑换最后一张券，只有一个成功', 'P1']]]
+];
+
+const POINTS_RESULT = {
+  failures: [
+    ['test_idempotency.py::test_redeem_without_request_id', 'KeyError: None (src/points/idempotency.py:18)'],
+    ['test_daily_limit.py::test_fourth_redeem_rejected', 'AssertionError: expected 429, got 500'],
+    ['test_refund_points.py::test_partial_refund_points', 'httpx.ConnectTimeout: order-svc.staging (10.0s)']
+  ],
+  flaky: [['test_stock.py::test_concurrent_last_coupon', '第一次失败，重试通过']],
+  lead: '3 个失败归为 2 类，另有 1 条不稳定的测试',
+  clusters: [
+    { id: 'bug', tag: '代码缺陷', title: '没有请求号时兑换接口返回 500',
+      summary: 'redeem() 新增了 request_id 参数但没有处理缺省值，idempotency.get(None) 抛出 KeyError；第 4 次兑换的测试也因此拿到 500。建议缺少请求号时返回 400。',
+      tests: ['test_redeem_without_request_id', 'test_fourth_redeem_rejected'],
+      actions: [['让 Agent 修复', 'msg', '修复缺少请求号时兑换接口返回 500 的问题'], ['创建缺陷', 'done', '已创建 BUG-3321']] },
+    { id: 'env', tag: '环境问题', title: '测试环境的订单服务连接超时',
+      summary: '同一时段 order-svc 多次超时，相关代码近期没有改动，重跑大概率通过。',
+      tests: ['test_partial_refund_points'],
+      actions: [['重新执行', 'done', '已重新执行 · 通过']] },
+    { id: 'flaky', tag: '不稳定', title: '并发兑换最后一张券的测试时好时坏',
+      summary: '两个请求的先后顺序不确定，断言却写死了第一个请求成功。',
+      tests: ['test_concurrent_last_coupon'],
+      actions: [['让 Agent 修复测试', 'msg', '修改 test_concurrent_last_coupon，不依赖两个请求的先后顺序']] }
+  ],
+  bullets: [['bug', '代码缺陷', '没有请求号时兑换接口返回 500（2 条）'], ['env', '环境问题', '测试环境的订单服务连接超时（1 条）'], ['flaky', '不稳定', '并发兑换最后一张券的测试，重试后通过']],
+  next: ['修复缺少请求号时返回 500 的问题', '只重跑失败的 3 条', '导出测试报告']
+};
+const DATA = {
+  points: Object.assign({ total: 38, pass: 35, cmd: 'uv run pytest tests/points -q', dur: '1 分 12 秒', dir: 'tests/points' }, POINTS_RESULT),
+  smoke: Object.assign({ total: 14, pass: 11, cmd: 'uv run pytest tests/points -m smoke -q', dur: '26 秒', dir: 'tests/points' }, POINTS_RESULT),
+  refund: {
+    total: 38, pass: 37, cmd: 'uv run pytest tests/order/refund -q', dur: '58 秒', dir: 'tests/order/refund',
+    failures: [['test_partial_refund.py::test_refund_ratio_with_coupon', 'AssertionError: refunded 120 points, expected 96']],
+    flaky: null,
+    lead: '1 个失败，是代码缺陷',
+    clusters: [
+      { id: 'bug', tag: '代码缺陷', title: '用了优惠券的订单部分退款时多退积分',
+        summary: 'refund_points() 按商品原价计算退款比例，订单用过优惠券时会按原价退回积分，比实付比例多 25%。10-30 的提交引入了这个改动。',
+        tests: ['test_refund_ratio_with_coupon'],
+        actions: [['让 Agent 修复', 'msg', '修复部分退款按原价退积分的问题'], ['创建缺陷', 'done', '已创建 BUG-3324']] }
+    ],
+    bullets: [['bug', '代码缺陷', '用了优惠券的订单部分退款时多退积分（1 条）']],
+    next: ['修复部分退款按原价退积分的问题', '只重跑失败的 1 条']
+  }
+};
+
+const TASKS = {
+  points: { title: '积分兑换优惠券测试', request: DEFAULT_REQUEST, data: 'points', steps: { analysis: true, cases: true, run: true, report: true },
+    status: { analysis: 'done', cases: 'review' }, answers: { q1: 0, q2: null }, panel: 'cases' },
+  smoke: { title: '积分模块冒烟', request: '跑一下 tests/points 的冒烟测试，告诉我挂了什么', data: 'smoke', steps: { run: true, report: true },
+    status: { run: 'done', report: 'done' }, panel: 'report' },
+  refund: { title: '订单部分退款回归', request: '回归一下订单部分退款，用例已经有了，在 tests/order/refund，跑完告诉我结果', data: 'refund', steps: { run: true, report: true },
+    status: { run: 'running' }, runDone: 24 }
+};
+
+// 新任务：按用户的话推断要做哪些步骤，用户可以在计划里改，也可以直接说“不用执行”
+function inferSteps(q) {
+  const st = { analysis: false, cases: false, run: false, report: false };
+  if (/设计|需求|R-\d+/.test(q)) { st.analysis = true; st.cases = true; }
+  if (/用例/.test(q) && !/已有|已经有/.test(q)) st.cases = true;
+  if (/执行|跑|回归|冒烟/.test(q)) st.run = true;
+  if (/报告|失败|结果|跑|回归|冒烟|执行/.test(q)) st.report = true;
+  if (!KEYS.some((k) => st[k])) KEYS.forEach((k) => { st[k] = true; });
+  return st;
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const params = new URLSearchParams(location.search);
+    const preset = TASKS[params.get('task')];
+    const q = params.get('q');
+    const base = { open: {}, extra: [], acted: {}, t: 0, paused: false, gate: true, answers: { q1: null, q2: null }, panel: null, runDone: 0 };
+    if (preset) {
+      const status = {};
+      KEYS.forEach((k) => { status[k] = preset.status[k] || 'pending'; });
+      this.state = Object.assign(base, { title: preset.title, request: preset.request, data: preset.data, steps: Object.assign({ analysis: false, cases: false, run: false, report: false }, preset.steps),
+        status, started: true, answers: Object.assign(base.answers, preset.answers || {}), panel: preset.panel || null, runDone: preset.runDone || 0 });
+    } else {
+      const request = q || DEFAULT_REQUEST;
+      const status = {};
+      KEYS.forEach((k) => { status[k] = 'pending'; });
+      this.state = Object.assign(base, { title: q ? q.replace(/[，。,].*$/, '').slice(0, 20) : '积分兑换优惠券 R-1024', request, data: 'points', steps: inferSteps(request), status, started: false });
+    }
+    document.title = this.state.title;
+    document.addEventListener('kitty-send', (e) => { if (e.detail.key === 'task') this.onSend(e.detail.text); });
+    setInterval(() => this.tick(), 300);
+  }
+
+  data() { return DATA[this.state.data]; }
+  included() { return KEYS.filter((k) => this.state.steps[k]); }
+  running() { return KEYS.find((k) => this.state.status[k] === 'running'); }
+  nearBottom() { return innerHeight + scrollY >= document.documentElement.scrollHeight - 160; }
+  update(patch) {
+    const follow = this.nearBottom();
+    this.setState(patch);
+    if (follow) requestAnimationFrame(() => scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }));
+  }
+
+  tick() {
+    const s = this.state;
+    const k = this.running();
+    if (!k || s.paused) return;
+    if (k === 'run') {
+      const n = Math.min(this.data().total, s.runDone + 3);
+      if (n >= this.data().total) this.complete('run');
+      else this.setState({ runDone: n });
+    } else if (s.t + 1 >= TICKS[k]) this.complete(k);
+    else this.setState({ t: s.t + 1 });
+  }
+
+  complete(k) {
+    const s = this.state;
+    const status = Object.assign({}, s.status);
+    const next = this.included().find((x) => KEYS.indexOf(x) > KEYS.indexOf(k));
+    let panel = s.panel ? k : null;
+    if (k === 'cases' && s.gate && next) {
+      status.cases = 'review';
+      panel = 'cases';
+    } else {
+      status[k] = 'done';
+      if (next) status[next] = 'running';
+    }
+    this.update({ status, t: 0, runDone: k === 'run' ? this.data().total : s.runDone, panel });
+  }
+
+  start() {
+    const first = this.included()[0];
+    if (!first) return;
+    this.update({ started: true, status: Object.assign({}, this.state.status, { [first]: 'running' }), t: 0 });
+  }
+
+  continueFlow() {
+    const s = this.state;
+    if (s.status.cases !== 'review') return;
+    const next = this.included().find((x) => KEYS.indexOf(x) > KEYS.indexOf('cases'));
+    this.update({ status: Object.assign({}, s.status, { cases: 'done', [next]: 'running' }), t: 0, runDone: 0 });
+  }
+
+  say(user, agent, patch) {
+    const s = this.state;
+    const at = KEYS.filter((k) => s.status[k] !== 'pending').length;
+    const extra = s.extra.concat(user ? [{ role: 'user', text: user, at }] : [], agent ? [{ role: 'agent', text: agent, at }] : []);
+    this.update(Object.assign({ extra }, patch || {}));
+  }
+
+  onSend(text) {
+    const s = this.state;
+    const names = { analysis: /分析需求|测试分析|拆测试点/, cases: /用例/, run: /执行|跑/, report: /报告|结果分析|分析结果/ };
+    if (!s.started) {
+      const drop = /不用|不要|跳过|去掉|别/.test(text);
+      const add = /加上|也要|需要|还要/.test(text);
+      const hit = KEYS.filter((k) => names[k].test(text));
+      if ((drop || add) && hit.length) {
+        const steps = Object.assign({}, s.steps);
+        hit.forEach((k) => { steps[k] = !drop; });
+        const label = hit.map((k) => '「' + META[k].name + '」').join('、');
+        return this.say(text, (drop ? '好，去掉' : '好，加上') + label + '，计划已更新。', { steps });
+      }
+      if (/开始|可以|好|行|没问题|就这样/.test(text)) { this.say(text, null); return this.start(); }
+      return this.say(text, '明白，我会在分析时考虑进去。计划没问题的话就开始。');
+    }
+    if (s.status.cases === 'review' && /继续|执行|没问题|可以|开始|跑/.test(text)) { this.say(text, null); return this.continueFlow(); }
+    this.say(text, this.running() ? '收到，这一步做完后处理。' : '好的，开始处理。');
+  }
+
+  renderVals() {
+    const s = this.state;
+    const d = this.data();
+    const inc = this.included();
+    const set = (p) => this.update(p);
+    const fail = d.total - d.pass;
+
+    // ---------- 计划 ----------
+    const planDesc = {
+      analysis: '读需求 R-1024，拆出测试点，标出没写清楚的地方',
+      cases: s.steps.analysis ? '按测试点编写 pytest 用例，放在 tests/points/' : '直接按需求 R-1024 编写 pytest 用例',
+      run: s.steps.cases ? '在测试环境执行新用例和已有的积分测试' : '在测试环境执行 ' + d.dir + ' 下已有的用例',
+      report: s.steps.run ? '归类失败原因，写成报告' : '读取最近一次 CI 的执行结果，归类失败原因'
+    };
+    const planRows = KEYS.map((k) => ({
+      name: META[k].name, desc: planDesc[k], on: !!s.steps[k],
+      toggle: () => set({ steps: Object.assign({}, s.steps, { [k]: !s.steps[k] }) })
+    }));
+    const showGate = s.steps.cases && (s.steps.run || s.steps.report);
+
+    // ---------- 每一步的对话块 ----------
+    const answerText = (id, i) => QUESTIONS.find((x) => x[0] === id)[2][i];
+    const cardFor = (k, title, meta) => ({
+      title, meta, go: s.panel === k ? '正在查看' : '查看',
+      cls: 't-card' + (s.panel === k ? ' on' : ''),
+      open: () => set({ panel: s.panel === k ? null : k })
+    });
+    const nCases = caseFiles(s.answers).reduce((n, f) => n + f[1].length, 0);
+    const nPoints = POINTS.reduce((n, g) => n + g[3].length, 0);
+    const blockFor = (k) => {
+      const st = s.status[k];
+      const run = st === 'running';
+      const b = {
+        isBlock: true, anchor: 'blk-' + k, name: META[k].name,
+        iconCls: 't-i ' + (run ? (s.paused ? 'stopped' : 'run') : st === 'review' ? 'review' : 'done'),
+        open: !run && !!s.open[k], toggle: () => set({ open: Object.assign({}, s.open, { [k]: !s.open[k] }) }),
+        log: [], time: '', detail: '', progress: false, text: '', bullets: null, questions: null, card: null, actions: null
+      };
+      const phase = (list) => list[Math.min(list.length - 1, Math.floor(s.t / TICKS[k] * list.length))];
+      if (k === 'analysis') {
+        b.log = [['读取需求', 'R-1024 积分兑换优惠券 v3'], ['读取文件', 'src/points/redeem.py'], ['搜索', 'grep -rn "daily_limit" src/'], ['查询用例平台', '积分兑换 · 已有 6 条']];
+        if (run) b.detail = phase(['读取需求 R-1024', '阅读 src/points/redeem.py', '对照用例平台里已有的用例']);
+        else {
+          b.detail = '读了需求和 3 处相关代码'; b.time = '38 秒';
+          b.text = '拆出 ' + nPoints + ' 个测试点，高风险集中在每日次数限制和重复提交。有 2 处需求没写清楚，回答后我按答案写用例；不回答就按默认处理，并在报告里注明。';
+          b.questions = QUESTIONS.map(([id, text, opts]) => {
+            const a = s.answers[id];
+            return {
+              text, open: a == null, done: a != null, answer: a != null ? answerText(id, a) : '',
+              reset: () => set({ answers: Object.assign({}, s.answers, { [id]: null }) }),
+              opts: opts.map((label, i) => ({ label, def: i === 0, pick: () => set({ answers: Object.assign({}, s.answers, { [id]: i }) }) }))
+            };
+          });
+          b.card = cardFor('analysis', '测试点', nPoints + ' 个 · 2 条描述是高风险');
+        }
+      }
+      if (k === 'cases') {
+        b.log = [['新建文件', 'tests/points/test_redeem_coupon.py'], ['新建文件', 'tests/points/test_daily_limit.py'], ['新建文件', 'tests/points/test_idempotency.py'], ['新建文件', 'tests/points/test_stock.py'], ['执行命令', 'pytest --collect-only tests/points']];
+        if (run) b.detail = phase(['编写 test_redeem_coupon.py', '编写 test_daily_limit.py', '编写 test_idempotency.py', '检查用例能否被收集']);
+        else {
+          b.detail = '新建 4 个测试文件'; b.time = '1 分 05 秒';
+          const next = inc.find((x) => KEYS.indexOf(x) > 1);
+          b.text = '写好 ' + nCases + ' 条用例，分 4 个文件放在 tests/points/。' +
+            (st === 'review' ? '先停在这里，你看过没问题我就开始执行；要改哪条直接告诉我。' : next ? '' : '需要的话可以接着执行。');
+          b.card = cardFor('cases', '用例', nCases + ' 条 · 4 个文件');
+          if (st === 'review') b.actions = [{ label: '开始执行', cls: 't-btn primary', run: () => this.continueFlow() }];
+        }
+      }
+      if (k === 'run') {
+        b.log = [['执行命令', d.cmd]].concat(d.flaky ? [['重试', d.flaky[0][0].split('::')[1] + ' · 通过']] : []);
+        if (run) {
+          const failed = Math.floor(s.runDone / d.total * fail);
+          b.detail = s.runDone + ' / ' + d.total + (failed ? ' · ' + failed + ' 失败' : '');
+          b.progress = true;
+          b.progStyle = 'width: ' + Math.round(s.runDone / d.total * 100) + '%';
+        } else {
+          b.detail = d.total + ' 条 · ' + fail + ' 失败'; b.time = d.dur;
+          b.text = '执行完 ' + d.total + ' 条：' + d.pass + ' 通过，' + fail + ' 失败' + (d.flaky ? '，另有 ' + d.flaky.length + ' 条重试后通过' : '') + '。';
+          b.card = cardFor('run', '执行记录', d.cmd);
+        }
+      }
+      if (k === 'report') {
+        b.log = [['读取结果', 'junit.xml · ' + fail + ' 个失败'], ['查看提交', 'git log -5 -- src/'], ['对比历史', '最近 10 次执行']];
+        if (run) b.detail = phase(['读取执行结果', '查看最近的提交', '对比最近 10 次执行']);
+        else {
+          b.detail = d.lead; b.time = '20 秒';
+          b.text = s.steps.run ? '失败原因：' : '最近一次 CI 的失败原因：';
+          b.bullets = d.bullets.map(([cls, tag, text]) => ({ tagCls: 't-tag ' + cls, tag, text }));
+          b.card = cardFor('report', '测试报告', d.lead);
+        }
+      }
+      return b;
+    };
+    const started = KEYS.filter((k) => s.status[k] !== 'pending');
+    const thread = [];
+    started.forEach((k, i) => {
+      s.extra.filter((m) => m.at === i).forEach((m) => thread.push({ isMsg: true, cls: m.role === 'user' ? 't-user' : 't-p', text: m.text }));
+      thread.push(blockFor(k));
+    });
+    s.extra.filter((m) => m.at >= started.length).forEach((m) => thread.push({ isMsg: true, cls: m.role === 'user' ? 't-user' : 't-p', text: m.text }));
+
+    const finished = s.started && inc.every((k) => s.status[k] === 'done');
+    const nextSteps = s.steps.report ? d.next : s.steps.run ? ['分析失败原因'] : ['执行这些用例', '同步到用例平台'];
+
+    // ---------- 产出面板 ----------
+    const arts = KEYS.filter((k) => s.steps[k] && (s.status[k] === 'done' || s.status[k] === 'review'));
+    const panel = arts.includes(s.panel) ? s.panel : null;
+    const actOn = (id, i) => s.acted[id + i];
+    const pv = {
+      points: panel === 'analysis' && {
+        count: nPoints,
+        groups: POINTS.map(([id, title, risk, items]) => ({ id, title, risk, riskCls: 'p-risk ' + (risk === '高风险' ? 'hi' : 'mid'), items }))
+      },
+      cases: panel === 'cases' && {
+        count: nCases, review: s.status.cases === 'review',
+        files: caseFiles(s.answers).map(([path, items]) => ({ path, items, n: items.length }))
+      },
+      run: panel === 'run' && Object.assign({}, d, { fail }),
+      report: panel === 'report' && {
+        lead: d.lead,
+        clusters: d.clusters.map((c) => ({
+          tag: c.tag, title: c.title, summary: c.summary, tests: c.tests, tagCls: 't-tag ' + c.id,
+          actions: c.actions.map(([label, kind, doneLabel], i) => ({
+            label: actOn(c.id, i) ? '✓ ' + doneLabel : label,
+            cls: actOn(c.id, i) ? 't-btn ok' : 't-btn',
+            run: () => {
+              if (kind === 'msg') this.say(doneLabel, '好的，开始处理。');
+              else if (!actOn(c.id, i)) set({ acted: Object.assign({}, s.acted, { [c.id + i]: true }) });
+            }
+          }))
+        }))
+      }
+    };
+
+    // ---------- 顶栏步骤 ----------
+    const stepper = inc.map((k, i) => {
+      const st = s.status[k];
+      return {
+        sep: i > 0, label: META[k].name,
+        // tip 放在 title 里，按钮的可访问名仍是步骤名
+        icon: 't-i ' + (st === 'running' && s.paused ? 'stopped' : st === 'running' ? 'run' : st),
+        cls: 't-step' + (st === 'running' || st === 'review' ? ' cur' : ''),
+        tip: { pending: '未开始', running: '进行中', review: '等你审核', done: '已完成' }[st],
+        go: () => {
+          if (arts.includes(k)) return set({ panel: k });
+          const el = document.getElementById('blk-' + k);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+    });
+
+    return {
+      title: s.title,
+      request: s.request,
+      stepper,
+      canStop: !!this.running(),
+      pauseLabel: s.paused ? '继续' : '暂停',
+      togglePause: () => this.setState({ paused: !s.paused }),
+      hasArtifacts: arts.length > 0,
+      panelOpen: !!panel,
+      togglePanel: () => set({ panel: panel ? null : arts[arts.length - 1] }),
+      planIntro: s.started ? '好的，计划如下：' : '好的，计划如下，确认后开始：',
+      planEditable: !s.started,
+      planLocked: s.started,
+      planRows,
+      planLine: inc.map((k, i) => ({ name: META[k].name, sep: i > 0 })),
+      gateNote: s.started && s.gate && showGate,
+      showGate,
+      gate: s.gate,
+      toggleGate: () => set({ gate: !s.gate }),
+      cannotStart: inc.length === 0,
+      start: () => this.start(),
+      continueFlow: () => this.continueFlow(),
+      thread,
+      suggestions: finished && !s.extra.length ? nextSteps.map((text) => ({ text, pick: () => window.kittyFill('task', text) })) : null,
+      panelTabs: arts.map((k) => ({ label: META[k].art, on: panel === k, pick: () => set({ panel: k }) })),
+      pv
+    };
+  }
+}
+</script>
+</body>
+</html>

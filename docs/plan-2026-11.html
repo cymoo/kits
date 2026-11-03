@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<!-- ARTIFACT-START -->
+<title>AI统一测试平台开发计划</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* 布局：左侧固定目录 + 单栏正文（窄屏时目录折叠为顶部横向条）。 */
+:root {
+  color-scheme: light;
+  --paper: #fbfbf9;
+  --card: #ffffff;
+  --ink: #1b1b1f;
+  --ink-2: #4f4f57;
+  --muted: #7a7a84;
+  --line: #e5e5df;
+  --line-2: #d3d3cb;
+  --wash: #f2f2ee;
+  --accent: #2a78d6;
+  --accent-wash: #e9f1fc;
+  --font-body: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+code { background: var(--wash); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--wash); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; margin: 0; }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; line-height: 1.3; margin: 0; text-wrap: balance; }
+h1 { font-size: 32px; letter-spacing: 0.01em; }
+h2 { font-size: 22px; padding-top: 6px; }
+h3 { font-size: 16px; font-family: var(--font-body); font-weight: 700; }
+p { margin: 0; }
+.eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.shell { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 40px; max-width: 1220px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 80px; }
+.toc { position: sticky; top: 24px; align-self: start; display: flex; flex-direction: column; gap: 2px; }
+.toc .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.toc .brand .k { width: 30px; height: 30px; border-radius: 8px; background: var(--ink); color: #fff; display: grid; place-items: center; font-weight: 700; font-family: var(--font-display); }
+.toc a { display: block; padding: 6px 10px; border-radius: 6px; color: var(--ink-2); font-size: 13px; }
+.toc a:hover { background: var(--wash); text-decoration: none; color: var(--ink); }
+.toc a.active { background: var(--accent-wash); color: var(--accent); font-weight: 500; }
+.toc .meta { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); line-height: 1.6; }
+main { display: flex; flex-direction: column; gap: 56px; min-width: 0; }
+section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 20px; }
+.sec-head { display: flex; flex-direction: column; gap: 6px; }
+.sec-head p { color: var(--ink-2); max-width: 70ch; }
+
+/* 页头 */
+.hero { display: flex; flex-direction: column; gap: 18px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+.hero .lede { color: var(--ink-2); max-width: 64ch; font-size: 15px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 720px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.tile .v { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; font-family: var(--font-display); }
+.tile .l { font-size: 12px; color: var(--muted); }
+
+/* 表格 */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--wash); font-weight: 500; color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+
+/* 标签 */
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500; line-height: 1.6; white-space: nowrap; border: 1px solid transparent; }
+.pill .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.track { background: var(--wash); color: var(--ink-2); }
+.pill.cx-high { background: #fdecea; color: #a12b2b; border-color: #f5c7c3; }
+.pill.cx-mid { background: #fff4df; color: #8a5a00; border-color: #f5dfae; }
+.pill.cx-low { background: #e7f6e7; color: #1f6b1f; border-color: #bfe3bf; }
+
+/* 模块卡片 */
+.mod-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.mod { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; border-top: 3px solid var(--track, var(--line-2)); scroll-margin-top: 20px; }
+.mod .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.mod .title { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mod .id { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.mod h3 { font-size: 15px; }
+.mod .tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.mod .goal { font-size: 13px; color: var(--ink-2); }
+.mod ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.mod .foot { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 6px 10px; font-size: 12.5px; background: var(--wash); border-radius: 8px; padding: 8px 10px; color: var(--ink-2); }
+.mod .foot dt { color: var(--muted); }
+.mod .foot dd { margin: 0; min-width: 0; }
+
+/* 图表 */
+.fig { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fig .cap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; align-items: baseline; }
+.fig .cap h3 { font-size: 14px; }
+.fig .cap .note { font-size: 12px; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.svg-wrap { overflow-x: auto; }
+.svg-wrap svg { display: block; width: 100%; height: auto; min-width: 680px; font-family: var(--font-body); }
+.svg-wrap.fit svg { min-width: 560px; max-width: 760px; }
+.tip { position: fixed; pointer-events: none; background: var(--ink); color: #fff; font-size: 12px; line-height: 1.5; padding: 6px 9px; border-radius: 6px; max-width: 280px; z-index: 20; opacity: 0; transition: opacity .1s; }
+.tip.on { opacity: 1; }
+
+/* 周计划 */
+.weeks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.week { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.week .wk { display: flex; justify-content: space-between; align-items: baseline; }
+.week .wk b { font-family: var(--font-display); font-size: 18px; }
+.week .wk span { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.week ul { margin: 0; padding-left: 16px; font-size: 13px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.week .ms { border-top: 1px solid var(--line); padding-top: 8px; font-size: 12.5px; }
+.week .ms b { color: var(--accent); font-weight: 500; }
+
+/* 目标 */
+.goals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.box h3 { font-size: 15px; }
+.box .n { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.box p { font-size: 13.5px; color: var(--ink-2); }
+.box ul, .box ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.box .check { border-top: 1px dashed var(--line); padding-top: 8px; font-size: 12.5px; color: var(--ink-2); }
+.box .check b { color: var(--ink); font-weight: 500; }
+
+/* 开发约定 */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; align-items: stretch; }
+.step { position: relative; background: var(--card); border: 1px solid var(--line); padding: 14px 14px 14px 18px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.step:first-child { border-radius: 12px 0 0 12px; }
+.step:last-child { border-radius: 0 12px 12px 0; }
+.step + .step { border-left: 0; }
+.step .who { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 500; color: var(--muted); }
+.step.human { background: var(--accent-wash); }
+.step.human .who { color: var(--accent); }
+.step h4 { font-family: var(--font-body); font-size: 14px; font-weight: 700; }
+.step p { font-size: 12.5px; color: var(--ink-2); }
+.step::after { content: ""; position: absolute; right: -8px; top: 50%; width: 14px; height: 14px; background: inherit; border-right: 1px solid var(--line); border-top: 1px solid var(--line); transform: translateY(-50%) rotate(45deg); z-index: 1; }
+.step:last-child::after { display: none; }
+.rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.rule { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rule h4 { font-family: var(--font-body); font-size: 14px; font-weight: 700; }
+.rule p { font-size: 13px; color: var(--ink-2); }
+
+.callout { border-left: 3px solid var(--accent); background: var(--accent-wash); border-radius: 0 10px 10px 0; padding: 10px 14px; font-size: 13.5px; color: var(--ink-2); }
+.callout b { color: var(--ink); font-weight: 500; }
+.chip { display: inline-block; font-family: var(--font-mono); font-size: 11px; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; color: var(--ink-2); }
+
+@media (max-width: 980px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .toc { position: static; flex-direction: row; flex-wrap: wrap; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .toc .brand { width: 100%; margin-bottom: 6px; }
+  .toc .meta { display: none; }
+  .weeks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .goals, .mod-grid, .two, .rules { grid-template-columns: minmax(0, 1fr); }
+  .flow { grid-template-columns: minmax(0, 1fr); }
+  .step { border-radius: 0 !important; }
+  .step:first-child { border-radius: 12px 12px 0 0 !important; }
+  .step:last-child { border-radius: 0 0 12px 12px !important; }
+  .step + .step { border-left: 1px solid var(--line); border-top: 0; }
+  .step::after { display: none; }
+}
+@media (max-width: 520px) {
+  h1 { font-size: 26px; }
+  .tiles, .weeks { grid-template-columns: minmax(0, 1fr); }
+  .mod .head { flex-direction: column; }
+  .mod .tags { justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="shell">
+  <nav class="toc" aria-label="目录">
+    <div class="brand"><span class="k">k</span><span style="font-weight:700">kitty 开发计划</span></div>
+    <a href="#goals">目标</a>
+    <a href="#gantt">排期</a>
+    <a href="#modules">模块</a>
+    <a href="#weeks">逐周计划</a>
+    <a href="#stack">技术栈</a>
+    <a href="#process">开发约定</a>
+    <a href="#risks">难点与风险</a>
+    <div class="meta">2026-11-03 → 12-11<br>6 周<br>v2 · 2026-11-03</div>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div>
+        <div class="eyebrow">kitty · 2026-11-03 → 12-11</div>
+        <h1 style="margin-top:6px">AI统一测试平台开发计划</h1>
+      </div>
+      <p class="lede">打造统一的 AI 测试作业平台，测试设计、用例开发、测试执行和结果分析都在一个工具里完成。<br>先把通用的 Agent 能力做扎实，再按部门的实际做法把测试各环节接进来。</p>
+      <div class="tiles">
+        <div class="tile"><span class="v">6 周</span><span class="l">11-03 → 12-11</span></div>
+        <div class="tile"><span class="v" id="tile-mods">—</span><span class="l">模块</span></div>
+        <div class="tile"><span class="v" id="tile-effort">—</span><span class="l">估算人日</span></div>
+      </div>
+    </header>
+
+    <!-- 目标 -->
+    <section id="goals">
+      <div class="sec-head"><h2>目标</h2></div>
+      <div class="goals">
+        <div class="box">
+          <span class="n">01</span>
+          <h3>通用 Agent 流程走通</h3>
+          <p>一个可安装的桌面应用，日常的 Agent 用法都能覆盖。测试功能都建在这一层上，所以它要先稳。</p>
+          <ul>
+            <li>流式会话：正文、思考过程、工具调用实时展示；命令执行前确认，Agent 可以向人提问；改动可看 diff、可回滚。</li>
+            <li>MCP：支持 stdio 和 HTTP，现有的 <code>mcpServers</code> 配置直接粘贴就能用。</li>
+            <li>技能：遵循 <code>SKILL.md</code>，内置、项目、个人三级目录。</li>
+            <li>记忆：项目约定和个人偏好跨会话保留。</li>
+            <li>内核默认 CodeAgent，OpenCode 用于调试和兜底。</li>
+          </ul>
+        </div>
+        <div class="box">
+          <span class="n">02</span>
+          <h3>AI native 的测试作业</h3>
+          <p>按部门现在的做法把测试各环节接进来。Agent 干活，人在关键节点审核，而不是在旧流程上加个“AI 生成”按钮。</p>
+          <ul>
+            <li>测试设计：从需求出发产出测试点、风险和疑问。</li>
+            <li>用例开发：生成用例，逐条审核后导出或推送到用例平台。</li>
+            <li>测试执行：沿用各组现有的执行命令或 CI，统一解析 JUnit XML。</li>
+            <li>结果分析：失败归类、给出证据、和上次对比。</li>
+            <li>四步放在测试工作台里，可以连着跑，也可以只用其中几步。</li>
+          </ul>
+        </div>
+        <div class="box">
+          <span class="n">03</span>
+          <h3>易用、好用、易演进</h3>
+          <p>测试同学愿意天天用，后面加功能也不用推倒重来。</p>
+          <ul>
+            <li>易用：装上就能用，首次引导十分钟内配好模型、目录和 MCP。</li>
+            <li>好用：结果要靠得住，用评测集和采纳率说话，而不是凭感觉。</li>
+            <li>易演进：Agent、技能、产出格式都是配置，不写死在代码里；内核走适配层，换内核不动上层；新的测试环节作为扩展加进来。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 排期 -->
+    <section id="gantt">
+      <div class="sec-head"><h2>排期</h2><p>前三周集中做通用能力，第三周开始搭测试工作台，后三周把测试四个环节接上去。测试设计的前期准备（试用现有工具、收集各组样本）第一周就开始，和开发并行。</p></div>
+      <div class="fig">
+        <div class="cap"><h3>模块排期</h3><span class="note">悬停查看交付内容</span></div>
+        <div class="legend" id="legend-tracks"></div>
+        <div class="svg-wrap" id="gantt-wrap"></div>
+      </div>
+      <div class="fig">
+        <div class="cap"><h3>模块依赖</h3><span class="note">蓝色是关键路径：内核接入 → 会话 → 测试工作台 → 测试设计与用例开发</span></div>
+        <div class="svg-wrap fit" id="dep-wrap"></div>
+      </div>
+    </section>
+
+    <!-- 模块 -->
+    <section id="modules">
+      <div class="sec-head"><h2>模块</h2><p>人日是粗估，第一周 CodeAgent 接口核对完会再调一次。</p></div>
+      <div class="mod-grid" id="mod-grid"></div>
+    </section>
+
+    <!-- 周计划 -->
+    <section id="weeks">
+      <div class="sec-head"><h2>逐周计划</h2><p>每周五下午 demo。</p></div>
+      <div class="weeks">
+        <div class="week">
+          <div class="wk"><b>第 1 周</b><span>11-03 → 11-06</span></div>
+          <ul>
+            <li>搭工程骨架，空壳应用跑起来。</li>
+            <li>把 CodeAgent 跑起来，导出 OpenAPI 和文档逐项对照，不一致的地方列清单。</li>
+            <li>在公司网关上试几个模型，定主力模型。</li>
+            <li>深度试用 TestAgent 和 TestGenie，看看有没有值得借鉴的功能。</li>
+            <li>申请签名证书和内网更新地址。</li>
+          </ul>
+          <div class="ms"><b>demo</b>　空壳应用；CodeAgent 接口核对清单</div>
+        </div>
+        <div class="week">
+          <div class="wk"><b>第 2 周</b><span>11-09 → 11-13</span></div>
+          <ul>
+            <li>内核适配器主体，OpenCode 契约测试进 CI。</li>
+            <li>会话页：流式输出、工作过程展示。</li>
+            <li>MCP 和技能的配置转换。</li>
+            <li>向各组要几份真实需求和用例，了解大家现在怎么做测试设计、怎么写用例。</li>
+          </ul>
+          <div class="ms"><b>demo</b>　在应用里和 Agent 流式对话，调通一个 MCP</div>
+        </div>
+        <div class="week">
+          <div class="wk"><b>第 3 周</b><span>11-16 → 11-20</span></div>
+          <ul>
+            <li>接入 CodeAgent，两个内核切换验证。</li>
+            <li>确认卡片、提问卡片、diff 和回滚。</li>
+            <li>技能管理、记忆。</li>
+            <li>测试工作台开工；测试点和用例的产出格式出初版。</li>
+          </ul>
+          <div class="ms"><b>demo</b>　通用流程在 CodeAgent 上走通</div>
+        </div>
+        <div class="week">
+          <div class="wk"><b>第 4 周</b><span>11-23 → 11-27</span></div>
+          <ul>
+            <li>会话收尾：产出导出、出错恢复、会话历史。</li>
+            <li>模型配置和首次引导。</li>
+            <li>测试工作台的步骤编排。</li>
+            <li>测试设计接入，拿真实需求试。</li>
+          </ul>
+          <div class="ms"><b>demo</b>　用真实需求跑出测试点</div>
+        </div>
+        <div class="week">
+          <div class="wk"><b>第 5 周</b><span>11-30 → 12-04</span></div>
+          <ul>
+            <li>用例开发：生成、逐条审核、导出和推送。</li>
+            <li>测试执行：用户配置执行命令，解析 JUnit XML。</li>
+            <li>打包签名，内网更新。</li>
+          </ul>
+          <div class="ms"><b>demo</b>　从需求到用例连起来；安装包能装</div>
+        </div>
+        <div class="week">
+          <div class="wk"><b>第 6 周</b><span>12-07 → 12-11</span></div>
+          <ul>
+            <li>结果分析：失败归类、和上次对比、重跑失败。</li>
+            <li>跑一轮评测，调提示词和技能。</li>
+            <li>发给几位测试同学试用，收反馈、修问题。</li>
+          </ul>
+          <div class="ms"><b>demo</b>　12-11 出试用版</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 技术栈 -->
+    <section id="stack">
+      <div class="sec-head"><h2>技术栈</h2><p>不自研 Agent 内核，不引重型组件库，配置只写一份，按内核转换。</p></div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th style="width:110px">层</th><th style="width:260px">选择</th><th>原因</th></tr></thead>
+          <tbody>
+            <tr><td>桌面壳</td><td>Electron + electron-vite</td><td>用户的 MCP 大多是 stdio 类型，要在本机起子进程、读本地文件；密钥放系统钥匙串。平台相关的代码收在 <code>PlatformBridge</code> 里，以后加 Web 版不动页面。</td></tr>
+            <tr><td>界面</td><td>React 19 + TypeScript + Vite；Tailwind CSS + Radix UI；TanStack Table</td><td>和原型一致，按原型自己画，不套组件库。用例审核这种大表格用 TanStack Table，只要表格逻辑。</td></tr>
+            <tr><td>状态</td><td>zustand + TanStack Query</td><td>会话是高频事件流，用 zustand 在 IPC 回调里直接写；设置页是“请求 + 缓存”，交给 Query。</td></tr>
+            <tr><td>Agent 内核</td><td>CodeAgent（默认）/ OpenCode，经 <code>AgentKernel</code> 适配器</td><td>两者同源，只调公共接口，差异收在方言层。OpenCode 开源，能断点，CI 用它加 mock 模型跑契约测试。</td></tr>
+            <tr><td>kitty 工具</td><td><code>@modelcontextprotocol/sdk</code> + zod，本机 MCP 服务</td><td><code>ask_user</code>、<code>submit_output</code> 定义一次，两个内核都通过 MCP 调用；结构化产出按 Agent 上配的 JSON Schema 校验。</td></tr>
+            <tr><td>本地存储</td><td>SQLite（better-sqlite3）+ Drizzle；Electron safeStorage</td><td>会话、产出、AI 原稿和人工修改、token 用量从第一天就记；以后上服务端，schema 可以平移到 Postgres。</td></tr>
+            <tr><td>文档转换</td><td>mammoth（Word）、pdfjs-dist（PDF）</td><td>需求附件先转 Markdown 再进上下文，纯 JS，不需要系统依赖。图片直接走模型的视觉输入。</td></tr>
+            <tr><td>测试结果</td><td>JUnit XML 解析</td><td>各组执行器不一样，只约定报告格式，执行命令由用户配置。</td></tr>
+            <tr><td>工程</td><td>pnpm workspace + Turborepo；Biome；Vitest；Playwright；electron-builder + electron-updater</td><td>lint 和 format 用一套工具；UT、E2E 第一周就要能跑；内网更新用 generic provider。</td></tr>
+            <tr><td>评测</td><td><code>evals/</code> JSONL + Node 脚本</td><td>先做最小可用的，不上框架。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 开发约定 -->
+    <section id="process">
+      <div class="sec-head"><h2>开发约定</h2><p>人主要管两头：需求和验收。中间的原型、代码、文档、测试尽量交给 AI。</p></div>
+      <div class="flow">
+        <div class="step human"><span class="who">人</span><h4>需求</h4><p>写清楚要什么、做到什么程度算完，附上原型页面。</p></div>
+        <div class="step"><span class="who">AI</span><h4>改原型</h4><p>界面改动先改 <code>designs/prototype</code>，看过没问题再写页面。</p></div>
+        <div class="step"><span class="who">AI</span><h4>开发</h4><p>加载 <code>.agents/</code> 里的技能，照原型实现。</p></div>
+        <div class="step"><span class="who">AI</span><h4>交付说明 + 测试</h4><p>说明改了什么、怎么验收；UT 和 E2E 一起提交。</p></div>
+        <div class="step human"><span class="who">人</span><h4>验收</h4><p>按交付说明验收。有问题改需求或说明，让 AI 重做。</p></div>
+      </div>
+      <div class="rules">
+        <div class="rule"><h4>交付说明</h4><p>每个 PR 附一份 <code>docs/delivery/&lt;模块&gt;.md</code>：原始需求、怎么验收、主要改动、新增依赖、已知问题。验收的人看这份文档，不用通读代码。</p></div>
+        <div class="rule"><h4>测试跟着代码走</h4><p>UT 用 Vitest，覆盖配置转换、schema 校验、事件映射；E2E 用 Playwright，覆盖主流程。没有测试的 PR 不合，CI 不绿不 demo。</p></div>
+        <div class="rule"><h4>技能统一放 <code>.agents/</code></h4><p>开发 kitty 用的技能和 Agent 定义放在仓库根目录，所有人用同一套，改动走 PR。</p><pre>.agents/
+├── skills/
+│   ├── delivery-doc/      交付说明模板
+│   ├── prototype-first/   先改原型
+│   ├── unit-test/         Vitest 约定
+│   ├── e2e-test/          Playwright 约定
+│   └── commit-and-pr/     提交信息与 PR 描述
+└── agents/
+    ├── feature-dev.md
+    └── acceptance.md</pre></div>
+        <div class="rule"><h4>尽量不手改代码</h4><p>代码有问题，优先改需求、说明或技能让 AI 重做；确实要手改的，在交付说明里写一句原因。手改多的地方，说明技能该补了。</p>
+          <h4 style="margin-top:8px">新依赖先说一声</h4><p>引入三方库前在群里说一下：许可证能不能商用、内网能不能装、有没有原生依赖、是不是已经有类似的库。</p></div>
+      </div>
+    </section>
+
+    <!-- 难点与风险 -->
+    <section id="risks">
+      <div class="sec-head"><h2>难点与风险</h2></div>
+      <div class="box">
+        <h3>技术难点</h3>
+        <ul>
+          <li>SSE 事件映射和完成判定：锁定版本里事件字段是否齐全，<code>session.idle</code> 不可靠时用轮询兜底，断线后用消息列表补齐。</li>
+          <li>权限回复：CodeAgent 和 OpenCode 的接口不一样，“本次会话始终允许”的范围两边是否一致。</li>
+          <li>回滚：按轮回滚、回滚后继续对话；CodeAgent 没有 <code>unrevert</code> 的话界面要降级。</li>
+          <li>stdio MCP 进程管理：启动失败要能看到原因和 stderr，会话结束进程要回收。</li>
+          <li>测试工作台的步骤编排：每一步是一个会话，步骤之间怎么传产出、暂停后怎么续上。</li>
+        </ul>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th style="width:190px">风险</th><th>可能的情况</th><th>应对</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>CodeAgent 不可控</b></td>
+              <td>接口文档不清楚，实际行为和文档对不上；版本之间行为变化，偶发卡死或进程退出。我们没法改它的代码，排查成本高。</td>
+              <td>第一周导出 OpenAPI、抓包，按实际行为写核对清单，以清单为准；差异全部收在方言层；OpenCode 作对照，同一个问题在 OpenCode 上复现不了，基本就是 CodeAgent 的问题；锁定版本，升级前先跑契约测试；问题攒成清单，定期找 CodeAgent 那边对一次。</td>
+            </tr>
+            <tr>
+              <td><b>需求没摸清，做出来没人用</b></td>
+              <td>测试设计、用例开发这些环节前期了解不够，按我们自己的理解闭门造车，做出来和大家实际的工作方式对不上，同事试一次就不用了。</td>
+              <td>前两周到各组看他们实际怎么做测试设计、怎么写用例，拿真实需求和用例做样本，不只听描述。每个环节找一两位测试同学当种子用户：原型、产出格式初版先给他们看，周五 demo 请他们来，用他们的真实需求试。第 6 周试用的反馈决定下一步做什么。</td>
+            </tr>
+            <tr>
+              <td><b>定制需求太多</b></td>
+              <td>各组的测试流程、用例字段、平台对接都不一样，每组都提一点，主流程会被拖慢，代码里到处是分支。</td>
+              <td>只做主流程。长尾需求走扩展：用例字段改产出格式，流程差异写成技能，平台对接走 MCP，各组可以自己配。确实要改代码的进需求池，周五统一排。</td>
+            </tr>
+            <tr>
+              <td><b>做成 coding agent</b></td>
+              <td>通用能力越做越多，去追 Claude Code、OpenCode 的完整功能（子 Agent 编排、多工作区、插件市场、IDE 集成……），测试功能反而没时间做。</td>
+              <td>通用能力做到测试场景够用就停。内核有什么用什么，不自己补；加功能前先问一句“对测试有没有直接帮助”，没有就不做。</td>
+            </tr>
+            <tr>
+              <td><b>产出格式定不下来</b></td>
+              <td>测试点、用例长什么样各组说法不一，格式迟迟定不下来，后面几周的开发卡住。</td>
+              <td>格式是 Agent 上的 JSON Schema 配置，不写进代码。先按一两个组的实际做法做出来，用起来再改配置。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+(function () {
+  'use strict';
+  var TRACKS = {
+    base: { name: '通用能力', color: '#2a78d6' },
+    test: { name: '测试功能', color: '#eb6834' },
+    eng: { name: '工程与交付', color: '#6250d6' }
+  };
+  var WEEKS = [
+    { id: 'W1', range: '11-03 → 11-06' },
+    { id: 'W2', range: '11-09 → 11-13' },
+    { id: 'W3', range: '11-16 → 11-20' },
+    { id: 'W4', range: '11-23 → 11-27' },
+    { id: 'W5', range: '11-30 → 12-04' },
+    { id: 'W6', range: '12-07 → 12-11' }
+  ];
+  // start/end 为周序号（1~6，含）；prep 为前期准备所占的周数，甘特图里用浅色画。
+  var MODULES = [
+    { id: 'M1', name: '应用骨架', track: 'eng', cx: '中', effort: 5, start: 1, end: 2, deps: [],
+      goal: '后面所有模块都在这上面写，先让大家能并行开工。',
+      out: ['pnpm monorepo：apps/desktop、packages/kernel、packages/ui、packages/shared', 'Electron 主进程与渲染进程、IPC 约定、侧栏和路由（照原型 shell.js）', 'SQLite + Drizzle：会话、消息、产出、用量几张表', 'Biome、Vitest、Playwright、CI；打包脚本第一周就跑一次'],
+      done: 'pnpm dev 起来是带侧栏的空壳；CI 绿；能出未签名安装包。' },
+    { id: 'M2', name: '内核接入', track: 'base', cx: '高', effort: 10, start: 1, end: 3, deps: [],
+      goal: 'CodeAgent 和 OpenCode 共用一个适配器，上层不关心用的是哪个。',
+      out: ['核对 CodeAgent 实际接口（导出 OpenAPI + 抓包），和文档对不上的列清单', '子进程启动、就绪检测、退出回收；生成内核配置目录', '会话、prompt_async、abort、消息、diff、revert、权限回复', 'SSE 映射成统一事件，断线补齐；完成判定（session.idle + 轮询）', 'OpenCode + mock 模型的契约测试进 CI'],
+      done: '同一套契约测试在两个内核上通过；换内核不改上层代码。' },
+    { id: 'M3', name: '会话', track: 'base', cx: '高', effort: 12, start: 2, end: 4, deps: ['M1', 'M2'],
+      goal: '用户大部分时间都在这一页，照原型 session.html 做。',
+      out: ['新建会话：工作目录、Agent、附件（Word / PDF / Markdown / 图片）、/命令', '流式渲染正文、思考和工具调用，工作过程默认折叠', '命令和 MCP 写操作的确认卡片；ask_user 提问卡片', '改动列表、diff、按轮回滚', '产出编辑与导出；停止、出错恢复、会话历史'],
+      done: 'E2E 覆盖“新建 → 流式回复 → 确认命令 → 回滚 → 导出”。' },
+    { id: 'M4', name: 'MCP、技能与记忆', track: 'base', cx: '中', effort: 8, start: 2, end: 4, deps: ['M2'],
+      goal: '扩展能力配一次，两个内核都能用。',
+      out: ['MCP：stdio 和 HTTP，粘贴 mcpServers 配置，测试连接，按工具设允许 / 询问 / 拒绝，看日志', '本机 MCP 服务提供 kitty 自己的工具：ask_user、submit_output', '技能：SKILL.md，内置 / 项目 / 个人三级目录，开关和预览', '记忆：项目级用 AGENTS.md，个人偏好跨项目保留；Agent 提议写入，用户确认', '对应的设置页'],
+      done: '粘贴一份现有的 MCP 配置能直接用；同一个技能两个内核都能加载。' },
+    { id: 'M5', name: '模型配置与首次引导', track: 'base', cx: '低', effort: 4, start: 3, end: 4, deps: ['M1', 'M2'],
+      goal: '新机器装上后十分钟内能开始用。',
+      out: ['公司 LLM 网关地址和 key（存系统钥匙串），各 Agent 用哪个模型', 'Agent 编辑：提示词、工具开关、可选的产出格式', '内核状态、重启、日志、一键诊断', '首次引导三步：网关 → 工作目录 → 导入 MCP'],
+      done: '引导每一步失败都能看到原因和处理办法。' },
+    { id: 'M6', name: '测试工作台', track: 'test', cx: '中', effort: 6, start: 3, end: 5, deps: ['M3'],
+      goal: '测试四个环节的公共框架，照原型 task.html 做。',
+      out: ['测试任务：新建任务，侧栏里看每一步的进度', '步骤编排：全选或只选几步，步骤之间“暂停审核 / 自动继续”', '跳过前一步时，从已有产出取输入（历史分析、已有用例、历史执行）', '每一步实际在会话里跑，工作台只管收集输入、展示结果'],
+      done: '用 mock Agent 跑通四步编排，暂停、继续、重跑单步都正常。' },
+    { id: 'M7', name: '测试设计与用例开发', track: 'test', cx: '高', effort: 12, start: 1, end: 6, prep: 2, deps: ['M4', 'M6'],
+      goal: '从需求出发产出测试点和用例，人只做审核。',
+      out: ['前两周：深度试用 TestAgent 和 TestGenie，向各组要真实需求和用例样本', '测试点、用例的产出格式（JSON Schema，作为 Agent 配置）', 'test-analyst、test-designer 两个内置 Agent 和配套技能', '需求从需求平台 MCP、文档或粘贴获取', '逐条审核：保留 / 删除 / 让 AI 改，记录原稿和修改；导出 Excel / Markdown，推送用例平台前确认'],
+      done: '3 份真实需求跑通，测试同学认为能用；导出文件能直接导入用例平台。' },
+    { id: 'M8', name: '测试执行与结果分析', track: 'test', cx: '中', effort: 8, start: 5, end: 6, deps: ['M6'],
+      goal: '跑测试、看结果都在工作台里完成，不改各组现有的执行方式。',
+      out: ['执行命令由用户配置（pytest、mvn 等），也可从 CI 拉取或导入 JUnit XML', '统一解析 JUnit XML，按用例展示', 'Agent 对失败归类（代码缺陷 / 环境问题 / 不稳定）并给出证据', '和上次对比，只重跑失败的'],
+      done: '至少接一个组的真实项目，执行和分析跑通。' },
+    { id: 'M9', name: '评测与数据', track: 'eng', cx: '低', effort: 4, start: 3, end: 6, deps: ['M3'],
+      goal: '改了提示词、技能或模型，知道效果是变好还是变坏。',
+      out: ['本机记录 AI 原稿与人工修改、token 用量', 'evals/ 样本：通用任务、测试设计、用例开发', '一条命令跑评测，输出采纳率、格式校验失败率、token'],
+      done: '改 Agent 或技能的 PR 附前后评测结果。' },
+    { id: 'M10', name: '打包与试用', track: 'eng', cx: '中', effort: 4, start: 5, end: 6, deps: ['M3', 'M5'],
+      goal: '安装包到测试同学手里，拿到真实反馈。',
+      out: ['electron-builder，macOS 公证、Windows 签名', '内核二进制随包分发；内网自动更新', '3~5 位测试同学试用，收集问题'],
+      done: '干净机器能装能用；试用同学用它完成一次真实任务。' }
+  ];
+  var CX_CLASS = { '高': 'cx-high', '中': 'cx-mid', '低': 'cx-low' };
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function span(m) { return m.start === m.end ? '第 ' + m.start + ' 周' : '第 ' + m.start + '–' + m.end + ' 周'; }
+  function byId(id) { return MODULES.filter(function (x) { return x.id === id; })[0]; }
+
+  // ---------- 概览数字 ----------
+  document.getElementById('tile-mods').textContent = MODULES.length;
+  document.getElementById('tile-effort').textContent = MODULES.reduce(function (s, m) { return s + m.effort; }, 0);
+
+  // ---------- 模块卡片 ----------
+  document.getElementById('mod-grid').innerHTML = MODULES.map(function (m) {
+    var t = TRACKS[m.track];
+    return '<article class="mod" id="mod-' + m.id + '" style="--track:' + t.color + '">' +
+      '<div class="head"><div class="title"><span class="id">' + m.id + ' · ' + span(m) + ' · ' + m.effort + ' 人日</span><h3>' + esc(m.name) + '</h3></div>' +
+      '<div class="tags"><span class="pill track"><span class="dot" style="color:' + t.color + '"></span>' + t.name + '</span>' +
+      '<span class="pill ' + CX_CLASS[m.cx] + '">复杂度 ' + m.cx + '</span></div></div>' +
+      '<p class="goal">' + esc(m.goal) + '</p>' +
+      '<ul>' + m.out.map(function (o) { return '<li>' + esc(o) + '</li>'; }).join('') + '</ul>' +
+      '<dl class="foot"><dt>完成</dt><dd>' + esc(m.done) + '</dd>' +
+      '<dt>依赖</dt><dd>' + (m.deps.length ? m.deps.map(function (d) { return '<a href="#mod-' + d + '" class="chip">' + d + ' ' + esc(byId(d).name) + '</a>'; }).join(' ') : '无') + '</dd></dl>' +
+      '</article>';
+  }).join('');
+
+  // ---------- 提示 ----------
+  var tip = document.getElementById('tip');
+  function moveTip(x, y) { var w = tip.offsetWidth, h = tip.offsetHeight; var left = x + 14, top = y + 14; if (left + w > window.innerWidth - 8) left = x - w - 14; if (top + h > window.innerHeight - 8) top = y - h - 14; tip.style.left = left + 'px'; tip.style.top = top + 'px'; }
+  function bindTips(root) {
+    root.querySelectorAll('[data-tip]').forEach(function (el) {
+      el.addEventListener('mouseenter', function (e) { tip.innerHTML = el.getAttribute('data-tip'); tip.classList.add('on'); moveTip(e.clientX, e.clientY); });
+      el.addEventListener('mousemove', function (e) { moveTip(e.clientX, e.clientY); });
+      el.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
+    });
+  }
+
+  // ---------- 甘特图（按周） ----------
+  (function renderGantt() {
+    var L = 200, WK = 120, ROW = 36, TOP = 40, N = WEEKS.length, W = L + WK * N + 12, H = TOP + ROW * MODULES.length + 8;
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="模块排期"><rect width="' + W + '" height="' + H + '" fill="#fff"/>';
+    WEEKS.forEach(function (wk, w) {
+      var x = L + w * WK;
+      s += '<rect x="' + x + '" y="' + TOP + '" width="' + WK + '" height="' + (ROW * MODULES.length) + '" fill="' + (w % 2 ? '#f6f6f3' : '#fff') + '"/>';
+      s += '<text x="' + (x + 8) + '" y="18" font-size="12.5" font-weight="700" fill="#1b1b1f">' + wk.id + '</text>';
+      s += '<text x="' + (x + 8) + '" y="32" font-size="11" fill="#7a7a84">' + wk.range + '</text>';
+      s += '<line x1="' + x + '" y1="4" x2="' + x + '" y2="' + H + '" stroke="#d3d3cb"/>';
+    });
+    s += '<line x1="' + (L + WK * N) + '" y1="4" x2="' + (L + WK * N) + '" y2="' + H + '" stroke="#d3d3cb"/>';
+    MODULES.forEach(function (m, i) {
+      var y = TOP + i * ROW, t = TRACKS[m.track];
+      s += '<line x1="0" y1="' + (y + ROW) + '" x2="' + W + '" y2="' + (y + ROW) + '" stroke="#ececE7"/>';
+      s += '<text x="8" y="' + (y + 22) + '" font-size="12.5" fill="#1b1b1f"><tspan fill="#7a7a84" font-family="JetBrains Mono, monospace" font-size="11">' + m.id + '</tspan>  ' + esc(m.name) + '</text>';
+      var bx = L + (m.start - 1) * WK + 3, bw = (m.end - m.start + 1) * WK - 6;
+      var tipHtml = '<b>' + esc(m.name) + '</b> · ' + span(m) + ' · ' + m.effort + ' 人日<br>' + m.out.map(function (o) { return '· ' + esc(o); }).join('<br>');
+      s += '<g data-tip="' + esc(tipHtml) + '">';
+      if (m.prep) {
+        var pw = m.prep * WK;
+        s += '<rect x="' + bx + '" y="' + (y + 8) + '" width="' + (pw - 2) + '" height="20" rx="4" fill="' + t.color + '" fill-opacity="0.28"/>';
+        s += '<text x="' + (bx + 8) + '" y="' + (y + 22) + '" font-size="11" fill="#1b1b1f">试用与收集样本</text>';
+        s += '<rect x="' + (bx + pw) + '" y="' + (y + 8) + '" width="' + (bw - pw) + '" height="20" rx="4" fill="' + t.color + '"/>';
+        s += '<text x="' + (bx + pw + 8) + '" y="' + (y + 22) + '" font-size="11.5" font-weight="500" fill="#fff">' + esc(m.name) + '</text>';
+      } else {
+        s += '<rect x="' + bx + '" y="' + (y + 8) + '" width="' + bw + '" height="20" rx="4" fill="' + t.color + '"/>';
+        s += '<text x="' + (bx + 8) + '" y="' + (y + 22) + '" font-size="11.5" font-weight="500" fill="#fff">' + esc(m.name) + '</text>';
+      }
+      s += '</g>';
+    });
+    s += '</svg>';
+    var wrap = document.getElementById('gantt-wrap'); wrap.innerHTML = s; bindTips(wrap);
+    document.getElementById('legend-tracks').innerHTML = Object.keys(TRACKS).map(function (k) { return '<span><i style="background:' + TRACKS[k].color + '"></i>' + TRACKS[k].name + '</span>'; }).join('') +
+      '<span><i style="background:#eb6834;opacity:.28"></i>前期准备</span>';
+  })();
+
+  // ---------- 依赖图 ----------
+  (function renderDeps() {
+    var layout = { M1: [0, 0], M2: [0, 1], M3: [1, 0], M4: [1, 1], M5: [1, 2], M6: [2, 0], M9: [2, 1], M10: [2, 2], M7: [3, 0], M8: [3, 1] };
+    var critical = { 'M2>M3': 1, 'M3>M6': 1, 'M6>M7': 1 };
+    var onCrit = { M2: 1, M3: 1, M6: 1, M7: 1 };
+    var BW = 150, BH = 38, CX = 180, RY = 56, X0 = 10, Y0 = 12;
+    var pos = {}; Object.keys(layout).forEach(function (id) { pos[id] = { x: X0 + layout[id][0] * CX, y: Y0 + layout[id][1] * RY }; });
+    var W = X0 + 3 * CX + BW + 10, H = Y0 + 2 * RY + BH + 12;
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="模块依赖"><rect width="' + W + '" height="' + H + '" fill="#fff"/>';
+    s += '<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#b5b5ad"/></marker><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#2a78d6"/></marker></defs>';
+    var edges = [];
+    MODULES.forEach(function (m) { m.deps.forEach(function (d) { edges.push([d, m.id]); }); });
+    edges.sort(function (a, b) { return (critical[a[0] + '>' + a[1]] ? 1 : 0) - (critical[b[0] + '>' + b[1]] ? 1 : 0); });
+    edges.forEach(function (e) {
+      var a = pos[e[0]], b = pos[e[1]];
+      var x1 = a.x + BW, y1 = a.y + BH / 2, x2 = b.x, y2 = b.y + BH / 2, c = (x2 - x1) / 2;
+      var crit = critical[e[0] + '>' + e[1]];
+      s += '<path d="M' + x1 + ' ' + y1 + ' C' + (x1 + c) + ' ' + y1 + ' ' + (x2 - c) + ' ' + y2 + ' ' + x2 + ' ' + y2 + '" fill="none" stroke="' + (crit ? '#2a78d6' : '#c9c9c1') + '" stroke-width="' + (crit ? 2.2 : 1.4) + '" marker-end="url(#' + (crit ? 'arr2' : 'arr') + ')"/>';
+    });
+    Object.keys(layout).forEach(function (id) {
+      var m = byId(id), p = pos[id], t = TRACKS[m.track];
+      s += '<rect x="' + p.x + '" y="' + p.y + '" width="' + BW + '" height="' + BH + '" rx="7" fill="#fff" stroke="' + (onCrit[id] ? '#2a78d6' : '#d3d3cb') + '" stroke-width="' + (onCrit[id] ? 2 : 1.2) + '"/>';
+      s += '<rect x="' + (p.x + 1) + '" y="' + (p.y + 1) + '" width="4" height="' + (BH - 2) + '" rx="2" fill="' + t.color + '"/>';
+      s += '<text x="' + (p.x + 12) + '" y="' + (p.y + 15) + '" font-size="10.5" fill="#7a7a84" font-family="JetBrains Mono, monospace">' + id + ' · ' + span(m) + '</text>';
+      s += '<text x="' + (p.x + 12) + '" y="' + (p.y + 30) + '" font-size="12" font-weight="500" fill="#1b1b1f">' + esc(m.name) + '</text>';
+    });
+    s += '</svg>';
+    document.getElementById('dep-wrap').innerHTML = s;
+  })();
+
+  // ---------- 目录高亮 ----------
+  (function initToc() {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#"]'));
+    var secs = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+    function update() {
+      var y = window.scrollY + 120, idx = 0;
+      secs.forEach(function (s, i) { if (s && s.offsetTop <= y) idx = i; });
+      links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+    }
+    window.addEventListener('scroll', update, { passive: true }); update();
+  })();
+})();
+</script>
+<!-- ARTIFACT-END -->
+</body>
+</html>
