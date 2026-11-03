@@ -19,9 +19,18 @@ function setup(scenario: MockScenarioName | 'broken') {
   close = db.close
   const store = new SessionStore(db.db)
   const pushed: { channel: keyof PushEvents; payload: unknown }[] = []
-  const kernel = new MockKernel({ scenario: scenario === 'broken' ? 'done' : scenario, speed: 0 })
+  // Mock 内核的 ask_user 走会话服务，和应用里一样
+  let service: SessionService | undefined
+  const kernel = new MockKernel({
+    scenario: scenario === 'broken' ? 'done' : scenario,
+    speed: 0,
+    tools: {
+      askUser: (i, ctx) => (service as SessionService).askUser(i, ctx),
+      onOutput: async () => {},
+    },
+  })
   const registered: unknown[] = []
-  const service = new SessionService({
+  service = new SessionService({
     store,
     kernels: {
       acquire: async () => {
@@ -88,12 +97,112 @@ describe('SessionService', () => {
   })
 
   it('waits for a permission reply and goes back to running after it', async () => {
-    const { service, waitFor, kernel, store } = setup('permission')
+    const { service, waitFor, store } = setup('permission')
     const s = await service.create(input)
     await waitFor(s.id, ['waiting'])
-    const ks = store.kernelSessionId(s.id) ?? ''
-    await kernel.respondPermission({ id: ks, workdir: '/w', agent: 'assistant' }, 'per_1', 'once')
+    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'once' })
     await waitFor(s.id, ['done'])
+    const perm = store.detail(s.id)?.parts.find((p) => p.type === 'permission')
+    expect(perm?.status).toBe('once')
+  })
+
+  it('logs every permission decision', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    const log = vi.spyOn(store, 'logPermission')
+    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'always' })
+    expect(log).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: s.id, tool: 'bash', decision: 'always' }),
+    )
+    await waitFor(s.id, ['done'])
+  })
+
+  it('keeps the reason given with a rejection on the permission part', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.respondPermission({
+      id: s.id,
+      requestId: 'per_1',
+      reply: 'reject',
+      message: '  先别跑测试  ',
+    })
+    await waitFor(s.id, ['done'])
+    const perm = store.detail(s.id)?.parts.find((p) => p.type === 'permission')
+    expect(perm).toMatchObject({ status: 'reject', payload: { message: '先别跑测试' } })
+  })
+
+  it('waits on a blocking question and continues with the answer', async () => {
+    const { service, waitFor, store } = setup('question')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    const q = store.detail(s.id)?.parts.find((p) => p.type === 'question')
+    expect(q?.payload).toMatchObject({ question: '在哪个环境复现的？', blocking: true })
+    const questionId = q?.payload.type === 'question' ? q.payload.questionId : ''
+    await service.answerQuestion({ id: s.id, questionId, answer: '预发环境' })
+    await waitFor(s.id, ['done'])
+    const tool = store.detail(s.id)?.parts.find((p) => p.type === 'tool')
+    expect(tool?.payload).toMatchObject({ output: expect.stringContaining('预发环境') })
+    const answered = store.detail(s.id)?.parts.find((p) => p.type === 'question')
+    expect(answered).toMatchObject({ status: 'answered', payload: { answer: '预发环境' } })
+  })
+
+  it('expires an unanswered question when the turn is stopped', async () => {
+    const { service, waitFor, store } = setup('question')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+    expect(store.detail(s.id)?.parts.find((p) => p.type === 'question')?.status).toBe('expired')
+  })
+
+  it('sends the answer to a non-blocking question as the next message', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    const result = await service.askUser(
+      { question: '用哪个库？', options: ['测试库', '本地库'], assumption: '测试库', blocking: false },
+      { sessionId: s.id },
+    )
+    expect(result).toEqual({ answered: false, assumption: '测试库' })
+    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'once' })
+    await waitFor(s.id, ['done'])
+    const q = store.detail(s.id)?.parts.find((p) => p.type === 'question')
+    const questionId = q?.payload.type === 'question' ? q.payload.questionId : ''
+    await service.answerQuestion({ id: s.id, questionId, answer: '本地库' })
+    await vi.waitFor(() => expect(store.session(s.id)?.turns).toBe(2))
+    expect(store.detail(s.id)?.messages.at(-2)?.text).toBe('关于“用哪个库？”：本地库')
+    // 第二轮又会停在确认上，停掉再关库
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
+  it('queues follow-ups sent during a turn and sends them together afterwards', async () => {
+    const { service, waitFor, store, pushed } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下日志')
+    await service.prompt(s.id, '改完提交')
+    expect(service.get(s.id)?.session.queued).toEqual(['顺便看下日志', '改完提交'])
+    expect(pushed.at(-1)?.payload).toMatchObject({ queued: ['顺便看下日志', '改完提交'] })
+    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'once' })
+    await vi.waitFor(() => expect(store.session(s.id)?.turns).toBe(2))
+    expect(store.detail(s.id)?.messages.at(-2)?.text).toBe('顺便看下日志\n\n改完提交')
+    expect(service.get(s.id)?.session.queued).toBeUndefined()
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
+  it('drops queued follow-ups when the turn is stopped', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下日志')
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+    await new Promise((r) => setTimeout(r, 50))
+    expect(store.session(s.id)?.turns).toBe(1)
   })
 
   it('stops a running turn', async () => {

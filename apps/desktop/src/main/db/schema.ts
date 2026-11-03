@@ -68,7 +68,8 @@ export const parts = sqliteTable(
     // text / reasoning / tool / permission / question / retry / compaction
     type: text('type').notNull(),
     payload: text('payload', { mode: 'json' }).notNull(),
-    // tool：running / completed / error；permission：pending / once / always / reject；其他为空
+    // tool：running / completed / error；permission：pending / once / always / reject / expired；
+    // question：pending / answered / expired；其他为空
     status: text('status'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),

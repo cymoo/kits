@@ -31,6 +31,20 @@
   --k-primary-fg: #ffffff;
   --k-mark: #fbe7a1;
   --k-overlay: rgb(27 27 31 / 0.28);
+  /* 对话里的卡片：等你确认（warn）、Agent 提问（accent）、出错（danger），各有描边、底色、图标底和深色字 */
+  --k-warn-line: #e9b949;
+  --k-warn-soft: #fffbf0;
+  --k-warn-icon: #f3d9a4;
+  --k-warn-strong: #6b4600;
+  --k-accent-line: #c7d0f5;
+  --k-accent-soft: #f7f8ff;
+  --k-accent-icon: #dce3fb;
+  --k-danger-line: #f2b8ae;
+  --k-danger-soft: #fef4f2;
+  --k-danger-icon: #f8d4cd;
+  --k-danger-strong: #7a1e12;
+  --k-code-bg: #1b1b1f;
+  --k-code-fg: #e8e8e6;
   --k-shadow-pop: 0 2px 4px rgb(0 0 0 / 0.04), 0 16px 40px rgb(0 0 0 / 0.12);
   --k-shadow-dialog: 0 4px 8px rgb(0 0 0 / 0.06), 0 24px 64px rgb(0 0 0 / 0.22);
   --k-radius-sm: 6px;
@@ -73,6 +87,19 @@
   --k-primary-fg: #161618;
   --k-mark: #5c4a12;
   --k-overlay: rgb(0 0 0 / 0.5);
+  --k-warn-line: #6b4d14;
+  --k-warn-soft: #231b0d;
+  --k-warn-icon: #3d2c10;
+  --k-warn-strong: #f5c77e;
+  --k-accent-line: #33407a;
+  --k-accent-soft: #191d33;
+  --k-accent-icon: #26305c;
+  --k-danger-line: #6e2a22;
+  --k-danger-soft: #2a1311;
+  --k-danger-icon: #47201b;
+  --k-danger-strong: #fca5a5;
+  --k-code-bg: #111113;
+  --k-code-fg: #e8e8e6;
   color-scheme: dark;
 }
 
@@ -110,6 +137,19 @@
   --color-primary-fg: var(--k-primary-fg);
   --color-mark: var(--k-mark);
   --color-overlay: var(--k-overlay);
+  --color-warn-line: var(--k-warn-line);
+  --color-warn-soft: var(--k-warn-soft);
+  --color-warn-icon: var(--k-warn-icon);
+  --color-warn-strong: var(--k-warn-strong);
+  --color-accent-line: var(--k-accent-line);
+  --color-accent-soft: var(--k-accent-soft);
+  --color-accent-icon: var(--k-accent-icon);
+  --color-danger-line: var(--k-danger-line);
+  --color-danger-soft: var(--k-danger-soft);
+  --color-danger-icon: var(--k-danger-icon);
+  --color-danger-strong: var(--k-danger-strong);
+  --color-code-bg: var(--k-code-bg);
+  --color-code-fg: var(--k-code-fg);
   --radius-sm: var(--k-radius-sm);
   --radius-md: var(--k-radius-md);
   --radius-lg: var(--k-radius-lg);

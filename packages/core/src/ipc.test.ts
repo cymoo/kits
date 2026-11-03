@@ -20,6 +20,8 @@ describe('contractEntries', () => {
       ['session', 'get'],
       ['session', 'prompt'],
       ['session', 'abort'],
+      ['session', 'respondPermission'],
+      ['session', 'answerQuestion'],
       ['workdir', 'pick'],
       ['agents', 'list'],
       ['secrets', 'set'],

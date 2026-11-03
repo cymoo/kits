@@ -103,6 +103,11 @@ export const ipcContract = {
     get: method<string, SessionDetail | null>(),
     prompt: method<{ id: string; text: string }, void>(),
     abort: method<string, void>(),
+    respondPermission: method<
+      { id: string; requestId: string; reply: 'once' | 'always' | 'reject'; message?: string },
+      void
+    >(),
+    answerQuestion: method<{ id: string; questionId: string; answer: string }, void>(),
   },
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用

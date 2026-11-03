@@ -1,6 +1,6 @@
 import type { MessageView, PartPayload, PartView, SessionDetail } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { deriveBlocks, describeTool } from './derive'
+import { deriveBlocks, describeTool, permissionSubject } from './derive'
 
 const session = {
   id: 's1',
@@ -135,5 +135,113 @@ describe('describeTool', () => {
       kind: '调用平台',
       detail: 'wiki · get_page',
     })
+  })
+})
+
+describe('deriveBlocks cards', () => {
+  const perm = (status: string, callId?: string) =>
+    part(
+      {
+        type: 'permission',
+        requestId: 'per_1',
+        tool: 'bash',
+        input: { command: 'uv run pytest tests/points -q' },
+        patterns: ['uv run pytest tests/points -q'],
+        always: ['uv run pytest *'],
+        ...(callId ? { callId } : {}),
+      },
+      status,
+    )
+
+  it('shows a pending permission as a card and hides the status line', () => {
+    seq = 0
+    const blocks = deriveBlocks(detail([perm('pending')]), undefined, 10_000)
+    expect(blocks.map((b) => b.kind)).toEqual(['user', 'permission'])
+    expect(blocks[1]).toMatchObject({
+      subject: 'uv run pytest tests/points -q',
+      always: ['uv run pytest *'],
+    })
+  })
+
+  it('marks the tool step with the reply once the permission is answered', () => {
+    seq = 0
+    const t = tool('bash', { command: 'uv run pytest' })
+    const callId = t.payload.type === 'tool' ? t.payload.callId : ''
+    const blocks = deriveBlocks(detail([t, perm('always', callId)]))
+    const turn = blocks.find((b) => b.kind === 'turn')
+    expect(turn?.kind === 'turn' && turn.steps).toEqual([
+      expect.objectContaining({ kind: '执行命令', meta: '本会话允许' }),
+    ])
+    expect(blocks.some((b) => b.kind === 'permission')).toBe(false)
+  })
+
+  it('keeps a rejected permission without a tool step as a failed step', () => {
+    seq = 0
+    const blocks = deriveBlocks(detail([perm('reject')]))
+    const turn = blocks.find((b) => b.kind === 'turn')
+    expect(turn?.kind === 'turn' && turn.steps[0]).toMatchObject({ state: 'error', meta: '已拒绝' })
+  })
+
+  it('shows a question card in place of the ask_user step', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([
+        tool('kits_ask_user', { question: '哪个环境？' }, 'running'),
+        part(
+          {
+            type: 'question',
+            questionId: 'q1',
+            question: '哪个环境？',
+            options: ['测试', '预发'],
+            blocking: true,
+          },
+          'pending',
+        ),
+      ]),
+      undefined,
+      10_000,
+    )
+    expect(blocks.map((b) => b.kind)).toEqual(['user', 'question'])
+    expect(blocks[1]).toMatchObject({ state: 'pending', options: ['测试', '预发'] })
+  })
+
+  it('shows the retry bar while the last part is a retry', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([part({ type: 'retry', attempt: 2, message: 'reset', nextAt: 9 })]),
+      undefined,
+      10_000,
+    )
+    expect(blocks.map((b) => b.kind)).toEqual(['user', 'retry'])
+  })
+
+  it('drops the retry bar once new content arrives', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([
+        part({ type: 'retry', attempt: 2, message: 'reset', nextAt: 9 }),
+        part({ type: 'text', text: '接着做' }),
+      ]),
+    )
+    expect(blocks.some((b) => b.kind === 'retry')).toBe(false)
+  })
+
+  it('only lets the last turn continue after an error', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([part({ type: 'error', message: 'panic' })], {
+        completedAt: 5,
+        finishReason: 'error',
+      }),
+    )
+    expect(blocks.at(-1)).toMatchObject({ kind: 'error', message: 'panic', last: true })
+  })
+})
+
+describe('permissionSubject', () => {
+  it('shows the command for bash, the relative path for edits and json otherwise', () => {
+    expect(permissionSubject('bash', { command: 'ls' }, '/w')).toBe('ls')
+    expect(permissionSubject('edit', { filePath: '/w/src/a.py' }, '/w')).toBe('src/a.py')
+    expect(permissionSubject('req_get', { id: 'R-1' }, '/w')).toBe('{"id":"R-1"}')
   })
 })

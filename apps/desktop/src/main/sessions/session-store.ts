@@ -7,13 +7,14 @@ import type {
   SessionStatus,
   SessionSummary,
 } from '@kits/core'
-import { asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import type { Database } from '../db'
 import {
   type MessageRecord,
   messages,
   type PartRecord,
   parts,
+  permissionLog,
   type SessionRecord,
   sessions,
 } from '../db/schema'
@@ -159,7 +160,32 @@ export class SessionStore {
     this.db.insert(parts).values(values).onConflictDoUpdate({ target: parts.id, set: values }).run()
   }
 
-  detail(id: string): SessionDetail | null {
+  // 某个会话里的提问 part（回答不阻塞的提问时用）
+  questionPart(sessionId: string, questionId: string): PartView | undefined {
+    return this.db
+      .select()
+      .from(parts)
+      .where(and(eq(parts.sessionId, sessionId), eq(parts.type, 'question')))
+      .all()
+      .map(toPart)
+      .find((p) => p.payload.type === 'question' && p.payload.questionId === questionId)
+  }
+
+  logPermission(entry: {
+    id: string
+    sessionId: string
+    tool: string
+    input: unknown
+    decision: string
+    createdAt: number
+  }): void {
+    this.db
+      .insert(permissionLog)
+      .values({ ...entry, createdAt: new Date(entry.createdAt) })
+      .run()
+  }
+
+    detail(id: string): SessionDetail | null {
     const session = this.session(id)
     if (!session) return null
     return {
