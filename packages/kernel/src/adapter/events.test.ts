@@ -1,0 +1,319 @@
+import { describe, expect, it } from 'vitest'
+import { createOpencodeEventMapper } from './events'
+import { createSseParser } from './sse'
+
+// 样本取自 docs/references/model-poc.md 的录制事件流（字段原样，id 缩短）
+const S = 'ses_1'
+const ev = (type: string, properties: Record<string, unknown>) => ({ type, properties })
+const assistant = ev('message.updated', { sessionID: S, info: { id: 'msg_a', role: 'assistant' } })
+const user = ev('message.updated', { sessionID: S, info: { id: 'msg_u', role: 'user' } })
+const tool = (status: string, extra: Record<string, unknown> = {}) =>
+  ev('message.part.updated', {
+    sessionID: S,
+    part: {
+      id: 'prt_T',
+      messageID: 'msg_a',
+      sessionID: S,
+      type: 'tool',
+      tool: 'glob',
+      callID: 'call_00',
+      state: { status, ...extra },
+    },
+  })
+
+function feed(events: unknown[]) {
+  const m = createOpencodeEventMapper(S)
+  return { mapper: m, out: events.flatMap((e) => m.map(e)) }
+}
+
+describe('createOpencodeEventMapper', () => {
+  it('maps text deltas to text-delta with the part id', () => {
+    const { out } = feed([
+      assistant,
+      ev('message.part.updated', {
+        sessionID: S,
+        part: { id: 'prt_X', messageID: 'msg_a', type: 'text', text: '' },
+      }),
+      ev('message.part.delta', {
+        sessionID: S,
+        messageID: 'msg_a',
+        partID: 'prt_X',
+        field: 'text',
+        delta: '你好',
+      }),
+    ])
+    expect(out).toEqual([{ type: 'text-delta', partId: 'prt_X', text: '你好' }])
+  })
+
+  it('maps deltas of a reasoning part to reasoning-delta', () => {
+    const { out } = feed([
+      assistant,
+      ev('message.part.updated', {
+        sessionID: S,
+        part: { id: 'prt_R', messageID: 'msg_a', type: 'reasoning', text: '', time: { start: 1 } },
+      }),
+      ev('message.part.delta', {
+        sessionID: S,
+        messageID: 'msg_a',
+        partID: 'prt_R',
+        field: 'text',
+        delta: 'Let',
+      }),
+    ])
+    expect(out).toEqual([{ type: 'reasoning-delta', partId: 'prt_R', text: 'Let' }])
+  })
+
+  it('ignores text parts of the user message', () => {
+    const { out } = feed([
+      user,
+      ev('message.part.updated', {
+        sessionID: S,
+        part: { id: 'prt_U', messageID: 'msg_u', type: 'text', text: '列出文件' },
+      }),
+    ])
+    expect(out).toEqual([])
+  })
+
+  it('only emits the missing tail when a full text update follows deltas', () => {
+    const { out } = feed([
+      assistant,
+      ev('message.part.delta', {
+        sessionID: S,
+        messageID: 'msg_a',
+        partID: 'prt_X',
+        field: 'text',
+        delta: 'ab',
+      }),
+      ev('message.part.updated', {
+        sessionID: S,
+        part: { id: 'prt_X', messageID: 'msg_a', type: 'text', text: 'abc' },
+      }),
+      ev('message.part.updated', {
+        sessionID: S,
+        part: { id: 'prt_X', messageID: 'msg_a', type: 'text', text: 'abc' },
+      }),
+    ])
+    expect(out.map((e) => e.type === 'text-delta' && e.text)).toEqual(['ab', 'c'])
+  })
+
+  it('waits for running before emitting tool-start with the input', () => {
+    const { out } = feed([
+      assistant,
+      tool('pending', { input: {}, raw: '' }),
+      tool('running', { input: { pattern: '**/*.ts' } }),
+    ])
+    expect(out).toEqual([
+      { type: 'tool-start', callId: 'call_00', name: 'glob', input: { pattern: '**/*.ts' } },
+    ])
+  })
+
+  it('maps a completed tool to tool-end with the output and title', () => {
+    const { out } = feed([
+      assistant,
+      tool('running', { input: { pattern: '**/*.ts' } }),
+      tool('completed', {
+        input: { pattern: '**/*.ts' },
+        output: 'a.ts\nb.ts',
+        title: '<workdir>',
+      }),
+    ])
+    expect(out[1]).toEqual({
+      type: 'tool-end',
+      callId: 'call_00',
+      output: 'a.ts\nb.ts',
+      title: '<workdir>',
+    })
+  })
+
+  it('emits both start and end when a tool shows up already completed', () => {
+    const { out } = feed([assistant, tool('completed', { input: { a: 1 }, output: 'x' })])
+    expect(out.map((e) => e.type)).toEqual(['tool-start', 'tool-end'])
+  })
+
+  it('maps a failed tool to tool-end with the error', () => {
+    const { out } = feed([
+      assistant,
+      tool('running', { input: {} }),
+      tool('error', { error: 'rejected' }),
+    ])
+    expect(out[1]).toMatchObject({ type: 'tool-end', error: 'rejected' })
+  })
+
+  it('maps permission.asked with patterns, always and the call id', () => {
+    const { out } = feed([
+      ev('permission.asked', {
+        id: 'per_1',
+        sessionID: S,
+        permission: 'bash',
+        patterns: ['wc -l *.ts'],
+        metadata: { command: 'wc -l *.ts' },
+        always: ['wc *'],
+        tool: { messageID: 'msg_a', callID: 'call_01' },
+      }),
+    ])
+    expect(out).toEqual([
+      {
+        type: 'permission-request',
+        requestId: 'per_1',
+        tool: 'bash',
+        input: { command: 'wc -l *.ts' },
+        patterns: ['wc -l *.ts'],
+        always: ['wc *'],
+        callId: 'call_01',
+      },
+    ])
+  })
+
+  it('accepts the CodeAgent permission.requested alias', () => {
+    const { out } = feed([
+      ev('permission.requested', { id: 'p', sessionID: S, permission: 'edit', metadata: {} }),
+    ])
+    expect(out[0]?.type).toBe('permission-request')
+  })
+
+  it('counts cache tokens into input on the completed assistant message once', () => {
+    const done = ev('message.updated', {
+      sessionID: S,
+      info: {
+        id: 'msg_a',
+        role: 'assistant',
+        cost: 0.01,
+        tokens: { input: 100, output: 46, reasoning: 15, cache: { read: 20, write: 5 } },
+        time: { created: 1, completed: 2 },
+      },
+    })
+    const { out } = feed([done, done])
+    expect(out).toEqual([
+      {
+        type: 'usage',
+        inputTokens: 125,
+        outputTokens: 46,
+        cacheReadTokens: 20,
+        cacheWriteTokens: 5,
+        cost: 0.01,
+      },
+    ])
+  })
+
+  it('maps a retry status to status and retry events, once per attempt', () => {
+    const retry = ev('session.status', {
+      sessionID: S,
+      status: {
+        type: 'retry',
+        attempt: 1,
+        message: 'Connection reset by server',
+        next: 1793698818881,
+      },
+    })
+    const { out } = feed([
+      retry,
+      retry,
+      ev('session.status', { sessionID: S, status: { type: 'busy' } }),
+    ])
+    expect(out).toEqual([
+      { type: 'status', state: 'retry' },
+      { type: 'retry', attempt: 1, message: 'Connection reset by server', nextAt: 1793698818881 },
+      { type: 'status', state: 'retry' },
+      { type: 'status', state: 'busy' },
+    ])
+  })
+
+  it('ends with completed on session.idle and ignores anything after', () => {
+    const { out, mapper } = feed([
+      ev('session.idle', { sessionID: S }),
+      ev('session.error', { sessionID: S, error: { name: 'UnknownError' } }),
+    ])
+    expect(out).toEqual([{ type: 'done', reason: 'completed' }])
+    expect(mapper.done).toBe(true)
+  })
+
+  it('ends with the error message on session.error', () => {
+    const { out } = feed([
+      ev('session.error', {
+        sessionID: S,
+        error: { name: 'UnknownError', data: { message: 'Invalid URL' } },
+      }),
+    ])
+    expect(out).toEqual([{ type: 'done', reason: 'error', error: 'Invalid URL' }])
+  })
+
+  it('reports aborted after markAborted even when the kernel says idle', () => {
+    const m = createOpencodeEventMapper(S)
+    m.markAborted()
+    expect(m.map(ev('session.idle', { sessionID: S }))).toEqual([
+      { type: 'done', reason: 'aborted' },
+    ])
+  })
+
+  it('maps MessageAbortedError to aborted', () => {
+    const { out } = feed([
+      ev('session.error', { sessionID: S, error: { name: 'MessageAbortedError' } }),
+    ])
+    expect(out).toEqual([{ type: 'done', reason: 'aborted' }])
+  })
+
+  it('ignores events of other sessions and noise events', () => {
+    const { out } = feed([
+      ev('session.idle', { sessionID: 'ses_other' }),
+      ev('server.heartbeat', {}),
+      ev('plugin.added', {}),
+      ev('session.diff', { sessionID: S, diff: [] }),
+    ])
+    expect(out).toEqual([])
+  })
+
+  it('backfills only what was not emitted and skips earlier turns', () => {
+    const m = createOpencodeEventMapper(S)
+    m.map(assistant)
+    m.map(
+      ev('message.part.delta', {
+        sessionID: S,
+        messageID: 'msg_a',
+        partID: 'prt_X',
+        field: 'text',
+        delta: 'ab',
+      }),
+    )
+    const out = m.backfill(
+      [
+        {
+          info: { id: 'msg_old', role: 'assistant', time: { created: 10 } },
+          parts: [{ id: 'prt_O', messageID: 'msg_old', type: 'text', text: '上一轮' }],
+        },
+        {
+          info: { id: 'msg_a', role: 'assistant', time: { created: 100 } },
+          parts: [
+            { id: 'prt_X', messageID: 'msg_a', type: 'text', text: 'abcd' },
+            {
+              id: 'prt_T',
+              messageID: 'msg_a',
+              type: 'tool',
+              tool: 'bash',
+              callID: 'c',
+              state: { status: 'completed', input: {}, output: 'ok' },
+            },
+          ],
+        },
+      ],
+      50,
+    )
+    expect(out.map((e) => e.type)).toEqual(['text-delta', 'tool-start', 'tool-end'])
+    expect(out[0]).toMatchObject({ text: 'cd' })
+  })
+
+  it('lets the adapter finish the turn only once', () => {
+    const m = createOpencodeEventMapper(S)
+    expect(m.finish('error', 'stuck')).toEqual([{ type: 'done', reason: 'error', error: 'stuck' }])
+    expect(m.finish('completed')).toEqual([])
+  })
+})
+
+describe('createSseParser', () => {
+  it('joins data lines and splits events on blank lines across chunks', () => {
+    const got: string[] = []
+    const parse = createSseParser((d) => got.push(d))
+    parse('data: {"a":')
+    parse('1}\n\n: heartbeat\n\ndata: x\r\ndata: y\r\n\r\n')
+    expect(got).toEqual(['{"a":1}', 'x\ny'])
+  })
+})

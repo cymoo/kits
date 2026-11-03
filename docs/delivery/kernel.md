@@ -90,3 +90,55 @@
 - 模型的上下文窗口没有写进 `provider.models.<id>.limit`：1.19.5 要求 `context` 和 `output` 同时给，而网关不返回输出上限，随便填可能截断推理模型的输出。kits 自己按 `contextWindow` 算用量（PR16）；内核的自动压缩暂时不会因为超窗触发。
 - kits 工具服务对 MCP 调用的超时（`ask_user` 阻塞提问）留给 PR3 核对：`mcp.<name>.timeout` 在 1.19.5 里是列工具的超时，调用超时可能是 `experimental.mcp_timeout`。
 - `checkJsonSchema` 只做结构检查（`type` 是否合法、子 schema 是否对象、`required` 是否字符串数组），不是完整的元 schema 校验。
+
+## 2026-11-04　OpenCode 系适配器、事件映射和假网关
+
+> 日期：2026-11-04　PR：见本分支 `feat/kernel-adapter`　作者：Claude Code
+
+### 原始需求
+
+[phase1-implementation.md](../plans/phase1-implementation.md) 第 8 节 PR2：4.2 节的 `OpencodeFamilyKernel`（事件流、映射、完成判定、权限回复、diff、abort），4.5 节的假网关，契约测试进 CI。关 #4 的内核部分（`session.status retry` → `retry` 事件；界面上的“等待模型 / 重试中”随会话页做）。
+
+做到什么程度算完：不调真实模型，用真实 `opencode serve` 加假网关跑通“建会话 → prompt → 权限请求 → 回复 → 工具结束 → 正文 → done”，网关失败时能看到重试，abort 能结束这一轮。
+
+### 怎么验收
+
+1. `pnpm check` 全绿。
+2. `pnpm vitest run --project kernel --reporter verbose`，看三组用例：
+   - `OpencodeFamilyKernel against opencode serve`（真实内核，6 个）：完整一轮的事件顺序和内容（权限请求的 `patterns` 是 `printf 'hi'`、工具输出含 `hi`、正文是“命令输出：hi”、推理是“命令跑完了，汇报结果。”、用户自己的话没混进正文、有 `usage`、以 `done: completed` 结束）；拒绝时的说明文字作为工具错误交给模型；假网关第一次回 503 时收到 `retry`（第 1 次，带下次重试时间）后照常完成；首字 30 s 的网关上 abort 后以 `done: aborted` 结束；`ls && touch …` 这种串起来的命令照样询问；读回会话消息和 diff。
+   - `OpencodeFamilyKernel`（假内核，3 个）：`session.idle` 丢了靠 `GET /session/status` 轮询收尾；事件流断开后重连，用 `GET /session/{id}/message` 补齐断线期间的正文且不重复；内核连不上时这一轮以 `done: error` 结束，不抛异常。
+   - `createOpencodeEventMapper`（纯函数，20 个）：用 PoC 文档里录制的事件样本逐条核对映射。
+3. 手动看一遍假网关：`packages/kernel/src/testing/mock-model.ts` 是给契约测试和以后的 E2E 用的 OpenAI 兼容服务，`GET /models` 返回一个 `mock-model`，`POST /chat/completions` 按请求内容回：没有 tools → 一句固定文本（内核生成标题时走这里）；最后一条是工具结果 → 带上工具输出的文本；否则调一次 bash。
+
+### 主要改动
+
+- `packages/kernel/src/adapter/`：
+  - `opencode-family.ts`：`OpencodeFamilyKernel`。一个工作目录一条 `GET /event` 长连接，各轮按 `sessionID` 分发；断开 1 s 后重连，重连后补齐。完成以 `session.idle` 为准，每 5 s 轮询状态兜底（看到过 busy 之后变 idle，或连续两次 idle），轮询失败且 60 s 没有任何事件（包括内核每 10 s 的心跳）判卡死，以 `done: error` 结束。abort 后最多等 5 s 内核的结束事件，等不到直接结束。
+  - `events.ts`：SSE → `KernelEvent` 的映射器，一轮一个。文本按 part 记已发出的长度，增量和整段都能来，只发没发过的那截，断线补齐时把消息重放一遍不会重复；补齐时跳过这一轮开始之前的消息。认 CodeAgent 文档里的 `permission.requested` 别名。
+  - `sse.ts`：`text/event-stream` 的最小解析。
+- `packages/kernel/src/kernel.ts`：接口调整（[phase1.md](../plans/phase1.md) 4.1 节已同步）：
+  - 会话用 `KernelSession`（id + 工作目录 + Agent + 模型）整个传进来，适配器不记会话：OpenCode 每个请求都要带工作目录，应用重启后从数据库读出来照样能续。
+  - `createSession` 接收按会话模式解析好的权限（`agentPermissions` 的结果），转成内核的规则数组随建会话一起发，所以三档模式（执行前确认 / 只读 / 全部自动）是会话级的，不用重启内核。
+  - `respondPermission` 的回复改成 `once | always | reject`，拒绝可带说明：1.19.5 的回复接口原生支持 `message`，内核把它当反馈交给模型，不用再另发一条用户消息。
+  - `FileDiff` 改成 `{ path, status, additions, deletions, patch }`：内核返回的是 unified diff，不是前后全文。
+  - 新增 `summarize`（上下文压缩）和 `messages`（补齐、恢复）。
+  - 方言多一个 `apiPrefix`（CodeAgent 是 `/api/v1`）。
+- `packages/core/src/events.ts`：`text-delta` / `reasoning-delta` 带 `partId`（落库时同一个 part 的增量合并）；`permission-request` 带 `patterns`、`always`、`callId`；`usage` 拆出缓存读写和费用；新增 `status`、`compaction`；`PermissionDecision` 换成 `PermissionReply`。
+- `packages/kernel/src/testing/mock-model.ts`：假网关，可配“前 N 次失败”和“首字延迟”。
+- 没有界面改动，没有数据库 schema 改动，没有新依赖。
+
+### 测试
+
+- 单元测试：`events.test.ts`（映射器 20 个 + SSE 解析 1 个）、`opencode-family.test.ts`（假内核 3 个）。
+- 契约测试：`opencode-family.contract.test.ts`（真实 opencode serve + 4 个假网关，6 个）。随 `pnpm test` 在 CI 的 macOS 和 Windows 上跑。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- `compaction` 事件的 `summary` 先给空串：`session.compacted` 不带摘要内容，要从消息里取，PR16 做上下文压缩时补。
+- `done: max-steps` 还没有映射：1.19.5 里输出超长是 `session.error` 的 `MessageOutputLengthError`，现在按普通错误报，带内核给的原因。
+- 正文只按 `messageID` 的角色过滤用户消息；角色还没到就先来的 part 当作回复。契约测试确认 1.19.5 总是先发 `message.updated`。
+- 只读白名单只写单条命令的模式；`&&`、管道串起来的命令由内核拆开逐条判断，有一条不在白名单就整体询问。契约测试 `asks for the non-whitelisted part of a chained command` 锁住了这个行为，升级 OpenCode 时会先报。

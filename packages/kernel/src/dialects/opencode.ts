@@ -89,6 +89,7 @@ export function spawnEnv(
 
 export const opencodeDialect: KernelDialect = {
   id: 'opencode',
+  apiPrefix: '',
 
   async spawn(cfg: KernelConfig): Promise<SpawnedKernel> {
     const port = await freePort()
