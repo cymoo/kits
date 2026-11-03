@@ -39,5 +39,18 @@
     "parser": {
       "tailwindDirectives": true
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noTemplateCurlyInString": "off",
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ]
 }

@@ -209,13 +209,13 @@ MCP 工具在内核里的名字是 `<服务名>_<工具名>`，规则转换时�
 |---|---|---|
 | 网关 | `provider.<id> = { npm: "@ai-sdk/openai-compatible", options: { baseURL, apiKey: "{env:KITS_GW_<ID>_KEY}" }, models: { … } }` | key 走子进程环境变量，不落盘；多个网关就多个 provider |
 | 默认模型 | `model: "<id>/<model>"` | |
-| Agent | `agent.<name> = { prompt, model, tools: {…: false}, permission: {…} }` | 工具允许列表转成关闭其他工具 |
+| Agent | `agent.kits-<name> = { mode: primary, prompt, model, tools: {…: false}, permission: {…} }` | 加 `kits-` 前缀避免和内核自带 agent 撞名；工具允许列表既关工具也在权限里写 deny（内核的 `tools` 不会变成权限规则，契约测试实测） |
 | 权限（解析后） | `permission` | bash 的白名单用模式写法 |
-| MCP | `mcp.<name> = { type: "local" \| "remote", command/url, environment/headers, enabled }` | `${VAR}` 替换成实际值前先过 secrets |
+| MCP | `mcp.<name> = { type: "local" \| "remote", command/url, environment/headers, enabled, oauth: false }` | `${VAR}` 写成 `{env:KITS_MCP_VAR}`，值先查 secrets 再查环境变量、只进子进程环境，不落盘 |
 | kits 工具 | `mcp.kits = { type: "remote", url: "http://127.0.0.1:<port>/mcp", headers: { Authorization } }` | 每次运行随机 token |
-| 技能 | `{configDir}/skills/<name>` 软链接（Windows 拷贝）到来源目录 | 内核从配置目录发现；`/` 命令由 `command.<name>` 生成：`"使用技能 <name>：$ARGUMENTS"` |
+| 技能 | `skills.paths: [<每个启用技能的目录>]` | 1.19.5 原生支持，单个技能目录和父目录都认，不用软链接；内核自动把每个技能注册成 `/` 命令（`source: skill`），不另外生成 `command`。注意内核自带 `/init`、`/review` 命令，内置技能别用这两个名字 |
 | 记忆、AGENTS.md | `instructions: [个人 memory.md, 项目 memory.md]` | AGENTS.md 内核原生读 |
-| 联网 | `autoupdate: false`、`share: "disabled"`、`lsp` 关闭自动下载 | 具体字段名在 PR1 对 1.19.5 的 schema 核对 |
+| 联网 | `autoupdate: false`、`share: "disabled"`、`lsp: false`、`formatter: false`、`enabled_providers: [网关 id]`；环境变量 `OPENCODE_DISABLE_MODELS_FETCH=1`、`OPENCODE_DISABLE_LSP_DOWNLOAD=1` | PR1 已对 1.19.5 的 `GET /doc` 核对 |
 
 生成后先校验：网关地址和 key 非空（PoC 问题 5）、模型存在于某个启用的网关、输出 schema 是合法 JSON Schema。不合法在界面上给出指向设置项的错误，不启动内核。
 

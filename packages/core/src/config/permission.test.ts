@@ -1,0 +1,109 @@
+import { describe, expect, it } from 'vitest'
+import { defaultPermissions, isWriteTool, resolvePermissions } from './permission'
+
+const mcp = { servers: ['wiki'], rules: { 'wiki.get_page': 'allow' as const } }
+
+describe('defaultPermissions', () => {
+  it('allows read-only commands and asks for everything else in bash', () => {
+    expect(defaultPermissions.bash).toMatchObject({
+      '*': 'ask',
+      'git status': 'allow',
+      'git status *': 'allow',
+      'ls *': 'allow',
+    })
+  })
+
+  it('sends redirects and find -delete back to the fallback level', () => {
+    const bash = defaultPermissions.bash as Record<string, string>
+    const keys = Object.keys(bash)
+    expect(bash['*>*']).toBe('ask')
+    expect(bash['find *-delete*']).toBe('ask')
+    // 内核按顺序匹配、后写的优先，兜底规则要排在白名单后面
+    expect(keys.indexOf('*>*')).toBeGreaterThan(keys.indexOf('echo *'))
+  })
+})
+
+describe('isWriteTool', () => {
+  it('treats create, update, delete, push and send prefixes as writes', () => {
+    for (const t of ['create_issue', 'update_page', 'delete_x', 'push_bug', 'send_mail']) {
+      expect(isWriteTool(t)).toBe(true)
+    }
+    expect(isWriteTool('get_requirement')).toBe(false)
+    expect(isWriteTool('list_updates')).toBe(false)
+  })
+})
+
+describe('resolvePermissions', () => {
+  it('returns the defaults in ask mode without agent or mcp', () => {
+    const result = resolvePermissions({ mode: 'ask' })
+    expect(result.edit).toBe('allow')
+    expect(result.bash).toEqual(defaultPermissions.bash)
+    expect(result.kits_ask_user ?? result['kits_*']).toBe('allow')
+  })
+
+  it('asks for mcp tools whose names look like writes', () => {
+    const result = resolvePermissions({ mode: 'ask', mcp })
+    expect(result['wiki_create_*']).toBe('ask')
+    expect(result.wiki_get_page).toBe('allow')
+  })
+
+  it('keeps the user setting for an mcp tool over the name guess', () => {
+    const result = resolvePermissions({
+      mode: 'ask',
+      mcp: { servers: ['wiki'], rules: { 'wiki.update_page': 'allow' } },
+    })
+    const keys = Object.keys(result)
+    expect(result.wiki_update_page).toBe('allow')
+    expect(keys.indexOf('wiki_update_page')).toBeGreaterThan(keys.indexOf('wiki_update_*'))
+  })
+
+  it('denies edits, non-whitelisted commands and mcp writes in read mode', () => {
+    const result = resolvePermissions({
+      mode: 'read',
+      mcp: { servers: ['wiki'], rules: { 'wiki.update_page': 'allow', 'wiki.sync': 'ask' } },
+    })
+    expect(result.edit).toBe('deny')
+    expect(result.external_directory).toBe('deny')
+    expect(result.bash).toMatchObject({ '*': 'deny', 'git diff *': 'allow', '*>*': 'deny' })
+    expect(result['wiki_create_*']).toBe('deny')
+    expect(result.wiki_update_page).toBe('deny')
+    expect(result.wiki_sync).toBe('deny')
+  })
+
+  it('allows bash and edit but still asks for outside dirs and mcp writes in auto mode', () => {
+    const result = resolvePermissions({ mode: 'auto', mcp })
+    expect(result.bash).toEqual({ '*': 'allow' })
+    expect(result.edit).toBe('allow')
+    expect(result.external_directory).toBe('ask')
+    expect(result['wiki_send_*']).toBe('ask')
+  })
+
+  it('applies agent deny in every mode', () => {
+    for (const mode of ['ask', 'read', 'auto'] as const) {
+      const result = resolvePermissions({ mode, agent: { bash: 'deny', edit: 'deny' } })
+      expect(result.bash).toBe('deny')
+      expect(result.edit).toBe('deny')
+    }
+  })
+
+  it('applies agent allow and ask only in ask mode', () => {
+    const agent = { bash: 'allow' as const, webfetch: 'ask' as const }
+    expect(resolvePermissions({ mode: 'ask', agent })).toMatchObject(agent)
+    const read = resolvePermissions({ mode: 'read', agent })
+    expect(read.webfetch).toBe('deny')
+    expect((read.bash as Record<string, string>)['*']).toBe('deny')
+  })
+
+  it('merges agent command patterns into the bash rules', () => {
+    const result = resolvePermissions({
+      mode: 'auto',
+      agent: { bash: { 'rm *': 'deny', 'npm *': 'allow' } },
+    })
+    expect(result.bash).toEqual({ '*': 'allow', 'rm *': 'deny' })
+  })
+
+  it('always allows the kits tools', () => {
+    const result = resolvePermissions({ mode: 'read', agent: {} })
+    expect(result['kits_*']).toBe('allow')
+  })
+})
