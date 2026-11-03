@@ -15,6 +15,7 @@ export function Layout() {
   const toggleNav = useUi((s) => s.toggleNav)
   const setPaletteOpen = useUi((s) => s.setPaletteOpen)
   const paletteOpen = useUi((s) => s.paletteOpen)
+  const panel = useUi((s) => s.panel)
   const settings = useSettings()
   useSettingsSync()
   useSessionListSync()
@@ -47,7 +48,13 @@ export function Layout() {
         />
       ) : null}
       {/* 设置页的侧栏固定折叠成图标栏，给分区导航让位（原型 settings.html） */}
-      <Nav forceCollapsed={location.pathname.startsWith('/settings')} />
+      <Nav
+        forceCollapsed={
+          location.pathname.startsWith('/settings') ||
+          // 会话页放大工作区时侧栏也收成图标栏，窄窗口下文件列表和 diff 才放得下（原型 ?panel=wide）
+          (location.pathname.startsWith('/s/') && panel === 'wide')
+        }
+      />
       <main className="flex min-w-0 flex-1 flex-col">
         <Outlet />
       </main>

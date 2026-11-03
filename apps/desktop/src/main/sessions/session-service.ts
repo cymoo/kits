@@ -336,9 +336,13 @@ export class SessionService {
         this.apply(session.id, recorder, { type: 'done', reason: 'aborted' })
         return
       }
-      // 真要发给内核了：记下这是内核会话里第几条用户消息
-      store.assignKernelTurn(session.id, run.userMessageId)
+      let submitted = false
       for await (const event of kernel.prompt(ks, { text })) {
+        // 内核有了动静（不是准备阶段就结束）才算这条消息真的进了内核：这时记下它是内核里第几条用户消息
+        if (!submitted && event.type !== 'done') {
+          submitted = true
+          await this.assignKernelTurn(session, run, kernel, ks)
+        }
         // kits 工具的调用登记到关联表，工具服务收到调用时按参数对到这个会话
         if (event.type === 'tool-start' && event.name.startsWith('kits_')) {
           this.deps.registry.register(session.id, event.name.slice('kits_'.length), event.input)
@@ -355,25 +359,55 @@ export class SessionService {
       this.flush()
       for (const resolve of run.questions.values()) resolve({ answered: false })
       this.running.delete(session.id)
-      if (run.ks) void this.refreshDiffs(session.id, kernel, run.ks, run.turn)
-      kernels.release(session.kernel)
+      // 取改动要用这个内核实例：取完再释放，期间排着的重启会等它
+      if (run.ks) {
+        void this.refreshDiffs(session.id, kernel, run.ks, run.turn).finally(() =>
+          kernels.release(session.kernel),
+        )
+      } else {
+        kernels.release(session.kernel)
+      }
       this.sendQueued(session.id)
     }
   }
 
+  // 这一轮的用户消息是内核会话里的第几条。升级前建的会话旧消息没有记录：第一次时按内核里已有的用户消息数补上
+  private async assignKernelTurn(
+    session: SessionSummary,
+    run: Running,
+    kernel: AgentKernel,
+    ks: KernelSession,
+  ): Promise<void> {
+    const { store } = this.deps
+    let at: number | undefined
+    if (run.turn > 1 && store.kernelTurns(session.id).size === 0) {
+      const history = await kernel.messages(ks).catch(() => [])
+      const users = history.filter((m) => m.info.role === 'user').length
+      if (users > 0) at = users
+    }
+    store.assignKernelTurn(session.id, run.userMessageId, at)
+  }
+
   // 内核在一轮结束后才把这一轮的改动算出来（OpenCode 写在用户消息的 summary 上），隔几次去取。
   // 内核按自己的用户消息编号，用发出时记下的对应关系换回本地轮次；内核没给编号（Mock）就算在刚结束的这一轮
+  private diffGen = new Map<string, number>()
+
   private async refreshDiffs(
     id: string,
     kernel: AgentKernel,
     ks: KernelSession,
     turn: number,
   ): Promise<void> {
+    // 每个会话只认最新一次刷新：上一轮的刷新还在路上、晚回来的旧结果不覆盖新的
+    const gen = (this.diffGen.get(id) ?? 0) + 1
+    this.diffGen.set(id, gen)
     let last = JSON.stringify(this.deps.store.diffs(id))
     for (const delay of this.diffDelays) {
       await new Promise((r) => setTimeout(r, delay))
+      if (this.diffGen.get(id) !== gen) return
       try {
         const found = await kernel.diff(ks)
+        if (this.diffGen.get(id) !== gen) return
         const turns = this.deps.store.kernelTurns(id)
         const files: FileDiffView[] = found
           .filter((d) => d.path)

@@ -1,4 +1,5 @@
 import type { FileDiffView, PartView, SessionDetail } from '@kits/core/ipc'
+import { patchOps } from '../thread/derive'
 
 // 右侧面板的数据（phase1-implementation 6.4 节）：改动按轮分组、终端的命令列表、上下文用量、总结卡片。纯函数，有单测。
 
@@ -68,17 +69,35 @@ export function deriveRounds(detail: SessionDetail, diffs: FileDiffView[]): Roun
       const p = part.payload
       if (part.messageId !== last.id || p.type !== 'tool' || part.status !== 'completed') continue
       if (p.name !== 'edit' && p.name !== 'write' && p.name !== 'apply_patch') continue
-      const raw = (p.input as { filePath?: unknown } | undefined)?.filePath
-      if (typeof raw !== 'string') continue
-      const path = relative(raw, detail.session.workdir)
-      const prev = files.get(path)
-      files.set(path, {
-        path,
-        badge: prev?.badge ?? (p.name === 'write' ? 'A' : 'M'),
-        additions: 0,
-        deletions: 0,
-        patch: '',
-      })
+      // apply_patch 一次改好几个文件，参数是 patchText；edit / write 是 filePath
+      const targets: { path: string; badge: ChangedFile['badge'] }[] =
+        p.name === 'apply_patch'
+          ? patchOps(p.input, detail.session.workdir).map((t) => ({
+              path: t.path,
+              badge: t.op === 'Add' ? 'A' : t.op === 'Delete' ? 'D' : 'M',
+            }))
+          : typeof (p.input as { filePath?: unknown } | undefined)?.filePath === 'string'
+            ? [
+                {
+                  path: relative(
+                    (p.input as { filePath: string }).filePath,
+                    detail.session.workdir,
+                  ),
+                  badge: p.name === 'write' ? 'A' : 'M',
+                },
+              ]
+            : []
+      for (const target of targets) {
+        const prev = files.get(target.path)
+        files.set(target.path, {
+          path: target.path,
+          // 同一轮里先新建后修改还是“新建”
+          badge: prev?.badge === 'A' ? 'A' : target.badge,
+          additions: 0,
+          deletions: 0,
+          patch: '',
+        })
+      }
     }
     if (files.size) {
       rounds.push({
@@ -122,17 +141,18 @@ function cleanOutput(output: unknown): string {
 export function deriveCommands(detail: SessionDetail): Command[] {
   const parts = ordered(detail)
   const finished = new Set(detail.messages.filter((m) => m.completedAt !== null).map((m) => m.id))
+  // 按“消息 + callId”对应：Mock 每轮都用同一个 callId，只看 callId 会把别的轮的确认对到这里
   const asked = new Map<string, PartView>()
   for (const { part } of parts) {
     if (part.payload.type === 'permission' && part.payload.callId)
-      asked.set(part.payload.callId, part)
+      asked.set(`${part.messageId}:${part.payload.callId}`, part)
   }
   const out: Command[] = []
   for (const { part, turn } of parts) {
     const p = part.payload
     if (p.type !== 'tool' || p.name !== 'bash') continue
     const command = (p.input as { command?: unknown } | undefined)?.command
-    const permission = asked.get(p.callId)
+    const permission = asked.get(`${part.messageId}:${p.callId}`)
     const waiting = permission?.status === 'pending'
     const state = waiting
       ? 'waiting'

@@ -77,12 +77,21 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '')
 const EDIT_TOOLS = new Set(['edit', 'write', 'apply_patch'])
 
 // apply_patch 的参数是 patchText（*** Add / Update / Delete File: <路径>），没有 filePath
-export function patchTargets(input: unknown, workdir: string): string[] {
+export function patchOps(
+  input: unknown,
+  workdir: string,
+): { path: string; op: 'Add' | 'Update' | 'Delete' }[] {
   const text = str((input as Record<string, unknown> | undefined)?.patchText)
-  const found = [...text.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm)].map((m) =>
-    rel((m[1] ?? '').trim(), workdir),
-  )
-  return [...new Set(found)]
+  const seen = new Map<string, 'Add' | 'Update' | 'Delete'>()
+  for (const m of text.matchAll(/^\*\*\* (Add|Update|Delete) File: (.+)$/gm)) {
+    const path = rel((m[2] ?? '').trim(), workdir)
+    if (!seen.has(path)) seen.set(path, m[1] as 'Add' | 'Update' | 'Delete')
+  }
+  return [...seen].map(([path, op]) => ({ path, op }))
+}
+
+export function patchTargets(input: unknown, workdir: string): string[] {
+  return patchOps(input, workdir).map((p) => p.path)
 }
 
 // 这一步改了哪些文件（工作过程里数“改了 N 个文件”）

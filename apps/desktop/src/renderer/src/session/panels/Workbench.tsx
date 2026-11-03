@@ -294,7 +294,7 @@ function DiffView({
                     // biome-ignore lint/suspicious/noArrayIndexKey: 左右两格
                     key={side}
                     className={cx(
-                      'flex min-w-0 overflow-hidden whitespace-pre px-3',
+                      'flex min-w-0 px-3',
                       side === 0 && 'border-line-soft border-r',
                       l ? (l.kind === ' ' ? lineTone(' ') : lineTone(l.kind)) : 'bg-muted',
                     )}
@@ -302,10 +302,8 @@ function DiffView({
                     <span className="mr-3">
                       <Num n={side === 0 ? l?.a : l?.b} />
                     </span>
-                    {/* 不用 truncate：它会把行首缩进的空格折叠掉 */}
-                    <span className="min-w-0 overflow-hidden text-ellipsis whitespace-pre">
-                      {l ? l.text : ''}
-                    </span>
+                    {/* 长行折行显示，pre-wrap 保留行首缩进，不截断 */}
+                    <span className="min-w-0 whitespace-pre-wrap break-all">{l ? l.text : ''}</span>
                   </div>
                 ))}
               </div>

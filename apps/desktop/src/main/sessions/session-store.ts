@@ -164,14 +164,14 @@ export class SessionStore {
     this.db.insert(parts).values(values).onConflictDoUpdate({ target: parts.id, set: values }).run()
   }
 
-  // 发给内核前记下这是内核会话里的第几条用户消息
-  assignKernelTurn(sessionId: string, messageId: string): number {
+  // 记下这条用户消息是内核会话里的第几条；at 不给就接着已记下的最大值往后编
+  assignKernelTurn(sessionId: string, messageId: string, at?: number): number {
     const rows = this.db
       .select({ k: messages.kernelTurn })
       .from(messages)
       .where(eq(messages.sessionId, sessionId))
       .all()
-    const next = rows.reduce((n, r) => Math.max(n, r.k ?? 0), 0) + 1
+    const next = at ?? rows.reduce((n, r) => Math.max(n, r.k ?? 0), 0) + 1
     this.db.update(messages).set({ kernelTurn: next }).where(eq(messages.id, messageId)).run()
     return next
   }
