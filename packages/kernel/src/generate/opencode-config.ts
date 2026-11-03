@@ -38,8 +38,8 @@ export interface OpencodeConfigInput {
   gatewayKeys: Record<string, string>
   // MCP 配置里的 `${VAR}`：先查 secrets 再查环境变量
   lookupVar(name: string): string | undefined
-  // kits 工具服务（ask_user / submit_output / remember）；不传就不挂
-  kitsTools?: { url: string; token: string }
+  // kits 工具服务（ask_user / submit_output / remember）；不传就不挂。timeoutMs 默认 24 小时，测试用
+  kitsTools?: { url: string; token: string; timeoutMs?: number }
 }
 
 export interface ConfigProblem {
@@ -85,6 +85,9 @@ function allowedBuiltinTools(agent: AgentProfile): Set<string> | undefined {
 }
 
 export const KITS_TOOLS_TOKEN_ENV = 'KITS_TOOLS_TOKEN'
+
+// 1.19.5 默认 60 s 掐断 MCP 工具调用（契约测试实测），阻塞的 ask_user 要等人回答，放宽到 24 小时
+export const KITS_TOOLS_TIMEOUT_MS = 24 * 60 * 60 * 1000
 
 // 内核里的 agent 名加前缀，避免和 OpenCode 自带的 build / plan / general 等撞名
 export function opencodeAgentName(name: string): string {
@@ -196,6 +199,19 @@ function agentTools(agent: AgentProfile, mcp: McpFile): Record<string, boolean> 
   return tools
 }
 
+// kits 工具服务所有会话共用一份工具列表，submit_output 的描述里放不下各 Agent 的格式，所以写进 Agent 提示词
+export function outputSection(schema: Record<string, unknown>): string {
+  return [
+    '## 输出格式',
+    '',
+    `完成后调用 \`${KITS_MCP_SERVER}_submit_output\` 工具提交结果，\`output\` 必须符合下面的 JSON Schema；不符合会返回错误，按错误修正后重新提交。`,
+    '',
+    '```json',
+    JSON.stringify(schema, null, 2),
+    '```',
+  ].join('\n')
+}
+
 export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResult {
   const problems: ConfigProblem[] = []
   const env: Record<string, string> = {}
@@ -297,6 +313,7 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
       headers: { Authorization: `Bearer {env:${KITS_TOOLS_TOKEN_ENV}}` },
       enabled: true,
       oauth: false,
+      timeout: input.kitsTools.timeoutMs ?? KITS_TOOLS_TIMEOUT_MS,
     }
   }
 
@@ -321,11 +338,14 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
       }
     }
     const tools = agentTools(a, input.mcp)
+    const prompt = [a.prompt, a.outputSchema ? outputSection(a.outputSchema) : '']
+      .filter(Boolean)
+      .join('\n\n')
     agent[opencodeAgentName(a.name)] = {
       mode: 'primary',
       ...(a.description ? { description: a.description } : {}),
       // 空提示词就用内核自带的系统提示词
-      ...(a.prompt ? { prompt: a.prompt } : {}),
+      ...(prompt ? { prompt } : {}),
       ...(a.model ? { model: a.model } : {}),
       ...(Object.keys(tools).length > 0 ? { tools } : {}),
       permission: agentConfigPermission(a, input.mcp),
