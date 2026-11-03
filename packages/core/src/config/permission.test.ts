@@ -66,7 +66,7 @@ describe('resolvePermissions', () => {
     const result = resolvePermissions({ mode: 'ask' })
     expect(result.edit).toBe('allow')
     expect(result.bash).toEqual(defaultPermissions.bash)
-    expect(result.kits_ask_user ?? result['kits_*']).toBe('allow')
+    expect(result.kits_ask_user).toBe('allow')
   })
 
   it('asks for mcp tools whose names look like writes', () => {
@@ -146,6 +146,27 @@ describe('resolvePermissions', () => {
       expect(effectiveLevel(result, 'bash', 'touch unexpected.txt')).toBe('deny')
       expect(effectiveLevel(result, 'bash', 'rm -rf x')).toBe('deny')
     }
+  })
+
+  it('does not lift a broad wildcard allow over a specific deny when merging a wildcard key', () => {
+    const result = resolvePermissions({
+      mode: 'ask',
+      defaults: {},
+      agent: { 'b*': 'allow', bash: { 'rm *': 'deny' }, 'ba*': { 'ls *': 'deny' } },
+    })
+    expect(effectiveLevel(result, 'bash', 'rm -rf example')).toBe('deny')
+    expect(effectiveLevel(result, 'bash', 'ls a')).toBe('deny')
+    expect(effectiveLevel(result, 'bash', 'pwd')).toBe('allow')
+  })
+
+  it('does not allow tools of another server whose name starts with kits_', () => {
+    const result = resolvePermissions({
+      mode: 'read',
+      mcp: { servers: ['kits_wiki'], rules: {} },
+      agent: {},
+    })
+    expect(effectiveLevel(result, 'kits_wiki_delete_page', '*')).toBe('deny')
+    expect(effectiveLevel(result, 'kits_remember', '*')).toBe('allow')
   })
 
   it('lets agent command patterns override an earlier wildcard deny in ask mode', () => {

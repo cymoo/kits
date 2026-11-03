@@ -273,10 +273,12 @@ describe('generateOpencodeConfig', () => {
     expect(result.files.env.KITS_MCP_TOKEN).toBe('v')
   })
 
-  it('reserves the kits mcp server name', () => {
-    const mcp = parseMcpFile({ mcpServers: { kits: { url: 'https://a.local/mcp' } } })
-    const result = generateOpencodeConfig(input({ mcp }))
-    expect(!result.ok && result.problems[0]?.target).toBe('kits')
+  it('reserves the kits mcp server name and the kits_ prefix', () => {
+    for (const name of ['kits', 'kits_wiki']) {
+      const mcp = parseMcpFile({ mcpServers: { [name]: { url: 'https://a.local/mcp' } } })
+      const result = generateOpencodeConfig(input({ mcp }))
+      expect(!result.ok && result.problems[0]?.target).toBe(name)
+    }
   })
 })
 

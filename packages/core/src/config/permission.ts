@@ -111,8 +111,10 @@ export function mcpToolKey(server: string, tool: string): string {
   return `${server}_${tool}`
 }
 
-// kits 自己的 MCP 服务名，ask_user / submit_output / remember 永远允许
+// kits 自己的 MCP 服务名，ask_user / submit_output / remember 永远允许。
+// 按完整工具名放行而不是 `kits_*`：别的服务名如果以 kits_ 开头，它的工具不能跟着被放行（配置转换也会拒绝这种名字）
 export const KITS_MCP_SERVER = 'kits'
+export const KITS_TOOLS = ['ask_user', 'submit_output', 'remember'] as const
 
 function bashRules(fallback: PermissionLevel): Record<string, PermissionLevel> {
   const rules: Record<string, PermissionLevel> = { '*': fallback }
@@ -160,9 +162,21 @@ function set(target: PermissionSet, key: string, value: PermissionValue): void {
   target[key] = value
 }
 
-// 给一个工具加模式规则。这个工具的规则会挪到末尾，挪之前先把前面所有匹配它的规则（包括 `*` 这类通配键）
-// 按顺序折进它自己的模式表，这样挪动不改变其他输入的结果，只有新加的模式生效。
+// 给一个工具加模式规则。
+// 具体工具（bash）：这个工具的规则挪到末尾，挪之前先把前面所有匹配它的规则（包括 `*` 这类通配键）按顺序折进它的模式表，
+// 这样挪动不改变其他输入的结果，只有新加的模式生效。
+// 通配键（`wiki_*`）：不折别的键、不挪位置，只在它自己的模式表里加，免得把宽泛的兜底规则提到更具体的规则后面。
 function setPattern(target: PermissionSet, key: string, pattern: string, level: PermissionLevel) {
+  if (key.includes('*')) {
+    const current = target[key]
+    const rules: Record<string, PermissionLevel> =
+      current === undefined ? {} : typeof current === 'string' ? { '*': current } : { ...current }
+    delete rules[pattern]
+    rules[pattern] = level
+    // 已有的键原地更新（保持位置），新键加在末尾
+    target[key] = rules
+    return
+  }
   const rules: Record<string, PermissionLevel> = {}
   for (const [k, value] of Object.entries(target)) {
     if (!matchPattern(k, key)) continue
@@ -221,6 +235,6 @@ export function resolvePermissions(input: ResolvePermissionsInput): PermissionSe
     }
   }
   // kits 自己的工具（提问、提交产出、记忆）放在最后，Agent 写了 `'*': deny` 也照样能用
-  set(result, mcpToolKey(KITS_MCP_SERVER, '*'), 'allow')
+  for (const tool of KITS_TOOLS) set(result, mcpToolKey(KITS_MCP_SERVER, tool), 'allow')
   return result
 }

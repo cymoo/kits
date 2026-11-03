@@ -233,8 +233,13 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
   const mapValues = (server: string, record: Record<string, string>) =>
     Object.fromEntries(Object.entries(record).map(([k, v]) => [k, toEnvRef(server, v)]))
   for (const [name, server] of Object.entries(input.mcp.servers)) {
-    if (name === KITS_MCP_SERVER) {
-      problems.push({ section: 'mcp', target: name, message: 'kits 是保留的服务名，换一个名字' })
+    // 内核里的工具名是 `<服务名>_<工具名>`，kits_ 开头的服务名会和 kits 自己的工具混在一起
+    if (name === KITS_MCP_SERVER || name.startsWith(`${KITS_MCP_SERVER}_`)) {
+      problems.push({
+        section: 'mcp',
+        target: name,
+        message: 'kits 和 kits_ 开头的服务名是保留的，换一个名字',
+      })
       continue
     }
     mcp[name] = opencodeMcp(server, name, mapValues, toEnvRef)
