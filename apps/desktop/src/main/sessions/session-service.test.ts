@@ -62,6 +62,14 @@ function setup(
   return { service, store, pushed, kernel, waitFor, registered }
 }
 
+// 等确认的那条权限请求的 id（Mock 每次发的 id 都不一样）
+function pendingRequest(store: SessionStore, id: string): string {
+  const part = store
+    .detail(id)
+    ?.parts.find((p) => p.type === 'permission' && p.status === 'pending')
+  return part?.payload.type === 'permission' ? part.payload.requestId : ''
+}
+
 const input = {
   text: '给兑换接口加幂等校验，改完跑 tests/points',
   workdir: '/w',
@@ -107,7 +115,11 @@ describe('SessionService', () => {
     const { service, waitFor, store } = setup('permission')
     const s = await service.create(input)
     await waitFor(s.id, ['waiting'])
-    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'once' })
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'once',
+    })
     await waitFor(s.id, ['done'])
     const perm = store.detail(s.id)?.parts.find((p) => p.type === 'permission')
     expect(perm?.status).toBe('once')
@@ -118,7 +130,11 @@ describe('SessionService', () => {
     const s = await service.create(input)
     await waitFor(s.id, ['waiting'])
     const log = vi.spyOn(store, 'logPermission')
-    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'always' })
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'always',
+    })
     expect(log).toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: s.id, tool: 'bash', decision: 'always' }),
     )
@@ -131,7 +147,7 @@ describe('SessionService', () => {
     await waitFor(s.id, ['waiting'])
     await service.respondPermission({
       id: s.id,
-      requestId: 'per_1',
+      requestId: pendingRequest(store, s.id),
       reply: 'reject',
       message: '  先别跑测试  ',
     })
@@ -149,7 +165,11 @@ describe('SessionService', () => {
       await service.abort(s.id)
       await waitFor(s.id, ['aborted'])
     })
-    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'once' })
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'once',
+    })
     expect(store.session(s.id)?.status).toBe('aborted')
   })
 
@@ -206,7 +226,11 @@ describe('SessionService', () => {
       { sessionId: s.id },
     )
     expect(result).toEqual({ answered: false, assumption: '测试库' })
-    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'once' })
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'once',
+    })
     await waitFor(s.id, ['done'])
     const q = store.detail(s.id)?.parts.find((p) => p.type === 'question')
     const questionId = q?.payload.type === 'question' ? q.payload.questionId : ''
@@ -226,7 +250,11 @@ describe('SessionService', () => {
     await service.prompt(s.id, '改完提交')
     expect(service.get(s.id)?.session.queued).toEqual(['顺便看下日志', '改完提交'])
     expect(pushed.at(-1)?.payload).toMatchObject({ queued: ['顺便看下日志', '改完提交'] })
-    await service.respondPermission({ id: s.id, requestId: 'per_1', reply: 'once' })
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'once',
+    })
     await vi.waitFor(() => expect(store.session(s.id)?.turns).toBe(2))
     expect(store.detail(s.id)?.messages.at(-2)?.text).toBe('顺便看下日志\n\n改完提交')
     expect(service.get(s.id)?.session.queued).toBeUndefined()
