@@ -1,3 +1,4 @@
+export * from './agent-view'
 export * from './config/agent'
 export * from './config/files'
 export * from './config/frontmatter'

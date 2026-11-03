@@ -83,9 +83,17 @@ export function Composer({
   const navigate = useNavigate()
   const settings = useSettings()
   const prefs = usePrefs()
-  const agents = useQuery({ queryKey: ['agents'], queryFn: () => kits.agents.list() })
-  const agentModel = agents.data?.find((a) => a.name === prefs.agent)?.model
-  const resolved = resolvePrefs(prefs, settings.data, agentModel)
+  // 项目 Agent 随工作目录变：按当前目录列
+  const agentDir = locked ? lockedAs?.workdir : (prefs.workdir ?? settings.data?.workdirs[0]?.path)
+  const agents = useQuery({
+    queryKey: ['agents', agentDir ?? ''],
+    queryFn: () => kits.agents.list(agentDir ? { workdir: agentDir } : {}),
+  })
+  // 换了目录、选过的项目 Agent 在新目录里没有：退回 assistant
+  const agentName =
+    agents.data && !agents.data.some((a) => a.name === prefs.agent) ? 'assistant' : prefs.agent
+  const agentModel = agents.data?.find((a) => a.name === agentName)?.model
+  const resolved = { ...resolvePrefs(prefs, settings.data, agentModel), agent: agentName }
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   // 发送失败的原因（比如工作目录被删了）；草稿留着，改了再发

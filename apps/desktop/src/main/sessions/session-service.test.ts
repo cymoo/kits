@@ -63,10 +63,12 @@ function setup(
       },
       release: () => {},
     },
-    resolveAgent: () =>
-      scenario === 'output-structured'
-        ? { ...builtinAssistant, name: 'api-reviewer', outputSchema: findingsSchema }
-        : builtinAssistant,
+    resolveAgent: (name) =>
+      name === 'reviewer'
+        ? { ...builtinAssistant, name, source: 'project', prompt: '只读，不改文件' }
+        : scenario === 'output-structured'
+          ? { ...builtinAssistant, name: 'api-reviewer', outputSchema: findingsSchema }
+          : builtinAssistant,
     loadMcp: () => parseMcpFile({}),
     registry: { register: (...args: unknown[]) => void registered.push(args) },
     push: (channel, payload) => void pushed.push({ channel, payload }),
@@ -621,6 +623,16 @@ describe('SessionService skills', () => {
     await waitFor(s.id, ['done'])
     expect(prompt.mock.calls[0]?.[1].text).toContain('使用技能 test-plan')
     expect(store.detail(s.id)?.messages[0]?.text).toBe('/test-plan 按需求出用例')
+  })
+
+  it('runs a project agent on the base agent and sends its prompt as system', async () => {
+    const { service, waitFor, kernel } = setup('done')
+    const create = vi.spyOn(kernel, 'createSession')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create({ ...input, agent: 'reviewer' })
+    await waitFor(s.id, ['done'])
+    expect(create.mock.calls[0]?.[0].agent).toBe('_project')
+    expect(prompt.mock.calls[0]?.[1].system).toBe('只读，不改文件')
   })
 })
 

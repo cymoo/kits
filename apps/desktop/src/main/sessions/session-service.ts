@@ -17,7 +17,14 @@ import type {
   ToolCallRegistry,
 } from '@kits/core'
 import { skillPrompt } from '@kits/core'
-import { type AgentKernel, agentPermissions, type KernelSession, skillDenies } from '@kits/kernel'
+import {
+  type AgentKernel,
+  agentPermissions,
+  agentSystemPrompt,
+  type KernelSession,
+  kernelAgentOf,
+  skillDenies,
+} from '@kits/kernel'
 import { extractText } from '../attachments/extract'
 import type { KernelManager } from '../kernel/kernel-manager'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
@@ -32,7 +39,8 @@ export interface SessionServiceDeps {
   store: SessionStore
   kernels: Pick<KernelManager, 'acquire' | 'release'>
   // 建内核会话时要 Agent 配置和 MCP 设置来算权限
-  resolveAgent: (name: string) => Parameters<typeof agentPermissions>[0]
+  // 按工作目录找 Agent（项目的在 <工作目录>/.agents/agents）
+  resolveAgent: (name: string, workdir: string) => Parameters<typeof agentPermissions>[0]
   loadMcp: () => Parameters<typeof agentPermissions>[2]
   registry: Pick<ToolCallRegistry, 'register'>
   push: <C extends keyof PushEvents>(channel: C, payload: PushEvents[C]) => void
@@ -195,7 +203,9 @@ export class SessionService {
   outputSchema(ctx: KitsToolContext): Record<string, unknown> | undefined {
     const found = this.findRun(ctx.sessionId)
     const session = found ? this.deps.store.session(found[0]) : undefined
-    return session ? this.deps.resolveAgent(session.agent)?.outputSchema : undefined
+    return session
+      ? this.deps.resolveAgent(session.agent, session.workdir)?.outputSchema
+      : undefined
   }
 
   // submit_output 校验通过后：存成这一轮的结构化产出
@@ -526,24 +536,23 @@ export class SessionService {
         return
       }
       const existing = store.kernelSessionId(session.id)
+      // 每轮重新读一遍 Agent：项目 Agent 的文件改了，下一条消息起就按新的提示词
+      const profile = this.deps.resolveAgent(session.agent, session.workdir)
+      const kernelAgent = profile ? kernelAgentOf(profile) : session.agent
       const ks: KernelSession = existing
         ? {
             id: existing,
             workdir: session.workdir,
-            agent: session.agent,
+            agent: kernelAgent,
             ...(session.model ? { model: session.model } : {}),
           }
         : await kernel.createSession({
             workdir: session.workdir,
-            agent: session.agent,
+            agent: kernelAgent,
             ...(session.model ? { model: session.model } : {}),
             title: session.title,
             permission: [
-              ...agentPermissions(
-                this.deps.resolveAgent(session.agent),
-                session.permissionMode,
-                this.deps.loadMcp(),
-              ),
+              ...agentPermissions(profile, session.permissionMode, this.deps.loadMcp()),
               // 关掉的技能和内核自带的技能：会话规则排在全局后面，这里要再拒绝一遍
               ...skillDenies(this.deps.disabledSkills?.() ?? []),
               // 输入框里关掉的平台：这个会话里它的工具一律不能用（排在最后，最后命中的生效）
@@ -564,7 +573,10 @@ export class SessionService {
       let submitted = false
       // `/技能名 …`：发给内核时明确让 Agent 先加载这个技能；界面上的用户消息照原样
       const sent = skillPrompt(text, this.deps.enabledSkills?.(session.workdir) ?? [])
-      for await (const event of kernel.prompt(ks, { text: sent, attachments: run.attachments })) {
+      // Agent 的提示词随消息带上，接在内核自带的系统提示词后面（内核配置里不写 prompt）
+      const system = profile ? agentSystemPrompt(profile) : ''
+      const input = { text: sent, attachments: run.attachments, ...(system ? { system } : {}) }
+      for await (const event of kernel.prompt(ks, input)) {
         // 内核有了动静（不是准备阶段就结束）才算这条消息真的进了内核：这时记下它是内核里第几条用户消息
         if (!submitted && event.type !== 'done') {
           submitted = true
@@ -702,7 +714,7 @@ export class SessionService {
   // 没有输出格式的 Agent：这一轮的回复正文就是产出
   private saveTextOutput(sessionId: string, recorder: TurnRecorder): void {
     const session = this.deps.store.session(sessionId)
-    if (!session || this.deps.resolveAgent(session.agent)?.outputSchema) return
+    if (!session || this.deps.resolveAgent(session.agent, session.workdir)?.outputSchema) return
     const text = recorder.answerText()
     if (!text) return
     const saved = this.deps.store.saveDraft({

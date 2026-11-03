@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { gatewaySecretKey } from '@kits/core'
 import type { KernelName } from '@kits/core/ipc'
 import { app, BrowserWindow, shell } from 'electron'
+import { AgentService } from './agents/agent-service'
 import { ConfigService } from './config/config-service'
 import { resolveConfigDir } from './config/paths'
 import { SecretStore } from './config/secrets'
@@ -150,13 +151,26 @@ app.whenReady().then(() => {
     hasVar: (name) => lookupVar(name) !== undefined,
     onChanged: () => kernels.configChanged(),
   })
+  const agentService = new AgentService({
+    config,
+    builtinDir: builtinFolder(),
+    loadMcp: () => loadMcp(config),
+    onChanged: () => kernels.configChanged(),
+    trash: (file) => platform.trashPath(file),
+    openPath: (file) => platform.openPath(file),
+  })
   const store = new SessionStore(db)
   // 上次退出时还在跑的会话标成中断
   store.markInterrupted(Date.now())
   const sessions = new SessionService({
     store,
     kernels,
-    resolveAgent: (name) => loadAgents(config).find((a) => a.name === name),
+    resolveAgent: (name, workdir) =>
+      loadAgents(
+        config,
+        builtinFolder(),
+        existsSync(workdir) ? realpathSync(workdir) : undefined,
+      ).find((a) => a.name === name),
     loadMcp: () => loadMcp(config),
     registry: tools.registry,
     push,
@@ -286,13 +300,19 @@ app.whenReady().then(() => {
         },
       },
       agents: {
-        list: () =>
-          loadAgents(config).map((a) => ({
+        list: ({ workdir }) =>
+          agentService.overview(workdir).agents.map((a) => ({
             name: a.name,
             description: a.description,
             source: a.source,
             ...(a.model ? { model: a.model } : {}),
           })),
+        overview: ({ workdir }) => agentService.overview(workdir),
+        save: (input) => agentService.save(input),
+        remove: (ref) => agentService.remove(ref),
+        preview: (input) => agentService.preview(input),
+        createOutput: (ref) => agentService.createOutput(ref),
+        open: (ref) => agentService.open(ref),
       },
       gateway: {
         test: ({ baseUrl, apiKey, gatewayId }) => {

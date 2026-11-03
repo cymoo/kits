@@ -414,6 +414,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
           {
             agent: opencodeAgentName(session.agent),
             ...(model ? { model: { providerID: model.gateway, modelID: model.model } } : {}),
+            ...(input.system ? { system: input.system } : {}),
             parts: composeText(input),
           },
           this.setupTimeout,

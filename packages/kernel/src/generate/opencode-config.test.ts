@@ -11,9 +11,12 @@ import {
 import { describe, expect, it } from 'vitest'
 import {
   agentPermissions,
+  agentSystemPrompt,
   type GenerateResult,
   generateOpencodeConfig,
+  kernelAgentOf,
   type OpencodeConfigInput,
+  PROJECT_BASE_AGENT,
   skillDenies,
 } from './opencode-config'
 import { writeGeneratedFiles } from './write'
@@ -146,7 +149,7 @@ describe('generateOpencodeConfig', () => {
 
   it('prefixes agent names and picks assistant as the default agent', () => {
     const c = config({ agents: [agent({ name: 'api-reviewer' }), agent({ name: 'assistant' })] })
-    expect(Object.keys(c.agent)).toEqual(['kits-api-reviewer', 'kits-assistant'])
+    expect(Object.keys(c.agent)).toEqual(['kits-api-reviewer', 'kits-assistant', 'kits-_project'])
     expect(c.default_agent).toBe('kits-assistant')
   })
 
@@ -192,20 +195,9 @@ describe('generateOpencodeConfig', () => {
     expect(c.permission.bash).toMatchObject({ '*': 'ask', 'git status': 'allow' })
   })
 
-  it('appends the output schema to the prompt of agents with an output format', () => {
-    const c = config({
-      agents: [agent({ name: 'cases', prompt: '写用例', outputSchema: { type: 'object' } })],
-    })
-    const prompt: string = c.agent['kits-cases'].prompt
-    expect(prompt.startsWith('写用例\n\n## 输出格式')).toBe(true)
-    expect(prompt).toContain('kits_submit_output')
-    expect(prompt).toContain('"type": "object"')
-  })
-
-  it('leaves the prompt out when empty so the kernel prompt is used', () => {
-    const c = config({ agents: [agent({ name: 'a' }), agent({ name: 'b', prompt: '你是 b' })] })
-    expect(c.agent['kits-a'].prompt).toBeUndefined()
-    expect(c.agent['kits-b'].prompt).toBe('你是 b')
+  it('keeps agent prompts out of the config so the kernel prompt stays in place', () => {
+    const c = config({ agents: [agent({ name: 'b', prompt: '你是 b' })] })
+    expect(c.agent['kits-b'].prompt).toBeUndefined()
   })
 
   it('reports an empty gateway url against the gateway', () => {
@@ -321,6 +313,21 @@ describe('agentPermissions', () => {
     }
   })
 
+  it('denies mcp servers outside the agent mcp list in every mode', () => {
+    const servers = parseMcpFile({
+      mcpServers: {
+        wiki: { url: 'https://wiki.local/mcp' },
+        req: { url: 'https://req.local/mcp' },
+      },
+    })
+    const a = agent({ name: 'a', mcp: ['req'] })
+    for (const mode of ['ask', 'auto'] as const) {
+      const rules = agentPermissions(a, mode, servers)
+      expect(effectiveLevel(rules, 'wiki_get_page', '*')).toBe('deny')
+      expect(effectiveLevel(rules, 'req_get_requirement', '*')).not.toBe('deny')
+    }
+  })
+
   it('limits the skill tool to the agent skill list in every mode', () => {
     const a = agent({ name: 'a', skills: ['review'] })
     for (const mode of ['ask', 'read', 'auto'] as const) {
@@ -405,5 +412,30 @@ describe('skill permissions', () => {
       { tool: 'skill', pattern: 'customize-opencode', level: 'deny' },
       { tool: 'skill', pattern: 'code-review', level: 'deny' },
     ])
+  })
+})
+
+describe('agent prompts and project agents', () => {
+  it('runs project agents on the shared base agent', () => {
+    expect(kernelAgentOf(agent({ name: 'api-reviewer', source: 'project' }))).toBe(
+      PROJECT_BASE_AGENT,
+    )
+    expect(kernelAgentOf(agent({ name: 'doc-writer' }))).toBe('doc-writer')
+  })
+
+  it('writes the base agent into the config without a prompt', () => {
+    const c = ok(generateOpencodeConfig(input())).config as { agent: Record<string, object> }
+    expect(c.agent['kits-_project']).toEqual({
+      mode: 'primary',
+      description: expect.any(String),
+    })
+  })
+
+  it('carries the prompt and the output format in the system prompt', () => {
+    const a = agent({ name: 'r', prompt: '对照文档找不一致', outputSchema: { type: 'object' } })
+    const system = agentSystemPrompt(a)
+    expect(system.startsWith('对照文档找不一致\n\n## 输出格式')).toBe(true)
+    expect(system).toContain('kits_submit_output')
+    expect(system).toContain('"type": "object"')
   })
 })

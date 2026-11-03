@@ -48,6 +48,9 @@ export interface CreateSessionOptions {
 
 export interface UserInput {
   text: string
+  // 追加的系统提示词：项目 Agent 不进内核配置（内核配置全局一份，项目 Agent 随工作目录变），
+  // 它的提示词每条消息随身带上
+  system?: string
   // 附件先转成文本后随消息一起发
   attachments?: { name: string; text: string }[]
 }

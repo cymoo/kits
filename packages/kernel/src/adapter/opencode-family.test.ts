@@ -31,6 +31,7 @@ interface Fake {
   // 事件流连上后不发 server.connected
   silentStream: boolean
   promptCount: number
+  promptBody: unknown
   summarizeBody: unknown
   close(): Promise<void>
 }
@@ -50,6 +51,7 @@ async function startFake(): Promise<Fake> {
     hangPrompt: false,
     silentStream: false,
     promptCount: 0,
+    promptBody: undefined,
     summarizeBody: undefined,
   }
   const server = createServer(async (req, res) => {
@@ -74,6 +76,9 @@ async function startFake(): Promise<Fake> {
     if (url.pathname.endsWith('/prompt_async')) {
       fake.promptCount += 1
       if (fake.hangPrompt) return
+      const chunks: Buffer[] = []
+      for await (const c of req) chunks.push(c as Buffer)
+      fake.promptBody = JSON.parse(Buffer.concat(chunks).toString())
       res.writeHead(204).end()
       return
     }
@@ -212,6 +217,15 @@ describe('OpencodeFamilyKernel', () => {
       fake.status = {}
     })
     expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+  })
+
+  it('sends the extra system prompt with the message', async () => {
+    const s = await setup()
+    await collect(kernel.prompt(s, { text: 'hi', system: '只读，不改文件' }), async () => {
+      await until(() => fake.promptBody !== undefined)
+      send(fake, 'session.idle', { sessionID: 'ses_1' })
+    })
+    expect(fake.promptBody).toMatchObject({ agent: 'kits-assistant', system: '只读，不改文件' })
   })
 
   it('reconnects the event stream and backfills parts it missed', async () => {

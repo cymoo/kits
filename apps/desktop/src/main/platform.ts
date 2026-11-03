@@ -18,6 +18,8 @@ export interface PlatformBridge {
   revealPath(path: string): void
   // 系统的目录选择框；取消时返回 null
   pickDirectory(): Promise<string | null>
+  // 移到废纸篓 / 回收站（删 Agent 文件用，删错了能找回来）
+  trashPath(path: string): Promise<void>
 }
 
 export function createElectronPlatform(): PlatformBridge {
@@ -50,5 +52,6 @@ export function createElectronPlatform(): PlatformBridge {
       const error = await shell.openPath(target)
       if (error) throw new Error(error)
     },
+    trashPath: (target) => shell.trashItem(target),
   }
 }
