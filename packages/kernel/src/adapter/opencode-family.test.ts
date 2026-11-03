@@ -21,8 +21,15 @@ interface Fake {
   messages: unknown[]
   messagesDelayMs: number
   messageRequests: number
-  // GET /permission
+  // GET /permission；failPermissions 时回 500
   permissions: unknown[]
+  failPermissions: boolean
+  // POST /session/{id}/abort 不回
+  hangAbort: boolean
+  // POST prompt_async 不回
+  hangPrompt: boolean
+  // 事件流连上后不发 server.connected
+  silentStream: boolean
   promptCount: number
   summarizeBody: unknown
   close(): Promise<void>
@@ -38,6 +45,10 @@ async function startFake(): Promise<Fake> {
     messagesDelayMs: 0,
     messageRequests: 0,
     permissions: [],
+    failPermissions: false,
+    hangAbort: false,
+    hangPrompt: false,
+    silentStream: false,
     promptCount: 0,
     summarizeBody: undefined,
   }
@@ -45,7 +56,9 @@ async function startFake(): Promise<Fake> {
     const url = new URL(req.url ?? '/', 'http://x')
     if (url.pathname === '/event') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream' })
-      res.write(`data: ${JSON.stringify({ type: 'server.connected', properties: {} })}\n\n`)
+      if (!fake.silentStream) {
+        res.write(`data: ${JSON.stringify({ type: 'server.connected', properties: {} })}\n\n`)
+      }
       fake.streams.push(res)
       fake.connections += 1
       req.on('close', () => {
@@ -60,6 +73,7 @@ async function startFake(): Promise<Fake> {
     if (url.pathname === '/session' && req.method === 'POST') return json({ id: 'ses_1' })
     if (url.pathname.endsWith('/prompt_async')) {
       fake.promptCount += 1
+      if (fake.hangPrompt) return
       res.writeHead(204).end()
       return
     }
@@ -73,7 +87,17 @@ async function startFake(): Promise<Fake> {
       if (fake.messagesDelayMs) await new Promise((r) => setTimeout(r, fake.messagesDelayMs))
       return json(snapshot)
     }
-    if (url.pathname === '/permission') return json(fake.permissions)
+    if (url.pathname === '/permission') {
+      if (fake.failPermissions) {
+        res.writeHead(500).end()
+        return
+      }
+      return json(fake.permissions)
+    }
+    if (url.pathname.endsWith('/abort')) {
+      if (fake.hangAbort) return
+      return json(true)
+    }
     if (url.pathname.endsWith('/summarize')) {
       const chunks: Buffer[] = []
       for await (const c of req) chunks.push(c as Buffer)
@@ -299,6 +323,98 @@ describe('OpencodeFamilyKernel', () => {
     for await (const e of kernel.prompt(s, { text: 'hi' })) events.push(e)
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({ type: 'done', reason: 'error' })
+  })
+
+  it('does not submit the turn when abort comes while it is still preparing', async () => {
+    const s = await setup()
+    // 读历史消息要 200 ms，期间用户点了停止
+    fake.messagesDelayMs = 200
+    const iter = kernel.prompt(s, { text: 'hi' })
+    const events = await collect(iter, async () => {
+      await new Promise((r) => setTimeout(r, 50))
+      await kernel.abort(s)
+    })
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+    expect(fake.promptCount).toBe(0)
+  })
+
+  it('ends with the error recorded on a message recovered after a disconnect', async () => {
+    const s = await setup()
+    fake.status = { ses_1: { type: 'busy' } }
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      fake.messages = [
+        {
+          info: {
+            id: 'msg_a',
+            role: 'assistant',
+            time: { created: Date.now(), completed: Date.now() },
+            error: { name: 'APIError', data: { message: '网关返回 502' } },
+          },
+          parts: [],
+        },
+      ]
+      await reconnect(seen, false)
+      // session.error 丢在了断线里，轮询看到 idle 收尾
+      fake.status = {}
+    })
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'error', error: '网关返回 502' })
+  })
+
+  it('keeps the message snapshot when the permission list fails', async () => {
+    const s = await setup()
+    fake.status = { ses_1: { type: 'busy' } }
+    fake.failPermissions = true
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      send(fake, 'message.updated', assistant)
+      send(fake, 'message.part.delta', delta('前半'))
+      fake.messages = snapshot('前半后半')
+      await reconnect(seen)
+      await until(() => text(seen) === '前半后半')
+      send(fake, 'session.idle', { sessionID: 'ses_1' })
+    })
+    expect(text(events)).toBe('前半后半')
+  })
+
+  it('ends an aborted turn after the grace period even if the abort request hangs', async () => {
+    const s = await setup({ abortGraceMs: 100 })
+    fake.status = { ses_1: { type: 'busy' } }
+    fake.hangAbort = true
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+      await until(() => fake.promptCount === 1)
+      void kernel.abort(s).catch(() => {})
+    })
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+  })
+
+  it('ends the turn on abort while prompt_async is still waiting for a reply', async () => {
+    const s = await setup({ abortGraceMs: 2_000 })
+    fake.hangPrompt = true
+    const started = Date.now()
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+      await until(() => fake.promptCount === 1)
+      // abort 请求可能在用例结束、假内核关掉之后才失败，这里不关心它的结果
+      void kernel.abort(s).catch(() => {})
+    })
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+    // 不用等 abortGrace 兜底，取消请求后立刻结束
+    expect(Date.now() - started).toBeLessThan(1_500)
+  })
+
+  it('gives up and drops the subscription when the event stream never sends a first event', async () => {
+    const s = await setup({ setupTimeoutMs: 200 })
+    fake.silentStream = true
+    const events: KernelEvent[] = []
+    for await (const e of kernel.prompt(s, { text: 'hi' })) events.push(e)
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'error',
+      error: '连不上内核的事件流',
+    })
+    // 没人订阅了，事件流连接被关掉
+    await until(() => fake.streams.length === 0)
+    expect(fake.promptCount).toBe(0)
   })
 
   it('summarizes a session on the default model with the model of its last reply', async () => {

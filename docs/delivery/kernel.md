@@ -120,7 +120,7 @@
   - 会话用 `KernelSession`（id + 工作目录 + Agent + 模型）整个传进来，适配器不记会话：OpenCode 每个请求都要带工作目录，应用重启后从数据库读出来照样能续。
   - `createSession` 接收按会话模式解析好的权限（`agentPermissions` 的结果），转成内核的规则数组随建会话一起发，所以三档模式（执行前确认 / 只读 / 全部自动）是会话级的，不用重启内核。
   - `respondPermission` 的回复改成 `once | always | reject`，拒绝可带说明：1.19.5 的回复接口原生支持 `message`，内核把它当反馈交给模型，不用再另发一条用户消息。
-  - `FileDiff` 改成 `{ path, status, additions, deletions, patch }`：内核返回的是 unified diff，不是前后全文。
+  - `FileDiff` 改成 `{ path, status, additions, deletions, patch, messageId }`：内核给的是 unified diff，不是前后全文。**1.19.5 的 `GET /session/{id}/diff` 不带 `messageID` 时返回空**，每一轮的改动记在那一轮用户消息的 `summary.diffs` 上，适配器从消息里按轮收集，`messageId` 标出是哪一轮（改动面板按轮分组用）。这份数据是内核在一轮结束后异步算出来的，`done` 之后立刻读可能还是空的，改动面板要在会话变化后重新取。
   - 新增 `summarize`（上下文压缩）和 `messages`（补齐、恢复）。
   - 方言多一个 `apiPrefix`（CodeAgent 是 `/api/v1`）。
 - `packages/core/src/events.ts`：`text-delta` / `reasoning-delta` 带 `partId`（落库时同一个 part 的增量合并）；`permission-request` 带 `patterns`、`always`、`callId`；`usage` 拆出缓存读写和费用；新增 `status`、`compaction`；`PermissionDecision` 换成 `PermissionReply`。
@@ -138,6 +138,8 @@
 
 ### 已知问题
 
+- 断线补齐时丢掉了补齐期间到达的正文增量（快照里已有）；如果某个增量在快照之后生成、却在补齐结束后才到，这一段会重复一次。窗口很小（一次 GET 的往返），下一条带整段正文的 `message.part.updated` 也不会去掉重复，界面上偶尔会看到一小段重复的字。真要消除得让内核在增量里带偏移量。
+- 工作目录要用真实路径（`realpath`）：macOS 的临时目录在 `/var` 下，它是 `/private/var` 的软链接，内核按真实路径判断目录内外，用软链接路径时目录里的写入也会触发“目录外”的权限请求。会话服务建会话时做规整（PR7）。
 - `compaction` 事件的 `summary` 先给空串：`session.compacted` 不带摘要内容，要从消息里取，PR16 做上下文压缩时补。
 - `done: max-steps` 还没有映射：1.19.5 里输出超长是 `session.error` 的 `MessageOutputLengthError`，现在按普通错误报，带内核给的原因。
 - 正文只按 `messageID` 的角色过滤用户消息；角色还没到就先来的 part 当作回复。契约测试确认 1.19.5 总是先发 `message.updated`。

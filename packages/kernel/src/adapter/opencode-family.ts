@@ -26,12 +26,33 @@ export interface OpencodeFamilyOptions {
   reconnectDelayMs?: number
   // 调完 abort 等内核自己发结束事件的时间，超时就直接结束这一轮
   abortGraceMs?: number
+  // 准备阶段和补齐的请求超时（读历史消息、等事件流连上、提交这一轮）
+  setupTimeoutMs?: number
 }
 
 type Listener = { onEvent(event: unknown): void; onReconnect(): void }
 
-// 状态探测的超时：内核连着但不回数据时，探测不能一直挂着
+// 状态探测和 abort 的超时：内核连着但不回数据时，请求不能一直挂着
 const STATUS_TIMEOUT_MS = 5_000
+// 读历史消息、待处理权限、等事件流连上的超时
+const RECOVER_TIMEOUT_MS = 10_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms)
+    timer.unref?.()
+    promise.then(
+      (v) => {
+        clearTimeout(timer)
+        resolve(v)
+      },
+      (e: unknown) => {
+        clearTimeout(timer)
+        reject(e)
+      },
+    )
+  })
+}
 
 // 一个工作目录一条事件流，有订阅时连着，没订阅就断开
 class EventHub {
@@ -56,12 +77,15 @@ class EventHub {
       this.listeners.delete(listener)
       throw e
     }
-    return () => {
-      this.listeners.delete(listener)
-      if (this.listeners.size === 0) {
-        this.controller?.abort()
-        this.controller = undefined
-      }
+    return () => this.remove(listener)
+  }
+
+  // 撤掉一个订阅；没人订阅了就断开连接（订阅还没连上就超时的也走这里）
+  remove(listener: Listener): void {
+    this.listeners.delete(listener)
+    if (this.listeners.size === 0) {
+      this.controller?.abort()
+      this.controller = undefined
     }
   }
 
@@ -170,12 +194,19 @@ export class OpencodeFamilyKernel implements AgentKernel {
   private hubs = new Map<string, EventHub>()
   private active = new Map<
     string,
-    { mapper: OpencodeEventMapper; queue: AsyncQueue<KernelEvent> }
+    {
+      mapper: OpencodeEventMapper
+      queue: AsyncQueue<KernelEvent>
+      cancelled: boolean
+      // 停止时取消还在等的准备请求（提交这一轮的 prompt_async 等）
+      controller: AbortController
+    }
   >()
   private readonly poll: number
   private readonly stall: number
   private readonly reconnect: number
   private readonly abortGrace: number
+  private readonly setupTimeout: number
 
   constructor(
     private readonly dialect: KernelDialect,
@@ -185,6 +216,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
     this.stall = options.stallTimeoutMs ?? 60_000
     this.reconnect = options.reconnectDelayMs ?? 1_000
     this.abortGrace = options.abortGraceMs ?? 5_000
+    this.setupTimeout = options.setupTimeoutMs ?? RECOVER_TIMEOUT_MS
   }
 
   get id() {
@@ -211,10 +243,15 @@ export class OpencodeFamilyKernel implements AgentKernel {
     workdir: string,
     body?: unknown,
     timeoutMs?: number,
+    signal?: AbortSignal,
   ): Promise<T> {
+    const signals = [
+      ...(timeoutMs ? [AbortSignal.timeout(timeoutMs)] : []),
+      ...(signal ? [signal] : []),
+    ]
     const res = await fetch(this.url(route, workdir), {
       method,
-      ...(timeoutMs ? { signal: AbortSignal.timeout(timeoutMs) } : {}),
+      ...(signals.length > 0 ? { signal: AbortSignal.any(signals) } : {}),
       headers: {
         ...this.kernel.headers,
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
@@ -260,7 +297,8 @@ export class OpencodeFamilyKernel implements AgentKernel {
     if (this.active.has(session.id)) throw new Error(`session ${session.id} is already running`)
     const mapper = createOpencodeEventMapper(session.id)
     const queue = new AsyncQueue<KernelEvent>()
-    this.active.set(session.id, { mapper, queue })
+    const run = { mapper, queue, cancelled: false, controller: new AbortController() }
+    this.active.set(session.id, run)
     const emit = (events: KernelEvent[]) => {
       for (const e of events) queue.push(e)
       if (mapper.done) queue.close()
@@ -277,16 +315,19 @@ export class OpencodeFamilyKernel implements AgentKernel {
     const recover = (): Promise<void> => {
       recovering ??= (async () => {
         try {
-          const [messages, pending] = await Promise.all([
-            this.messages(session),
+          // 两个请求各自成败：权限列表临时失败也不丢已经拿到的消息快照；都有超时，挂住不会让这一轮一直卡在补齐里
+          const [messages, pending] = await Promise.allSettled([
+            this.messages(session, this.setupTimeout),
             this.pendingPermissions(session),
           ])
-          emit(
-            mapper.backfill((messages as RawMessage[]).filter((m) => !known.has(m.info.id ?? ''))),
-          )
-          emit(mapper.permissions(pending))
-        } catch {
-          // 补齐失败不影响后续事件
+          if (messages.status === 'fulfilled') {
+            emit(
+              mapper.backfill(
+                (messages.value as RawMessage[]).filter((m) => !known.has(m.info.id ?? '')),
+              ),
+            )
+          }
+          if (pending.status === 'fulfilled') emit(mapper.permissions(pending.value))
         } finally {
           const events = buffered
           buffered = []
@@ -301,23 +342,50 @@ export class OpencodeFamilyKernel implements AgentKernel {
     let unsubscribe: (() => void) | undefined
     try {
       try {
-        for (const m of await this.messages(session).catch(() => [])) {
+        for (const m of await this.messages(
+          session,
+          this.setupTimeout,
+          run.controller.signal,
+        ).catch(() => [])) {
           if (m.info.id) known.add(m.info.id)
         }
-        unsubscribe = await hub.subscribe({
-          onEvent: (event) => {
+        const listener = {
+          onEvent: (event: unknown) => {
             if (!recovering) emit(mapper.map(event))
             else if ((event as { type?: string }).type !== 'message.part.delta')
               buffered.push(event)
           },
           onReconnect: () => void recover(),
+        }
+        // 超时也要撤掉这次的订阅，不然残留的监听会让连接一直不关
+        unsubscribe = await withTimeout(
+          hub.subscribe(listener),
+          this.setupTimeout,
+          '连不上内核的事件流',
+        ).catch((e: unknown) => {
+          hub.remove(listener)
+          throw e
         })
+        // 准备期间用户已经点了停止：不再提交这一轮
+        if (run.cancelled) {
+          emit(mapper.finish('aborted'))
+          yield* queue
+          return
+        }
         const model = session.model ? parseModelRef(session.model) : undefined
-        await this.request('POST', `/session/${session.id}/prompt_async`, session.workdir, {
-          agent: opencodeAgentName(session.agent),
-          ...(model ? { model: { providerID: model.gateway, modelID: model.model } } : {}),
-          parts: composeText(input),
-        })
+        // 有超时，停止时也能取消：内核收了请求却一直不回时，这一轮不会卡在这里
+        await this.request(
+          'POST',
+          `/session/${session.id}/prompt_async`,
+          session.workdir,
+          {
+            agent: opencodeAgentName(session.agent),
+            ...(model ? { model: { providerID: model.gateway, modelID: model.model } } : {}),
+            parts: composeText(input),
+          },
+          this.setupTimeout,
+          run.controller.signal,
+        )
       } catch (e) {
         // 连不上内核或发消息失败：照样以 done 结束这一轮，界面显示出错卡片。
         // 进程退出时 handleExit 可能已经把 done 放进队列，所以统一从队列里取
@@ -384,6 +452,8 @@ export class OpencodeFamilyKernel implements AgentKernel {
       'GET',
       this.dialect.permissionListPath,
       session.workdir,
+      undefined,
+      this.setupTimeout,
     )
     return (list ?? []).filter((p) => p.sessionID === session.id)
   }
@@ -404,27 +474,53 @@ export class OpencodeFamilyKernel implements AgentKernel {
 
   async abort(session: KernelSession): Promise<void> {
     const run = this.active.get(session.id)
-    run?.mapper.markAborted()
-    await this.request('POST', `/session/${session.id}/abort`, session.workdir)
     if (run) {
+      run.cancelled = true
+      run.mapper.markAborted()
+      run.controller.abort()
+      // 先排好兜底：abort 请求挂住或失败，这一轮也会在 abortGrace 后结束
       setTimeout(() => {
         for (const e of run.mapper.finish('aborted')) run.queue.push(e)
         run.queue.close()
       }, this.abortGrace).unref?.()
     }
+    await this.request(
+      'POST',
+      `/session/${session.id}/abort`,
+      session.workdir,
+      undefined,
+      STATUS_TIMEOUT_MS,
+    )
   }
 
+  // 1.19.5 的 GET /session/{id}/diff 不带 messageID 时返回空；每一轮的改动记在那一轮用户消息的 summary.diffs 上，
+  // 这里按轮收集（契约测试实测），改动面板按 messageId 分组
   async diff(session: KernelSession): Promise<FileDiff[]> {
-    const raw = await this.request<
-      { file?: string; patch?: string; additions?: number; deletions?: number; status?: string }[]
-    >('GET', `/session/${session.id}/diff`, session.workdir)
-    return (raw ?? []).map((d) => ({
-      path: d.file ?? '',
-      status: d.status === 'added' || d.status === 'deleted' ? d.status : 'modified',
-      additions: d.additions ?? 0,
-      deletions: d.deletions ?? 0,
-      patch: d.patch ?? '',
-    }))
+    const messages = await this.messages(session)
+    return messages.flatMap((m) => {
+      const info = m.info as {
+        id?: string
+        role?: string
+        summary?: {
+          diffs?: {
+            file?: string
+            patch?: string
+            additions?: number
+            deletions?: number
+            status?: string
+          }[]
+        }
+      }
+      if (info.role !== 'user') return []
+      return (info.summary?.diffs ?? []).map((d) => ({
+        path: d.file ?? '',
+        status: d.status === 'added' || d.status === 'deleted' ? d.status : ('modified' as const),
+        additions: d.additions ?? 0,
+        deletions: d.deletions ?? 0,
+        patch: d.patch ?? '',
+        ...(info.id ? { messageId: info.id } : {}),
+      }))
+    })
   }
 
   async summarize(session: KernelSession): Promise<void> {
@@ -443,12 +539,19 @@ export class OpencodeFamilyKernel implements AgentKernel {
     await this.request('POST', `/session/${session.id}/summarize`, session.workdir, model)
   }
 
-  async messages(session: KernelSession): Promise<KernelMessage[]> {
+  async messages(
+    session: KernelSession,
+    timeoutMs?: number,
+    signal?: AbortSignal,
+  ): Promise<KernelMessage[]> {
     return (
       (await this.request<KernelMessage[]>(
         'GET',
         `/session/${session.id}/message`,
         session.workdir,
+        undefined,
+        timeoutMs,
+        signal,
       )) ?? []
     )
   }
