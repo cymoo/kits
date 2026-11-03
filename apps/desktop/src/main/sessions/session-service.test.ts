@@ -658,6 +658,47 @@ describe('SessionService search and remove', () => {
   })
 })
 
+describe('SessionService compact', () => {
+  it('stores the summary as a compaction part and restarts the context from it', async () => {
+    const { service, waitFor, store } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    await service.compact(s.id)
+    const detail = store.detail(s.id)
+    const part = detail?.parts.find((p) => p.type === 'compaction')
+    expect(part?.status).toBe('completed')
+    expect(part?.payload).toMatchObject({ summary: expect.stringContaining('@idempotent') })
+    expect(detail?.messages.at(-1)).toMatchObject({
+      finishReason: 'compaction',
+      contextTokens: 1_200,
+    })
+    expect(store.session(s.id)?.status).toBe('done')
+  })
+
+  it('refuses to compact while a turn is running', async () => {
+    const { service, waitFor } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await expect(service.compact(s.id)).rejects.toThrow(/还在跑/)
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
+  it('sends a message typed during compaction after it', async () => {
+    const { service, waitFor, store } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const compacting = service.compact(s.id)
+    await service.prompt(s.id, '接着做')
+    expect(service.isRunning(s.id)).toBe(false)
+    await compacting
+    await waitFor(s.id, ['done'])
+    await vi.waitFor(() =>
+      expect(store.detail(s.id)?.messages.filter((m) => m.role === 'user')).toHaveLength(2),
+    )
+  })
+})
+
 describe('exportName', () => {
   it('drops characters that cannot go into a file name and adds the turn when there are several', () => {
     const at = new Date(2026, 10, 4).getTime()

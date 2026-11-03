@@ -3,6 +3,7 @@ import { parseModelRef } from '@kits/core'
 import { opencodeAgentName, toOpencodeRuleset } from '../generate/opencode-config'
 import type {
   AgentKernel,
+  CompactionResult,
   CreateSessionOptions,
   FileDiff,
   KernelConfig,
@@ -190,6 +191,8 @@ class AsyncQueue<T> {
   }
 }
 
+// 手动压缩：内核调一次模型把前面的对话压成摘要，长会话要一两分钟
+const SUMMARIZE_TIMEOUT_MS = 5 * 60_000
 function composeText(input: UserInput): { type: 'text'; text: string }[] {
   const parts = [{ type: 'text' as const, text: input.text }]
   for (const a of input.attachments ?? []) {
@@ -561,7 +564,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
     })
   }
 
-  async summarize(session: KernelSession): Promise<void> {
+  async summarize(session: KernelSession): Promise<CompactionResult> {
     const ref = session.model ? parseModelRef(session.model) : undefined
     let model = ref ? { providerID: ref.gateway, modelID: ref.model } : undefined
     if (!model) {
@@ -574,7 +577,30 @@ export class OpencodeFamilyKernel implements AgentKernel {
         model = { providerID: info.providerID, modelID: info.modelID }
     }
     if (!model) throw new Error('这个会话还没有回复过，不知道用哪个模型压缩')
-    await this.request('POST', `/session/${session.id}/summarize`, session.workdir, model)
+    // 压缩要调一次模型，等它做完才返回；给足时间
+    await this.request(
+      'POST',
+      `/session/${session.id}/summarize`,
+      session.workdir,
+      model,
+      SUMMARIZE_TIMEOUT_MS,
+    )
+    // 摘要是一条 summary: true 的助手消息，正文在它的 text part 里
+    const last = (await this.messages(session))
+      .filter((m) => {
+        const info = m.info as { role?: string; summary?: boolean }
+        return info.role === 'assistant' && info.summary === true
+      })
+      .at(-1)
+    const summary = (last?.parts ?? [])
+      .flatMap((p) => {
+        const part = p as { type?: string; text?: string; synthetic?: boolean }
+        return part.type === 'text' && part.text && !part.synthetic ? [part.text] : []
+      })
+      .join('\n\n')
+      .trim()
+    const tokens = (last?.info as { tokens?: { output?: number } } | undefined)?.tokens?.output ?? 0
+    return { summary, tokens }
   }
 
   async messages(

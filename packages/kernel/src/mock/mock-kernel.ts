@@ -8,6 +8,7 @@ import {
 } from '@kits/core'
 import type {
   AgentKernel,
+  CompactionResult,
   CreateSessionOptions,
   FileDiff,
   KernelExit,
@@ -285,7 +286,15 @@ export class MockKernel implements AgentKernel {
     ).flat()
   }
 
-  async summarize(): Promise<void> {}
+  // 压缩：给一份固定的摘要，下一轮的上下文从它算起
+  async summarize(): Promise<CompactionResult> {
+    await new Promise((r) => setTimeout(r, 300 * (this.options.speed ?? 1)))
+    return {
+      summary:
+        '## 任务\n给兑换接口加幂等校验。\n\n## 已确认\n幂等检查抽成了装饰器 `@idempotent`，tests/points 全部通过。\n\n## 待办\n无。',
+      tokens: 1_200,
+    }
+  }
 
   async messages(): Promise<KernelMessage[]> {
     return []

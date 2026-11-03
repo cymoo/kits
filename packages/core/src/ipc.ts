@@ -2,6 +2,7 @@ import type { AgentDraft, AgentOverview, AgentRef, AgentSaveInput, AgentView } f
 import type { PermissionLevel } from './config/permission'
 import type { GeneralSettings, Settings } from './config/settings'
 import type { McpOverview, McpParseResult, McpTestResult } from './mcp-view'
+import type { MemoryOverview, MemoryScopeView } from './memory-view'
 import type {
   AgentSummary,
   AttachmentInput,
@@ -24,6 +25,7 @@ export type { Gateway, GatewayModel } from './config/gateway'
 export type { PermissionLevel, PermissionMode } from './config/permission'
 export type { GeneralSettings, Settings } from './config/settings'
 export type * from './mcp-view'
+export type * from './memory-view'
 export type * from './session'
 export type * from './skill-view'
 
@@ -121,6 +123,8 @@ export const ipcContract = {
     search: method<string, SessionSearchHit[]>(),
     // 删会话：记录、附件都删掉；还在跑的要先停止
     remove: method<string, void>(),
+    // 手动压缩上下文：等内核压完；失败抛错
+    compact: method<string, void>(),
     prompt: method<{ id: string; text: string; attachments?: AttachmentInput[] }, void>(),
     abort: method<string, void>(),
     respondPermission: method<
@@ -158,6 +162,17 @@ export const ipcContract = {
     setEnabled: method<{ name: string; enabled: boolean }, void>(),
     // 打开某个来源的技能目录（没有就先建）
     openDir: method<{ source: SkillSource; workdir?: string }, void>(),
+  },
+  memory: {
+    list: method<{ scope: MemoryScopeView; workdir?: string }, MemoryOverview>(),
+    add: method<{ scope: MemoryScopeView; workdir?: string; text: string }, void>(),
+    update: method<
+      { scope: MemoryScopeView; workdir?: string; index: number; text: string },
+      void
+    >(),
+    remove: method<{ scope: MemoryScopeView; workdir?: string; index: number }, void>(),
+    // 用系统默认程序打开记忆文件（没有就先建一个空的）
+    open: method<{ scope: MemoryScopeView; workdir?: string }, void>(),
   },
   files: {
     // 输入框 @ 菜单：工作目录里按路径匹配的文件（相对路径），最多 30 个

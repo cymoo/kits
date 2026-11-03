@@ -494,4 +494,19 @@ describe('OpencodeFamilyKernel', () => {
     await kernel.summarize(s)
     expect(fake.summarizeBody).toEqual({ providerID: 'corp', modelID: 'm-1' })
   })
+
+  it('returns the text and the size of the summary message', async () => {
+    const s = await setup()
+    fake.messages = [
+      { info: { id: 'm1', role: 'assistant', providerID: 'corp', modelID: 'm-1' }, parts: [] },
+      {
+        info: { id: 'm2', role: 'assistant', summary: true, tokens: { output: 900 } },
+        parts: [
+          { type: 'text', text: '## 任务\n加幂等校验' },
+          { type: 'text', text: '继续', synthetic: true },
+        ],
+      },
+    ]
+    expect(await kernel.summarize(s)).toEqual({ summary: '## 任务\n加幂等校验', tokens: 900 })
+  })
 })

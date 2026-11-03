@@ -183,3 +183,53 @@ export function StatusLine({ block }: { block: Extract<Block, { kind: 'status' }
     </div>
   )
 }
+
+// 上下文压缩的分隔线（原型 session.html 的 context 场景）：点开看摘要
+export function CompactionDivider({ block }: { block: Extract<Block, { kind: 'compaction' }> }) {
+  const [open, setOpen] = useState(false)
+  const time = new Date(block.at)
+  const hm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`
+  if (block.state === 'running') {
+    return (
+      <div
+        role="status"
+        className="flex items-center gap-2.5 rounded-[10px] border border-line bg-bg px-3 py-2 text-[0.962rem] text-fg-muted"
+      >
+        <Spinner tone="muted" />
+        <span className="flex-1">{t('compaction.running', { n: block.turns })}</span>
+      </div>
+    )
+  }
+  const label =
+    block.state === 'failed'
+      ? t('compaction.failed')
+      : block.summary
+        ? t('compaction.done', { n: block.turns, time: hm })
+        : t('compaction.auto', { time: hm })
+  return (
+    <div className="flex flex-col gap-2" data-testid="compaction">
+      <div className="flex items-center gap-3 text-[0.885rem] text-fg-label">
+        <span className="h-px flex-1 bg-line" />
+        {block.summary ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex cursor-pointer items-center gap-1 rounded-[6px] px-1.5 py-0.5 hover:bg-active hover:text-fg"
+          >
+            {label}
+            <ChevronDown size={12} className={cx('transition-transform', open && 'rotate-180')} />
+          </button>
+        ) : (
+          <span className={cx(block.state === 'failed' && 'text-danger')}>{label}</span>
+        )}
+        <span className="h-px flex-1 bg-line" />
+      </div>
+      {open && block.summary ? (
+        <div className="rounded-[10px] border border-line bg-bg px-4 py-3 text-[0.962rem]">
+          <Markdown text={block.summary} />
+        </div>
+      ) : null}
+    </div>
+  )
+}

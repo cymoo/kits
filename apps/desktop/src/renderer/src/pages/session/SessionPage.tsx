@@ -1,5 +1,6 @@
 import type { SessionSummary } from '@kits/core/ipc'
 import {
+  AlertCircle,
   Check,
   Clock,
   Folder,
@@ -10,18 +11,30 @@ import {
   Square,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { t } from '../../app/i18n'
-import { basename } from '../../lib/composer-prefs'
+import { basename, usePrefs } from '../../lib/composer-prefs'
 import { kits, useSettings } from '../../lib/kits'
 import { useLiveSession, useSessionDiffs, useSessionOutputs } from '../../lib/sessions'
 import { shortcuts, useShortcuts } from '../../lib/shortcuts'
 import { useUi } from '../../lib/ui-store'
 import { formatDuration, useNow } from '../../lib/use-now'
-import { alwaysRules, deriveCommands, deriveRounds, deriveUsage } from '../../session/panels/derive'
+import {
+  alwaysRules,
+  deriveCommands,
+  deriveRounds,
+  deriveUsage,
+  formatTokens,
+} from '../../session/panels/derive'
 import { SummaryCard } from '../../session/panels/Summary'
 import { type PanelTab, Workbench } from '../../session/panels/Workbench'
-import { StatusLine, TextBlock, TurnBlock, UserBlock } from '../../session/thread/Blocks'
+import {
+  CompactionDivider,
+  StatusLine,
+  TextBlock,
+  TurnBlock,
+  UserBlock,
+} from '../../session/thread/Blocks'
 import { ErrorCard, PermissionCard, QuestionCard, RetryBar } from '../../session/thread/Cards'
 import { deriveBlocks } from '../../session/thread/derive'
 import { Composer } from '../../shell/Composer'
@@ -293,6 +306,8 @@ export function SessionPage() {
                   return <QuestionCard key={b.id} block={b} sessionId={session.id} />
                 case 'retry':
                   return <RetryBar key={b.id} block={b} sessionId={session.id} />
+                case 'compaction':
+                  return <CompactionDivider key={b.id} block={b} />
                 case 'error':
                   return (
                     <ErrorCard
@@ -306,7 +321,7 @@ export function SessionPage() {
                   return null
               }
             })}
-            {session.status === 'done' ? (
+            {session.status === 'done' && blocks.at(-1)?.kind !== 'compaction' ? (
               <SummaryCard
                 rounds={rounds}
                 commands={commands}
@@ -323,6 +338,12 @@ export function SessionPage() {
             )}
           >
             {session.queued?.length ? <Queued items={session.queued} /> : null}
+            <ContextBanner
+              session={session}
+              used={usage.context}
+              window={contextWindow}
+              hidden={running || blocks.at(-1)?.kind === 'compaction'}
+            />
             <Composer
               // 每个会话一个输入框：草稿不会跟到别的会话里
               key={session.id}
@@ -358,6 +379,75 @@ export function SessionPage() {
           </aside>
         )}
       </div>
+    </div>
+  )
+}
+
+// 上下文接近上限（八成以上）时输入框上方的提示：现在压缩，或带着结论新开一个会话
+function ContextBanner({
+  session,
+  used,
+  window,
+  hidden,
+}: {
+  session: SessionSummary
+  used: number
+  window: number
+  hidden: boolean
+}) {
+  const navigate = useNavigate()
+  const fillHome = useUi((s) => s.fillHome)
+  const [error, setError] = useState<string>()
+  const [busy, setBusy] = useState(false)
+  if (hidden || !window || used / window < 0.8) return null
+  const compact = async () => {
+    setBusy(true)
+    setError(undefined)
+    try {
+      await kits.session.compact(session.id)
+    } catch (e) {
+      const m = e instanceof Error ? e.message : String(e)
+      setError(m.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div
+      role="status"
+      data-testid="context-banner"
+      className="mb-2 flex items-center gap-2.5 rounded-[10px] border border-warn-line bg-warn-soft px-3 py-2 text-[0.962rem]"
+    >
+      <AlertCircle size={14} className="shrink-0 text-warn-icon" />
+      <span className="min-w-0 flex-1">
+        <span className="font-semibold">
+          {t('context.near', { used: formatTokens(used), window: formatTokens(window) })}
+        </span>
+        <span className="text-fg-muted">
+          {' '}
+          {error ? <span className="text-danger">{error}</span> : t('context.nearHint')}
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={() => {
+          // 新会话用同一个目录和 Agent，输入框里先放一句“接着上一个会话做”
+          usePrefs.getState().set({ workdir: session.workdir, agent: session.agent })
+          fillHome(t('context.carryOver', { title: session.title }))
+          navigate('/')
+        }}
+        className="shrink-0 cursor-pointer text-[0.923rem] text-accent hover:text-accent-fg"
+      >
+        {t('context.newSession')}
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void compact()}
+        className="h-7 shrink-0 cursor-pointer rounded-[8px] bg-primary px-2.5 font-medium text-[0.923rem] text-primary-fg hover:opacity-90 disabled:opacity-50"
+      >
+        {t('context.compactNow')}
+      </button>
     </div>
   )
 }
