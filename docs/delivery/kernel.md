@@ -13,19 +13,19 @@
 
 ### 怎么验收
 
-1. 跑 `pnpm test`，`packages/kernel` 下 `spawnEnv` 的 3 个用例通过：四个 `XDG_*_HOME` 都指向 `dataDir`，三个 `OPENCODE_DISABLE_*` 为 `1`，继承自外层的同名变量被覆盖。
-2. 同一轮里的契约测试（真实启动 `opencode serve`）仍然通过，临时目录里能看到 `data/` 下生成了 OpenCode 的存储，用户家目录的 `~/.local/share/opencode` 不新增文件。
+1. 跑 `pnpm test`，`packages/kernel` 下 `spawnEnv` 的 3 个用例通过：四个 `XDG_*_HOME` 和 `OPENCODE_TEST_HOME` 都指向 `dataDir`，三个 `OPENCODE_DISABLE_*` 为 `1`，继承自外层的同名变量被覆盖。
+2. 同一轮里的契约测试（真实启动 `opencode serve`）通过，它断言两件事：启动后 `dataDir/opencode/` 存在（XDG 数据没落到家目录）；放在 `dataDir/.opencode/opencode.json` 的 fixture 被 `GET /config` 返回（家目录级配置查找已重定向到 `dataDir`，用户自己的 `~/.opencode` 不会被加载）。想手动看，把测试 `finally` 里的 `rmSync` 注释掉再跑一次，临时目录在 `os.tmpdir()/kits-opencode-*`。
 3. `packages/core/src/events.ts` 和 `docs/plans/phase1.md` 4.1 节的 `KernelEvent` 都多了 `retry` 事件，字段一致。
 
 ### 主要改动
 
-- `packages/kernel`：`KernelConfig` 新增 `dataDir`；`spawnEnv(cfg)` 独立成函数，`spawn` 用它拼子进程环境：`XDG_DATA_HOME / XDG_CACHE_HOME / XDG_CONFIG_HOME / XDG_STATE_HOME` 指到 `dataDir`，加 `OPENCODE_DISABLE_AUTOUPDATE / OPENCODE_DISABLE_EXTERNAL_SKILLS / OPENCODE_DISABLE_CLAUDE_CODE = 1`。只给子进程设，不动当前进程的环境。
+- `packages/kernel`：`KernelConfig` 新增 `dataDir`；`spawnEnv(cfg)` 独立成函数，`spawn` 用它拼子进程环境：`XDG_DATA_HOME / XDG_CACHE_HOME / XDG_CONFIG_HOME / XDG_STATE_HOME` 和 `OPENCODE_TEST_HOME` 指到 `dataDir`，加 `OPENCODE_DISABLE_AUTOUPDATE / OPENCODE_DISABLE_EXTERNAL_SKILLS / OPENCODE_DISABLE_CLAUDE_CODE = 1`。只给子进程设，不动当前进程的环境。`OPENCODE_TEST_HOME` 是从 1.19.5 的二进制里确认的 `Global.Path.home` 覆盖口（`home = OPENCODE_TEST_HOME ?? os.homedir()`），配置查找会扫 `{home}/.opencode`；升级 OpenCode 时要复查这个变量还在不在，契约测试会先报。
 - `packages/core`：`KernelEvent` 新增 `{ type: 'retry'; attempt; message; nextAt }`，`phase1.md` 同步。
 - 没有界面改动，没有 schema 改动，没有新依赖。
 
 ### 测试
 
-- 单元测试：`packages/kernel/src/dialects/opencode.test.ts` 新增 `spawnEnv` 3 个用例；契约测试改为同时传 `configDir` 和 `dataDir`。
+- 单元测试：`packages/kernel/src/dialects/opencode.test.ts` 新增 `spawnEnv` 3 个用例；契约测试同时传 `configDir` 和 `dataDir`，并断言数据目录和家目录级配置都落在 `dataDir`。
 
 ### 已知问题
 

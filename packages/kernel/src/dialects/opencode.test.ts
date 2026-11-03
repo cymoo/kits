@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -20,11 +20,16 @@ const cfg = {
 }
 
 describe('spawnEnv', () => {
-  it('points every XDG home at the kits data dir', () => {
+  it('points every XDG home and the opencode home at the kits data dir', () => {
     const env = spawnEnv(cfg, {})
-    for (const key of ['XDG_DATA_HOME', 'XDG_CACHE_HOME', 'XDG_CONFIG_HOME', 'XDG_STATE_HOME']) {
-      expect(env[key]).toBe('/kits/data')
-    }
+    const keys = [
+      'XDG_DATA_HOME',
+      'XDG_CACHE_HOME',
+      'XDG_CONFIG_HOME',
+      'XDG_STATE_HOME',
+      'OPENCODE_TEST_HOME',
+    ]
+    for (const key of keys) expect(env[key]).toBe('/kits/data')
   })
 
   it('disables autoupdate, external skills and claude code config', () => {
@@ -44,17 +49,26 @@ describe('spawnEnv', () => {
 describe.skipIf(!binary)('opencodeDialect.spawn', () => {
   it('starts opencode serve with per-instance auth and reports healthy', async () => {
     const root = mkdtempSync(path.join(os.tmpdir(), 'kits-opencode-'))
-    const kernel = await opencodeDialect.spawn({
-      ...cfg,
-      configDir: path.join(root, 'config'),
-      dataDir: path.join(root, 'data'),
-    })
+    const dataDir = path.join(root, 'data')
+    // 家目录级配置的 fixture：放在 dataDir 下的 .opencode/，只有 home 被重定向到 dataDir 时才会被加载
+    mkdirSync(path.join(dataDir, '.opencode'), { recursive: true })
+    writeFileSync(
+      path.join(dataDir, '.opencode', 'opencode.json'),
+      JSON.stringify({ username: 'kits-fixture' }),
+    )
+    const kernel = await opencodeDialect.spawn({ ...cfg, configDir: path.join(root, 'config'), dataDir })
     try {
       const anonymous = await fetch(`${kernel.baseUrl}/global/health`)
       expect(anonymous.status).toBe(401)
       const res = await fetch(`${kernel.baseUrl}/global/health`, { headers: kernel.headers })
       expect(res.status).toBe(200)
       expect(await res.json()).toMatchObject({ healthy: true })
+
+      // 隔离：XDG 数据落在 dataDir，home 级配置从 dataDir/.opencode 读而不是用户家目录
+      expect(existsSync(path.join(dataDir, 'opencode'))).toBe(true)
+      const config = await fetch(`${kernel.baseUrl}/config`, { headers: kernel.headers })
+      expect(config.status).toBe(200)
+      expect(await config.json()).toMatchObject({ username: 'kits-fixture' })
     } finally {
       await kernel.close()
       rmSync(root, { recursive: true, force: true })

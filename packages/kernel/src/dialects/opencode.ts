@@ -59,6 +59,8 @@ async function waitForHealth(
 }
 
 // 子进程环境变量。XDG_*_HOME 全部指到 kits 的数据目录，内核就不碰用户家目录的 OpenCode 数据；
+// OPENCODE_TEST_HOME 是 1.19.5 里 Global.Path.home 的唯一覆盖口（home = OPENCODE_TEST_HOME ?? os.homedir()），
+// 配置查找会扫 {home}/.opencode，不设它用户的 ~/.opencode/opencode.json 还是会被加载；
 // 三个 DISABLE 关掉自动更新、读 ~/.agents/skills 等外部技能、读 Claude Code 配置（PoC 里这两样每轮多 2.8k 输入 token，
 // 还让内核行为依赖本机环境）。只给子进程设，别 export 到当前 shell：XDG_DATA_HOME 会影响 fnm 之类的工具。
 export function spawnEnv(
@@ -72,6 +74,7 @@ export function spawnEnv(
     XDG_CACHE_HOME: cfg.dataDir,
     XDG_CONFIG_HOME: cfg.dataDir,
     XDG_STATE_HOME: cfg.dataDir,
+    OPENCODE_TEST_HOME: cfg.dataDir,
     OPENCODE_DISABLE_AUTOUPDATE: '1',
     OPENCODE_DISABLE_EXTERNAL_SKILLS: '1',
     OPENCODE_DISABLE_CLAUDE_CODE: '1',
