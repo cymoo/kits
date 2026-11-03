@@ -125,6 +125,8 @@ export interface CreateSessionInput {
   kernel: 'opencode' | 'codeagent'
   permissionMode: PermissionMode
   attachments?: AttachmentInput[]
+  // 这个会话里不用的 MCP 服务（输入框 + 菜单里关掉的）
+  mcpOff?: string[]
 }
 
 // 一轮改了的一个文件（改动面板）。内核在这一轮结束后才算出来，落库后推给界面

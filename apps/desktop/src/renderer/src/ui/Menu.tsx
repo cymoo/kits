@@ -54,6 +54,42 @@ export function MenuItem({ children, onSelect }: { children: ReactNode; onSelect
   )
 }
 
+// 菜单里的开关项（输入框 + 菜单的“本次会话可用的平台”）：点了不关菜单
+export function MenuSwitchItem({
+  checked,
+  onCheckedChange,
+  children,
+}: {
+  checked: boolean
+  onCheckedChange(v: boolean): void
+  children: ReactNode
+}) {
+  return (
+    <M.CheckboxItem
+      checked={checked}
+      onCheckedChange={onCheckedChange}
+      onSelect={(e) => e.preventDefault()}
+      className={item}
+    >
+      <span className="min-w-0 flex-1">{children}</span>
+      <span
+        aria-hidden="true"
+        className={cx(
+          'relative h-[18px] w-8 shrink-0 rounded-[9px] transition-colors',
+          checked ? 'bg-primary' : 'bg-[#D4D4D8]',
+        )}
+      >
+        <span
+          className={cx(
+            'absolute top-0.5 h-3.5 w-3.5 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)] transition-transform',
+            checked ? 'translate-x-4' : 'translate-x-0.5',
+          )}
+        />
+      </span>
+    </M.CheckboxItem>
+  )
+}
+
 export const MenuRadioGroup = M.RadioGroup
 
 export function MenuRadioItem({ value, children }: { value: string; children: ReactNode }) {

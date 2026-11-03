@@ -29,6 +29,7 @@ import {
   MenuRadioItem,
   MenuSegmented,
   MenuSeparator,
+  MenuSwitchItem,
   MenuTrigger,
 } from '../ui/Menu'
 import { type AtQuery, atQuery, formatSize, insertAt } from './composer-at'
@@ -52,6 +53,7 @@ export interface ComposerSubmit {
   kernel: 'opencode' | 'codeagent'
   model: string
   attachments: AttachmentInput[]
+  mcpOff: string[]
 }
 
 const chip =
@@ -98,6 +100,13 @@ export function Composer({
   const [atIndex, setAtIndex] = useState(0)
   const [atDismissed, setAtDismissed] = useState<number>()
   const workdir = locked ? lockedAs?.workdir : resolved.workdir
+  // 设置里启用的 MCP 服务，+ 菜单里可以这次关掉
+  const mcp = useQuery({
+    queryKey: ['mcp', 'overview'],
+    queryFn: () => kits.mcp.overview(),
+    enabled: !locked,
+  })
+  const platforms = (mcp.data?.servers ?? []).filter((s) => s.enabled)
   const atOpen = !!at && at.start !== atDismissed
   const matches = useQuery({
     queryKey: ['files', workdir, at?.query ?? ''],
@@ -409,6 +418,32 @@ export function Composer({
               <span className="flex-1">{t('composer.reference')}</span>
               <small className="text-[0.885rem] text-fg-label">@</small>
             </MenuItem>
+            {/* 会话开始后权限已经定了，只有新会话能选这次用哪些平台 */}
+            {!locked && platforms.length ? (
+              <>
+                <MenuSeparator />
+                <MenuLabel>{t('composer.platforms')}</MenuLabel>
+                {platforms.map((p) => (
+                  <MenuSwitchItem
+                    key={p.name}
+                    checked={!prefs.mcpOff.includes(p.name)}
+                    onCheckedChange={(on) =>
+                      prefs.set({
+                        mcpOff: on
+                          ? prefs.mcpOff.filter((n) => n !== p.name)
+                          : [...prefs.mcpOff, p.name],
+                      })
+                    }
+                  >
+                    <span className="font-mono text-[0.923rem]">{p.name}</span>
+                  </MenuSwitchItem>
+                ))}
+                <MenuItem onSelect={() => navigate('/settings/mcp')}>
+                  <SlidersHorizontal size={14} className="text-fg-muted" />
+                  <span className="text-fg-muted">{t('composer.manageMcp')}</span>
+                </MenuItem>
+              </>
+            ) : null}
           </MenuContent>
         </Menu>
         {locked && lockedAs ? (

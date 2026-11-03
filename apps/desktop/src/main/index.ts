@@ -15,6 +15,7 @@ import { push, registerIpc, trustedUrl } from './ipc/register'
 import { kernelSettingsKey, loadAgents, loadMcp } from './kernel/kernel-config'
 import { kernelInfo, kernelLogsDir } from './kernel/kernel-info'
 import { createKernelManager } from './kernel/runtime'
+import { McpService } from './mcp/mcp-service'
 import { createElectronPlatform } from './platform'
 import { SessionService } from './sessions/session-service'
 import { SessionStore } from './sessions/session-store'
@@ -134,6 +135,13 @@ app.whenReady().then(() => {
   onConfigChanged = () => kernels.configChanged()
 
   const files = new FileSearch()
+  const lookupVar = (name: string) => secrets.get(`env:${name}`) ?? process.env[name]
+  const mcp = new McpService({
+    file: config.paths.mcp,
+    lookupVar,
+    hasVar: (name) => lookupVar(name) !== undefined,
+    onChanged: () => kernels.configChanged(),
+  })
   const store = new SessionStore(db)
   // 上次退出时还在跑的会话标成中断
   store.markInterrupted(Date.now())
@@ -203,6 +211,15 @@ app.whenReady().then(() => {
         list: (id) => sessions.outputs(id),
         save: (input) => sessions.saveOutput(input),
         export: (input) => sessions.exportOutput(input),
+      },
+      mcp: {
+        overview: () => mcp.overview(),
+        parse: (text) => mcp.parse(text),
+        add: (text) => mcp.add(text),
+        remove: (name) => mcp.remove(name),
+        setEnabled: ({ name, enabled }) => mcp.setEnabled(name, enabled),
+        setPermission: ({ server, tool, level }) => mcp.setPermission(server, tool, level),
+        test: (name) => mcp.test(name),
       },
       files: {
         search: ({ workdir, query }) => files.search(workdir, query),

@@ -1,4 +1,6 @@
+import type { PermissionLevel } from './config/permission'
 import type { GeneralSettings, Settings } from './config/settings'
+import type { McpOverview, McpParseResult, McpTestResult } from './mcp-view'
 import type {
   AgentSummary,
   AttachmentInput,
@@ -17,6 +19,7 @@ import type {
 export type { Gateway, GatewayModel } from './config/gateway'
 export type { PermissionLevel, PermissionMode } from './config/permission'
 export type { GeneralSettings, Settings } from './config/settings'
+export type * from './mcp-view'
 export type * from './session'
 
 // IPC 契约（phase1-implementation 5.5 节）：一个对象字面量声明所有通道的入参和返回值。
@@ -126,6 +129,18 @@ export const ipcContract = {
     save: method<{ id: string; edited: unknown | null }, OutputView>(),
     // 写到 {userData}/exports/，返回文件路径
     export: method<{ id: string; format: 'markdown' | 'json' }, { path: string }>(),
+  },
+  mcp: {
+    overview: method<undefined, McpOverview>(),
+    // 粘贴识别，不写文件
+    parse: method<string, McpParseResult>(),
+    // 把粘贴的服务写进 mcp.json，返回加上的服务名
+    add: method<string, string[]>(),
+    remove: method<string, void>(),
+    setEnabled: method<{ name: string; enabled: boolean }, void>(),
+    // level 为 null 回到默认
+    setPermission: method<{ server: string; tool: string; level: PermissionLevel | null }, void>(),
+    test: method<string, McpTestResult>(),
   },
   files: {
     // 输入框 @ 菜单：工作目录里按路径匹配的文件（相对路径），最多 30 个

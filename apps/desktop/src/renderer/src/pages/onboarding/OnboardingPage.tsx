@@ -1,18 +1,20 @@
-import type { GatewayTestResult } from '@kits/core/ipc'
+import type { GatewayTestResult, McpTestResult } from '@kits/core/ipc'
 import { Check } from 'lucide-react'
 import { RadioGroup } from 'radix-ui'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../../app/i18n'
+import { kits } from '../../lib/kits'
 import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { Field, Input } from '../../ui/Input'
 import { Spinner } from '../../ui/Spinner'
+import { McpPaste, useMcpOverview } from '../settings/mcp/McpSection'
 import { TestResult, useKeyHint } from '../settings/model/ModelSection'
 import { useGateways } from '../settings/model/useGateways'
 
 // 首次引导（原型 onboarding.html）：左侧三步导航，右侧当前步骤。
-// 第 1 步网关在这里做；第 2 步工作目录和首次启动门控在 PR17，第 3 步 MCP 在 PR12，先放占位。
+// 第 1 步网关、第 3 步 MCP 在这里做；第 2 步工作目录和首次启动门控在 PR17，先放占位。
 
 const STEPS = [
   { title: '模型网关', sub: '先配一个，能测通就行' },
@@ -141,16 +143,95 @@ function GatewayStep({ onNext }: { onNext(): void }) {
   )
 }
 
-function PendingStep({ onDone }: { onDone(): void }) {
+function PendingStep({ onNext }: { onNext(): void }) {
   return (
     <div className="flex flex-col gap-4 px-8 py-7">
       <p className="m-0 text-fg-muted">{t('settings.pending')}</p>
       <div className="flex justify-end">
-        <Button variant="primary" onClick={onDone}>
-          {t('onboarding.finish')}
+        <Button variant="primary" onClick={onNext}>
+          {t('onboarding.next')}
         </Button>
       </div>
     </div>
+  )
+}
+
+// 第 3 步：粘贴 mcpServers，加上后逐个测试连接；可以跳过
+function McpStep({ onBack, onDone }: { onBack(): void; onDone(): void }) {
+  const [tests, setTests] = useState<
+    { name: string; type: string; result?: McpTestResult; pending: boolean }[]
+  >([])
+  const overview = useMcpOverview()
+  const run = async (names: string[]) => {
+    const servers = (await kits.mcp.overview()).servers
+    setTests(
+      names.map((name) => ({
+        name,
+        type: servers.find((s) => s.name === name)?.type ?? '',
+        pending: true,
+      })),
+    )
+    await Promise.all(
+      names.map(async (name) => {
+        const result = await kits.mcp.test(name)
+        setTests((cur) => cur.map((x) => (x.name === name ? { ...x, result, pending: false } : x)))
+      }),
+    )
+    void overview.refetch()
+  }
+  return (
+    <>
+      <div className="flex flex-col gap-[22px] px-8 pt-7 pb-2">
+        <div className="flex flex-col gap-1">
+          <h2 className="m-0 font-semibold text-[1.385rem]">{t('onboarding.mcpTitle')}</h2>
+          <p className="m-0 text-fg-muted">{t('onboarding.mcpIntro')}</p>
+        </div>
+        <McpPaste rows={7} onAdded={(names) => void run(names)} />
+        {tests.length ? (
+          <div className="flex flex-col gap-2 pb-2" data-testid="onboarding-mcp">
+            {tests.map((x) => {
+              const ok = x.result?.ok
+              return (
+                <div
+                  key={x.name}
+                  className="flex items-center gap-2.5 rounded-[10px] border border-line px-3.5 py-2.5"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={cx(
+                      'h-2 w-2 shrink-0 rounded-full',
+                      x.pending ? 'bg-warn' : ok ? 'bg-ok' : 'bg-danger',
+                    )}
+                  />
+                  <span className="font-medium font-mono text-[0.962rem]">{x.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-[0.923rem] text-fg-muted">
+                    {x.type === 'http' ? 'HTTP' : 'stdio'} ·{' '}
+                    {x.pending
+                      ? t('mcp.testing')
+                      : x.result?.ok
+                        ? t('onboarding.mcpOk', { n: x.result.tools })
+                        : (x.result?.error.split('\n')[0] ?? '')}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        ) : null}
+      </div>
+      <footer className="mt-2 flex items-center gap-2.5 border-line-soft border-t px-8 pt-4 pb-5">
+        <span className="text-[0.923rem] text-fg-muted">{t('onboarding.stepOf', { n: 3 })}</span>
+        <span className="flex-1" />
+        <Button className="h-9 px-3.5" onClick={onBack}>
+          {t('onboarding.back')}
+        </Button>
+        <Button variant="ghost" className="h-9 px-3.5" onClick={onDone}>
+          {t('onboarding.skip')}
+        </Button>
+        <Button variant="primary" className="h-9 px-[18px]" onClick={onDone}>
+          {t('onboarding.done')}
+        </Button>
+      </footer>
+    </>
   )
 }
 
@@ -214,8 +295,10 @@ export function OnboardingPage() {
           >
             {step === 0 ? (
               <GatewayStep onNext={() => setStep(1)} />
+            ) : step === 1 ? (
+              <PendingStep onNext={() => setStep(2)} />
             ) : (
-              <PendingStep onDone={() => navigate('/')} />
+              <McpStep onBack={() => setStep(1)} onDone={() => navigate('/')} />
             )}
           </section>
         </div>
