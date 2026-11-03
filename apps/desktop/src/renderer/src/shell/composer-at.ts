@@ -21,7 +21,8 @@ export function insertAt(
   path: string,
 ): { text: string; caret: number } {
   const inserted = `@${path} `
-  const next = text.slice(0, at.start) + inserted + text.slice(caret).replace(/^\s/, '')
+  // 只吃掉紧跟的一个普通空格，换行、制表符留着
+  const next = text.slice(0, at.start) + inserted + text.slice(caret).replace(/^ /, '')
   return { text: next, caret: at.start + inserted.length }
 }
 

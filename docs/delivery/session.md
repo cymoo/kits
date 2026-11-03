@@ -188,8 +188,8 @@ phase1-implementation PR11：输入框能带附件（需求文档、用例、日
 - `packages/core`：`AttachmentInput`（名字、类型、字节）和 `AttachmentView`；`CreateSessionInput.attachments`、`session.prompt` 的 `attachments`；`SessionDetail.attachments`；IPC `files.search`；推送 `session.attachments`。
 - `apps/desktop/src/main/attachments/extract.ts`：附件转文本。Word 用 mammoth 取正文，PDF 用 pdfjs-dist 逐页取文字（不渲染，不装 `@napi-rs/canvas`），Markdown / 纯文本 / 代码 / 日志 / CSV / JSON 按 UTF-8 读；单个附件超过 20 万字截断并注明；图片和其他二进制文件报错。
 - `apps/desktop/src/main/files/search.ts`：列工作目录里的文件（跳过 `.git`、`node_modules`、`dist`、`.venv` 等，最多 2 万个，缓存 30 秒），按“文件名开头 > 文件名包含 > 路径包含”排序，返回 30 个。
-- `apps/desktop/src/main/sessions/session-service.ts`：建会话、接着说时先把附件存到 `{userData}/attachments/<会话>/`（原文件 + `.txt`），读不了就报错、会话不建；这一轮的用户消息建好后写 `attachments` 表；转出来的文字随消息发给内核（适配器包成 `<attachment name="…">` 段）；运行中排队的消息带着附件，合并时一起发。单个附件上限 20 MB。
-- `apps/desktop/src/renderer/src/shell/Composer.tsx`：`+` 菜单（上传文件、引用工作目录里的文件）、拖放、附件芯片、`@` 菜单；`shell/composer-at.ts` 是 @ 查询和替换的纯函数。
+- `apps/desktop/src/main/sessions/session-service.ts`：建会话、接着说时先把附件存到 `{userData}/attachments/<会话>/`（原文件 + `.txt`），读不了就报错、会话不建；这一轮的用户消息建好后写 `attachments` 表；转出来的文字随消息发给内核（适配器包成 `<attachment name="…">` 段）；运行中排队的消息带着附件，合并时一起发。单个附件上限 20 MB。一批里有一个读不了就整批的文件都删掉；转附件期间点了停止，这条追问作废、文件删掉；停止时丢掉的排队消息，附件也删掉。读不了的错误都带文件名。
+- `apps/desktop/src/renderer/src/shell/Composer.tsx`：`+` 菜单（上传文件、引用工作目录里的文件）、拖放、附件芯片、`@` 菜单；`shell/composer-at.ts` 是 @ 查询和替换的纯函数（只吃掉紧跟的一个空格，换行留着）。发送期间新加的附件不会被清掉；@ 结果还没回来时回车不发送；输入框按组合框标注（`aria-activedescendant` 指向选中的文件），读屏能读出当前选项。
 - `session/thread/Blocks.tsx`：用户消息下面的附件芯片。
 - `pnpm-workspace.yaml`：`overrides` 去掉 `@napi-rs/canvas`（pdfjs-dist 的可选原生依赖，只在渲染页面时用）。
 - 原型没画到、按风格补的：拖放时的“松开添加附件”遮罩；读不了附件时的报错；`+` 菜单里原型还有“本次会话可用的平台”开关，那是 PR12 的 MCP。

@@ -31,6 +31,12 @@ describe('extractText', () => {
     expect(text).toContain('后面还有 10 字没放进来')
   })
 
+  it('names the file when a document cannot be parsed', async () => {
+    await expect(
+      extractText('坏的.docx', '', new TextEncoder().encode('not a zip')),
+    ).rejects.toThrow('坏的.docx：读不了')
+  })
+
   it('refuses images and other binary files', async () => {
     expect(attachmentKind('shot.png', 'image/png')).toBeUndefined()
     await expect(extractText('shot.png', 'image/png', new Uint8Array([1]))).rejects.toBeInstanceOf(
