@@ -201,6 +201,7 @@ app.whenReady().then(() => {
           kernels.configChanged()
         },
         has: (key) => secrets.has(key),
+        encrypted: () => secrets.encrypted,
         remove: (key) => {
           secrets.remove(key)
           kernels.configChanged()

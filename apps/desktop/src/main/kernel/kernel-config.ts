@@ -58,6 +58,18 @@ export function prepareKernelConfig(input: PrepareInput) {
   const { config, secrets } = input
   const env = input.env ?? process.env
   const settings = config.getSettings()
+  const agents = loadAgentsDir(config.paths.agents, 'personal')
+  // 读不了的 Agent 文件作为配置问题报出来、不启动内核，不能悄悄退回内置的同名 Agent
+  if (agents.errors.length > 0) {
+    return {
+      ok: false as const,
+      problems: agents.errors.map((e) => ({
+        section: 'agent' as const,
+        target: path.basename(e.path, '.md'),
+        message: e.message,
+      })),
+    }
+  }
   const skills = loadSkillsDir(config.paths.skills, 'personal')
   return generateOpencodeConfig({
     settings,

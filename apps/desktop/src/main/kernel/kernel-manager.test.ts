@@ -133,12 +133,14 @@ describe('KernelManager lifecycle', () => {
       },
       prepare: async () => ok,
     })
-    await manager.acquire('opencode')
+    const first = await manager.acquire('opencode')
     manager.release('opencode')
     const restart = manager.restart('opencode')
-    await manager.acquire('opencode')
+    const second = await manager.acquire('opencode')
     await restart
     expect(maxAlive).toBe(1)
+    // 拿到的是重启后的新实例，不是马上要被关掉的旧实例
+    expect(second).not.toBe(first)
     expect(manager.status('opencode').state).toBe('running')
   })
 
@@ -193,5 +195,30 @@ describe('KernelManager lifecycle', () => {
     expect(made).toHaveLength(1)
     expect(made[0]?.raw.dispose).toHaveBeenCalled()
     await expect(manager.acquire('opencode')).rejects.toThrow('退出')
+  })
+})
+
+describe('prepareKernelConfig', () => {
+  it('reports an agent file it cannot load instead of falling back to the builtin agent', async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs')
+    const os = await import('node:os')
+    const path = await import('node:path')
+    const { ConfigService } = await import('../config/config-service')
+    const { prepareKernelConfig } = await import('./kernel-config')
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'kits-agents-'))
+    mkdirSync(path.join(dir, 'agents'))
+    writeFileSync(
+      path.join(dir, 'agents', 'assistant.md'),
+      '---\nname: assistant\noutput: missing.json\n---\n',
+    )
+    const result = prepareKernelConfig({
+      config: new ConfigService({ dir }),
+      secrets: { get: () => undefined } as never,
+    })
+    expect(result.ok).toBe(false)
+    expect(!result.ok && result.problems[0]).toMatchObject({
+      section: 'agent',
+      target: 'assistant',
+    })
   })
 })

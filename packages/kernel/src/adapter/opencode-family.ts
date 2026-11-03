@@ -38,6 +38,8 @@ const STATUS_TIMEOUT_MS = 5_000
 class EventHub {
   private listeners = new Set<Listener>()
   private controller: AbortController | undefined
+  // 还在等第一条事件时被关掉（进程退出），让等着的订阅失败，不然这一轮一直挂着
+  private failFirst: ((e: Error) => void) | undefined
   private connected: Promise<void> | undefined
   lastEventAt = Date.now()
 
@@ -72,6 +74,11 @@ class EventHub {
     this.controller = controller
     return new Promise((resolve, reject) => {
       let first = true
+      this.failFirst = (e) => {
+        if (!first) return
+        first = false
+        reject(e)
+      }
       const loop = async () => {
         while (!controller.signal.aborted) {
           try {
@@ -111,6 +118,8 @@ class EventHub {
   }
 
   close(): void {
+    this.failFirst?.(new Error('内核事件流已关闭'))
+    this.failFirst = undefined
     this.controller?.abort()
     this.controller = undefined
     this.listeners.clear()

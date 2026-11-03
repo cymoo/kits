@@ -115,6 +115,8 @@ export const ipcContract = {
     set: method<{ key: string; value: string }, void>(),
     has: method<string, boolean>(),
     remove: method<string, void>(),
+    // 系统钥匙串能不能用；不能用时密钥以明文（base64）存在 secrets.json，界面要说清楚
+    encrypted: method<undefined, boolean>(),
   },
 } as const
 
