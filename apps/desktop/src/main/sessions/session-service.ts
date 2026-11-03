@@ -16,7 +16,8 @@ import type {
   SessionSummary,
   ToolCallRegistry,
 } from '@kits/core'
-import { type AgentKernel, agentPermissions, type KernelSession } from '@kits/kernel'
+import { skillPrompt } from '@kits/core'
+import { type AgentKernel, agentPermissions, type KernelSession, skillDenies } from '@kits/kernel'
 import { extractText } from '../attachments/extract'
 import type { KernelManager } from '../kernel/kernel-manager'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
@@ -45,6 +46,10 @@ export interface SessionServiceDeps {
   exportsDir: string
   // 附件原文件和转出来的文字放这里（{userData}/attachments），每个会话一个子目录
   attachmentsDir: string
+  // settings.json 里关掉的技能
+  disabledSkills?: () => string[]
+  // 这个工作目录下能用的技能名（三级合并后启用的），`/技能名` 开头的消息据此改写
+  enabledSkills?: (workdir: string) => string[]
   // 附件转文本，测试里可以换掉
   extractText?: (name: string, mime: string, data: Uint8Array) => Promise<string>
   // 取改动、补轮次号读内核的截止时间：请求挂住也要收尾、释放内核
@@ -511,6 +516,8 @@ export class SessionService {
                 session.permissionMode,
                 this.deps.loadMcp(),
               ),
+              // 关掉的技能和内核自带的技能：会话规则排在全局后面，这里要再拒绝一遍
+              ...skillDenies(this.deps.disabledSkills?.() ?? []),
               // 输入框里关掉的平台：这个会话里它的工具一律不能用（排在最后，最后命中的生效）
               ...(this.mcpOff.get(session.id) ?? []).map((server) => ({
                 tool: `${server}_*`,
@@ -527,7 +534,9 @@ export class SessionService {
         return
       }
       let submitted = false
-      for await (const event of kernel.prompt(ks, { text, attachments: run.attachments })) {
+      // `/技能名 …`：发给内核时明确让 Agent 先加载这个技能；界面上的用户消息照原样
+      const sent = skillPrompt(text, this.deps.enabledSkills?.(session.workdir) ?? [])
+      for await (const event of kernel.prompt(ks, { text: sent, attachments: run.attachments })) {
         // 内核有了动静（不是准备阶段就结束）才算这条消息真的进了内核：这时记下它是内核里第几条用户消息
         if (!submitted && event.type !== 'done') {
           submitted = true

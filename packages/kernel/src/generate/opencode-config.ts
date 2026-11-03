@@ -30,8 +30,10 @@ export interface OpencodeConfigInput {
   // 已按三级来源合并
   agents: AgentProfile[]
   mcp: McpFile
-  // 已按三级来源合并、只含启用的
+  // 内置和个人技能里启用的，目录列给内核；项目技能（<工作目录>/.agents/skills）由内核自己按会话目录找
   skills: SkillInfo[]
+  // 关掉的技能名（含项目技能）：内核里拒绝调用
+  disabledSkills?: string[]
   // 存在的 memory.md 绝对路径：个人在前、项目在后
   instructions: string[]
   // 网关 id → API Key（来自 secrets）
@@ -371,10 +373,13 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
     model: settings.defaultModel,
     ...(defaultAgent ? { default_agent: opencodeAgentName(defaultAgent) } : {}),
     agent,
-    permission: {
-      ...basePermissions({ mode: 'ask', mcp: mcpRules(input.mcp) }),
-      ...Object.fromEntries(kitsToolRules.map((r) => [r.tool, r.level])),
-    },
+    permission: withSkillDenies(
+      {
+        ...basePermissions({ mode: 'ask', mcp: mcpRules(input.mcp) }),
+        ...Object.fromEntries(kitsToolRules.map((r) => [r.tool, r.level])),
+      },
+      input.disabledSkills ?? [],
+    ),
     mcp,
     // 技能目录直接列给内核，内核会把每个技能同时注册成 / 命令
     skills: { paths: input.skills.map((s) => s.dir) },
@@ -388,6 +393,29 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
       env,
     },
   }
+}
+
+// OpenCode 自带的技能：教人改 opencode.json 的，kits 用户用不上，也不该让 Agent 去改内核配置
+export const KERNEL_BUILTIN_SKILLS = ['customize-opencode']
+
+// 关掉的技能、内核自带的技能一律拒绝。会话的规则排在全局后面（最后命中的生效），建会话时也要追加一遍
+export function skillDenies(disabled: string[]): PermissionRule[] {
+  return [...new Set([...KERNEL_BUILTIN_SKILLS, ...disabled])].map((name) => ({
+    tool: 'skill',
+    pattern: name,
+    level: 'deny' as const,
+  }))
+}
+
+function withSkillDenies(
+  permission: Record<string, unknown>,
+  disabled: string[],
+): Record<string, unknown> {
+  const base = permission.skill
+  const rules: Record<string, unknown> =
+    typeof base === 'object' && base !== null ? { ...(base as object) } : { '*': base ?? 'allow' }
+  for (const r of skillDenies(disabled)) rules[r.pattern] = r.level
+  return { ...permission, skill: rules }
 }
 
 function opencodeMcp(

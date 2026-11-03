@@ -12,7 +12,7 @@ import { openDatabase } from './db'
 import { FileSearch } from './files/search'
 import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc, trustedUrl } from './ipc/register'
-import { kernelSettingsKey, loadAgents, loadMcp } from './kernel/kernel-config'
+import { kernelSettingsKey, loadAgents, loadMcp, loadSkills } from './kernel/kernel-config'
 import { kernelInfo, kernelLogsDir } from './kernel/kernel-info'
 import { createKernelManager } from './kernel/runtime'
 import { McpService } from './mcp/mcp-service'
@@ -59,6 +59,13 @@ function homeLabel(dir: string): string {
   const home = os.homedir()
   const shown = dir === home || dir.startsWith(home + path.sep) ? `~${dir.slice(home.length)}` : dir
   return shown.endsWith(path.sep) ? shown : `${shown}${path.sep}`
+}
+
+// 内置的技能等（打包后在 resources/builtin，开发时在 apps/desktop/resources/builtin）
+function builtinFolder(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'builtin')
+    : path.resolve(import.meta.dirname, '../../resources/builtin')
 }
 
 function migrationsFolder(): string {
@@ -131,6 +138,7 @@ app.whenReady().then(() => {
     secrets,
     tools,
     onStatus: (status) => push('kernel.status', status),
+    builtinDir: builtinFolder(),
   })
   onConfigChanged = () => kernels.configChanged()
 
@@ -154,6 +162,11 @@ app.whenReady().then(() => {
     push,
     exportsDir: path.join(platform.userDataDir, 'exports'),
     attachmentsDir: path.join(platform.userDataDir, 'attachments'),
+    disabledSkills: () => config.getSettings().skillsDisabled,
+    enabledSkills: (workdir) =>
+      loadSkills(config, builtinFolder(), workdir)
+        .skills.filter((s) => s.enabled)
+        .map((s) => s.name),
   })
   // 提问、产出交给会话服务；记忆在 PR16 接上
   tools.setHandlers({
@@ -220,6 +233,46 @@ app.whenReady().then(() => {
         setEnabled: ({ name, enabled }) => mcp.setEnabled(name, enabled),
         setPermission: ({ server, tool, level }) => mcp.setPermission(server, tool, level),
         test: (name) => mcp.test(name),
+      },
+      skills: {
+        list: ({ workdir }) => {
+          const dir = workdir ? realpathSync(workdir) : undefined
+          const { skills, errors } = loadSkills(config, builtinFolder(), dir)
+          return {
+            skills: skills.map((s) => ({
+              name: s.name,
+              description: s.description,
+              source: s.source,
+              dir: s.dir,
+              enabled: s.enabled,
+              shadows: s.shadows,
+            })),
+            dirs: {
+              builtin: path.join(builtinFolder(), 'skills'),
+              personal: config.paths.skills,
+              ...(dir ? { project: path.join(dir, '.agents', 'skills') } : {}),
+            },
+            errors: errors.map((e) => ({ path: e.path, message: e.message })),
+          }
+        },
+        setEnabled: ({ name, enabled }) => {
+          const off = config.getSettings().skillsDisabled.filter((n) => n !== name)
+          config.updateSettings({ skillsDisabled: enabled ? off : [...off, name] })
+        },
+        openDir: async ({ source, workdir }) => {
+          // 内置的只读，打开看看；个人、项目的没有就先建好再打开
+          const dir =
+            source === 'builtin'
+              ? path.join(builtinFolder(), 'skills')
+              : source === 'personal'
+                ? config.paths.skills
+                : workdir
+                  ? path.join(realpathSync(workdir), '.agents', 'skills')
+                  : undefined
+          if (!dir) throw new Error('没有工作目录')
+          if (source !== 'builtin') mkdirSync(dir, { recursive: true })
+          await platform.openPath(dir)
+        },
       },
       files: {
         search: ({ workdir, query }) => files.search(workdir, query),

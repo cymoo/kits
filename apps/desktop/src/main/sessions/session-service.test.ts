@@ -577,6 +577,20 @@ describe('SessionService platforms', () => {
   })
 })
 
+describe('SessionService skills', () => {
+  it('asks the kernel to load the skill named at the start of the message and shows the text as typed', async () => {
+    const { service, waitFor, kernel, store } = setup('done')
+    ;(service as unknown as { deps: { enabledSkills: unknown } }).deps.enabledSkills = () => [
+      'test-plan',
+    ]
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create({ ...input, text: '/test-plan 按需求出用例' })
+    await waitFor(s.id, ['done'])
+    expect(prompt.mock.calls[0]?.[1].text).toContain('使用技能 test-plan')
+    expect(store.detail(s.id)?.messages[0]?.text).toBe('/test-plan 按需求出用例')
+  })
+})
+
 describe('exportName', () => {
   it('drops characters that cannot go into a file name and adds the turn when there are several', () => {
     const at = new Date(2026, 10, 4).getTime()

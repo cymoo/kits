@@ -32,10 +32,11 @@ describe('spawnEnv', () => {
     for (const key of keys) expect(env[key]).toBe('/kits/data')
   })
 
-  it('disables autoupdate, external skills, claude code config and network downloads', () => {
+  it('disables autoupdate, claude code config and network downloads but keeps project skills', () => {
     const env = spawnEnv(cfg, {})
     expect(env.OPENCODE_DISABLE_AUTOUPDATE).toBe('1')
-    expect(env.OPENCODE_DISABLE_EXTERNAL_SKILLS).toBe('1')
+    // 项目的 .agents/skills 靠内核自己的外部技能发现
+    expect(env.OPENCODE_DISABLE_EXTERNAL_SKILLS).toBeUndefined()
     expect(env.OPENCODE_DISABLE_CLAUDE_CODE).toBe('1')
     expect(env.OPENCODE_DISABLE_MODELS_FETCH).toBe('1')
     expect(env.OPENCODE_DISABLE_LSP_DOWNLOAD).toBe('1')

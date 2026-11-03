@@ -14,6 +14,7 @@ import {
   type GenerateResult,
   generateOpencodeConfig,
   type OpencodeConfigInput,
+  skillDenies,
 } from './opencode-config'
 import { writeGeneratedFiles } from './write'
 
@@ -384,5 +385,25 @@ describe('writeGeneratedFiles', () => {
     await expect(
       writeGeneratedFiles(os.tmpdir(), { files: [{ path: '../x.json', content: '' }], env: {} }),
     ).rejects.toThrow()
+  })
+})
+
+describe('skill permissions', () => {
+  it('denies the skills turned off in settings and the kernel builtin one', () => {
+    const permission = config({ disabledSkills: ['code-review'] }).permission as {
+      skill: Record<string, string>
+    }
+    expect(permission.skill).toEqual({
+      '*': 'allow',
+      'customize-opencode': 'deny',
+      'code-review': 'deny',
+    })
+  })
+
+  it('gives sessions the same denies to append after their own rules', () => {
+    expect(skillDenies(['code-review'])).toEqual([
+      { tool: 'skill', pattern: 'customize-opencode', level: 'deny' },
+      { tool: 'skill', pattern: 'code-review', level: 'deny' },
+    ])
   })
 })

@@ -42,6 +42,27 @@ export interface PrepareInput {
   secrets: SecretStore
   kitsTools?: { url: string; token: string }
   env?: NodeJS.ProcessEnv
+  // 内置的技能、Agent 所在目录（resources/builtin）；测试里可以不给
+  builtinDir?: string
+}
+
+// 三级技能：内置（resources/builtin/skills）、个人（~/.kits/skills）、项目（<工作目录>/.agents/skills），
+// 同名时项目覆盖个人覆盖内置；settings.json 里关掉的标成停用
+export function loadSkills(config: ConfigService, builtinDir?: string, workdir?: string) {
+  const builtin = builtinDir
+    ? loadSkillsDir(path.join(builtinDir, 'skills'), 'builtin')
+    : { items: [], errors: [] }
+  const personal = loadSkillsDir(config.paths.skills, 'personal')
+  const project = workdir
+    ? loadSkillsDir(path.join(workdir, '.agents', 'skills'), 'project')
+    : { items: [], errors: [] }
+  return {
+    skills: resolveSkills(
+      [builtin.items, personal.items, project.items],
+      config.getSettings().skillsDisabled,
+    ),
+    errors: [...builtin.errors, ...personal.errors, ...project.errors],
+  }
 }
 
 // 内置和个人两级 Agent，按来源合并（会话服务建会话时也用）
@@ -71,12 +92,14 @@ export function prepareKernelConfig(input: PrepareInput) {
       })),
     }
   }
-  const skills = loadSkillsDir(config.paths.skills, 'personal')
+  // 项目技能不列给内核：内核按会话目录自己去找（外部技能发现），这里只列内置和个人的
+  const skills = loadSkills(config, input.builtinDir).skills
   return generateOpencodeConfig({
     settings,
     agents: loadAgents(config),
     mcp: loadMcp(config),
-    skills: resolveSkills([skills.items], settings.skillsDisabled).filter((s) => s.enabled),
+    skills: skills.filter((s) => s.enabled),
+    disabledSkills: settings.skillsDisabled,
     instructions: existsSync(config.paths.memory) ? [config.paths.memory] : [],
     gatewayKeys: Object.fromEntries(
       settings.gateways.flatMap((g) => {
