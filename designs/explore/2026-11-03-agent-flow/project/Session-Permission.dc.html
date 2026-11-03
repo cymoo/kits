@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>会话 · 命令执行确认</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F2}
+a{color:#3659E3}a:hover{color:#2744B8}
+.k-ghost:hover{background:#EFEEEA}
+.k-nav:hover{background:#E9E8E3}
+.k-chip:hover{background:#EFEEEA;color:#1B1B1F}
+.k-row:hover{background:#F4F3F0}
+.k-in:focus{outline:none;border-color:#3659E3;box-shadow:0 0 0 3px rgba(54,89,227,.15)}
+@keyframes k-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes k-spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 13px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
+
+  <nav aria-label="侧栏" style="flex: 0 0 232px; display: flex; flex-direction: column; gap: 6px; padding: 12px 8px 8px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F1F0EC">
+    <div style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px">
+      <span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; background: #1B1B1F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px">k</span>
+      <span style="font-weight: 650; font-size: 14px; letter-spacing: -0.01em">kits</span>
+      <span style="flex: 1"></span>
+      <button type="button" aria-label="收起侧栏" class="k-ghost" style="width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: #6E6E76; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M6 3v10"></path></svg></button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1px">
+      <a href="Home.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg><span style="flex: 1">新会话</span><span style="font-size: 11px; color: #9A9AA1">⌘N</span></a>
+      <a href="History-Search.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg><span style="flex: 1">搜索</span><span style="font-size: 11px; color: #9A9AA1">⌘K</span></a>
+    </div>
+    <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; margin-top: 6px">
+      <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 8px 8px 4px">今天</span>
+      <a href="Session-Permission.dc.html" aria-current="page" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; background: #E9E8E3; color: #1B1B1F; text-decoration: none; font-weight: 500"><span aria-hidden="true" style="{{sideDot}}"></span><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">给兑换接口加幂等校验</span><sc-if value="{{pending}}" hint-placeholder-val="{{true}}"><span style="font-size: 11px; color: #B4650A; flex: 0 0 auto; font-weight: 400">待确认</span></sc-if></a>
+      <a href="Session-Streaming.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; background: #3659E3; flex: 0 0 auto; animation: k-pulse 1.4s ease-in-out infinite"></span><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">排查订单退款超时</span></a>
+      <a href="Session-Done.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">梳理会员等级规则</span></a>
+      <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 10px 8px 4px">昨天</span>
+      <a href="Session-Done.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">生成积分模块接口文档</span></a>
+      <a href="Session-Done.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">优惠券过期任务为什么没跑</span></a>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1px; padding-top: 6px; border-top: 1px solid #E5E4DF">
+      <a href="Settings-Model.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4.5h6.5M13 4.5h1M2 11.5h1M7.5 11.5H14"></path><circle cx="10.7" cy="4.5" r="1.7"></circle><circle cx="5.3" cy="11.5" r="1.7"></circle></svg><span style="flex: 1">设置</span><span style="font-size: 11px; color: #9A9AA1">⌘,</span></a>    </div>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; background: #FFFFFF">
+    <header style="display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px 0 20px; box-sizing: border-box; border-bottom: 1px solid #ECEBE7; flex: 0 0 auto">
+      <h1 style="margin: 0; font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">给兑换接口加幂等校验</h1>
+      <span style="{{pillStyle}}"><span aria-hidden="true" style="{{pillDot}}"></span>{{pillText}}</span>
+      <span style="flex: 1"></span>
+      <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #6E6E76"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg><span style="font-family: 'JetBrains Mono', monospace">member-svc</span></span>
+      <span style="font-size: 12px; color: #6E6E76; font-family: 'JetBrains Mono', monospace">CodeAgent · coder-main</span>
+      <button type="button" class="k-ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"></rect></svg>停止</button>
+      <button type="button" aria-label="收起工作区面板" class="k-ghost" style="width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: #6E6E76; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M10 3v10"></path></svg></button>
+    </header>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+      <section aria-label="对话" style="flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 24px 28px 0; box-sizing: border-box">
+        <div style="width: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; flex: 1">
+
+          <div style="align-self: flex-end; max-width: 84%; display: flex; flex-direction: column; gap: 6px; align-items: flex-end">
+            <div style="background: #F4F3F0; border-radius: 14px 14px 4px 14px; padding: 10px 14px; font-size: 14px; line-height: 1.6">给积分兑换接口加上重复提交校验：同一个请求号只处理一次。改完跑一下 tests/points 下的测试。</div>
+            <span style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #E5E4DF; border-radius: 7px; padding: 2px 8px; font-size: 12px; color: #4A4A52"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg>R-1024 积分兑换优惠券</span>
+          </div>
+
+          <div style="border: 1px solid #D5DCF7; border-radius: 12px; overflow: hidden">
+            <div style="display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 12px; color: #4A4A52">
+              <span aria-hidden="true" style="width: 12px; height: 12px; border: 2px solid #D5DCF7; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box; margin: 0 1px"></span>
+              <span style="flex: 1"><span style="font-weight: 500; color: #1B1B1F">第 1 轮 · 工作过程</span> · 进行中 · 5 步 · 1:12</span>
+            </div>
+            <div style="border-top: 1px solid #ECEBE7; background: #FCFCFB; display: flex; flex-direction: column; padding: 4px 0 8px">
+              <sc-for list="{{steps}}" as="s" hint-placeholder-count="5">
+                <div style="display: flex; align-items: baseline; gap: 10px; padding: 4px 14px 4px 34px; font-size: 12.5px"><span style="color: #6E6E76; flex: 0 0 56px">{{s.kind}}</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{s.detail}}</span><span style="{{s.metaStyle}}">{{s.meta}}</span></div>
+              </sc-for>
+            </div>
+          </div>
+
+          <p style="margin: 0; font-size: 14px; line-height: 1.7">幂等检查加好了，缓存放在新文件 <code style="font-family: 'JetBrains Mono', monospace; font-size: 13px; background: #F4F3F0; border-radius: 4px; padding: 0 4px">idempotency.py</code>。接下来跑 tests/points 下的测试确认没改坏。</p>
+
+          <div id="perm" style="{{cardStyle}}">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <span style="{{iconWrap}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 5 3 3-3 3M8 11h5"></path></svg></span>
+              <span style="font-weight: 600; font-size: 13px">{{head}}</span>
+              <span style="flex: 1"></span>
+              <sc-if value="{{pending}}" hint-placeholder-val="{{true}}"><span style="font-size: 12px; color: #8A5A00">Agent 在等，其他会话不受影响</span></sc-if>
+              <sc-if value="{{settled}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #8A8A92">{{settledMeta}}</span></sc-if>
+            </div>
+            <pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; background: #1B1B1F; color: #E8E8E6; border-radius: 9px; padding: 10px 14px; white-space: pre-wrap"><span style="color: #8A8A92">$</span> uv run pytest tests/points -q</pre>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: #4A4A52">
+              <span>工作目录 <span style="font-family: 'JetBrains Mono', monospace">~/repo/member-svc</span></span>
+              <span>会运行项目里的测试代码，预计 1～5 秒</span>
+              <span>不会改文件、不联网</span>
+            </div>
+
+            <sc-if value="{{pending}}" hint-placeholder-val="{{true}}">
+              <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 2px">
+                <button type="button" onClick="{{deny}}" class="k-ghost" style="height: 34px; padding: 0 14px; border: 1px solid #E5E4DF; border-radius: 9px; background: #FFFFFF; font: inherit; color: #1B1B1F; cursor: pointer; display: inline-flex; align-items: center; gap: 8px">拒绝<span style="font-size: 11px; color: #9A9AA1">Esc</span></button>
+                <span style="flex: 1"></span>
+                <button type="button" onClick="{{always}}" class="k-ghost" style="height: 34px; padding: 0 14px; border: 1px solid #E5E4DF; border-radius: 9px; background: #FFFFFF; font: inherit; color: #1B1B1F; cursor: pointer; display: inline-flex; align-items: center; gap: 6px">本会话允许 <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">uv run pytest …</span></button>
+                <button type="button" onClick="{{once}}" style="height: 34px; padding: 0 16px; border: 0; border-radius: 9px; background: #1B1B1F; font: inherit; font-weight: 500; color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 8px">允许一次<span style="font-size: 11px; color: #B0B0B6">⌘↵</span></button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{denying}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-direction: column; gap: 8px; padding-top: 2px">
+                <label style="display: flex; flex-direction: column; gap: 6px">
+                  <span style="font-size: 12px; color: #4A4A52">告诉 Agent 为什么不行（可不填），它会换个做法</span>
+                  <input class="k-in" type="text" placeholder="例如：测试要连测试库，先别跑，直接给我改动就行" style="height: 34px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; color: #1B1B1F; background: #FFFFFF">
+                </label>
+                <div style="display: flex; gap: 8px; justify-content: flex-end">
+                  <button type="button" onClick="{{cancelDeny}}" class="k-ghost" style="height: 32px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF; font: inherit; color: #1B1B1F; cursor: pointer">返回</button>
+                  <button type="button" onClick="{{confirmDeny}}" style="height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: #1B1B1F; font: inherit; font-weight: 500; color: #FFFFFF; cursor: pointer">拒绝并继续</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ran}}" hint-placeholder-val="{{false}}">
+              <div style="display: flex; flex-direction: column; gap: 6px">
+                <pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; background: #FFFFFF; border: 1px solid #ECEBE7; border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; color: #4A4A52">.....F......
+FAILED tests/points/test_redeem.py::test_redeem_without_request_id
+1 failed, 11 passed in 0.84s</pre>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6E6E76"><span style="font-weight: 600; color: #B42318">退出码 1</span><span>· 0.9 秒 · 完整输出在右侧“终端”</span></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{denied}}" hint-placeholder-val="{{false}}">
+              <div style="font-size: 12px; color: #6E6E76">已拒绝 · Agent 不会执行这条命令，会在总结里列出需要你手动运行的命令。</div>
+            </sc-if>
+          </div>
+
+          <sc-if value="{{ran}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 12.5px; padding: 7px 12px; border-radius: 8px; background: #F4F3F0; color: #4A4A52">
+              <span aria-hidden="true" style="width: 12px; height: 12px; border: 2px solid #D9D8D2; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span>
+              <span style="flex: 1">正在看失败的测试：没传请求号时应该怎么处理</span>
+              <span style="color: #9A9AA1">6 秒</span>
+            </div>
+          </sc-if>
+          <div style="flex: 1; min-height: 24px"></div>
+        </div>
+
+        <div style="width: 100%; max-width: 760px; margin: 0 auto; position: sticky; bottom: 0; padding: 12px 0 16px; background: linear-gradient(to bottom, rgba(255,255,255,0), #FFFFFF 14px)">
+          <div style="display: flex; flex-direction: column; border: 1px solid #E5E4DF; border-radius: 14px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.03), 0 6px 20px rgba(0,0,0,.05)">
+            <label for="s-input" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">给 Agent 发消息</label>
+            <textarea id="s-input" rows="1" placeholder="也可以直接回复，比如“先别跑测试，把改动给我看”" style="display: block; width: 100%; box-sizing: border-box; border: 0; resize: none; padding: 12px 14px 4px; font: inherit; font-size: 14px; line-height: 1.6; color: #1B1B1F; background: transparent; outline: none"></textarea>
+            <div style="display: flex; align-items: center; gap: 2px; padding: 4px 8px 8px">
+              <button type="button" aria-label="添加文件或引用" class="k-chip" style="width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: #6E6E76; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg></button>
+              <button type="button" aria-haspopup="menu" class="k-chip" style="display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 12px; color: #6E6E76; cursor: pointer"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2 3 4v4c0 3 2.2 5.2 5 6 2.8-.8 5-3 5-6V4z"></path></svg>执行前确认</button>
+              <span style="flex: 1"></span>
+              <button type="button" aria-label="发送" disabled style="width: 30px; height: 30px; border: 0; border-radius: 9px; background: #1B1B1F; color: #FFFFFF; opacity: .25; cursor: default; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M4 7l4-4 4 4"></path></svg></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside aria-label="工作区面板" style="flex: 0 0 380px; min-width: 0; border-left: 1px solid #ECEBE7; background: #FBFBF9; display: flex; flex-direction: column">
+        <div role="tablist" aria-label="面板" style="display: flex; gap: 2px; padding: 8px 10px 0; border-bottom: 1px solid #ECEBE7; flex: 0 0 auto">
+          <button type="button" role="tab" aria-selected="false" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 0; background: transparent; font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -1px; color: #6E6E76; border-bottom: 2px solid transparent">改动<span style="font-size: 11px; font-weight: 500; color: #8A8A92; background: #ECEBE7; border-radius: 8px; padding: 0 6px">2</span></button>
+          <button type="button" role="tab" aria-selected="false" style="height: 34px; padding: 0 10px; border: 0; background: transparent; font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -1px; color: #6E6E76; border-bottom: 2px solid transparent">产出</button>
+          <button type="button" role="tab" aria-selected="true" style="display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 0; background: transparent; font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -1px; color: #1B1B1F; font-weight: 600; border-bottom: 2px solid #1B1B1F">终端<span style="font-size: 11px; font-weight: 500; color: #1B1B1F; background: #ECEBE7; border-radius: 8px; padding: 0 6px">{{termCount}}</span></button>
+          <button type="button" role="tab" aria-selected="false" style="height: 34px; padding: 0 10px; border: 0; background: transparent; font: inherit; font-size: 12.5px; cursor: pointer; margin-bottom: -1px; color: #6E6E76; border-bottom: 2px solid transparent">上下文</button>
+        </div>
+        <div style="flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px">
+          <sc-if value="{{pending}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; border: 1px solid #F3D9A4; border-radius: 10px; background: #FFFBF0; overflow: hidden">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px"><span style="font-family: 'JetBrains Mono', monospace; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">uv run pytest tests/points -q</span><span style="color: #8A5A00; font-weight: 500">等待确认</span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ran}}" hint-placeholder-val="{{false}}">
+            <div style="display: flex; flex-direction: column; border: 1px solid #ECEBE7; border-radius: 10px; background: #FFFFFF; overflow: hidden">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px; border-bottom: 1px solid #F0EFEB"><span style="font-family: 'JetBrains Mono', monospace; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">uv run pytest tests/points -q</span><span style="color: #B42318; font-weight: 500">退出 1</span><span style="color: #9A9AA1">0.9 秒</span></div>
+              <pre style="margin: 0; padding: 10px 12px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.6; color: #4A4A52; white-space: pre-wrap">.....F......
+=================================== FAILURES ===================================
+____________________ test_redeem_without_request_id ____________________
+tests/points/test_redeem.py:41: in test_redeem_without_request_id
+    redeem(user_id=1, coupon_id=7)
+E   TypeError: redeem() missing 1 required positional argument: 'request_id'
+========================= short test summary info ==========================
+FAILED tests/points/test_redeem.py::test_redeem_without_request_id
+1 failed, 11 passed in 0.84s</pre>
+            </div>
+          </sc-if>
+          <div style="display: flex; flex-direction: column; border: 1px solid #ECEBE7; border-radius: 10px; background: #FFFFFF; overflow: hidden">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 12px"><span style="font-family: 'JetBrains Mono', monospace; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">git status --short</span><span style="color: #1E7F43; font-weight: 500">退出 0</span><span style="color: #9A9AA1">自动允许</span></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; margin: 8px 6px 0; font-size: 12px; color: #8A8A92">
+            <span>本会话的允许规则</span>
+            <sc-if value="{{alwaysOn}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 6px; color: #1B1B1F"><span style="font-family: 'JetBrains Mono', monospace; background: #ECEBE7; border-radius: 4px; padding: 0 5px">uv run pytest *</span><button type="button" class="k-ghost" style="height: 22px; padding: 0 6px; border: 0; border-radius: 5px; background: transparent; font: inherit; font-size: 11.5px; color: #6E6E76; cursor: pointer">撤销</button></span></sc-if>
+            <sc-if value="{{alwaysOff}}" hint-placeholder-val="{{true}}"><span>还没有。点“本会话允许”后会列在这里，随时能撤销。</span></sc-if>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { perm: 'pending' };
+  }
+  renderVals() {
+    const p = this.state.perm;
+    const pending = p === 'pending';
+    const denying = p === 'denying';
+    const ran = p === 'once' || p === 'always';
+    const denied = p === 'denied';
+    const steps = [
+      { kind: '读取文件', detail: 'src/points/redeem.py', meta: '86 行' },
+      { kind: '搜索', detail: 'grep "request_id" src/', meta: '7 处' },
+      { kind: '执行命令', detail: 'git status --short', meta: '自动允许 · 0.1 秒' },
+      { kind: '修改文件', detail: 'src/points/redeem.py', meta: '+18 −3', diff: true },
+      { kind: '新建文件', detail: 'src/points/idempotency.py', meta: '+42', diff: true }
+    ].map((st) => ({ ...st, metaStyle: 'flex: 0 0 auto; font-size: 12px; color: ' + (st.diff ? '#1E7F43' : '#9A9AA1') }));
+    const base = 'border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 24px; ';
+    const waiting = pending || denying;
+    return {
+      steps,
+      pending: pending || denying, denying, ran, denied, settled: ran || denied,
+      cardStyle: base + (waiting ? 'border: 1px solid #E9B949; background: #FFFBF0; box-shadow: 0 0 0 4px rgba(233,185,73,.12)' : 'border: 1px solid #ECEBE7; background: #FCFCFB'),
+      iconWrap: 'width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; ' + (waiting ? 'background: #F3D9A4; color: #6B4600' : 'background: #ECEBE7; color: #4A4A52'),
+      head: waiting ? '执行命令前需要你确认' : denied ? '命令已拒绝' : '已执行命令',
+      settledMeta: p === 'always' ? '本会话内 uv run pytest 开头的命令不再询问' : p === 'once' ? '已允许一次' : '',
+      pillStyle: 'display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; border-radius: 10px; padding: 1px 9px; flex: 0 0 auto; ' + (waiting ? 'color: #8A5A00; background: #FBF0D9' : 'color: #2744B8; background: #EEF2FF'),
+      pillDot: 'width: 6px; height: 6px; border-radius: 50%; background: ' + (waiting ? '#B4650A' : '#3659E3; animation: k-pulse 1.4s ease-in-out infinite'),
+      pillText: waiting ? '等你确认' : '运行中 · 第 1 轮 · 1:20',
+      sideDot: 'width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: ' + (waiting ? '#B4650A' : '#3659E3; animation: k-pulse 1.4s ease-in-out infinite'),
+      termCount: ran ? '2' : '1',
+      alwaysOn: p === 'always', alwaysOff: p !== 'always',
+      once: () => this.setState({ perm: 'once' }),
+      always: () => this.setState({ perm: 'always' }),
+      deny: () => this.setState({ perm: 'denying' }),
+      cancelDeny: () => this.setState({ perm: 'pending' }),
+      confirmDeny: () => this.setState({ perm: 'denied' })
+    };
+  }
+}
+</script>
+</body>
+</html>

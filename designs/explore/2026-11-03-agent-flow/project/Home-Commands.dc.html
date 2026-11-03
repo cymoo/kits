@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>首页 · 命令与引用</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F2}
+a{color:#3659E3}a:hover{color:#2744B8}
+.k-ghost:hover{background:#EFEEEA}
+.k-nav:hover{background:#E9E8E3}
+.k-chip:hover{background:#EFEEEA;color:#1B1B1F}
+.k-opt:hover{background:#F4F3F0}
+@keyframes k-pulse{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</helmet>
+<div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 13px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
+
+  <nav aria-label="侧栏" style="flex: 0 0 232px; display: flex; flex-direction: column; gap: 6px; padding: 12px 8px 8px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F1F0EC">
+    <div style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px">
+      <span aria-hidden="true" style="width: 20px; height: 20px; border-radius: 6px; background: #1B1B1F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px">k</span>
+      <span style="font-weight: 650; font-size: 14px; letter-spacing: -0.01em">kits</span>
+      <span style="flex: 1"></span>
+      <button type="button" aria-label="收起侧栏" class="k-ghost" style="width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: #6E6E76; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M6 3v10"></path></svg></button>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1px">
+      <a href="Home.dc.html" aria-current="page" class="k-nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 8px; background: #E9E8E3; color: #1B1B1F; text-decoration: none; font-weight: 500"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg><span style="flex: 1">新会话</span><span style="font-size: 11px; color: #9A9AA1">⌘N</span></a>
+      <a href="History-Search.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg><span style="flex: 1">搜索</span><span style="font-size: 11px; color: #9A9AA1">⌘K</span></a>
+    </div>
+    <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; margin-top: 6px">
+      <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 8px 8px 4px">今天</span>
+      <a href="Session-Permission.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; background: #B4650A; flex: 0 0 auto"></span><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">给兑换接口加幂等校验</span><span style="font-size: 11px; color: #B4650A; flex: 0 0 auto">待确认</span></a>
+      <a href="Session-Streaming.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; background: #3659E3; flex: 0 0 auto; animation: k-pulse 1.4s ease-in-out infinite"></span><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">排查订单退款超时</span></a>
+      <a href="Session-Done.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">梳理会员等级规则</span></a>
+      <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 10px 8px 4px">昨天</span>
+      <a href="Session-Done.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">生成积分模块接口文档</span></a>
+      <a href="Session-Done.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">优惠券过期任务为什么没跑</span></a>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 1px; padding-top: 6px; border-top: 1px solid #E5E4DF">
+      <a href="Settings-Model.dc.html" class="k-nav" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 8px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4.5h6.5M13 4.5h1M2 11.5h1M7.5 11.5H14"></path><circle cx="10.7" cy="4.5" r="1.7"></circle><circle cx="5.3" cy="11.5" r="1.7"></circle></svg><span style="flex: 1">设置</span><span style="font-size: 11px; color: #9A9AA1">⌘,</span></a>    </div>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; overflow-y: auto; padding: 0 32px; box-sizing: border-box">
+    <div style="width: 100%; max-width: 760px; display: flex; flex-direction: column; gap: 28px; margin: 148px 0 48px">
+      <div style="display: flex; flex-direction: column; gap: 6px; align-items: center">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.015em">要做什么？</h1>
+        <p style="margin: 0; color: #6E6E76">在 <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #1B1B1F">member-svc</span> 里干活。输入 / 用命令，@ 引用文件、需求或用例。</p>
+      </div>
+
+      <div style="position: relative; display: flex; flex-direction: column; border: 1px solid #C9C8C1; border-radius: 16px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 28px rgba(0,0,0,.08)">
+
+        <sc-if value="{{slash}}" hint-placeholder-val="{{true}}">
+          <div role="listbox" aria-label="命令" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% + 8px); background: #FFFFFF; border: 1px solid #E5E4DF; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,.04), 0 16px 40px rgba(0,0,0,.12); padding: 6px; display: flex; flex-direction: column; gap: 1px; max-height: 360px; overflow-y: auto">
+            <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 6px 10px 4px">命令 · 匹配 “te”</span>
+            <button type="button" role="option" aria-selected="true" style="display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: #F1F4FF; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500; flex: 0 0 120px">/test</span><span style="flex: 1; min-width: 0">跑指定目录的测试，失败的归类并给出原因</span><span style="font-size: 11.5px; color: #8A8A92">项目技能</span></button>
+            <button type="button" role="option" class="k-opt" style="display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500; flex: 0 0 120px">/api-testing</span><span style="flex: 1; min-width: 0">按接口文档生成接口测试，附带正反用例</span><span style="font-size: 11.5px; color: #8A8A92">项目技能</span></button>
+            <button type="button" role="option" class="k-opt" style="display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500; flex: 0 0 120px">/review</span><span style="flex: 1; min-width: 0">审查当前分支的改动，列出问题和风险</span><span style="font-size: 11.5px; color: #8A8A92">内置</span></button>
+            <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 8px 10px 4px">其他</span>
+            <button type="button" role="option" class="k-opt" style="display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500; flex: 0 0 120px">/explain</span><span style="flex: 1; min-width: 0">解释一段代码或一个模块是怎么工作的</span><span style="font-size: 11.5px; color: #8A8A92">内置</span></button>
+            <button type="button" role="option" class="k-opt" style="display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500; flex: 0 0 120px">/doc</span><span style="flex: 1; min-width: 0">给模块或接口补文档</span><span style="font-size: 11.5px; color: #8A8A92">个人技能</span></button>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 10px 4px; border-top: 1px solid #F0EFEB; margin-top: 4px; font-size: 11.5px; color: #8A8A92"><span>↑↓ 选择</span><span>↵ 填入</span><span>Esc 关闭</span><span style="flex: 1"></span><a href="Settings-Skills.dc.html" style="text-decoration: none">管理技能</a></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{at}}" hint-placeholder-val="{{false}}">
+          <div role="listbox" aria-label="引用" style="position: absolute; left: 12px; right: 12px; bottom: calc(100% + 8px); background: #FFFFFF; border: 1px solid #E5E4DF; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,.04), 0 16px 40px rgba(0,0,0,.12); padding: 6px; display: flex; flex-direction: column; gap: 1px; max-height: 360px; overflow-y: auto">
+            <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 6px 10px 4px">文件 · 匹配 “redeem”</span>
+            <button type="button" role="option" aria-selected="true" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: #F1F4FF; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6E6E76" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px">src/points/<b style="font-weight: 600">redeem</b>.py</span><span style="flex: 1"></span><span style="font-size: 11.5px; color: #8A8A92">86 行</span></button>
+            <button type="button" role="option" class="k-opt" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6E6E76" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px">tests/points/test_<b style="font-weight: 600">redeem</b>.py</span><span style="flex: 1"></span><span style="font-size: 11.5px; color: #8A8A92">140 行</span></button>
+            <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 8px 10px 4px">需求平台 · req-platform</span>
+            <button type="button" role="option" class="k-opt" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #6E6E76; flex: 0 0 56px">R-1024</span><span style="flex: 1; min-width: 0">积分兑换优惠券：同一请求号只处理一次</span><span style="font-size: 11.5px; color: #8A8A92">评审通过</span></button>
+            <button type="button" role="option" class="k-opt" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #6E6E76; flex: 0 0 56px">R-1031</span><span style="flex: 1; min-width: 0">兑换失败时的积分返还</span><span style="font-size: 11.5px; color: #8A8A92">开发中</span></button>
+            <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 8px 10px 4px">本机</span>
+            <button type="button" role="option" class="k-opt" style="display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6E6E76" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 5.5 6 10a1.5 1.5 0 0 1-2-2l5-5a3 3 0 0 1 4 4l-5.5 5.5"></path></svg><span style="flex: 1">上传文件…</span><span style="font-size: 11.5px; color: #8A8A92">Word、PDF、Markdown、图片</span></button>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 8px 10px 4px; border-top: 1px solid #F0EFEB; margin-top: 4px; font-size: 11.5px; color: #8A8A92"><span>↑↓ 选择</span><span>↵ 引用</span><span>Esc 关闭</span></div>
+          </div>
+        </sc-if>
+
+        <label for="home-input" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">任务描述</label>
+        <div style="padding: 16px 18px 8px; font-size: 15px; line-height: 1.6; min-height: 72px; box-sizing: border-box">
+          <sc-if value="{{slash}}" hint-placeholder-val="{{true}}"><span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #3659E3">/te</span><span aria-hidden="true" style="display: inline-block; width: 1.5px; height: 18px; background: #1B1B1F; vertical-align: text-bottom; margin-left: 1px"></span></sc-if>
+          <sc-if value="{{at}}" hint-placeholder-val="{{false}}">给 <span style="display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; border-radius: 6px; background: #F1F4FF; color: #2744B8; font-size: 13.5px"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="2.5"></circle><path d="M10.5 8v1a1.8 1.8 0 0 0 3.5 0V8a6 6 0 1 0-2.4 4.8"></path></svg>R-1024</span> 的兑换接口加幂等校验，先看 <span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #3659E3">@redeem</span><span aria-hidden="true" style="display: inline-block; width: 1.5px; height: 18px; background: #1B1B1F; vertical-align: text-bottom; margin-left: 1px"></span></sc-if>
+        </div>
+        <div style="display: flex; align-items: center; gap: 2px; padding: 6px 10px 10px; flex-wrap: wrap">
+          <button type="button" aria-label="添加文件或引用" class="k-chip" style="width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: #6E6E76; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg></button>
+          <button type="button" aria-haspopup="menu" title="工作目录" class="k-chip" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 12.5px; color: #6E6E76; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">member-svc</span><span style="font-size: 11.5px; color: #9A9AA1">main</span></button>
+          <button type="button" aria-haspopup="menu" title="Agent" class="k-chip" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 12.5px; color: #6E6E76; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 13V4.2l2.6 2.2h4.8L13 4.2V13z"></path><circle cx="6.3" cy="9.3" r=".7" fill="currentColor" stroke="none"></circle><circle cx="9.7" cy="9.3" r=".7" fill="currentColor" stroke="none"></circle></svg>assistant</button>
+          <span style="flex: 1"></span>
+          <button type="button" aria-haspopup="menu" title="权限" class="k-chip" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 12.5px; color: #6E6E76; cursor: pointer"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2 3 4v4c0 3 2.2 5.2 5 6 2.8-.8 5-3 5-6V4z"></path></svg>执行前确认</button>
+          <button type="button" aria-haspopup="menu" title="内核与模型" class="k-chip" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 12.5px; color: #6E6E76; cursor: pointer"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">coder-main</span><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+          <button type="button" aria-label="发送" title="发送 ↵" style="width: 32px; height: 32px; margin-left: 4px; border: 0; border-radius: 10px; background: #1B1B1F; color: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M4 7l4-4 4 4"></path></svg></button>
+        </div>
+      </div>
+
+      <p style="margin: 0; text-align: center; font-size: 12px; color: #8A8A92">技能来自三处：内置、项目的 .agents/skills、个人目录。命令就是技能，两个内核都认。</p>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"menu":{"editor":"enum","options":["slash","at"],"default":"slash","section":"状态"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const menu = this.props.menu ?? 'slash';
+    return { slash: menu === 'slash', at: menu === 'at' };
+  }
+}
+</script>
+</body>
+</html>

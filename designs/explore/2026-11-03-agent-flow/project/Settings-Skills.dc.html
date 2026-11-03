@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>设置 · 技能与记忆</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F2}
+a{color:#3659E3}a:hover{color:#2744B8}
+.k-ghost:hover{background:#EFEEEA}
+.k-nav:hover{background:#E9E8E3}
+.k-snav:hover{background:#EFEEEA}
+.k-row:hover{background:#FBFBF9}
+.k-in:focus{outline:none;border-color:#3659E3;box-shadow:0 0 0 3px rgba(54,89,227,.15)}
+</style>
+</helmet>
+<div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 13px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
+
+  <nav aria-label="侧栏" style="flex: 0 0 56px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px 8px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F1F0EC">
+    <span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 6px; background: #1B1B1F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; margin: 5px 0 8px">k</span>
+    <a href="Home.dc.html" aria-label="新会话" class="k-nav" style="width: 32px; height: 32px; border-radius: 8px; color: #1B1B1F; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg></a>
+    <a href="History-Search.dc.html" aria-label="搜索" class="k-nav" style="width: 32px; height: 32px; border-radius: 8px; color: #1B1B1F; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg></a>
+    <span style="flex: 1"></span>
+    <a href="Settings-Model.dc.html" aria-label="设置" aria-current="page" class="k-nav" style="width: 32px; height: 32px; border-radius: 8px; background: #E9E8E3; color: #1B1B1F; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4.5h6.5M13 4.5h1M2 11.5h1M7.5 11.5H14"></path><circle cx="10.7" cy="4.5" r="1.7"></circle><circle cx="5.3" cy="11.5" r="1.7"></circle></svg></a>  </nav>
+
+  <nav aria-label="设置分类" style="flex: 0 0 200px; display: flex; flex-direction: column; gap: 1px; padding: 20px 10px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F6F5F2">
+    <h1 style="margin: 0 0 12px 10px; font-size: 15px; font-weight: 600">设置</h1>
+    <a href="Settings-General.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">通用</a>
+    <a href="Settings-Model.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">内核与模型</a>
+    <a href="Settings-MCP.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span style="flex: 1">MCP 服务</span><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; background: #C8381F"></span></a>
+    <a href="Settings-Skills.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; background: #FFFFFF; box-shadow: 0 0 0 1px #E5E4DF; color: #1B1B1F; text-decoration: none; font-weight: 500">技能与记忆</a>
+    <a href="Settings-Agent.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">Agent</a>
+    <a href="Settings-Agent.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">权限</a>
+    <a href="Settings-Agent.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none">数据与隐私</a>
+    <span style="flex: 1"></span>
+    <a href="Settings-Agent.dc.html" class="k-snav" style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #1B1B1F; text-decoration: none"><span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 50%; background: #3659E3; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; flex: 0 0 auto">林</span><span style="display: flex; flex-direction: column; min-width: 0"><span style="font-weight: 500">林晓</span><span style="font-size: 11.5px; color: #6E6E76; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">lin.xiao@corp.example</span></span></a>
+    <span style="font-size: 11.5px; color: #8A8A92; padding: 4px 10px 0">kits 0.1.0 · 配置文件在 ~/.kits/</span>
+  </nav>
+
+  <main style="flex: 1; min-width: 0; overflow-y: auto; padding: 28px 40px 48px; box-sizing: border-box">
+    <div style="width: 100%; max-width: 820px; display: flex; flex-direction: column; gap: 28px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">技能与记忆</h2>
+        <p style="margin: 0; color: #6E6E76">技能是一个目录加一份 <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">SKILL.md</span>（Agent Skills 规范），Claude、OpenCode、pi 的技能目录可以直接复用。输入 / 就能调用。</p>
+      </div>
+
+      <section style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; border: 1px solid #E5E4DF; border-radius: 14px; background: #FFFFFF; overflow: hidden">
+            <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #F0EFEB">
+              <span style="font-weight: 600">{{g.title}}</span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #8A8A92; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{g.path}}</span>
+              <span style="font-size: 12px; color: #8A8A92">{{g.note}}</span>
+              <button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 1px solid #E5E4DF; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">{{g.action}}</button>
+            </div>
+            <sc-for list="{{g.skills}}" as="sk" hint-placeholder-count="3">
+              <div class="k-row" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 16px; border-bottom: 1px solid #F6F5F2">
+                <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1">
+                  <span style="display: flex; align-items: center; gap: 8px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500">/{{sk.name}}</span><sc-if value="{{sk.shadow}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; color: #8A5A00; background: #FBF0D9; border-radius: 8px; padding: 1px 7px">同名，项目的优先</span></sc-if></span>
+                  <span style="font-size: 12px; color: #6E6E76; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{sk.desc}}</span>
+                </span>
+                <span style="font-size: 12px; color: #8A8A92; flex: 0 0 auto">{{sk.used}}</span>
+                <button type="button" onClick="{{sk.flip}}" role="switch" aria-checked="{{sk.on}}" aria-label="启用" style="{{sk.swStyle}}"><span style="{{sk.swKnob}}"></span></button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+        <p style="margin: 0 4px; font-size: 12px; color: #8A8A92">启用的技能会链接到内核的技能目录；改了 SKILL.md 下次会话生效。</p>
+      </section>
+
+      <section style="display: flex; flex-direction: column; border: 1px solid #E5E4DF; border-radius: 14px; background: #FFFFFF; overflow: hidden">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #F0EFEB">
+          <span style="font-weight: 600">记忆</span>
+          <span style="font-size: 12px; color: #6E6E76">Agent 在会话里记下的项目约定和你的偏好，跨会话保留；每条都能改能删</span>
+          <span style="flex: 1"></span>
+          <div role="radiogroup" aria-label="范围" style="display: flex; padding: 2px; background: #F1F0EC; border-radius: 7px; gap: 2px">
+            <button type="button" role="radio" aria-checked="{{isProject}}" onClick="{{setProject}}" style="{{projectStyle}}">项目 · member-svc</button>
+            <button type="button" role="radio" aria-checked="{{isPersonal}}" onClick="{{setPersonal}}" style="{{personalStyle}}">个人</button>
+          </div>
+        </div>
+        <sc-for list="{{memories}}" as="m" hint-placeholder-count="4">
+          <div class="k-row" style="display: flex; align-items: flex-start; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #F6F5F2">
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+              <span style="line-height: 1.55">{{m.text}}</span>
+              <span style="font-size: 11.5px; color: #8A8A92">{{m.meta}}</span>
+            </span>
+            <button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #6E6E76; cursor: pointer; flex: 0 0 auto">编辑</button>
+            <button type="button" onClick="{{m.remove}}" class="k-ghost" style="height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #9A2C1F; cursor: pointer; flex: 0 0 auto">删除</button>
+          </div>
+        </sc-for>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; font-size: 12px; color: #8A8A92">
+          <span style="flex: 1">{{memoryPath}}</span>
+          <button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 1px solid #E5E4DF; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">手动加一条</button>
+          <button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 1px solid #E5E4DF; border-radius: 6px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">打开文件</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { off: ['doc-zh'], scope: 'project', removed: [] };
+  }
+  renderVals() {
+    const s = this.state;
+    const sw = (on) => ({
+      swStyle: 'width: 32px; height: 18px; border: 0; border-radius: 9px; cursor: pointer; position: relative; padding: 0; flex: 0 0 auto; background: ' + (on ? '#1B1B1F' : '#D4D4D8'),
+      swKnob: 'position: absolute; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,.2); left: ' + (on ? '16px' : '2px')
+    });
+    const mk = (name, desc, used, shadow) => {
+      const on = !s.off.includes(name);
+      return { name, desc, used, shadow: !!shadow, on, flip: () => this.setState({ off: on ? s.off.concat(name) : s.off.filter((x) => x !== name) }), ...sw(on) };
+    };
+    const groups = [
+      { title: '内置', path: '随 kits 安装', note: '3 个', action: '查看', skills: [mk('review', '审查当前分支的改动，列出问题和风险', '本周用了 4 次'), mk('explain', '解释一段代码或一个模块是怎么工作的', '本周用了 2 次'), mk('test', '跑指定目录的测试，失败的归类并给出原因', '本周用了 9 次')] },
+      { title: '项目', path: '~/repo/member-svc/.agents/skills/', note: '2 个 · 随仓库走', action: '打开目录', skills: [mk('repo-conventions', '这个仓库的代码约定：目录结构、命名、提交信息', '每次会话自动加载'), mk('api-testing', '按接口文档生成接口测试，附带正反用例', '本周用了 3 次')] },
+      { title: '个人', path: '~/.kits/skills/', note: '2 个 · 只在这台电脑', action: '打开目录', skills: [mk('doc-zh', '给模块或接口补中文文档', '没用过'), mk('test', '个人版的 test，先跑 lint 再跑测试', '被项目的 /test 覆盖', true)] }
+    ];
+    const defs = s.scope === 'project' ? [
+      ['请求号字段：兑换用 request_id，退款用 refund_request_id。', '会话“给兑换接口加幂等校验” · 今天'],
+      ['测试命令是 uv run pytest，不要用 python -m pytest。', '会话“排查 CI 失败” · 10-29'],
+      ['接口返回时间一律 ISO 8601 带时区。', '手动添加 · 10-27'],
+      ['会员等级的保护期是 30 天，第 31 天才降级；文档写的“连续 3 个月”已作废。', '会话“梳理会员等级规则” · 今天']
+    ] : [
+      ['回复用中文，代码注释用英文。', '手动添加 · 10-20'],
+      ['改动超过 3 个文件时先列计划再动手。', '会话“把 order-svc 的日志改成 JSON” · 周一'],
+      ['不要自动提交，提交由我自己做。', '手动添加 · 10-20']
+    ];
+    const memories = defs.map(([text, meta], i) => ({ text, meta, remove: () => this.setState({ removed: s.removed.concat(s.scope + i) }) })).filter((m, i) => !s.removed.includes(s.scope + i));
+    const seg = (on) => 'height: 24px; padding: 0 10px; border: 0; border-radius: 5px; font: inherit; font-size: 12px; cursor: pointer; ' + (on ? 'background: #FFFFFF; color: #1B1B1F; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08)' : 'background: transparent; color: #6E6E76');
+    return {
+      groups, memories,
+      isProject: s.scope === 'project', isPersonal: s.scope === 'personal',
+      setProject: () => this.setState({ scope: 'project' }), setPersonal: () => this.setState({ scope: 'personal' }),
+      projectStyle: seg(s.scope === 'project'), personalStyle: seg(s.scope === 'personal'),
+      memoryPath: s.scope === 'project' ? '存在 ~/repo/member-svc/.agents/memory.md，可以提交到仓库' : '存在 ~/.kits/memory.md'
+    };
+  }
+}
+</script>
+</body>
+</html>
