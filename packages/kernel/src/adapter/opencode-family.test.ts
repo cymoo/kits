@@ -21,8 +21,11 @@ interface Fake {
   messages: unknown[]
   messagesDelayMs: number
   messageRequests: number
-  // GET /permission
+  // GET /permission；failPermissions 时回 500
   permissions: unknown[]
+  failPermissions: boolean
+  // POST /session/{id}/abort 不回
+  hangAbort: boolean
   promptCount: number
   summarizeBody: unknown
   close(): Promise<void>
@@ -38,6 +41,8 @@ async function startFake(): Promise<Fake> {
     messagesDelayMs: 0,
     messageRequests: 0,
     permissions: [],
+    failPermissions: false,
+    hangAbort: false,
     promptCount: 0,
     summarizeBody: undefined,
   }
@@ -73,7 +78,17 @@ async function startFake(): Promise<Fake> {
       if (fake.messagesDelayMs) await new Promise((r) => setTimeout(r, fake.messagesDelayMs))
       return json(snapshot)
     }
-    if (url.pathname === '/permission') return json(fake.permissions)
+    if (url.pathname === '/permission') {
+      if (fake.failPermissions) {
+        res.writeHead(500).end()
+        return
+      }
+      return json(fake.permissions)
+    }
+    if (url.pathname.endsWith('/abort')) {
+      if (fake.hangAbort) return
+      return json(true)
+    }
     if (url.pathname.endsWith('/summarize')) {
       const chunks: Buffer[] = []
       for await (const c of req) chunks.push(c as Buffer)
@@ -299,6 +314,69 @@ describe('OpencodeFamilyKernel', () => {
     for await (const e of kernel.prompt(s, { text: 'hi' })) events.push(e)
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({ type: 'done', reason: 'error' })
+  })
+
+  it('does not submit the turn when abort comes while it is still preparing', async () => {
+    const s = await setup()
+    // 读历史消息要 200 ms，期间用户点了停止
+    fake.messagesDelayMs = 200
+    const iter = kernel.prompt(s, { text: 'hi' })
+    const events = await collect(iter, async () => {
+      await new Promise((r) => setTimeout(r, 50))
+      await kernel.abort(s)
+    })
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+    expect(fake.promptCount).toBe(0)
+  })
+
+  it('ends with the error recorded on a message recovered after a disconnect', async () => {
+    const s = await setup()
+    fake.status = { ses_1: { type: 'busy' } }
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      fake.messages = [
+        {
+          info: {
+            id: 'msg_a',
+            role: 'assistant',
+            time: { created: Date.now(), completed: Date.now() },
+            error: { name: 'APIError', data: { message: '网关返回 502' } },
+          },
+          parts: [],
+        },
+      ]
+      await reconnect(seen, false)
+      // session.error 丢在了断线里，轮询看到 idle 收尾
+      fake.status = {}
+    })
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'error', error: '网关返回 502' })
+  })
+
+  it('keeps the message snapshot when the permission list fails', async () => {
+    const s = await setup()
+    fake.status = { ses_1: { type: 'busy' } }
+    fake.failPermissions = true
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      send(fake, 'message.updated', assistant)
+      send(fake, 'message.part.delta', delta('前半'))
+      fake.messages = snapshot('前半后半')
+      await reconnect(seen)
+      await until(() => text(seen) === '前半后半')
+      send(fake, 'session.idle', { sessionID: 'ses_1' })
+    })
+    expect(text(events)).toBe('前半后半')
+  })
+
+  it('ends an aborted turn after the grace period even if the abort request hangs', async () => {
+    const s = await setup({ abortGraceMs: 100 })
+    fake.status = { ses_1: { type: 'busy' } }
+    fake.hangAbort = true
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+      await until(() => fake.promptCount === 1)
+      void kernel.abort(s).catch(() => {})
+    })
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
   })
 
   it('summarizes a session on the default model with the model of its last reply', async () => {
