@@ -14,6 +14,7 @@
 - [references/codeagent-sdk.md](references/codeagent-sdk.md) — CodeAgent SDK 规格（HTTP + SSE）
 - [delivery/TEMPLATE.md](delivery/TEMPLATE.md) — 交付说明模板
 - [delivery/scaffold.md](delivery/scaffold.md) — 工程骨架的交付说明（2026-11-03）
+- [delivery/kernel.md](delivery/kernel.md) — 内核适配器的交付说明（2026-11-03 起）
 
 更早的方案（完整平台设计、MVP 方案、OpenCode 评估、API 对比、原型评审）留在 [cymoo/kaise](https://github.com/cymoo/kaise/tree/main/docs)，已被上面的方案取代。
 
