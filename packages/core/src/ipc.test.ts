@@ -18,6 +18,7 @@ describe('contractEntries', () => {
       ['secrets', 'set'],
       ['secrets', 'has'],
       ['secrets', 'remove'],
+      ['secrets', 'encrypted'],
     ])
   })
 

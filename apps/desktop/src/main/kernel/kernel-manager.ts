@@ -95,10 +95,10 @@ export class KernelManager {
     if (slot.runs === 0 && slot.status.state === 'restart-pending') void this.restart(id)
   }
 
+  // 已有实例也排进队列再取：前面排着的重启会先把旧实例换掉，不会把要关掉的那个交出去
   private ensure(id: KernelName): Promise<AgentKernel> {
     if (this.closing) return Promise.reject(new Error('应用正在退出'))
     const slot = this.slot(id)
-    if (slot.kernel) return Promise.resolve(slot.kernel)
     return this.enqueue(slot, async () => slot.kernel ?? this.start(id))
   }
 

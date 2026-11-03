@@ -115,3 +115,26 @@ test('keeps the add form in settings when the gateway lists no models', async ()
     await gw.close()
   }
 })
+
+test('rejects an invalid gateway address before saving anything', async () => {
+  const gw = await startFakeGateway(['m1'])
+  const { page, close } = await launchApp()
+  try {
+    await page.goto(`${page.url().split('#')[0]}#/settings/model`)
+    await page.getByRole('button', { name: '添加网关' }).click()
+    await page.getByLabel('地址').fill(gw.baseUrl)
+    await page.getByLabel('API Key').fill(gw.key)
+    await page.getByRole('button', { name: '测试并添加' }).click()
+    const card = page.getByTestId('gateway-localhost')
+    await card.getByRole('button', { name: /localhost/ }).click()
+    await card.getByLabel('地址').fill('ftp://nope')
+    await card.getByLabel('API Key').fill('sk-new')
+    await card.getByRole('button', { name: '保存并测试' }).click()
+    await expect(card.getByRole('status')).toContainText('http:// 或 https://')
+    const saved = await page.evaluate(() => window.kits.settings.get())
+    expect(saved.gateways[0]?.baseUrl).toBe(gw.baseUrl)
+  } finally {
+    await close()
+    await gw.close()
+  }
+})

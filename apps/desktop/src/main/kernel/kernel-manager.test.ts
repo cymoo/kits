@@ -133,12 +133,14 @@ describe('KernelManager lifecycle', () => {
       },
       prepare: async () => ok,
     })
-    await manager.acquire('opencode')
+    const first = await manager.acquire('opencode')
     manager.release('opencode')
     const restart = manager.restart('opencode')
-    await manager.acquire('opencode')
+    const second = await manager.acquire('opencode')
     await restart
     expect(maxAlive).toBe(1)
+    // 拿到的是重启后的新实例，不是马上要被关掉的旧实例
+    expect(second).not.toBe(first)
     expect(manager.status('opencode').state).toBe('running')
   })
 

@@ -7,7 +7,7 @@ import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { Field, Input } from '../../ui/Input'
 import { Spinner } from '../../ui/Spinner'
-import { TestResult } from '../settings/model/ModelSection'
+import { TestResult, useKeyHint } from '../settings/model/ModelSection'
 import { useGateways } from '../settings/model/useGateways'
 
 // 首次引导（原型 onboarding.html）：左侧三步导航，右侧当前步骤。
@@ -25,6 +25,7 @@ function GatewayStep({ onNext }: { onNext(): void }) {
   const [apiKey, setApiKey] = useState('')
   const [result, setResult] = useState<GatewayTestResult>()
   const added = gateways[0]
+  const keyHint = useKeyHint()
 
   const run = async () => {
     const r = await test.mutateAsync({ baseUrl, ...(apiKey ? { apiKey } : {}) })
@@ -58,7 +59,7 @@ function GatewayStep({ onNext }: { onNext(): void }) {
               className="h-9"
             />
           </Field>
-          <Field label="API Key" hint={t('model.keyHint')}>
+          <Field label="API Key" hint={keyHint}>
             <Input
               mono
               type="password"
