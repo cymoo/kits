@@ -21,6 +21,19 @@ if (process.env.KITS_USER_DATA_DIR) {
   app.setPath('userData', process.env.KITS_USER_DATA_DIR)
 }
 
+// 同一份用户数据只开一个实例：两个实例各自缓存再写回密钥表、数据库会互相覆盖。
+// 第二个实例直接退出，把已有窗口叫到前面。
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0)
+} else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) return
+    if (win.isMinimized()) win.restore()
+    win.focus()
+  })
+}
+
 // 家目录下的路径写成 ~/…，结尾带 /，和原型一致
 function homeLabel(dir: string): string {
   const home = os.homedir()
