@@ -8,6 +8,7 @@ describe('contractEntries', () => {
       ['app', 'info'],
       ['app', 'openExternal'],
       ['app', 'openPath'],
+      ['app', 'revealPath'],
       ['settings', 'get'],
       ['settings', 'update'],
       ['settings', 'loadError'],

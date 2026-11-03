@@ -164,6 +164,7 @@ app.whenReady().then(() => {
         }),
         openExternal: (url) => platform.openExternal(url),
         openPath: (target) => platform.openPath(target),
+        revealPath: (target) => platform.revealPath(target),
       },
       settings: {
         get: () => config.getSettings(),

@@ -256,8 +256,9 @@ function DiffView({
       <div className="sticky top-0 z-[1] flex items-center gap-2 border-line-soft border-b bg-muted px-3 py-2 text-[0.923rem] text-fg-muted">
         <span className="min-w-0 flex-1 truncate font-medium font-mono text-fg">{file.path}</span>
         <span>{stat(file.additions, file.deletions)}</span>
-        <Button variant="link" onClick={() => void kits.app.openPath(full)}>
-          {t('changes.open')}
+        {/* 只在文件夹里选中，不交给系统默认程序打开：Agent 改的可能是 .bat / .exe，打开就执行了 */}
+        <Button variant="link" onClick={() => void kits.app.revealPath(full)}>
+          {t('changes.reveal')}
         </Button>
       </div>
       {pending || !lines.length ? (
