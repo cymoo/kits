@@ -11,8 +11,8 @@ export interface KernelConfig {
   configDir: string
   // 内核的数据目录（会话存储、缓存、日志）。指到 kits 的用户数据目录下，不让内核读写用户家目录
   dataDir: string
-  // 模型网关（OpenAI 兼容接口）
-  gateway: { baseUrl: string; apiKey: string }
+  // 只给子进程的环境变量：网关 key、MCP 的 `${VAR}`、kits 工具 token。配置文件里只写 `{env:…}`
+  env: Record<string, string>
 }
 
 export interface UserInput {
@@ -44,7 +44,8 @@ export interface AgentKernel {
 export interface KernelDialect {
   readonly id: KernelId
   spawn(cfg: KernelConfig): Promise<SpawnedKernel>
-  writeConfig(dir: string, cfg: GeneratedConfig): Promise<void>
+  // 把配置转换的结果写进 configDir；env 不落盘，由调用方放进 KernelConfig.env
+  writeConfig(dir: string, generated: GeneratedFiles): Promise<void>
   permissionReplyPath(requestId: string, sessionId: string): string
 }
 
@@ -54,9 +55,8 @@ export interface SpawnedKernel {
   close(): Promise<void>
 }
 
-// kits 统一配置转换后的内核配置，形状在做配置转换时再细化
-export interface GeneratedConfig {
-  agents: Record<string, unknown>
-  mcp: Record<string, unknown>
-  permission: Record<string, unknown>
+// kits 统一配置转换后的内核配置：要写进配置目录的文件（路径相对 configDir）和子进程环境变量
+export interface GeneratedFiles {
+  files: { path: string; content: string }[]
+  env: Record<string, string>
 }

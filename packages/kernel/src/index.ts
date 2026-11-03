@@ -1,3 +1,5 @@
 export * from './binary'
 export * from './dialects/opencode'
+export * from './generate/opencode-config'
+export * from './generate/write'
 export * from './kernel'

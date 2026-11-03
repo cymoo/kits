@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseMcpConfig } from './mcp'
+import { expandVars, parseMcpConfig, parseMcpFile } from './mcp'
 
 describe('parseMcpConfig', () => {
   it('treats an entry with command as a stdio server', () => {
@@ -32,5 +32,32 @@ describe('parseMcpConfig', () => {
 
   it('rejects a server with neither command nor url', () => {
     expect(() => parseMcpConfig({ mcpServers: { bad: {} } })).toThrow()
+  })
+})
+
+describe('parseMcpFile', () => {
+  it('applies the kits enabled map on top of the pasted servers', () => {
+    const file = parseMcpFile({
+      mcpServers: { a: { url: 'http://a.local/mcp' }, b: { command: 'b' } },
+      enabled: { a: false },
+      permissions: { 'a.update_page': 'ask' },
+    })
+    expect(file.servers.a?.enabled).toBe(false)
+    expect(file.servers.b?.enabled).toBe(true)
+    expect(file.permissions).toEqual({ 'a.update_page': 'ask' })
+  })
+
+  it('accepts a missing file', () => {
+    expect(parseMcpFile(undefined)).toEqual({ servers: {}, permissions: {} })
+  })
+})
+
+describe('expandVars', () => {
+  it('replaces placeholders and reports the ones it cannot find', () => {
+    const lookup = (name: string) => (name === 'TOKEN' ? 't' : undefined)
+    expect(expandVars('Bearer ${TOKEN} ${NOPE}', lookup)).toEqual({
+      value: 'Bearer t ',
+      missing: ['NOPE'],
+    })
   })
 })

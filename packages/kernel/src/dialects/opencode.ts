@@ -1,7 +1,8 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { createServer } from 'node:net'
-import type { GeneratedConfig, KernelConfig, KernelDialect, SpawnedKernel } from '../kernel'
+import { writeGeneratedFiles } from '../generate/write'
+import type { GeneratedFiles, KernelConfig, KernelDialect, SpawnedKernel } from '../kernel'
 
 // OpenCode 方言：指定空闲端口启动 `opencode serve`，轮询 /global/health 等待就绪。
 // 每次启动生成随机密码，服务端走 Basic Auth（用户名固定为 opencode），同机其他进程调不了内核接口。
@@ -62,7 +63,9 @@ async function waitForHealth(
 // OPENCODE_TEST_HOME 是 1.19.5 里 Global.Path.home 的唯一覆盖口（home = OPENCODE_TEST_HOME ?? os.homedir()），
 // 配置查找会扫 {home}/.opencode，不设它用户的 ~/.opencode/opencode.json 还是会被加载；
 // 三个 DISABLE 关掉自动更新、读 ~/.agents/skills 等外部技能、读 Claude Code 配置（PoC 里这两样每轮多 2.8k 输入 token，
-// 还让内核行为依赖本机环境）。只给子进程设，别 export 到当前 shell：XDG_DATA_HOME 会影响 fnm 之类的工具。
+// 还让内核行为依赖本机环境）；另外两个关掉从 models.dev 拉模型列表和自动下载 LSP，内网连不上，还会拖慢启动。
+// cfg.env（网关 key 等）最后叠上，配置文件里用 `{env:…}` 引用。
+// 只给子进程设，别 export 到当前 shell：XDG_DATA_HOME 会影响 fnm 之类的工具。
 export function spawnEnv(
   cfg: KernelConfig,
   base: NodeJS.ProcessEnv = process.env,
@@ -78,8 +81,9 @@ export function spawnEnv(
     OPENCODE_DISABLE_AUTOUPDATE: '1',
     OPENCODE_DISABLE_EXTERNAL_SKILLS: '1',
     OPENCODE_DISABLE_CLAUDE_CODE: '1',
-    OPENAI_BASE_URL: cfg.gateway.baseUrl,
-    OPENAI_API_KEY: cfg.gateway.apiKey,
+    OPENCODE_DISABLE_MODELS_FETCH: '1',
+    OPENCODE_DISABLE_LSP_DOWNLOAD: '1',
+    ...cfg.env,
   }
 }
 
@@ -138,8 +142,8 @@ export const opencodeDialect: KernelDialect = {
     return { baseUrl, headers, close }
   },
 
-  async writeConfig(_dir: string, _cfg: GeneratedConfig): Promise<void> {
-    throw new Error('not implemented: 配置转换在第 2 周做')
+  async writeConfig(dir: string, generated: GeneratedFiles): Promise<void> {
+    await writeGeneratedFiles(dir, generated)
   },
 
   permissionReplyPath(requestId: string, _sessionId: string): string {

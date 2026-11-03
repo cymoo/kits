@@ -16,7 +16,7 @@ const cfg = {
   binary: binary ?? '',
   configDir: '/kits/config',
   dataDir: '/kits/data',
-  gateway: { baseUrl: 'http://127.0.0.1:1/v1', apiKey: 'test' },
+  env: { KITS_GW_CORP_KEY: 'test' },
 }
 
 describe('spawnEnv', () => {
@@ -32,17 +32,19 @@ describe('spawnEnv', () => {
     for (const key of keys) expect(env[key]).toBe('/kits/data')
   })
 
-  it('disables autoupdate, external skills and claude code config', () => {
+  it('disables autoupdate, external skills, claude code config and network downloads', () => {
     const env = spawnEnv(cfg, {})
     expect(env.OPENCODE_DISABLE_AUTOUPDATE).toBe('1')
     expect(env.OPENCODE_DISABLE_EXTERNAL_SKILLS).toBe('1')
     expect(env.OPENCODE_DISABLE_CLAUDE_CODE).toBe('1')
+    expect(env.OPENCODE_DISABLE_MODELS_FETCH).toBe('1')
+    expect(env.OPENCODE_DISABLE_LSP_DOWNLOAD).toBe('1')
   })
 
-  it('overrides inherited XDG and gateway variables', () => {
-    const env = spawnEnv(cfg, { XDG_DATA_HOME: '/home/me/.local/share', OPENAI_API_KEY: 'mine' })
+  it('overrides inherited XDG variables and passes the secret env through', () => {
+    const env = spawnEnv(cfg, { XDG_DATA_HOME: '/home/me/.local/share', KITS_GW_CORP_KEY: 'mine' })
     expect(env.XDG_DATA_HOME).toBe('/kits/data')
-    expect(env.OPENAI_API_KEY).toBe('test')
+    expect(env.KITS_GW_CORP_KEY).toBe('test')
   })
 })
 
