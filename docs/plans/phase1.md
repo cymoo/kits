@@ -1,6 +1,6 @@
 # kits 第一阶段方案：先打通通用的 Agent 流程
 
-> 版本：v0.3（草案）　日期：2026-11-01　状态：待评审
+> 版本：v0.4（草案）　日期：2026-11-03　状态：待评审
 >
 > 本文记录第一阶段范围收窄后的方案。[design.md](https://github.com/cymoo/kaise/blob/main/docs/design.md) 和 [mvp-plan.md](https://github.com/cymoo/kaise/blob/main/docs/mvp-plan.md) 描述的是“服务端 + 网页”的完整平台，第一阶段不按那两份执行，其中的思路（内核适配层、结构化产出走工具、从第一天记录数据）在本文中沿用。
 >
@@ -8,13 +8,15 @@
 >
 > v0.3 的变化：用例的样子还没定，第一阶段先做通用的 Agent 应用、打通通用流程；测试相关的功能（内置的用例设计 Agent、用例格式、用例审核等）放到第二阶段，界面上也不再放占位页。
 >
-> 界面原型：[designs/app](../../designs/app/index.html)，已按 v0.3 改为通用版本。
+> v0.4 的变化（2026-11-03 原型评审）：按轮回滚暂缓，第一阶段只看 diff，改动留在工作目录里由用户用 Git 处理或让 Agent 改回来；模型网关可以配多个，首次引导只配一个。
+>
+> 界面原型：[designs/explore/2026-11-03-agent-flow](../../designs/explore/2026-11-03-agent-flow/project/canvas.json)（评审中，定稿后并入 [designs/app](../../designs/app/index.html)）。
 
 ## 1. 结论
 
 - **第一阶段做一个本地运行的 Electron 桌面应用，先打通通用的 Agent 流程**：配置模型和 MCP → 新建会话 → Agent 读文件、改文件、执行命令、调用 MCP → 确认和提问 → 查看改动和产出 → 导出。用例的样子还没定，测试相关的功能放到第二阶段。
 - **最终做面向测试的 Agent，不做全功能的 coding agent 产品**：第二阶段起，内置 Agent、技能和界面逐步围绕测试来做；Agent 通用的功能都要有（对话、技能、MCP、读文件和搜索、向用户提问、自定义 Agent）；**编辑文件、执行命令等编码能力默认开启**，靠权限确认和工作目录限制控制风险（4.5 节）；结构化输出是可选项，不是必需的。
-- **第一阶段只做通用功能**：会话、MCP、技能、Agent 配置、内核和模型设置、改动查看和回滚、结果导出。用例设计、审核、测试编写、执行、分析都放到后面（原型里已经画出这几个页面，用于讨论第二阶段的设计）。
+- **第一阶段只做通用功能**：会话、MCP、技能、Agent 配置、内核和模型设置、改动查看（回滚暂缓）、结果导出。用例设计、审核、测试编写、执行、分析都放到后面（原型里已经画出这几个页面，用于讨论第二阶段的设计）。
 - **不需要服务端**。以后会有一个只展示统计信息的服务端，计划用 [lovia](https://github.com/cymoo/lovia) 搭建，第一阶段不做，只先定好上报哪些内容（第 7 节）。
 - **不做 `pytest-kits` 插件**。用户可能有自己的测试执行器，以后做执行时再定关联方式。
 - **Agent 内核**：默认 CodeAgent，OpenCode 用于本地调试和兜底，两者共用一个适配器，只用它们共有的接口（4.3 节）。第一阶段不做 AI SDK 内核，`AgentKernel` 接口保留。
@@ -33,10 +35,10 @@
 | 功能 | 说明 |
 |---|---|
 | 新建会话 | 选 Agent，写任务描述；可选附加上下文：通过 MCP 获取（如需求平台）、粘贴文本、上传文件（Word / PDF / Markdown / 图片，先转成文本）；可以用 `/命令` 快速开始 |
-| 会话 | 对话加 Agent 的工作过程（技能加载、MCP 调用、读文件、改文件、执行命令，默认折叠）；文件改动可以查看 diff 和回滚；Agent 提问卡片（不阻塞时先按假设继续，并在结果里注明）；工具调用确认卡片；停止；切换内核和模型 |
+| 会话 | 对话加 Agent 的工作过程（技能加载、MCP 调用、读文件、改文件、执行命令，默认折叠）；文件改动可以查看 diff（按轮回滚暂缓，用户用 Git 提交或丢弃，或让 Agent 改回来）；Agent 提问卡片（不阻塞时先按假设继续，并在结果里注明）；工具调用确认卡片；停止；切换内核和模型 |
 | 产出 | 默认是 Agent 的回复文本，可以编辑后导出为 Markdown；Agent 设置了输出格式时，是通过 `submit_output` 提交的结构化结果，可以逐条展开查看，导出为 Excel / Markdown / JSON |
 | 上下文面板 | 本次会话用到的 Agent、内核、技能、MCP、附件、token 用量 |
-| 设置 · 内核与模型 | 选择 CodeAgent 或 OpenCode；配置公司 LLM 网关（OpenAI 兼容接口），API Key 存系统钥匙串；各 Agent 用哪个模型 |
+| 设置 · 内核与模型 | 选择 CodeAgent 或 OpenCode；配置模型网关（OpenAI 兼容接口，可以配多个，首次引导只配一个），API Key 存系统钥匙串；模型按网关分组，选一个默认模型，各 Agent 可以单独指定 |
 | 设置 · Agent | 提示词、模型、内置工具、技能、MCP、可选的输出格式；存成 Markdown 文件，可以用 Git 管理 |
 | 设置 · MCP 服务 | 支持 stdio 和 Streamable HTTP；兼容常见的 `mcpServers` 配置，可直接粘贴；测试连接；每个工具设置“允许 / 询问 / 拒绝” |
 | 设置 · 技能 | 遵循 Agent Skills 规范（`SKILL.md`），可复用 Claude、OpenCode、pi 的技能目录；按内置 / 项目 / 个人三级来源加载；可开关 |
@@ -147,7 +149,7 @@ interface KernelDialect {
 | 配置注入 | `--config-dir` 指向 kits 生成的目录 | 环境变量指向 kits 生成的目录或文件 |
 | 权限回复 | `POST /permission/:id/reply` | 按锁定版本选新接口或旧接口【待实测】 |
 
-第一阶段用到的公共接口：健康检查、会话的创建 / 获取 / 删除 / 状态、`prompt_async`、`abort`、消息列表、`diff`、`revert` / `unrevert`、权限回复、`GET /event` 事件流，以及 Agent、命令、MCP、模型的列表接口。编码能力默认开启后，执行命令要频繁确认，权限回复是会话中的常用操作。完成判定用 `session.idle` 加 `GET /session/status` 轮询兜底，两边都支持。CodeAgent 独有的能力（`prompt.completed` 事件、工作区、`permission_mode`、问答接口）第一阶段不用。注意 CodeAgent 的 spec 里没有 `unrevert` 接口，取消回滚要等导出 OpenAPI 后确认；没有的话界面上不提供“取消回滚”，以后需要时按 `capabilities` 接入。
+第一阶段用到的公共接口：健康检查、会话的创建 / 获取 / 删除 / 状态、`prompt_async`、`abort`、消息列表、`diff`、权限回复、`GET /event` 事件流，以及 Agent、命令、MCP、模型的列表接口。编码能力默认开启后，执行命令要频繁确认，权限回复是会话中的常用操作。完成判定用 `session.idle` 加 `GET /session/status` 轮询兜底，两边都支持。CodeAgent 独有的能力（`prompt.completed` 事件、工作区、`permission_mode`、问答接口）第一阶段不用。`revert` / `unrevert` 第一阶段不接：回滚暂缓，`AgentKernel` 接口保留 `revert` 和 `capabilities.revert`，以后需要时再接。注意 CodeAgent 的 spec 里没有 `unrevert`，到时要先确认。
 
 OpenCode 在这里有两个用处：
 
@@ -171,7 +173,7 @@ v0.1 计划同时实现 AI SDK 作为第二个内核，现在改为不做：
 | 类别 | 工具 | 默认权限 |
 |---|---|---|
 | 读取和搜索 | `read`、`grep`、`glob` | allow；`.env` 等敏感文件 ask（沿用内核默认） |
-| 编辑 | `edit`（含 write / patch） | allow，限定在会话工作目录内；每次改动都有快照，可以在界面上查看 diff 和回滚 |
+| 编辑 | `edit`（含 write / patch） | allow，限定在会话工作目录内；每次改动都有快照，可以在界面上查看 diff；回滚暂缓 |
 | 执行命令 | `bash` | ask，弹出确认卡片，可选“本次会话内始终允许”；常见的只读命令（`ls`、`cat`、`git status / diff / log` 等）allow |
 | 工作目录以外 | `external_directory` | ask |
 | 其他通用能力 | `skill`、`todowrite`、`task`（子 Agent） | allow |
@@ -206,7 +208,7 @@ v0.1 计划同时实现 AI SDK 作为第二个内核，现在改为不做：
 
 ## 6. 安全
 
-- 编码能力默认开启（4.5 节）：编辑限定在会话工作目录内，有快照可以回滚；执行命令默认要确认；访问工作目录以外的路径要确认。
+- 编码能力默认开启（4.5 节）：编辑限定在会话工作目录内，有快照可以看 diff（回滚暂缓，用 Git 处理）；执行命令默认要确认；访问工作目录以外的路径要确认。
 - 第一阶段不做沙箱，Agent 以当前用户的身份运行，风险和本机使用 Claude Code、OpenCode 相同。新建会话时要求选择工作目录，不默认使用用户主目录。
 - 用户配置的 MCP 可能有副作用（比如往外部平台写数据），写入类工具默认是“询问”，执行前弹出确认卡片。
 - 模型网关的 API Key 和 MCP 凭据存系统钥匙串，不写进配置文件。

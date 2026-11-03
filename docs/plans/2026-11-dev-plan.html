@@ -192,7 +192,7 @@ tr:last-child td { border-bottom: 0; }
     <a href="#stack">技术栈</a>
     <a href="#process">开发约定</a>
     <a href="#risks">难点与风险</a>
-    <div class="meta">2026-11-03 → 12-11<br>6 周<br>v2 · 2026-11-03</div>
+    <div class="meta">2026-11-03 → 12-11<br>6 周<br>v3 · 2026-11-03</div>
   </nav>
 
   <main>
@@ -218,12 +218,13 @@ tr:last-child td { border-bottom: 0; }
           <h3>通用 Agent 流程走通</h3>
           <p>一个可安装的桌面应用，日常的 Agent 用法都能覆盖。测试功能都建在这一层上，所以它要先稳。</p>
           <ul>
-            <li>流式会话：正文、思考过程、工具调用实时展示；命令执行前确认，Agent 可以向人提问；改动可看 diff、可回滚。</li>
+            <li>流式会话：正文、思考过程、工具调用实时展示；命令执行前确认，Agent 可以向人提问；改动可看 diff；按轮回滚暂缓（原型评审结论，见下方“范围调整”）。</li>
             <li>MCP：支持 stdio 和 HTTP，现有的 <code>mcpServers</code> 配置直接粘贴就能用。</li>
             <li>技能：遵循 <code>SKILL.md</code>，内置、项目、个人三级目录。</li>
             <li>记忆：项目约定和个人偏好跨会话保留。</li>
             <li>内核默认 CodeAgent，OpenCode 用于调试和兜底。</li>
           </ul>
+          <p><b>范围调整（v3，2026-11-03 原型评审）</b>：按轮回滚暂缓，不是高频操作，改动留在工作目录里由用户用 Git 提交或丢弃，或让 Agent 改回来，内核的 <code>revert</code> 接口以后需要时再接；模型网关首次引导只配一个，设置里可以加多个（如内网自建 vLLM），模型按网关分组。</p>
         </div>
         <div class="box">
           <span class="n">02</span>
@@ -299,7 +300,7 @@ tr:last-child td { border-bottom: 0; }
           <div class="wk"><b>第 3 周</b><span>11-16 → 11-20</span></div>
           <ul>
             <li>接入 CodeAgent，两个内核切换验证。</li>
-            <li>确认卡片、提问卡片、diff 和回滚。</li>
+            <li>确认卡片、提问卡片、diff。</li>
             <li>技能管理、记忆。</li>
             <li>测试工作台开工；测试点和用例的产出格式出初版。</li>
           </ul>
@@ -394,7 +395,6 @@ tr:last-child td { border-bottom: 0; }
         <ul>
           <li>SSE 事件映射和完成判定：锁定版本里事件字段是否齐全，<code>session.idle</code> 不可靠时用轮询兜底，断线后用消息列表补齐。</li>
           <li>权限回复：CodeAgent 和 OpenCode 的接口不一样，“本次会话始终允许”的范围两边是否一致。</li>
-          <li>回滚：按轮回滚、回滚后继续对话；CodeAgent 没有 <code>unrevert</code> 的话界面要降级。</li>
           <li>stdio MCP 进程管理：启动失败要能看到原因和 stderr，会话结束进程要回收。</li>
           <li>测试工作台的步骤编排：每一步是一个会话，步骤之间怎么传产出、暂停后怎么续上。</li>
         </ul>
@@ -464,8 +464,8 @@ tr:last-child td { border-bottom: 0; }
       done: '同一套契约测试在两个内核上通过；换内核不改上层代码。' },
     { id: 'M3', name: '会话', track: 'base', cx: '高', effort: 12, start: 2, end: 4, deps: ['M1', 'M2'],
       goal: '用户大部分时间都在这一页，照原型 session.html 做。',
-      out: ['新建会话：工作目录、Agent、附件（Word / PDF / Markdown / 图片）、/命令', '流式渲染正文、思考和工具调用，工作过程默认折叠', '命令和 MCP 写操作的确认卡片；ask_user 提问卡片', '改动列表、diff、按轮回滚', '产出编辑与导出；停止、出错恢复、会话历史'],
-      done: 'E2E 覆盖“新建 → 流式回复 → 确认命令 → 回滚 → 导出”。' },
+      out: ['新建会话：工作目录、Agent、附件（Word / PDF / Markdown / 图片）、/命令', '流式渲染正文、思考和工具调用，工作过程默认折叠', '命令和 MCP 写操作的确认卡片；ask_user 提问卡片', '改动列表、diff（按轮回滚暂缓）', '产出编辑与导出；停止、出错恢复、会话历史'],
+      done: 'E2E 覆盖“新建 → 流式回复 → 确认命令 → 查看改动 → 导出”。' },
     { id: 'M4', name: 'MCP、技能与记忆', track: 'base', cx: '中', effort: 8, start: 2, end: 4, deps: ['M2'],
       goal: '扩展能力配一次，两个内核都能用。',
       out: ['MCP：stdio 和 HTTP，粘贴 mcpServers 配置，测试连接，按工具设允许 / 询问 / 拒绝，看日志', '本机 MCP 服务提供 kits 自己的工具：ask_user、submit_output', '技能：SKILL.md，内置 / 项目 / 个人三级目录，开关和预览', '记忆：项目级用 AGENTS.md，个人偏好跨项目保留；Agent 提议写入，用户确认', '对应的设置页'],
