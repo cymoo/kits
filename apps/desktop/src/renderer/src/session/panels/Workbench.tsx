@@ -14,7 +14,7 @@ import { type ChangedFile, type Command, formatTokens, type Round, type Usage } 
 import { OutputPanel } from './OutputPanel'
 import { type DiffLine, parsePatch, splitRows } from './patch'
 
-// 会话页右侧的工作区面板（原型 session.html 的 aside）：改动、产出、终端、上下文四个页签。
+// 会话页右侧的工作区面板（原型 session.html 的 aside）：改动、产出、命令、上下文四个页签。
 // 放大模式下改动是左右两栏（文件列表 + diff），diff 可以切并排。
 
 export type PanelTab = 'changes' | 'output' | 'terminal' | 'context'
@@ -329,7 +329,7 @@ function DiffView({
   )
 }
 
-// ---------- 终端 ----------
+// ---------- 命令 ----------
 
 function TerminalPanel({ commands, rules }: { commands: Command[]; rules: string[] }) {
   return (

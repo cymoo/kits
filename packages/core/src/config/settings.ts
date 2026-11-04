@@ -8,7 +8,7 @@ export const generalSettingsSchema = z.object({
   theme: z.enum(['system', 'light', 'dark']).default('system'),
   // 对应 12 / 13 / 14px 基准
   uiScale: z.enum(['s', 'm', 'l']).default('m'),
-  codeFontSize: z.number().int().min(10).max(20).default(12),
+  codeFontSize: z.number().int().min(10).max(20).default(13),
   // 空串用默认字体
   uiFont: z.string().default(''),
   codeFont: z.string().default(''),

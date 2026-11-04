@@ -20,35 +20,35 @@ a{color:#3659E3}a:hover{color:#2744B8}
 @keyframes k-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 </style>
 </helmet>
-<div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 13px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
+<div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 14px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
 
-  <k-nav active="search"></k-nav>
+  <k-nav active="history"></k-nav>
 
   <main style="flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; padding: 32px 40px; box-sizing: border-box">
     <div style="width: 100%; max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px">
       <div style="display: flex; align-items: center; gap: 12px">
-        <h1 style="margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em">会话</h1>
-        <span style="font-size: 12px; color: #6E6E76">本机共 38 个 · 数据只存在这台电脑上</span>
+        <h1 style="margin: 0; font-size: 21.5px; font-weight: 600; letter-spacing: -0.01em">会话</h1>
+        <span style="font-size: 13px; color: #6E6E76">本机共 38 个 · 数据只存在这台电脑上</span>
         <span style="flex: 1"></span>
-        <button type="button" onClick="{{openPalette}}" class="k-ghost" style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF; font: inherit; color: #6E6E76; cursor: pointer; min-width: 240px; text-align: left"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg><span style="flex: 1">搜会话内容、文件名、需求号…</span><span style="font-size: 11px; color: #9A9AA1">⌘K</span></button>
+        <button type="button" onClick="{{openPalette}}" class="k-ghost" style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF; font: inherit; color: #6E6E76; cursor: pointer; min-width: 240px; text-align: left"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg><span style="flex: 1">搜会话内容、文件名、需求号…</span><span style="font-size: 12px; color: #9A9AA1">⌘K</span></button>
       </div>
       <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap">
         <sc-for list="{{filters}}" as="ft"><button type="button" onClick="{{ft.pick}}" aria-pressed="{{ft.on}}" style="{{ft.style}}">{{ft.label}}</button></sc-for>
         <span style="width: 1px; height: 18px; background: #E5E4DF; margin: 0 4px"></span>
-        <button type="button" aria-haspopup="menu" class="k-ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 13px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg>所有目录<svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
-        <button type="button" aria-haspopup="menu" class="k-ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 13px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">所有 Agent<svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+        <button type="button" aria-haspopup="menu" class="k-ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 13px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1B1F; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg>所有目录<svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
+        <button type="button" aria-haspopup="menu" class="k-ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 13px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1B1F; cursor: pointer">所有 Agent<svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 6px">
         <sc-for list="{{groups}}" as="g">
-          <span style="font-size: 11.5px; font-weight: 500; color: #8A8A92; padding: 10px 6px 2px">{{g.label}}</span>
+          <span style="font-size: 12.5px; font-weight: 500; color: #8A8A92; padding: 10px 6px 2px">{{g.label}}</span>
           <sc-for list="{{g.rows}}" as="r">
             <a href="{{r.href}}" class="k-row" style="display: grid; grid-template-columns: 16px minmax(0, 1fr) 140px 110px 90px; align-items: center; gap: 12px; min-height: 48px; padding: 8px 12px; border-radius: 10px; text-decoration: none; color: #1B1B1F">
               <span aria-hidden="true" style="{{r.dot}}"></span>
-              <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.title}}</span><span style="font-size: 12px; color: #6E6E76; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.sub}}</span></span>
-              <span style="font-size: 12px; color: #6E6E76; font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.dir}}</span>
+              <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0"><span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.title}}</span><span style="font-size: 13px; color: #6E6E76; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.sub}}</span></span>
+              <span style="font-size: 13px; color: #6E6E76; font-family: 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.dir}}</span>
               <span style="{{r.stateStyle}}">{{r.state}}</span>
-              <span style="font-size: 12px; color: #8A8A92; text-align: right">{{r.when}}</span>
+              <span style="font-size: 13px; color: #8A8A92; text-align: right">{{r.when}}</span>
             </a>
           </sc-for>
         </sc-for>
@@ -68,7 +68,7 @@ class Component extends DCLogic {
     const s = this.state;
     const dot = (c, pulse) => 'width: 7px; height: 7px; border-radius: 50%; background: ' + (c || 'transparent') + (pulse ? '; animation: k-pulse 1.4s ease-in-out infinite' : '');
     const colors = { run: '#2744B8', wait: '#8A5A00', err: '#9A2C1F', done: '#6E6E76', idle: '#6E6E76' };
-    const row = (href, title, sub, dir, kind, state, when, dotColor, pulse) => ({ href, title, sub, dir, kind, state, when, dot: dot(dotColor, pulse), stateStyle: 'font-size: 12px; font-weight: 500; color: ' + colors[kind] });
+    const row = (href, title, sub, dir, kind, state, when, dotColor, pulse) => ({ href, title, sub, dir, kind, state, when, dot: dot(dotColor, pulse), stateStyle: 'font-size: 13px; font-weight: 500; color: ' + colors[kind] });
     const all = [
       ['今天', [
         row('session.html?s=streaming', '给兑换接口加幂等校验', '2 轮 · 改了 5 个文件 · 16 个测试通过', 'member-svc', 'run', '运行中', '刚刚', '#3659E3', true),
@@ -90,7 +90,7 @@ class Component extends DCLogic {
     const groups = all.map(([label, rows]) => ({ label, rows: rows.filter(keep) })).filter((g) => g.rows.length);
     const filters = [['all', '全部'], ['active', '进行中'], ['wait', '等我处理'], ['done', '已完成']].map(([k, label]) => {
       const on = s.filter === k;
-      return { label, on, pick: () => this.setState({ filter: k }), style: 'height: 26px; padding: 0 10px; border: 1px solid ' + (on ? '#1B1B1F' : '#E5E4DF') + '; border-radius: 13px; background: ' + (on ? '#1B1B1F' : '#FFFFFF') + '; font: inherit; font-size: 12px; color: ' + (on ? '#FFFFFF' : '#1B1B1F') + '; cursor: pointer' };
+      return { label, on, pick: () => this.setState({ filter: k }), style: 'height: 26px; padding: 0 10px; border: 1px solid ' + (on ? '#1B1B1F' : '#E5E4DF') + '; border-radius: 13px; background: ' + (on ? '#1B1B1F' : '#FFFFFF') + '; font: inherit; font-size: 13px; color: ' + (on ? '#FFFFFF' : '#1B1B1F') + '; cursor: pointer' };
     });
     return { groups, filters, empty: !groups.length, openPalette: () => window.kitsPalette.open() };
   }

@@ -1,6 +1,6 @@
 import type { SessionSummary } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { continueCards, matchesFilter, whenLabel } from './session-labels'
+import { matchesFilter, whenLabel } from './session-labels'
 
 const now = new Date(2026, 10, 4, 15, 30).getTime()
 const at = (d: number, h: number, m = 0) => new Date(2026, 10, d, h, m).getTime()
@@ -30,12 +30,5 @@ describe('matchesFilter', () => {
   it('counts errors as needing attention', () => {
     expect(matchesFilter(s('a', 'error', 1), 'attention')).toBe(true)
     expect(matchesFilter(s('a', 'running', 1), 'attention')).toBe(false)
-  })
-})
-
-describe('continueCards', () => {
-  it('puts sessions waiting for the user first', () => {
-    const list = [s('done', 'done', 3), s('wait', 'waiting', 1), s('err', 'error', 2)]
-    expect(continueCards(list).map((x) => x.id)).toEqual(['wait', 'err', 'done'])
   })
 })

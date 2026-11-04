@@ -59,7 +59,7 @@
   --k-mono-base: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --k-font: var(--k-font-base);
   --k-mono: var(--k-mono-base);
-  --k-code-size: 12px;
+  --k-code-size: 13px;
   color-scheme: light;
 }
 
@@ -107,11 +107,11 @@
 }
 
 /*
- * Tailwind 的间距单位默认是 0.25rem（16px 基准下 4px）。这里 html 的基准是 12 / 13 / 14px，
- * 按 13px 基准定成 4px，原型里的 32px 高、8px 间距在默认字号下一致，切换界面大小时跟着等比缩放。
+ * Tailwind 的间距单位默认是 0.25rem（16px 基准下 4px）。这里 html 的基准是 13 / 14 / 15px，
+ * 按 14px 基准定成 4px，原型里的 32px 高、8px 间距在默认字号下一致，切换界面大小时跟着等比缩放。
  */
 @theme {
-  --spacing: calc(4rem / 13);
+  --spacing: calc(4rem / 14);
 }
 
 @theme inline {
@@ -163,15 +163,15 @@
   --shadow-dialog: var(--k-shadow-dialog);
 }
 
-/* uiScale 改的是 html 的字号基准（12 / 13 / 14px），组件里的字号用 rem 跟着变 */
+/* uiScale 改的是 html 的字号基准（13 / 14 / 15px），组件里的字号用 rem 跟着变 */
 html {
-  font-size: 13px;
+  font-size: 14px;
 }
 html[data-scale="s"] {
-  font-size: 12px;
+  font-size: 13px;
 }
 html[data-scale="l"] {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 /* 基础样式放进 base 层，组件上的工具类才能覆盖它们（不分层的样式优先级比所有层都高） */
@@ -206,7 +206,7 @@ html[data-scale="l"] {
   }
 }
 
-/* 回复正文的排版（原型 session.html 的正文：14px、行高 1.7、行内代码浅灰底） */
+/* 回复正文的排版（原型 session.html 的正文：15px、行高 1.7、行内代码浅灰底） */
 .k-md {
   font-size: 1.077rem;
   line-height: 1.7;

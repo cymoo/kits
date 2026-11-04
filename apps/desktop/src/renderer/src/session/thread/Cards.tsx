@@ -140,7 +140,7 @@ export function PermissionCard({
       data-testid="permission-card"
       className="flex flex-col gap-2.5 rounded-[12px] border border-warn-line bg-warn-soft px-4 py-3.5 shadow-[0_0_0_4px_rgb(233_185_73/0.12)]"
     >
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <CardIcon tone="warn">
           <SquareTerminal size={13} strokeWidth={1.8} />
         </CardIcon>
@@ -156,7 +156,7 @@ export function PermissionCard({
       ) : null}
       <div className="text-[0.923rem] text-fg-muted">
         {t('perm.workdir')}{' '}
-        <span className="font-mono" title={workdir}>
+        <span className="break-all font-mono" title={workdir}>
           {homeLabel(workdir)}
         </span>
       </div>
@@ -197,7 +197,7 @@ export function PermissionCard({
           <span className="flex-1" />
           {always ? (
             <Button
-              className="h-[30px] max-w-[320px]"
+              className="h-[30px] max-w-[min(320px,100%)] whitespace-nowrap"
               disabled={busy}
               onClick={() => void reply('always')}
               title={block.always.join('\n')}

@@ -42,7 +42,7 @@ import { cx } from '../../ui/cx'
 import { Tooltip } from '../../ui/Tooltip'
 
 // 会话页（原型 session.html）：顶栏（标题、状态、目录、Agent · 内核 · 模型、停止）+ 对话流 + 输入框。
-// 右侧的改动 / 产出 / 终端 / 上下文面板在 PR9。
+// 右侧的改动 / 产出 / 命令 / 上下文面板在 PR9。
 
 function StatusPill({
   session,
@@ -237,13 +237,13 @@ export function SessionPage() {
         <StatusPill session={session} startedAt={lastTurnStart} answering={answering} />
         <span className="flex-1" />
         <span
-          className="inline-flex items-center gap-1.5 text-[0.923rem] text-fg-muted"
+          className="inline-flex min-w-0 items-center gap-1.5 text-[0.923rem] text-fg-muted"
           title={session.workdir}
         >
-          <Folder size={13} />
-          <span className="font-mono">{basename(session.workdir)}</span>
+          <Folder size={13} className="shrink-0" />
+          <span className="truncate font-mono">{basename(session.workdir)}</span>
         </span>
-        <span className="font-mono text-[0.923rem] text-fg-muted">
+        <span className="min-w-0 truncate font-mono text-[0.923rem] text-fg-muted">
           {[
             session.agent !== 'assistant' ? session.agent : null,
             session.kernel === 'opencode' ? 'OpenCode' : 'CodeAgent',
@@ -257,7 +257,7 @@ export function SessionPage() {
             type="button"
             onClick={() => void kits.session.abort(session.id)}
             // macOS 顶部有一条全宽的拖动窗口层，按钮要浮在它上面、不参与拖动
-            className="relative z-20 inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded-[8px] border border-line bg-raised px-2.5 text-[0.923rem] text-fg [-webkit-app-region:no-drag] hover:bg-active"
+            className="relative z-20 inline-flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[8px] border border-line bg-raised px-2.5 text-[0.923rem] text-fg [-webkit-app-region:no-drag] hover:bg-active"
           >
             <Square size={10} fill="currentColor" />
             {t('session.stop')}

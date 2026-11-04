@@ -5,11 +5,11 @@
   const FONT = "Inter,'PingFang SC','Noto Sans SC',system-ui,sans-serif"
   const MONO = "'JetBrains Mono',ui-monospace,monospace"
   const CSS = `
-.kn{height:100vh;flex:0 0 232px;box-sizing:border-box;background:#F1F0EC;border-right:1px solid #E5E4DF;padding:12px 8px 8px;display:flex;flex-direction:column;gap:6px;overflow:hidden;font-family:${FONT};font-size:13px;line-height:1.5;color:#1B1B1F;transition:flex-basis .18s ease}
+.kn{height:100vh;flex:0 0 248px;box-sizing:border-box;background:#F1F0EC;border-right:1px solid #E5E4DF;padding:12px 8px 8px;display:flex;flex-direction:column;gap:6px;overflow:hidden;font-family:${FONT};font-size:14px;line-height:1.5;color:#1B1B1F;transition:flex-basis .18s ease}
 .kn *{box-sizing:border-box}
 .kn-top{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px}
-.kn-logo{width:20px;height:20px;border-radius:6px;background:#1B1B1F;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:0 0 auto}
-.kn-brand{font-weight:650;font-size:14px;letter-spacing:-.01em;text-decoration:none;color:#1B1B1F}
+.kn-logo{width:20px;height:20px;border-radius:6px;background:#1B1B1F;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:0 0 auto}
+.kn-brand{font-weight:650;font-size:15px;letter-spacing:-.01em;text-decoration:none;color:#1B1B1F}
 .kn-icon{width:26px;height:26px;border:0;border-radius:6px;background:transparent;color:#6E6E76;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
 .kn-icon:hover{background:#E9E8E3;color:#1B1B1F}
 .kn-item{display:flex;align-items:center;gap:10px;height:32px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:#1B1B1F;text-decoration:none;font:inherit;cursor:pointer;text-align:left;width:100%}
@@ -17,15 +17,15 @@
 .kn-item.on{background:#E9E8E3;font-weight:500}
 .kn-item svg{flex:0 0 auto}
 .kn-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kn-kbd{font-size:11px;color:#9A9AA1}
+.kn-kbd{font-size:12px;color:#9A9AA1}
 .kn-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:1px;margin-top:6px}
-.kn-h{font-size:11.5px;color:#8A8A92;padding:8px 8px 4px;font-weight:500}
+.kn-h{font-size:12.5px;color:#8A8A92;padding:8px 8px 4px;font-weight:500}
 .kn-list .kn-item{height:30px;gap:8px}
 .kn-st{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
 .kn-st.run{background:#3659E3;animation:kn-pulse 1.4s ease-in-out infinite}
 .kn-st.wait{background:#B4650A}
 .kn-st.err{background:#C8381F}
-.kn-tag{font-size:11px;flex:0 0 auto;font-weight:400}
+.kn-tag{font-size:12px;flex:0 0 auto;font-weight:400}
 @keyframes kn-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .kn-foot{display:flex;flex-direction:column;gap:1px;padding-top:6px;border-top:1px solid #E5E4DF}
 .kn[data-collapsed="true"]{flex-basis:56px;padding:12px 8px 8px;align-items:center}
@@ -36,39 +36,38 @@
 .kn[data-collapsed="true"] .kn-main{align-items:center}
 @media (max-width:860px){.kn{height:auto;flex:1 1 100%;border-right:0;border-bottom:1px solid #E5E4DF}.kn-list{max-height:200px}}
 
-.kc{position:relative;border:1px solid #E5E4DF;border-radius:14px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.03),0 6px 20px rgba(0,0,0,.05);font-family:${FONT};font-size:13px;line-height:1.5;color:#1B1B1F;transition:border-color .12s,box-shadow .12s}
+.kc{position:relative;border:1px solid #E5E4DF;border-radius:14px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.03),0 6px 20px rgba(0,0,0,.05);font-family:${FONT};font-size:14px;line-height:1.5;color:#1B1B1F;transition:border-color .12s,box-shadow .12s}
 .kc:focus-within{border-color:#C9C8C1;box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 28px rgba(0,0,0,.08)}
 .kc.big{border-radius:16px}
-.kc textarea{display:block;width:100%;box-sizing:border-box;border:0;resize:none;padding:12px 14px 4px;font:inherit;font-size:14px;line-height:1.6;color:#1B1B1F;background:transparent;outline:none;max-height:220px}
-.kc.big textarea{padding:16px 18px 8px;font-size:15px}
+.kc textarea{display:block;width:100%;box-sizing:border-box;border:0;resize:none;padding:12px 14px 4px;font:inherit;font-size:15px;line-height:1.6;color:#1B1B1F;background:transparent;outline:none;max-height:220px}
+.kc.big textarea{padding:16px 18px 8px;font-size:16px}
 .kc textarea::placeholder{color:#A1A1AA}
 .kc-bar{display:flex;align-items:center;gap:2px;padding:4px 8px 8px;flex-wrap:wrap}
 .kc.big .kc-bar{padding:6px 10px 10px}
-.kc-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:12.5px;color:#6E6E76;cursor:pointer;white-space:nowrap}
+.kc-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:13.5px;color:#6E6E76;cursor:pointer;white-space:nowrap}
 .kc-chip:hover,.kc-chip[aria-expanded="true"]{background:#EFEEEA;color:#1B1B1F}
 .kc-chip svg{flex:0 0 auto}
-.kc-hint{font-size:11.5px;color:#9A9AA1;margin-right:6px}
-.kc-send{width:30px;height:30px;margin-left:4px;border:0;border-radius:9px;background:#1B1B1F;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .12s;flex:0 0 auto}
+.kc-send{width:30px;height:30px;margin-left:auto;border:0;border-radius:9px;background:#1B1B1F;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .12s;flex:0 0 auto}
 .kc-send:disabled{opacity:.25;cursor:default}
 .kc-menu{position:absolute;left:12px;right:12px;bottom:calc(100% + 8px);background:#fff;border:1px solid #E5E4DF;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 16px 40px rgba(0,0,0,.12);padding:6px;display:flex;flex-direction:column;gap:1px;max-height:360px;overflow-y:auto;z-index:40}
 .kc-menu[hidden]{display:none}
-.kc-mh{font-size:11.5px;font-weight:500;color:#8A8A92;padding:6px 10px 4px}
+.kc-mh{font-size:12.5px;font-weight:500;color:#8A8A92;padding:6px 10px 4px}
 .kc-mi{display:flex;align-items:center;gap:12px;min-height:38px;padding:5px 10px;border:0;border-radius:8px;background:transparent;font:inherit;color:#1B1B1F;cursor:pointer;text-align:left;width:100%}
 .kc-mi:hover,.kc-mi.on{background:#F1F4FF}
-.kc-mi .cmd{font-family:${MONO};font-size:12.5px;font-weight:500;flex:0 0 120px}
+.kc-mi .cmd{font-family:${MONO};font-size:13.5px;font-weight:500;flex:0 0 120px}
 .kc-mi .desc{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kc-mi small{font-size:11.5px;color:#8A8A92}
-.kc-mf{display:flex;align-items:center;gap:12px;padding:8px 10px 4px;border-top:1px solid #F0EFEB;margin-top:4px;font-size:11.5px;color:#8A8A92}
+.kc-mi small{font-size:12.5px;color:#8A8A92}
+.kc-mf{display:flex;align-items:center;gap:12px;padding:8px 10px 4px;border-top:1px solid #F0EFEB;margin-top:4px;font-size:12.5px;color:#8A8A92}
 .kc-mf a{margin-left:auto;text-decoration:none;color:#3659E3}
 
-.kp{position:fixed;z-index:50;min-width:240px;max-width:320px;background:#fff;border:1px solid #E5E4DF;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 16px 40px rgba(0,0,0,.12);padding:6px;font-family:${FONT};font-size:13px;line-height:1.5;color:#1B1B1F;box-sizing:border-box}
+.kp{position:fixed;z-index:50;min-width:240px;max-width:320px;background:#fff;border:1px solid #E5E4DF;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 16px 40px rgba(0,0,0,.12);padding:6px;font-family:${FONT};font-size:14px;line-height:1.5;color:#1B1B1F;box-sizing:border-box}
 .kp *{box-sizing:border-box}
 .kp[hidden]{display:none}
-.kp-h{font-size:11.5px;color:#8A8A92;padding:6px 8px 4px;font-weight:500}
+.kp-h{font-size:12.5px;color:#8A8A92;padding:6px 8px 4px;font-weight:500}
 .kp-sep{height:1px;background:#ECEBE7;margin:5px 2px}
 .kp-opt{display:flex;align-items:center;gap:10px;width:100%;min-height:34px;padding:5px 8px;border:0;border-radius:8px;background:transparent;font:inherit;color:#1B1B1F;cursor:pointer;text-align:left;text-decoration:none}
 .kp-opt:hover{background:#F4F3F0}
-.kp-opt small{display:block;font-size:12px;color:#6E6E76}
+.kp-opt small{display:block;font-size:13px;color:#6E6E76}
 .kp-opt svg{flex:0 0 auto;color:#6E6E76}
 .kp-tick{width:14px;flex:0 0 auto;color:#1B1B1F;visibility:hidden;margin-left:auto}
 .kp-opt[aria-checked="true"] .kp-tick{visibility:visible}
@@ -78,30 +77,31 @@
 .kp-opt[aria-checked="true"] .kp-sw::after{left:13px}
 .kp-st{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
 .kp-seg{display:flex;padding:2px;background:#F1F0EC;border-radius:8px;gap:2px;margin:2px 6px 6px}
-.kp-seg button{flex:1;height:26px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:12px;color:#6E6E76;cursor:pointer}
+.kp-seg button{flex:1;height:26px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:13px;color:#6E6E76;cursor:pointer}
 .kp-seg button[aria-checked="true"]{background:#fff;color:#1B1B1F;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
 
-.kk{position:fixed;inset:0;z-index:60;background:rgba(27,27,31,.28);display:flex;justify-content:center;align-items:flex-start;padding-top:120px;font-family:${FONT};font-size:13px;line-height:1.5;color:#1B1B1F}
+.kk{position:fixed;inset:0;z-index:60;background:rgba(27,27,31,.28);display:flex;justify-content:center;align-items:flex-start;padding-top:120px;font-family:${FONT};font-size:14px;line-height:1.5;color:#1B1B1F}
 .kk[hidden]{display:none}
 .kk *{box-sizing:border-box}
 .kk-box{width:640px;max-width:calc(100% - 48px);background:#fff;border-radius:14px;box-shadow:0 4px 8px rgba(0,0,0,.06),0 24px 64px rgba(0,0,0,.22);display:flex;flex-direction:column;overflow:hidden}
 .kk-in{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;border-bottom:1px solid #ECEBE7}
-.kk-in input{flex:1;border:0;outline:none;font:inherit;font-size:15px;color:#1B1B1F;background:transparent}
-.kk-esc{height:24px;padding:0 8px;border:1px solid #E5E4DF;border-radius:6px;background:#fff;font:inherit;font-size:11px;color:#6E6E76;cursor:pointer}
+.kk-in input{flex:1;border:0;outline:none;font:inherit;font-size:16px;color:#1B1B1F;background:transparent}
+.kk-esc{height:24px;padding:0 8px;border:1px solid #E5E4DF;border-radius:6px;background:#fff;font:inherit;font-size:12px;color:#6E6E76;cursor:pointer}
 .kk-list{display:flex;flex-direction:column;gap:1px;padding:6px;max-height:440px;overflow-y:auto}
-.kk-h{font-size:11.5px;font-weight:500;color:#8A8A92;padding:6px 10px 4px}
+.kk-h{font-size:12.5px;font-weight:500;color:#8A8A92;padding:6px 10px 4px}
 .kk-it{display:flex;align-items:center;gap:12px;min-height:44px;padding:5px 10px;border:0;border-radius:8px;background:transparent;text-decoration:none;color:#1B1B1F;font:inherit;cursor:pointer;text-align:left;width:100%}
 .kk-it:hover,.kk-it.on{background:#F1F4FF}
 .kk-it .t{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
-.kk-it .s{font-size:12px;color:#6E6E76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.kk-it .m{font-size:12px;color:#8A8A92;font-family:${MONO};flex:0 0 auto}
+.kk-it .s{font-size:13px;color:#6E6E76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kk-it .m{font-size:13px;color:#8A8A92;font-family:${MONO};flex:0 0 auto}
 .kk-it mark{background:#FBE7A1;color:inherit;border-radius:2px}
-.kk-ft{display:flex;align-items:center;gap:12px;padding:8px 16px;border-top:1px solid #ECEBE7;font-size:11.5px;color:#8A8A92}
+.kk-ft{display:flex;align-items:center;gap:12px;padding:8px 16px;border-top:1px solid #ECEBE7;font-size:12.5px;color:#8A8A92}
 .kk-empty{padding:28px 16px;text-align:center;color:#6E6E76}
 `
 
   const icon = {
     plus: '<path d="M8 3v10M3 8h10"/>',
+    history: '<path d="M2.5 8a5.5 5.5 0 1 0 1.7-4L2.5 5.6"/><path d="M2.5 2.5v3.1h3.1"/><path d="M8 5v3.2l2.2 1.3"/>',
     search: '<circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/>',
     sliders: '<path d="M2 4.5h6.5M13 4.5h1M2 11.5h1M7.5 11.5H14"/><circle cx="10.7" cy="4.5" r="1.7"/><circle cx="5.3" cy="11.5" r="1.7"/>',
     folder: '<path d="M2 4.5h4l1.5 1.5H14v7H2z"/>',
@@ -184,12 +184,12 @@
     }
     if (kind === 'dir') {
       return `<div class="kp-h">工作目录</div>` +
-        dirDefs.map(([p, b]) => radio(prefs.dir === p, 'dir', p, `<span><span style="font-family:${MONO};font-size:12px">${p}</span><small>${b}</small></span>`)).join('') +
+        dirDefs.map(([p, b]) => radio(prefs.dir === p, 'dir', p, `<span><span style="font-family:${MONO};font-size:13px">${p}</span><small>${b}</small></span>`)).join('') +
         `<div class="kp-sep"></div><button type="button" class="kp-opt">${svg('folder', 14)}打开其他目录…</button>`
     }
     if (kind === 'agent') {
       return `<div class="kp-h">Agent</div>` +
-        agentDefs.map(([id, desc, tag]) => radio(prefs.agent === id, 'agent', id, `<span><span style="font-family:${MONO};font-size:12px">${id}</span><small>${desc} · ${tag}</small></span>`)).join('') +
+        agentDefs.map(([id, desc, tag]) => radio(prefs.agent === id, 'agent', id, `<span><span style="font-family:${MONO};font-size:13px">${id}</span><small>${desc} · ${tag}</small></span>`)).join('') +
         `<div class="kp-sep"></div><a class="kp-opt" href="settings.html#agent" style="color:#6E6E76">${svg('sliders', 14)}管理 Agent</a>`
     }
     if (kind === 'perm') {
@@ -200,7 +200,7 @@
       return `<div class="kp-seg" role="radiogroup" aria-label="内核">` +
         Object.keys(kernelDefs).map((k) => `<button type="button" role="radio" aria-checked="${prefs.kernel === k}" data-set="kernel" data-val="${k}">${kernelDefs[k]}</button>`).join('') +
         `</div>` +
-        gatewayDefs.map(([g, models]) => `<div class="kp-h">${g}</div>` + models.map((m) => radio(prefs.model === m, 'model', m, `<span style="font-family:${MONO};font-size:12px">${m}</span>`)).join('')).join('') +
+        gatewayDefs.map(([g, models]) => `<div class="kp-h">${g}</div>` + models.map((m) => radio(prefs.model === m, 'model', m, `<span style="font-family:${MONO};font-size:13px">${m}</span>`)).join('')).join('') +
         `<div class="kp-sep"></div><a class="kp-opt" href="settings.html#model" style="color:#6E6E76">${svg('sliders', 14)}内核与模型设置</a>`
     }
     return ''
@@ -301,7 +301,7 @@
       `<a class="kk-it" href="index.html" style="min-height:36px">${svg('plus', 14, 1.6)}<span class="t"><span>新会话${q ? '：“' + esc(q) + '”' : ''}</span></span><span class="m">⌘N</span></a>` +
       `<a class="kk-it" href="history.html" style="min-height:36px">${svg('search', 14, 1.6)}<span class="t"><span>全部会话</span></span></a>` +
       `<a class="kk-it" href="settings.html#mcp" style="min-height:36px">${svg('sliders', 14)}<span class="t"><span>设置 · MCP 服务</span></span></a>` +
-      `<button type="button" class="kk-it" data-close style="min-height:36px">${svg('folder', 14)}<span class="t"><span>切换工作目录到 <span style="font-family:${MONO};font-size:12px">order-svc</span></span></span></button>`
+      `<button type="button" class="kk-it" data-close style="min-height:36px">${svg('folder', 14)}<span class="t"><span>切换工作目录到 <span style="font-family:${MONO};font-size:13px">order-svc</span></span></span></button>`
     kkList.innerHTML = html
   }
   function openPalette(preset) {
@@ -336,15 +336,26 @@
 
   // ---------- 侧栏 ----------
   let nav = null
+  let autoCollapsed = false
+  function setCollapseTitle() {
+    const btn = nav.querySelector('[data-act="collapse"]')
+    const label = nav.dataset.collapsed === 'true' ? '展开侧栏' : '折叠侧栏'
+    btn.setAttribute('aria-label', label)
+    btn.title = label + ' ⌘B'
+  }
   function toggleNav() {
     const collapsed = nav.dataset.collapsed !== 'true'
     nav.dataset.collapsed = String(collapsed)
+    setCollapseTitle()
+    // 设置页、放大工作区时侧栏默认收起：这里按折叠按钮只管当前页，不改记住的状态
+    if (autoCollapsed) return
     try { localStorage.setItem('kits.nav.collapsed', collapsed ? '1' : '0') } catch (e) {}
   }
   function buildNav(active, forceCollapsed) {
     nav = document.createElement('nav')
     nav.className = 'kn'
     nav.setAttribute('aria-label', '主导航')
+    autoCollapsed = forceCollapsed
     let collapsed = forceCollapsed
     if (!forceCollapsed) { try { collapsed = localStorage.getItem('kits.nav.collapsed') === '1' } catch (e) {} }
     nav.dataset.collapsed = String(!!collapsed)
@@ -353,11 +364,12 @@
       <div class="kn-top">
         <span class="kn-logo" aria-hidden="true">k</span><a class="kn-brand" href="index.html">kits</a>
         <span style="flex:1"></span>
-        <button type="button" class="kn-icon" data-act="collapse" aria-label="折叠或展开侧栏" title="折叠侧栏 ⌘B">${svg('side', 14)}</button>
+        <button type="button" class="kn-icon" data-act="collapse" aria-label="折叠侧栏" title="折叠侧栏 ⌘B">${svg('side', 14)}</button>
       </div>
       <div class="kn-main" style="display:flex;flex-direction:column;gap:1px">
         <a class="kn-item${active === 'new' ? ' on' : ''}" href="index.html" title="新会话 ⌘N">${svg('plus', 15, 1.6)}<span class="kn-label">新会话</span><span class="kn-kbd">⌘N</span></a>
         <button type="button" class="kn-item${active === 'search' ? ' on' : ''}" data-act="search" title="搜索 ⌘K">${svg('search', 15, 1.6)}<span class="kn-label">搜索</span><span class="kn-kbd">⌘K</span></button>
+        <a class="kn-item${active === 'history' ? ' on' : ''}" href="history.html" title="全部会话">${svg('history', 15, 1.6)}<span class="kn-label">全部会话</span></a>
       </div>
       <div class="kn-list">
         ${convs.map(([h, items]) => `<div class="kn-h">${h}</div>` + items.map(([title, href, st, tag]) =>
@@ -372,6 +384,7 @@
       if (t.dataset.act === 'collapse') toggleNav()
       if (t.dataset.act === 'search') openPalette()
     })
+    setCollapseTitle()
     return nav
   }
 
@@ -387,12 +400,11 @@
       <textarea id="kc-${key}" rows="${rows}" placeholder="${esc(placeholder)}"></textarea>
       <div class="kc-bar">
         <button type="button" class="kc-chip" data-pop="add" aria-haspopup="menu" aria-expanded="false" aria-label="添加文件、引用和平台" title="上传文件、引用需求，管理可用的平台" style="width:28px;padding:0;justify-content:center">${svg('plus', 15, 1.6)}</button>
-        <button type="button" class="kc-chip" data-pop="dir" aria-haspopup="menu" aria-expanded="false" title="工作目录">${svg('folder', 13)}<span data-chip="dir" style="font-family:${MONO};font-size:12px">${chipText.dir()}</span></button>
+        <button type="button" class="kc-chip" data-pop="dir" aria-haspopup="menu" aria-expanded="false" title="工作目录">${svg('folder', 13)}<span data-chip="dir" style="font-family:${MONO};font-size:13px">${chipText.dir()}</span></button>
         <button type="button" class="kc-chip" data-pop="agent" aria-haspopup="menu" aria-expanded="false" title="Agent">${svg('agent', 13)}<span data-chip="agent">${chipText.agent()}</span></button>
         <span style="flex:1"></span>
         <button type="button" class="kc-chip" data-pop="perm" aria-haspopup="menu" aria-expanded="false" title="权限">${svg('shield', 13)}<span data-chip="perm">${chipText.perm()}</span></button>
-        <button type="button" class="kc-chip" data-pop="model" aria-haspopup="menu" aria-expanded="false" title="内核与模型"><span data-chip="model" style="font-family:${MONO};font-size:12px">${chipText.model()}</span>${svg('down', 12, 1.6)}</button>
-        <span class="kc-hint">⇧↵ 换行</span>
+        <button type="button" class="kc-chip" data-pop="model" aria-haspopup="menu" aria-expanded="false" title="内核与模型"><span data-chip="model" style="font-family:${MONO};font-size:13px">${chipText.model()}</span>${svg('down', 12, 1.6)}</button>
         <button type="button" class="kc-send" aria-label="发送" title="发送 ↵" disabled>${svg('up', 14, 1.8)}</button>
       </div>`
     const ta = box.querySelector('textarea')
@@ -417,7 +429,7 @@
         const q = at[2].toLowerCase()
         menu.innerHTML = refDefs.map(([h, items]) => {
           const list = items.filter(([t]) => !q || t.toLowerCase().includes(q))
-          return list.length ? `<div class="kc-mh">${h}</div>` + list.map(([t, m]) => `<button type="button" class="kc-mi" role="option" data-ref="${esc(t.split(' ')[0])}" style="min-height:34px">${svg('file', 13)}<span class="desc" style="font-family:${MONO};font-size:12px">${esc(t)}</span><small>${m}</small></button>`).join('') : ''
+          return list.length ? `<div class="kc-mh">${h}</div>` + list.map(([t, m]) => `<button type="button" class="kc-mi" role="option" data-ref="${esc(t.split(' ')[0])}" style="min-height:34px">${svg('file', 13)}<span class="desc" style="font-family:${MONO};font-size:13px">${esc(t)}</span><small>${m}</small></button>`).join('') : ''
         }).join('') +
           `<button type="button" class="kc-mi" role="option" style="min-height:34px">${svg('clip', 13)}<span class="desc">上传文件…</span><small>Word、PDF、Markdown、图片</small></button>` +
           `<div class="kc-mf"><span>↑↓ 选择</span><span>↵ 引用</span><span>Esc 关闭</span></div>`

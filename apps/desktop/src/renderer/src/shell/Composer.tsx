@@ -744,14 +744,13 @@ export function Composer({
             </MenuContent>
           </Menu>
         )}
-        <span className="mr-1.5 text-[0.885rem] text-fg-subtle">{t('composer.newline')}</span>
         <button
           type="button"
           aria-label={t('composer.send')}
           title={missing ? t(`composer.missing.${missing}`) : `${t('composer.send')} ↵`}
           disabled={!canSend}
           onClick={() => void submit()}
-          className="ml-1 flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-primary text-primary-fg transition-opacity disabled:cursor-default disabled:opacity-25"
+          className="ml-auto flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-primary text-primary-fg transition-opacity disabled:cursor-default disabled:opacity-25"
         >
           <ArrowUp size={14} strokeWidth={2.2} />
         </button>
