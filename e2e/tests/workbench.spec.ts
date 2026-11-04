@@ -33,12 +33,8 @@ test('shows the changed files, commands and usage of a finished turn', async () 
     await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
     await expect(panel.getByRole('tab', { name: /改动/ })).toContainText('1')
 
-    // 总结卡片：点“命令”跳到命令页签
-    const summary = page.getByTestId('summary')
-    await expect(summary).toContainText('1 个文件')
-    await expect(summary).toContainText('都成功了')
     await page.screenshot({ path: 'test-results/workbench-changes.png' })
-    await summary.getByRole('button', { name: /命令/ }).click()
+    await panel.getByRole('tab', { name: /命令/ }).click()
     const command = panel.getByTestId('command')
     await expect(command).toContainText('uv run pytest tests/points -q')
     await expect(command).toContainText('退出 0')

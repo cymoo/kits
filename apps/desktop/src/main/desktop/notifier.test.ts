@@ -10,6 +10,7 @@ const session = (status: SessionSummary['status'], patch: Partial<SessionSummary
     turns: 2,
     updatedAt: 1,
     lastError: null,
+    pinnedAt: null,
     ...patch,
   }) as SessionSummary
 

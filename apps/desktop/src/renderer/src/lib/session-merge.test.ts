@@ -15,6 +15,7 @@ const session = {
   createdAt: 0,
   updatedAt: 10,
   lastError: null,
+  pinnedAt: null,
 }
 const message: MessageView = {
   id: 'a1',

@@ -636,6 +636,24 @@ describe('SessionService skills', () => {
   })
 })
 
+describe('SessionService setPinned', () => {
+  it('pins and unpins without counting as an update, and pushes the change', async () => {
+    const { service, store, pushed, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const before = store.session(s.id)?.updatedAt
+    service.setPinned(s.id, true)
+    expect(store.session(s.id)?.pinnedAt).toEqual(expect.any(Number))
+    expect(store.session(s.id)?.updatedAt).toBe(before)
+    expect(pushed.at(-1)).toMatchObject({
+      channel: 'session.changed',
+      payload: { id: s.id, pinnedAt: expect.any(Number) },
+    })
+    service.setPinned(s.id, false)
+    expect(store.session(s.id)?.pinnedAt).toBeNull()
+  })
+})
+
 describe('SessionService search and remove', () => {
   it('indexes the user message and the reply once the turn is done', async () => {
     const { service, waitFor } = setup('done')

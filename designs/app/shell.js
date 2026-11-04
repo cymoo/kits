@@ -13,6 +13,10 @@
 .k-rz:hover::after{background:rgba(54,89,227,.5)}
 .kn>.k-rz{position:absolute;top:0;bottom:0;right:4px}
 .kn[data-collapsed="true"]>.k-rz{display:none}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-thumb{min-height:32px;border:2px solid transparent;border-radius:8px;background:#C9C8C1 padding-box}
+::-webkit-scrollbar-thumb:hover{background-color:#9A9AA1}
 .kn-top{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px}
 .kn-logo{width:20px;height:20px;border-radius:6px;background:#1B1B1F;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:0 0 auto}
 .kn-brand{font-weight:650;font-size:15px;letter-spacing:-.01em;text-decoration:none;color:#1B1B1F}
@@ -32,6 +36,11 @@
 .kn-st.wait{background:#B4650A}
 .kn-st.err{background:#C8381F}
 .kn-tag{font-size:12px;flex:0 0 auto;font-weight:400}
+.kn-row{position:relative}
+.kn-row:hover .kn-item,.kn-row:has(.kn-pin:focus-visible) .kn-item{background:#E9E8E3;padding-right:32px}
+.kn-pin{position:absolute;top:4px;right:4px;width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:#6E6E76;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0}
+.kn-row:hover .kn-pin,.kn-pin:focus-visible{opacity:1}
+.kn-pin:hover{background:#DEDDD8;color:#1B1B1F}
 @keyframes kn-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .kn-foot{display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid #E5E4DF}
 .kn[data-collapsed="true"]{flex-basis:56px;padding:12px 8px 8px;align-items:center}
@@ -108,6 +117,8 @@
 
   const icon = {
     plus: '<path d="M8 3v10M3 8h10"/>',
+    pin: '<path d="M8 11v3.5"/><path d="M5.5 2.5h5l-.5 4 2 2.5v2H4V9l2-2.5z"/>',
+    unpin: '<path d="M8 11v3.5"/><path d="M5.5 2.5h5l-.5 4 2 2.5v2H4V9l2-2.5z"/><path d="m2.5 2.5 11 11"/>',
     history: '<path d="M2.5 8a5.5 5.5 0 1 0 1.7-4L2.5 5.6"/><path d="M2.5 2.5v3.1h3.1"/><path d="M8 5v3.2l2.2 1.3"/>',
     search: '<circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/>',
     sliders: '<path d="M2 4.5h6.5M13 4.5h1M2 11.5h1M7.5 11.5H14"/><circle cx="10.7" cy="4.5" r="1.7"/><circle cx="5.3" cy="11.5" r="1.7"/>',
@@ -129,10 +140,11 @@
   // ---------- 共用的演示数据 ----------
   // 会话列表。href 里的 ?s= 是 session.html 的演示状态
   const convs = [
+    ['置顶', [
+      ['梳理会员等级规则', 'session.html?s=context', '', '', '…第 30 天当天不降，第 31 天才会降…', 'member-svc']]],
     ['今天', [
       ['给兑换接口加幂等校验', 'session.html?s=streaming', 'run', '', '…把幂等检查抽成了装饰器 @idempotent，两个接口各加一行…', 'member-svc'],
-      ['排查订单退款超时', 'session.html?s=question', 'wait', '有提问', '…网关返回 429，代码没有处理，一直重试到超时…', 'order-svc'],
-      ['梳理会员等级规则', 'session.html?s=context', '', '', '…第 30 天当天不降，第 31 天才会降…', 'member-svc']]],
+      ['排查订单退款超时', 'session.html?s=question', 'wait', '有提问', '…网关返回 429，代码没有处理，一直重试到超时…', 'order-svc']]],
     ['昨天', [
       ['生成积分模块接口文档', 'session.html?s=error', 'err', '出错', '…文档已经写了前 6 个接口…', 'member-svc'],
       ['接口文档和实现对不上的地方', 'session.html?s=output', '', '', '…找到 7 处不一致，2 处严重…', 'member-svc'],
@@ -402,7 +414,7 @@
       </div>
       <div class="kn-list">
         ${convs.map(([h, items]) => `<div class="kn-h">${h}</div>` + items.map(([title, href, st, tag]) =>
-          `<a class="kn-item${href === here ? ' on' : ''}" href="${href}" title="${esc(title)}">${st ? `<span class="kn-st ${st}"></span>` : ''}<span class="kn-label">${esc(title)}</span>${tag ? `<span class="kn-tag" style="color:${st === 'err' ? '#C8381F' : '#B4650A'}">${tag}</span>` : ''}</a>`).join('')).join('')}
+          `<div class="kn-row"><a class="kn-item${href === here ? ' on' : ''}" href="${href}" title="${esc(title)}">${st ? `<span class="kn-st ${st}"></span>` : ''}<span class="kn-label">${esc(title)}</span>${tag ? `<span class="kn-tag" style="color:${st === 'err' ? '#C8381F' : '#B4650A'}">${tag}</span>` : ''}</a><button type="button" class="kn-pin" aria-label="${h === '置顶' ? '取消置顶' : '置顶'}“${esc(title)}”" title="${h === '置顶' ? '取消置顶' : '置顶'}">${svg(h === '置顶' ? 'unpin' : 'pin', 13, 1.5)}</button></div>`).join('')).join('')}
       </div>
       <div class="kn-foot">
         <a class="kn-item${active === 'settings' ? ' on' : ''}" href="settings.html" title="设置 ⌘,">${svg('sliders', 15)}<span class="kn-label">设置</span><span class="kn-kbd">⌘,</span></a>

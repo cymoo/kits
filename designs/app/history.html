@@ -70,11 +70,13 @@ class Component extends DCLogic {
     const colors = { run: '#2744B8', wait: '#8A5A00', err: '#9A2C1F', done: '#6E6E76', idle: '#6E6E76' };
     const row = (href, title, sub, dir, kind, state, when, dotColor, pulse) => ({ href, title, sub, dir, kind, state, when, dot: dot(dotColor, pulse), stateStyle: 'font-size: 13px; font-weight: 500; color: ' + colors[kind] });
     const all = [
+      ['置顶', [
+        row('session.html?s=context', '梳理会员等级规则', '9 轮 · 上下文接近上限', 'member-svc', 'idle', '空闲', '1 小时前', null)
+      ]],
       ['今天', [
         row('session.html?s=streaming', '给兑换接口加幂等校验', '2 轮 · 改了 5 个文件 · 16 个测试通过', 'member-svc', 'run', '运行中', '刚刚', '#3659E3', true),
         row('session.html?s=permission', '给兑换接口加幂等校验（第 1 轮）', '有一条命令等你确认', 'member-svc', 'wait', '待确认', '12 分钟前', '#B4650A'),
-        row('session.html?s=question', '排查订单退款超时', '1 轮 · 没有改文件', 'order-svc', 'wait', '有提问', '12 分钟前', '#B4650A'),
-        row('session.html?s=context', '梳理会员等级规则', '9 轮 · 上下文接近上限', 'member-svc', 'idle', '空闲', '1 小时前', null)
+        row('session.html?s=question', '排查订单退款超时', '1 轮 · 没有改文件', 'order-svc', 'wait', '有提问', '12 分钟前', '#B4650A')
       ]],
       ['昨天', [
         row('session.html?s=error', '生成积分模块接口文档', '1 轮 · 网关断连重试中 / 内核退出', 'member-svc', 'err', '出错', '昨天 14:05', '#C8381F'),

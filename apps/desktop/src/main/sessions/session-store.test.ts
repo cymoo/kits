@@ -27,6 +27,7 @@ const session = (id: string, title: string, updatedAt: number): SessionSummary =
   createdAt: updatedAt,
   updatedAt,
   lastError: null,
+  pinnedAt: null,
 })
 
 const message = (sessionId: string, role: 'user' | 'assistant', text: string): MessageView => ({

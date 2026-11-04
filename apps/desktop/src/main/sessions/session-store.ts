@@ -88,6 +88,7 @@ export function toSummary(r: SessionRecord): SessionSummary {
     createdAt: r.createdAt.getTime(),
     updatedAt: r.updatedAt.getTime(),
     lastError: r.lastError,
+    pinnedAt: r.pinnedAt,
   }
 }
 

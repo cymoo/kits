@@ -197,6 +197,25 @@ html[data-scale="l"] {
 }
 
 /* 拖动栏宽时：鼠标移到哪都是拖动光标，不选中文字，宽度不走动画（不分层，压得过工具类） */
+/* 滚动条：可见宽度 4px，平时淡，鼠标移上去加深。用了 scrollbar-width / scrollbar-color 这些伪元素会失效 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  min-height: 32px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--k-border-strong) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--k-fg-subtle);
+}
+
 html[data-resizing],
 html[data-resizing] * {
   cursor: col-resize;

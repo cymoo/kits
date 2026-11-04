@@ -100,3 +100,38 @@ test('fills a suggestion into the composer and opens all sessions from the sideb
     await close()
   }
 })
+
+test('pins a session to the top of the sidebar and the history page', async () => {
+  const { page, configDir, close } = await launchApp(mock)
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    await runTask(page, '给兑换接口加幂等校验')
+    await runTask(page, '排查订单退款超时')
+
+    const list = page.getByTestId('session-list')
+    const titles = () => list.getByRole('link')
+    await expect(titles()).toHaveText(['排查订单退款超时', '给兑换接口加幂等校验'])
+    await expect(list.getByText('置顶', { exact: true })).toHaveCount(0)
+
+    await list.getByRole('link', { name: '给兑换接口加幂等校验' }).hover()
+    await list.getByRole('button', { name: '置顶“给兑换接口加幂等校验”' }).click()
+    await expect(list.getByText('置顶', { exact: true })).toBeVisible()
+    await expect(titles()).toHaveText(['给兑换接口加幂等校验', '排查订单退款超时'])
+    await page.screenshot({ path: 'test-results/session-pinned.png' })
+
+    // 重启后还在；全部会话也排在最前
+    await page.reload()
+    await expect(titles()).toHaveText(['给兑换接口加幂等校验', '排查订单退款超时'])
+    await page.getByRole('link', { name: '全部会话' }).click()
+    const history = page.getByTestId('history-list')
+    await expect(history.getByRole('heading').first()).toHaveText('置顶')
+
+    await history.getByRole('link', { name: /给兑换接口加幂等校验/ }).hover()
+    await history.getByRole('button', { name: '取消置顶“给兑换接口加幂等校验”' }).click()
+    await expect(history.getByRole('heading', { name: '置顶' })).toHaveCount(0)
+    await expect(titles()).toHaveText(['排查订单退款超时', '给兑换接口加幂等校验'])
+  } finally {
+    await close()
+  }
+})
