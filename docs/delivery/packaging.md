@@ -182,3 +182,39 @@ phase1-implementation PR20：electron-builder 出 mac dmg（arm64 / x64）、win
 - `package:portable` 只能在 Windows x64 上跑：`node_modules/electron/dist` 是本机平台的 Electron。上一节“测试”里在 mac 上直接跑这个脚本的做法不再适用。
 - 用本地 Electron 时 electron-builder 不清理 `default_app.asar`，它会留在包里，不影响运行（Electron 优先加载 `app.asar`）。
 - 默认的 `package` 脚本没改，在连不上 GitHub 的机器上打安装包，要手动在命令后加 `--config.electronDist=node_modules/electron/dist`。
+
+## 2026-11-04　CI 只跑 Windows
+
+> 日期：2026-11-04　分支：`chore/ci-windows-only`　作者：Claude Code
+
+### 原始需求
+
+kits 主要运行在 Windows 上，mac 只用于本地开发，CI 不需要再跑 macOS。
+
+做到什么程度算完：PR 和 `main` 的 CI 只有一个 Windows job，lint、typecheck、单测、构建、E2E 都还在。
+
+### 怎么验收
+
+1. 开 PR 后，检查列表里只有 `check`，运行在 `windows-latest` 上，没有 `check (macos-latest)`。
+2. E2E 失败时，运行页面的产物里有 `playwright-report`。
+
+### 主要改动
+
+- `.github/workflows/ci.yml`：去掉 `matrix`，直接用 `windows-latest`。检查名从 `check (windows-latest)` 变成 `check`。
+- `AGENTS.md`、`.agents/skills/e2e-test/SKILL.md`：同步写明 CI 只跑 Windows，mac 上提交前在本机跑。
+
+`release.yml` 没动，打 tag 时仍然出 mac 和 Windows 的包。配置项和数据库 schema 没有变。
+
+### 测试
+
+- 只改了 CI 配置，不加单测。工作流文件能解析，`pnpm check` 全过。
+- 工作流本身要推到 GitHub 才能真正跑，本地验证不了。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- mac 上的问题 CI 不再拦，全靠提交前在本机跑 `pnpm check` 和 `pnpm test:e2e`。
+- 从 2026-11-04 起 CI 因 GitHub 账单没有运行，#36～#40 的 Windows E2E 都没跑过。CI 恢复后第一次运行要看这些改动在 Windows 上是否通过，尤其是 `desktop.spec.ts` 的 `shows the hidden window when the app is launched again`。

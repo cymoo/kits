@@ -7,11 +7,8 @@ on:
 
 jobs:
   check:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    # 应用主要跑在 Windows 上；mac 只用于本地开发，提交前在本机跑检查和 E2E
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -30,5 +27,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report-${{ matrix.os }}
+          name: playwright-report
           path: e2e/test-results

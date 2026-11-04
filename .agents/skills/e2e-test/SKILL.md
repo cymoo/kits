@@ -14,7 +14,7 @@ pnpm build
 pnpm test:e2e
 ```
 
-CI 在 macOS 和 Windows 上各跑一遍。
+CI 只在 Windows 上跑；mac 是本地开发环境，提交前在本机跑一遍。
 
 ## 覆盖什么
 
