@@ -48,7 +48,7 @@ docs/                     文档，见 docs/README.md
 界面改动先改原型，看过没问题再写页面。不要跳过原型直接改代码，也不要让代码和原型长期不一致。
 
 - 产品原型在 `designs/app/`，只有一份，改现有页面就改这里。
-- 新页面、新流程先在 `designs/explore/<YYYY-MM-DD>-<slug>/` 里用 `.agents/skills/claude-design` 技能画画板，本地编辑器里可以并排看多个页面、改文案、留评论。评审通过后并入 `designs/app/`。
+- 新页面、新流程先在 `designs/explore/<YYYY-MM-DD>-<slug>/` 里用 `claude-design` 技能画画板（不在仓库里，安装方法见 [.agents/skills/README.md](.agents/skills/README.md)），本地编辑器里可以并排看多个页面、改文案、留评论。评审通过后并入 `designs/app/`。
 - 原型只画必要的状态（空、加载、正常、出错），不堆功能。原型评审的结论写回需求。
 
 ### 3. 开发

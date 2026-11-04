@@ -47,3 +47,41 @@ phase1-implementation PR13（3.4 节技能、6.3 节 `#skills`）：技能按 Ag
 - 项目技能和个人技能同名时，kits 界面上项目的优先，但内核里两份都在（个人的经 `skills.paths`、项目的经外部发现），哪份生效由 OpenCode 决定。建议同名时直接关掉不要的那个。
 - `/技能名` 的改写是给模型的一句话，不是 OpenCode 的命令接口：模型通常会照做，但不能保证一定先加载技能。
 - “记忆”部分在 PR16。
+
+## 2026-11-04　claude-design 移出仓库
+
+> 日期：2026-11-04　分支：`chore/skills-remove-claude-design`　作者：Claude Code
+
+### 原始需求
+
+仓库要公开，以便免费使用 CI。`claude-design` 里取自 Anthropic 的内容没有公开许可，不能随公开仓库再分发，要从仓库移除。历史记录不处理。
+
+做到什么程度算完：当前代码里没有这个技能，本机开发时还能照常用。
+
+### 怎么验收
+
+1. 运行 `git ls-files | grep claude-design`，没有输出。
+2. 运行 `ls -la .claude/skills`，没有失效的软链接。
+3. 在 Claude Code 里输入 `/claude-design`，技能能加载（来自 `~/.claude/skills/claude-design`）。
+4. 打开 `.agents/skills/README.md`，“claude-design”一节写明了从哪里安装。
+
+### 主要改动
+
+- 删除 `.agents/skills/claude-design/` 和软链接 `.claude/skills/claude-design`，共 31 个路径。构建和应用都不依赖它们。
+- `.agents/skills/README.md`：写明来源、版本和安装方法。`AGENTS.md`：不再写仓库内的路径，指到这份安装说明。
+- 本机把技能复制到了 `~/.claude/skills/claude-design`，和仓库里的版本逐文件一致。这一步不在仓库里，其他协作者要按说明自己装。
+
+配置项和数据库 schema 没有变。
+
+### 测试
+
+- 没有代码改动，不加单测。`pnpm check` 全过，`pnpm build` 通过。
+- 从 `~/.claude/skills/claude-design` 运行 `scripts/artifact.mjs` 能正常输出用法。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 这些文件还在提交 `6eeb85d` 的历史里，按决定不处理，公开后能从历史中看到。
