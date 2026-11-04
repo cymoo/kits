@@ -264,6 +264,7 @@ Error: upstream request failed after 5 retries: ECONNRESET
         </div>
       </section>
 
+      <div class="k-rz" data-w="{{rzWidth}}" data-dir="{{rzDir}}" title="拖动改宽度，双击恢复"></div>
       <aside aria-label="工作区面板" style="{{panelStyle}}">
         <div style="display: flex; align-items: center; gap: 2px; padding: 8px 10px 0; border-bottom: 1px solid #ECEBE7; flex: 0 0 auto">
           <div role="tablist" aria-label="面板" style="display: flex; gap: 2px">
@@ -633,10 +634,11 @@ class Component extends DCLogic {
       pillDot: pillDefs[pk][1] ? 'width: 6px; height: 6px; border-radius: 50%; background: ' + pillDefs[pk][1] : '', pillCheck: pk === 'done', pillText,
       running, finished: pk === 'done',
       wideHref: 'session.html?s=' + (s.tab === 'output' && scene === 'done' ? 'changes' : 'changes'), narrowHref: 'session.html?s=' + (scene === 'output' ? 'output' : 'done'),
-      threadStyle: 'flex: ' + (wide ? '0 0 400px' : '1') + '; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; padding: ' + (wide ? '20px 20px 0' : '24px 28px 0') + '; box-sizing: border-box; ' + (wide ? 'border-right: 1px solid #ECEBE7; background: #FBFBF9' : ''),
+      rzWidth: wide ? 'chat' : 'panel', rzDir: wide ? '1' : '-1',
+      threadStyle: 'flex: ' + (wide ? '0 0 var(--k-chat-w, 400px)' : '1') + '; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; padding: ' + (wide ? '20px 20px 0' : '24px 28px 0') + '; box-sizing: border-box; ' + (wide ? 'border-right: 1px solid #ECEBE7; background: #FBFBF9' : ''),
       threadInner: 'width: 100%; max-width: ' + (wide ? 'none' : '760px') + '; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; flex: 1',
       composerWrap: 'width: 100%; max-width: ' + (wide ? 'none' : '760px') + '; margin: 0 auto; position: sticky; bottom: 0; padding: 12px 0 16px; background: linear-gradient(to bottom, rgba(255,255,255,0), ' + (wide ? '#FBFBF9' : '#FFFFFF') + ' 14px); display: flex; flex-direction: column; gap: 8px',
-      panelStyle: 'flex: ' + (wide ? '1' : '0 0 380px') + '; min-width: 0; border-left: 1px solid #ECEBE7; background: #FBFBF9; display: flex; flex-direction: column',
+      panelStyle: 'flex: ' + (wide ? '1' : '0 0 var(--k-panel-w, 380px)') + '; min-width: 0; border-left: 1px solid #ECEBE7; background: #FBFBF9; display: flex; flex-direction: column',
       blocks: sc.blocks,
       // 命令确认
       permCardStyle: 'border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; ' + (permWaiting ? 'border: 1px solid #E9B949; background: #FFFBF0; box-shadow: 0 0 0 4px rgba(233,185,73,.12)' : 'border: 1px solid #ECEBE7; background: #FCFCFB'),

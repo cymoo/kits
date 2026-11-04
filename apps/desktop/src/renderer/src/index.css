@@ -196,6 +196,14 @@ html[data-scale="l"] {
   }
 }
 
+/* 拖动栏宽时：鼠标移到哪都是拖动光标，不选中文字，宽度不走动画（不分层，压得过工具类） */
+html[data-resizing],
+html[data-resizing] * {
+  cursor: col-resize;
+  user-select: none;
+  transition: none;
+}
+
 @keyframes k-pulse {
   0%,
   100% {

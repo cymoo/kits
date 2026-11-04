@@ -110,6 +110,29 @@ test('collapses the sidebar again when leaving the page it was expanded on', asy
   }
 })
 
+test('resizes the workspace panel and the chat column of the wide layout', async () => {
+  const { page, configDir, close } = await launchApp(mock('done'))
+  try {
+    await send(page, configDir, '给兑换接口加幂等校验')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    const panel = page.getByRole('complementary', { name: '工作区面板' })
+    const handle = page.getByRole('separator', { name: '调整工作区面板宽度' })
+    const before = (await panel.boundingBox())?.width ?? 0
+    await handle.focus()
+    await page.keyboard.press('ArrowLeft')
+    await expect.poll(async () => (await panel.boundingBox())?.width).toBe(before + 16)
+
+    await page.keyboard.press(`${mod}+Backslash`)
+    const chat = page.getByRole('separator', { name: '调整对话栏宽度' })
+    await expect(chat).toBeVisible()
+    await chat.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(chat).toHaveAttribute('aria-valuenow', '416')
+  } finally {
+    await close()
+  }
+})
+
 test('lists a command waiting for confirmation in the commands tab', async () => {
   const { page, configDir, close } = await launchApp(mock('permission'))
   try {

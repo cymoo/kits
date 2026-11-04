@@ -140,6 +140,39 @@ test('expands the sidebar on the settings page and restores it after leaving', a
   }
 })
 
+test('resizes the sidebar by dragging, remembers it and resets on double click', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const nav = page.getByRole('navigation', { name: '主导航' })
+    const handle = page.getByRole('separator', { name: '调整侧栏宽度' })
+    const width = async () => (await nav.boundingBox())?.width
+    expect(await width()).toBe(248)
+
+    const box = await handle.boundingBox()
+    if (!box) throw new Error('没有手柄')
+    await page.mouse.move(box.x + 4, box.y + 300)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 64, box.y + 300, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(width).toBe(308)
+
+    // 键盘也能调
+    await handle.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect.poll(width).toBe(324)
+
+    await page.reload()
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await expect.poll(width).toBe(324)
+
+    await handle.dblclick()
+    await expect.poll(width).toBe(248)
+  } finally {
+    await close()
+  }
+})
+
 test('keeps the option picked with the arrow keys in view at the large ui scale', async () => {
   const { page, close } = await launchApp()
   try {
