@@ -29,15 +29,20 @@ export function Layout() {
   const info = useAppInfo()
 
   // 设置页给分区导航让位（原型 settings.html），会话页放大工作区时给文件列表和 diff 让位（原型 ?panel=wide）：
-  // 侧栏默认收成图标栏。这时按折叠按钮只在当前页展开，不改记住的状态，离开就还原
-  const autoCollapse =
-    location.pathname.startsWith('/settings') ||
-    (location.pathname.startsWith('/s/') && panel === 'wide')
-  const [navPeek, setNavPeek] = useState(false)
-  useEffect(() => {
-    if (!autoCollapse) setNavPeek(false)
-  }, [autoCollapse])
-  const onToggleNav = autoCollapse ? () => setNavPeek((peek) => !peek) : toggleNav
+  // 侧栏默认收成图标栏。这时按折叠按钮只在当前页展开，不改记住的状态，离开就还原。
+  // “当前页”按范围算：设置各分区共用一个，会话一个会话一个
+  const navScope = location.pathname.startsWith('/settings')
+    ? 'settings'
+    : location.pathname.startsWith('/s/') && panel === 'wide'
+      ? location.pathname
+      : undefined
+  const autoCollapse = navScope !== undefined
+  const [peekScope, setPeekScope] = useState<string>()
+  // 比较放在渲染时，切页的第一帧就是收起的；effect 只负责清掉，回到原页不再展开
+  const navPeek = autoCollapse && peekScope === navScope
+  // biome-ignore lint/correctness/useExhaustiveDependencies: navScope 变了要清
+  useEffect(() => setPeekScope(undefined), [navScope])
+  const onToggleNav = autoCollapse ? () => setPeekScope(navPeek ? undefined : navScope) : toggleNav
 
   // 侧栏展开还是只留图标：设置里改了才跟着变（会一起记住）；启动时用上次记住的，⌘B 切过的也算
   const sidebar = settings.data?.general.sidebar

@@ -76,6 +76,40 @@ test('widens the panel with the shortcut and shows the diff side by side', async
   }
 })
 
+test('collapses the sidebar again when leaving the page it was expanded on', async () => {
+  const { page, configDir, close } = await launchApp(mock('done'))
+  try {
+    await send(page, configDir, '第一个会话')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    await page.keyboard.press(`${mod}+N`)
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('第二个会话')
+    await box.press('Enter')
+    await expect(page.getByRole('heading', { name: '第二个会话' })).toBeVisible()
+
+    const nav = page.getByRole('navigation', { name: '主导航' })
+    await page.keyboard.press(`${mod}+Backslash`)
+    await expect(nav).toHaveAttribute('data-collapsed', 'true')
+    await page.keyboard.press(`${mod}+B`)
+    await expect(nav).toHaveAttribute('data-collapsed', 'false')
+
+    // 放大工作区时切到另一个会话
+    await nav.getByRole('link', { name: '第一个会话' }).click()
+    await expect(page.getByRole('heading', { name: '第一个会话' })).toBeVisible()
+    await expect(nav).toHaveAttribute('data-collapsed', 'true')
+
+    // 放大的会话直接进设置页
+    await page.keyboard.press(`${mod}+B`)
+    await expect(nav).toHaveAttribute('data-collapsed', 'false')
+    await page.keyboard.press(`${mod}+Comma`)
+    await expect(page).toHaveURL(/#\/settings\/general$/)
+    await expect(nav).toHaveAttribute('data-collapsed', 'true')
+  } finally {
+    await close()
+  }
+})
+
 test('lists a command waiting for confirmation in the commands tab', async () => {
   const { page, configDir, close } = await launchApp(mock('permission'))
   try {
