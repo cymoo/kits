@@ -9,8 +9,8 @@
 ## 环境
 
 - Node 24（版本在 `.node-version`，推荐用 [fnm](https://github.com/Schniz/fnm) 或 Volta 管理；低于 22.16 的 Node 跑不了 `node:sqlite` 相关的测试）
-- pnpm 12，用 corepack 启用：`corepack enable`（装不上就 `npm i -g pnpm@12`）
-- Windows：clone 前 `git config --global core.symlinks true`，`.claude/skills/` 是软链接
+- pnpm 12，用 corepack 启用：`corepack enable`。Windows 上 Node 装在 `C:\Program Files\nodejs` 时要用管理员终端，否则报 `EPERM`；没有管理员权限就 `npm i -g pnpm@12.16.1`（和 `package.json` 的 `packageManager` 保持一致）
+- Windows：clone 前 `git config --global core.symlinks true`，`.claude/skills/` 是软链接；创建软链接要打开“开发者模式”或用管理员终端
 
 ## 开发
 
@@ -42,6 +42,7 @@ pnpm vendor:kernel && pnpm --filter @kits/desktop package
 
 - 带上 CodeAgent：打包前设 `KITS_CODEAGENT_BIN` 指到 CodeAgent 的可执行文件，`vendor:kernel` 会一起拷进去；不设的话安装包里只有 OpenCode，设置页显示 CodeAgent“未安装”。
 - 只想看一眼打出来的应用、不要 dmg / 安装程序：`pnpm --filter @kits/desktop package:dir`。
+- Windows 便携版（单个 exe，双击运行，不用安装）：在 Windows 上先跑 `pnpm vendor:kernel`，再跑 `pnpm --filter @kits/desktop package:portable`，产物是 `apps/desktop/release/kits-<版本>-win-x64-portable.exe`。每次启动都要先解压，比安装版慢；配置和数据不放在 exe 旁边，还是 `%USERPROFILE%\.kits` 和系统的用户数据目录；自动更新只按安装版做，便携版不要配 `updateUrl`。发版流水线不出便携版。
 - 发版：推一个 `v*` 的 tag，`.github/workflows/release.yml` 在 mac（arm64、x64 各一台）和 Windows（x64）上打包，产物挂到一个草稿 release 上。
 - 签名：现在 mac 是 ad-hoc 签名（没有 Developer ID，从网上下载后 Gatekeeper 会拦，到“系统设置 → 隐私与安全性”点“仍要打开”，或者运行 `xattr -dr com.apple.quarantine /Applications/kits.app`），Windows 未签名（会有 SmartScreen 提示）。证书到位后要的是：
   - mac：Developer ID Application 证书（`.p12`），放进仓库 Secrets 的 `CSC_LINK`（base64）和 `CSC_KEY_PASSWORD`；公证再加 `APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。`apps/desktop/electron-builder.yml` 里删掉 `mac.identity`，`mac.hardenedRuntime` 和 `mac.notarize` 改成 `true`。
