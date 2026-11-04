@@ -9,7 +9,7 @@
 
 | 页面 | 内容 |
 |---|---|
-| `onboarding.html` | 首次引导：模型网关（先配一个）→ 工作目录 → MCP（可跳过） |
+| `onboarding.html` | 首次引导，一页：模型网关（先配一个）和工作目录（不选就用 `~/kits-workspace`）；MCP 在设置里配 |
 | `index.html` | 首页：输入任务；`/` 列出命令，`@` 列出可引用的文件和需求 |
 | `session.html` | 会话：对话流 + 工作区面板（改动 / 产出 / 命令 / 上下文）。`?s=` 切换演示状态：`streaming` 运行中、`permission` 命令确认、`question` Agent 提问、`done` 完成、`error` 重试与出错、`context` 上下文接近上限、`changes` 改动面板放大、`output` 结构化产出放大 |
 | `history.html` | 会话历史，按状态筛选 |

@@ -30,7 +30,12 @@ export async function launchApp(
   // 默认跳过首次引导和“打开上次的会话”以外的启动跳转；测引导的用例传 KITS_SKIP_ONBOARDING: '0'
   Object.assign(
     merged,
-    { KITS_CONFIG_DIR: configDir, KITS_USER_DATA_DIR: userDataDir, KITS_SKIP_ONBOARDING: '1' },
+    {
+      KITS_CONFIG_DIR: configDir,
+      KITS_USER_DATA_DIR: userDataDir,
+      KITS_WORKSPACE_DIR: path.join(root, 'kits-workspace'),
+      KITS_SKIP_ONBOARDING: '1',
+    },
     env,
   )
   const app = await electron.launch({ args: [main], env: merged })

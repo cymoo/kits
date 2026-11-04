@@ -7,7 +7,7 @@ import type { KernelName } from '@kits/core/ipc'
 import { app, BrowserWindow, Notification, shell } from 'electron'
 import { AgentService } from './agents/agent-service'
 import { ConfigService } from './config/config-service'
-import { resolveConfigDir } from './config/paths'
+import { resolveConfigDir, resolveWorkspaceDir } from './config/paths'
 import { SecretStore } from './config/secrets'
 import { openDatabase } from './db'
 import { Notifier } from './desktop/notifier'
@@ -262,6 +262,7 @@ app.whenReady().then(() => {
           configDirLabel: homeLabel(config.paths.dir),
           skipOnboarding: process.env.KITS_SKIP_ONBOARDING === '1',
           homeDir: os.homedir(),
+          defaultWorkdir: resolveWorkspaceDir(),
           userDataDir: platform.userDataDir,
         }),
         openExternal: (url) => platform.openExternal(url),
@@ -370,6 +371,13 @@ app.whenReady().then(() => {
       },
       workdir: {
         inspect: (dir) => inspectWorkdir(realpathSync(dir)),
+        createDefault: () => {
+          const dir = resolveWorkspaceDir()
+          mkdirSync(dir, { recursive: true })
+          const real = realpathSync(dir)
+          rememberWorkdir(real)
+          return real
+        },
         pick: async () => {
           const dir = await platform.pickDirectory()
           if (dir) rememberWorkdir(dir)

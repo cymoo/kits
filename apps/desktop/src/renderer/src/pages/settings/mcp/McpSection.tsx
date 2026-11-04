@@ -28,12 +28,10 @@ function errorText(e: unknown): string {
 export function McpPaste({
   onAdded,
   onCancel,
-  rows = 6,
   initial = '',
 }: {
   onAdded(names: string[]): void
   onCancel?: () => void
-  rows?: number
   initial?: string
 }) {
   const client = useQueryClient()
@@ -61,7 +59,7 @@ export function McpPaste({
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          rows={rows}
+          rows={6}
           spellCheck={false}
           placeholder={
             '{\n  "mcpServers": {\n    "case-platform": { "url": "https://cases.corp.example/mcp", "headers": { "Authorization": "Bearer ${CASE_TOKEN}" } }\n  }\n}'

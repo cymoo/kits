@@ -50,6 +50,7 @@ describe('contractEntries', () => {
       ['files', 'search'],
       ['workdir', 'pick'],
       ['workdir', 'inspect'],
+      ['workdir', 'createDefault'],
       ['agents', 'list'],
       ['agents', 'overview'],
       ['agents', 'save'],
