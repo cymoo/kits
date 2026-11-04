@@ -43,3 +43,56 @@ phase1-implementation PR20：electron-builder 出 mac dmg（arm64 / x64）、win
 - 未签名：mac 第一次打开要右键“打开”，Windows 有 SmartScreen 提示；自动更新在 mac 上要求签名，签名前 mac 的自动更新不会生效（Windows 可以）。
 - 应用图标是代码画的占位，设计稿出来后替换 `apps/desktop/resources/icon.png` 就行。
 - `release.yml` 没有实跑过；`macos-13`（Intel）runner 如果被 GitHub 下线，要换成交叉 vendor 的方式。
+
+## 2026-11-04　修 mac 签名、发版流水线和缺内核时的静默打包
+
+> 日期：2026-11-04　分支：`fix/packaging-signing-and-release`　作者：Claude Code
+
+### 原始需求
+
+本机实际打包时发现四个问题，这次都修掉：
+
+- mac 包的签名校验不过（`codesign --verify` 失败），发给别人后可能提示“已损坏”。
+- `release.yml` 的 `pnpm package -- --publish never --<架构>` 里，`--` 之后的参数全被 electron-builder 丢掉。
+- `release.yml` 用的 `macos-13` runner 已被 GitHub 下线。
+- `vendor/` 里没有目标平台的内核时只打警告，能打出没有内核的包（比如在 mac 上 `--win`）。
+
+做到什么程度算完：mac 包签名校验通过并能启动；流水线的参数生效；缺内核时打包失败并说清楚怎么办。
+
+### 怎么验收
+
+1. 在 mac arm64 上运行 `pnpm vendor:kernel && pnpm --filter @kits/desktop package`，日志里有 `signing ... identityName=-`。
+2. 运行 `codesign --verify --deep --strict apps/desktop/release/mac-arm64/kits.app`，退出码是 0，没有输出。
+3. 打开 `apps/desktop/release/mac-arm64/kits.app`，能进首页。如果 `pnpm dev` 开着，单实例锁会让它一启动就退出，先关掉 dev。
+4. 在 `apps/desktop` 下运行 `pnpm exec electron-builder --config electron-builder.yml --win --x64`，打包失败，报 `OpenCode binary not found at .../vendor/opencode/win-x64/opencode.exe; run pnpm vendor:kernel on a win x64 machine first`，不产出 exe。
+5. 在 GitHub Actions 手动运行 `release`（`gh workflow run release.yml --ref <分支>`）：三个任务都绿，mac 任务的日志里有 `signing ... identityName=-`，产物里有 dmg、zip 和 Windows 的 exe。
+
+### 主要改动
+
+- `apps/desktop/electron-builder.yml`：`mac.identity: "-"`（ad-hoc 签名）。electron-builder 没有证书时不会自动 ad-hoc，要显式打开。`mac.hardenedRuntime` 改成 `false`，ad-hoc 加 hardened runtime 会因为库校验启动失败。新增 `beforePack` 钩子。
+- `apps/desktop/scripts/check-kernel.mjs`：`beforePack` 钩子，`vendor/opencode/<os>-<arch>/` 里没有内核就让打包失败。`apps/desktop/vitest.config.ts` 把 `scripts/` 纳入单测。
+- `.github/workflows/release.yml`：
+  - 去掉 `pnpm package` 后面的 `--`。
+  - `macos-13` 换成 GitHub 推荐的 `macos-15-intel`。
+  - 去掉 `CSC_IDENTITY_AUTO_DISCOVERY=false`，它会连 ad-hoc 签名一起跳过。
+  - 没配 Secrets 时 unset 空的 `CSC_LINK`，否则 electron-builder 把空字符串当路径读，报 `not a file` 退出。
+- `README.md`：写明 mac 现在是 ad-hoc 签名和打开方式；证书到位后要改 `mac.identity`、`mac.hardenedRuntime`、`mac.notarize` 三项；Windows 包不能在 mac 上交叉打。
+
+配置项和数据库 schema 没有变。
+
+### 测试
+
+- 单测：`apps/desktop/scripts/check-kernel.test.ts` 覆盖平台和架构到 vendor 路径的映射、缺内核时报错、有内核时通过。`pnpm check` 全过（469 个用例）。
+- 本机（mac arm64）：用和 `release.yml` 相同的脚本和空的 `CSC_LINK` 打包成功；`.app` 和 zip 解出来的 `.app` 都通过 `codesign --verify --deep --strict`；用 Playwright 起打包后的应用能进首页，内核和内置资源都在 `Resources` 下。
+- 缺内核：`--win --x64` 和 mac 上的 `--x64` 都按预期失败，同时证明 `--x64` 这个参数生效了。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- `release.yml` 还没有在 GitHub 上实跑过，Windows 和 x64 mac 的打包都没有实测。
+- 没有在另一台 Mac 上验证下载后的打开流程。ad-hoc 不是 Developer ID 签名，Gatekeeper 仍会拦，只是校验不再失败，打开方式见 README。
+- ad-hoc 包的 mac 自动更新仍不生效，要等 Developer ID 证书。
+- 上一节“已知问题”里的“右键打开”和“换成交叉 vendor”以本节为准。
