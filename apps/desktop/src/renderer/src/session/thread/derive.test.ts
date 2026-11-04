@@ -1,6 +1,15 @@
 import type { MessageView, PartPayload, PartView, SessionDetail } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { clipOutput, deriveBlocks, describeTool, patchTargets, permissionSubject } from './derive'
+import {
+  clipOutput,
+  deriveBlocks,
+  deriveTodos,
+  describeTool,
+  patchTargets,
+  permissionSubject,
+  todoProgress,
+  todosOf,
+} from './derive'
 
 const session = {
   id: 's1',
@@ -626,6 +635,139 @@ describe('clipOutput', () => {
     const clip = clipOutput(text, 'head', 12)
     expect(clip.hidden).toBe(3)
     expect(clip.text.endsWith('l12')).toBe(true)
+  })
+})
+
+describe('todos', () => {
+  const plan = (...statuses: string[]) => ({
+    todos: statuses.map((status, i) => ({ content: `第 ${i + 1} 项`, status, priority: 'high' })),
+  })
+  const detail = (parts: PartView[], messages = [msg('u1', 'user'), msg('a1', 'assistant')]) => ({
+    session,
+    messages,
+    parts,
+    attachments: [],
+  })
+
+  it('reads the todos of a todowrite call and skips malformed items', () => {
+    expect(
+      todosOf({ todos: [{ content: ' 读接口 ', status: 'done?' }, { status: 'pending' }, 3] }),
+    ).toEqual([{ text: '读接口', status: 'pending' }])
+    expect(todosOf({})).toEqual([])
+  })
+
+  it('leaves cancelled items out of the progress', () => {
+    expect(todoProgress(todosOf(plan('completed', 'pending', 'cancelled')))).toBe('1/2')
+  })
+
+  it('shows a plan update as a step with the progress and the list instead of the json', () => {
+    const blocks = deriveBlocks(
+      detail([tool('todowrite', plan('completed', 'in_progress'))]),
+      undefined,
+      10,
+    )
+    const turn = blocks.find((b) => b.kind === 'turn')
+    expect(turn?.kind === 'turn' && turn.steps[0]).toMatchObject({
+      kind: '更新计划',
+      meta: '1/2',
+      todos: [
+        { text: '第 1 项', status: 'completed' },
+        { text: '第 2 项', status: 'in_progress' },
+      ],
+    })
+    expect(turn?.kind === 'turn' && turn.steps[0]?.output).toBeUndefined()
+  })
+
+  it('takes the last plan of the running turn', () => {
+    const items = deriveTodos(
+      detail([tool('todowrite', plan('pending')), tool('todowrite', plan('completed'))]),
+    )
+    expect(items).toEqual([{ text: '第 1 项', status: 'completed' }])
+  })
+
+  it('has no plan card after the turn ended', () => {
+    const ended = [msg('u1', 'user'), msg('a1', 'assistant', { completedAt: 9 })]
+    expect(deriveTodos(detail([tool('todowrite', plan('pending'))], ended))).toEqual([])
+  })
+})
+
+describe('subagents', () => {
+  const detail = (parts: PartView[], messages = [msg('u1', 'user'), msg('a1', 'assistant')]) => ({
+    session,
+    messages,
+    parts,
+    attachments: [],
+  })
+  const task = (extra: object = {}, status = 'running') =>
+    part(
+      {
+        type: 'tool',
+        callId: 'call_t',
+        name: 'task',
+        input: { description: '探索仓库', prompt: '看看仓库', subagent_type: 'explore' },
+        ...extra,
+      },
+      status,
+    )
+  const sub = (name: string, input: unknown, status = 'completed') =>
+    part({ type: 'tool', callId: `call_t/${seq}`, parentCallId: 'call_t', name, input }, status)
+  const turnOf = (d: ReturnType<typeof detail>, now = 10) => {
+    const t = deriveBlocks(d, undefined, now).find((b) => b.kind === 'turn')
+    if (t?.kind !== 'turn') throw new Error('no turn')
+    return t
+  }
+
+  it('nests the tools of a subagent under its task step', () => {
+    const t = turnOf(detail([task(), sub('read', { filePath: '/repo/member-svc/a.py' })]))
+    expect(t.steps).toHaveLength(1)
+    expect(t.steps[0]).toMatchObject({ kind: '子任务', detail: '探索仓库', prompt: '看看仓库' })
+    expect(t.steps[0]?.subSteps?.map((s) => s.detail)).toEqual(['a.py'])
+    expect(t.summary.tasks).toBe(1)
+  })
+
+  it('shows the task result without the kernel wrapper and counts the steps', () => {
+    const output =
+      '<task id="ses_1" state="completed">\n<task_result>\n结论\n</task_result>\n</task>'
+    const t = turnOf(
+      detail(
+        [task({ output, durationMs: 65_000 }, 'completed'), sub('read', { filePath: 'a.py' })],
+        [msg('u1', 'user'), msg('a1', 'assistant', { completedAt: 9, finishReason: 'completed' })],
+      ),
+    )
+    expect(t.steps[0]).toMatchObject({ output: '结论', meta: '1 步 · 1:05' })
+  })
+
+  it('writes what the subagent is doing into the status line', () => {
+    const blocks = deriveBlocks(
+      detail([task(), sub('bash', { command: 'ls', description: '看目录' }, 'running')]),
+      undefined,
+      10_000,
+    )
+    expect(blocks.find((b) => b.kind === 'status')).toMatchObject({
+      text: '正在子任务：探索仓库 · 运行 看目录',
+    })
+  })
+
+  it('names the subtask on its permission card', () => {
+    const blocks = deriveBlocks(
+      detail([
+        task(),
+        part(
+          {
+            type: 'permission',
+            requestId: 'r',
+            tool: 'bash',
+            input: { command: 'touch x' },
+            patterns: ['touch x'],
+            always: [],
+            callId: 'call_t/call_c',
+            subagent: true,
+          },
+          'pending',
+        ),
+      ]),
+    )
+    expect(blocks.find((b) => b.kind === 'permission')).toMatchObject({ subtask: '探索仓库' })
   })
 })
 

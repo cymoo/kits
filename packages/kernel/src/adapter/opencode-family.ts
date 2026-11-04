@@ -363,6 +363,14 @@ export class OpencodeFamilyKernel implements AgentKernel {
               ),
             )
           }
+          // 子任务的步骤：主会话的快照补完才知道全部子会话
+          const subs = mapper.subsessions
+          const subMessages = await Promise.allSettled(
+            subs.map((id) => this.messages({ ...session, id }, this.setupTimeout)),
+          )
+          subMessages.forEach((r, i) => {
+            if (r.status === 'fulfilled') emit(mapper.backfill(r.value as RawMessage[], subs[i]))
+          })
           if (pending.status === 'fulfilled') emit(mapper.permissions(pending.value))
         } finally {
           const events = buffered
@@ -483,16 +491,16 @@ export class OpencodeFamilyKernel implements AgentKernel {
     }
   }
 
-  // 还在等回复的权限请求（GET /permission，整个实例的），按会话过滤
+  // 还在等回复的权限请求（GET /permission，整个实例的）。映射器按会话过滤：它知道这一轮有哪些子会话
   private async pendingPermissions(session: KernelSession): Promise<unknown[]> {
-    const list = await this.request<{ sessionID?: string }[]>(
+    const list = await this.request<unknown[]>(
       'GET',
       this.dialect.permissionListPath,
       session.workdir,
       undefined,
       this.setupTimeout,
     )
-    return (list ?? []).filter((p) => p.sessionID === session.id)
+    return list ?? []
   }
 
   async respondPermission(

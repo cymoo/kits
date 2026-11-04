@@ -39,6 +39,8 @@ CodeAgent 方言（`packages/kernel/src/dialects/codeagent.ts`）按 [codeagent-
 | 22 | kits 工具 | `mcp.kits = { type: "remote", url, headers }`（本机 HTTP MCP） | `ask_user`、`submit_output`、`remember` 能调到吗 | `generate/opencode-config.ts` 的 `mcp` 段 |
 | 23 | 技能 | `skills.paths`、项目 `.agents/skills` 的发现 | | 同 OpenCode 的处理 |
 | 25 | 命令描述 | OpenCode 用配置目录的 `plugins/kits-describe-bash.js`（`tool.definition` 钩子）给 bash 加 `description` 参数；CodeAgent 现在没发这个插件，步骤显示命令本身 | bash 自带 `description` 吗；不带的话 `tool.definition` 钩子有没有；加载插件前会不会等 npm（内网会卡启动） | 能用就让 `toCodeagentFiles` 留下插件；要等 npm 就照 `skipPluginInstall` 处理 CodeAgent 的配置目录 |
+| 26 | 子任务 | 子任务在子会话里跑：`session.created` 带 `parentID`，task 工具运行时 `metadata.sessionId` 是子会话 id，子会话的 `permission.requested` 带子会话的 `sessionID` | 子任务里要确认的命令有没有弹卡片；CodeAgent 是不是改走 `task.started`（文档里有这个事件） | `events.ts` 的 `subsessions` |
+| 27 | 上下文窗口 | `provider.<网关>.models.<模型>.limit = { context, output }`，内核按它判断什么时候自动压缩 | 字段认不认；用得快满时有没有自动压缩 | `generate/opencode-config.ts` 的 `modelLimit` |
 | 24 | 退出 | 关 kits 时内核和它拉起的 MCP 进程一起结束（Windows `taskkill /T`） | 任务管理器里还有没有残留 | `dialects/child.ts` 的 `stopChild` |
 
 ## 跑完以后

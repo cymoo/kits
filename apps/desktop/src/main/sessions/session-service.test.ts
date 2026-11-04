@@ -147,6 +147,25 @@ describe('SessionService', () => {
     expect(perm?.status).toBe('once')
   })
 
+  it('shows the permission card of a subagent when the session would ask too', async () => {
+    const { service, waitFor, store } = setup('subagent')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'once',
+    })
+    await waitFor(s.id, ['done'])
+  })
+
+  it('answers a subagent permission itself when the session allows the tool', async () => {
+    const { service, waitFor, store } = setup('subagent')
+    const s = await service.create({ ...input, permissionMode: 'auto' })
+    await waitFor(s.id, ['done'])
+    expect(store.detail(s.id)?.parts.filter((p) => p.type === 'permission')).toEqual([])
+  })
+
   it('logs every permission decision', async () => {
     const { service, waitFor, store } = setup('permission')
     const s = await service.create(input)

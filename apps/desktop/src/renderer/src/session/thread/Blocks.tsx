@@ -46,6 +46,7 @@ export function UserBlock({
 
 function turnSummary({ summary, filesChanged }: Extract<Block, { kind: 'turn' }>): string {
   const counts = [
+    ['turn.tasks', summary.tasks],
     ['turn.reads', summary.reads],
     ['turn.searches', summary.searches],
     ['turn.edits', filesChanged],
@@ -176,8 +177,8 @@ export function StatusLine({ block }: { block: Extract<Block, { kind: 'status' }
       className="flex items-center gap-2.5 rounded-[8px] bg-active px-3 py-[7px] text-[0.962rem] text-fg-muted"
     >
       <Spinner tone="muted" />
-      <span className="flex-1">{block.text}</span>
-      <span className="text-fg-subtle">{formatDuration(now - block.since)}</span>
+      <span className="min-w-0 flex-1 truncate">{block.text}</span>
+      <span className="shrink-0 text-fg-subtle">{formatDuration(now - block.since)}</span>
     </div>
   )
 }

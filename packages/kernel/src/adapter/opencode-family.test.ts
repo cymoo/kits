@@ -19,6 +19,8 @@ interface Fake {
   hangStatus: boolean
   // GET /session/{id}/message 的内容，和回之前等多久
   messages: unknown[]
+  // 子会话的消息，按会话 id
+  subMessages: Record<string, unknown[]>
   messagesDelayMs: number
   messageRequests: number
   // GET /permission；failPermissions 时回 500
@@ -43,6 +45,7 @@ async function startFake(): Promise<Fake> {
     status: {},
     hangStatus: false,
     messages: [],
+    subMessages: {},
     messagesDelayMs: 0,
     messageRequests: 0,
     permissions: [],
@@ -88,7 +91,8 @@ async function startFake(): Promise<Fake> {
     }
     if (url.pathname.endsWith('/message')) {
       fake.messageRequests += 1
-      const snapshot = fake.messages
+      const sub = url.pathname.split('/')[2] ?? ''
+      const snapshot = fake.subMessages[sub] ?? fake.messages
       if (fake.messagesDelayMs) await new Promise((r) => setTimeout(r, fake.messagesDelayMs))
       return json(snapshot)
     }
@@ -325,6 +329,66 @@ describe('OpencodeFamilyKernel', () => {
     expect(events.filter((e) => e.type === 'permission-request')).toEqual([
       expect.objectContaining({ requestId: 'per_1', tool: 'bash' }),
     ])
+  })
+
+  it('recovers a subagent permission request from the message snapshot', async () => {
+    const s = await setup()
+    fake.status = { ses_1: { type: 'busy' } }
+    const asked = {
+      id: 'per_c',
+      sessionID: 'ses_child',
+      permission: 'bash',
+      patterns: ['touch x'],
+      metadata: { command: 'touch x' },
+      always: ['touch *'],
+    }
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      // 子会话的建立和权限请求都丢在断线里，只有主会话消息上的 task 工具带着子会话 id
+      fake.messages = [
+        {
+          info: { id: 'msg_a', sessionID: 'ses_1', role: 'assistant' },
+          parts: [
+            {
+              id: 'prt_t',
+              messageID: 'msg_a',
+              type: 'tool',
+              tool: 'task',
+              callID: 'call_t',
+              state: { status: 'running', input: {}, metadata: { sessionId: 'ses_child' } },
+            },
+          ],
+        },
+      ]
+      fake.subMessages = {
+        ses_child: [
+          {
+            info: { id: 'msg_c', sessionID: 'ses_child', role: 'assistant' },
+            parts: [
+              {
+                id: 'prt_c',
+                messageID: 'msg_c',
+                type: 'tool',
+                tool: 'read',
+                callID: 'call_c',
+                state: { status: 'completed', input: {}, output: 'x' },
+              },
+            ],
+          },
+        ],
+      }
+      fake.permissions = [asked, { ...asked, id: 'per_other', sessionID: 'ses_2' }]
+      await reconnect(seen, false)
+      await until(() => seen.some((e) => e.type === 'permission-request'))
+      send(fake, 'session.idle', { sessionID: 'ses_1' })
+    })
+    expect(events.filter((e) => e.type === 'permission-request')).toEqual([
+      expect.objectContaining({ requestId: 'per_c', subagent: true }),
+    ])
+    // 子任务的步骤也补回来了
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'tool-end', callId: 'call_t/call_c', output: 'x' }),
+    )
   })
 
   it('reports a stall when neither the event stream nor the status endpoint answers', async () => {

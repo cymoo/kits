@@ -202,6 +202,148 @@ describe('createOpencodeEventMapper', () => {
     ])
   })
 
+  describe('subagent sessions', () => {
+    const CHILD = 'ses_child'
+    const created = ev('session.created', {
+      sessionID: CHILD,
+      info: { id: CHILD, parentID: S },
+    })
+    const asked = ev('permission.asked', {
+      id: 'per_c',
+      sessionID: CHILD,
+      permission: 'bash',
+      patterns: ['touch x'],
+      metadata: { command: 'touch x' },
+      always: ['touch *'],
+      tool: { messageID: 'msg_c', callID: 'call_c' },
+    })
+
+    it('surfaces a permission request of a subagent session', () => {
+      const { out } = feed([created, asked])
+      expect(out).toEqual([
+        {
+          type: 'permission-request',
+          requestId: 'per_c',
+          tool: 'bash',
+          input: { command: 'touch x' },
+          patterns: ['touch x'],
+          always: ['touch *'],
+          callId: 'call_c',
+          subagent: true,
+        },
+      ])
+    })
+
+    const taskRunning = ev('message.part.updated', {
+      sessionID: S,
+      part: {
+        id: 'prt_T',
+        messageID: 'msg_a',
+        sessionID: S,
+        type: 'tool',
+        tool: 'task',
+        callID: 'call_t',
+        state: { status: 'running', input: {}, metadata: { sessionId: CHILD } },
+      },
+    })
+    const childTool = (status: string, extra: Record<string, unknown> = {}) =>
+      ev('message.part.updated', {
+        sessionID: CHILD,
+        part: {
+          id: 'prt_c',
+          messageID: 'msg_c',
+          sessionID: CHILD,
+          type: 'tool',
+          tool: 'read',
+          callID: 'call_c',
+          state: { status, input: { filePath: 'a.py' }, ...extra },
+        },
+      })
+
+    it('maps the tools of a subagent under the task that started it', () => {
+      const { out } = feed([
+        assistant,
+        created,
+        taskRunning,
+        childTool('running'),
+        childTool('completed', { output: 'x' }),
+      ])
+      expect(out.slice(1)).toEqual([
+        {
+          type: 'tool-start',
+          callId: 'call_t/call_c',
+          parentCallId: 'call_t',
+          name: 'read',
+          input: { filePath: 'a.py' },
+        },
+        { type: 'tool-end', callId: 'call_t/call_c', output: 'x' },
+      ])
+    })
+
+    it('points a subagent permission at the step of the subagent', () => {
+      const { out } = feed([assistant, created, taskRunning, asked])
+      expect(out.at(-1)).toMatchObject({ callId: 'call_t/call_c', subagent: true })
+    })
+
+    it('leaves text and usage of a subagent out of the turn', () => {
+      const { out } = feed([
+        assistant,
+        created,
+        taskRunning,
+        ev('message.part.updated', {
+          sessionID: CHILD,
+          part: {
+            id: 'prt_x',
+            messageID: 'msg_c',
+            sessionID: CHILD,
+            type: 'text',
+            text: '子任务说的',
+          },
+        }),
+        ev('message.updated', {
+          sessionID: CHILD,
+          info: { id: 'msg_c', role: 'assistant', time: { completed: 1 }, tokens: { input: 9 } },
+        }),
+      ])
+      expect(out.map((e) => e.type)).toEqual(['tool-start'])
+    })
+
+    it('learns the subagent session from the metadata of the task tool', () => {
+      const task = ev('message.part.updated', {
+        sessionID: S,
+        part: {
+          id: 'prt_T',
+          messageID: 'msg_a',
+          sessionID: S,
+          type: 'tool',
+          tool: 'task',
+          callID: 'call_t',
+          state: { status: 'running', input: {}, metadata: { sessionId: CHILD } },
+        },
+      })
+      const { out } = feed([assistant, task, asked])
+      expect(out.map((e) => e.type)).toEqual(['tool-start', 'permission-request'])
+    })
+
+    it('ignores a permission request of a session that is not ours', () => {
+      const other = ev('session.created', {
+        sessionID: 'ses_x',
+        info: { id: 'ses_x', parentID: 'ses_other' },
+      })
+      const { out } = feed([
+        other,
+        { ...asked, properties: { ...asked.properties, sessionID: 'ses_x' } },
+      ])
+      expect(out).toEqual([])
+    })
+
+    it('does not end the turn when a subagent session goes idle', () => {
+      const { mapper, out } = feed([created, ev('session.idle', { sessionID: CHILD })])
+      expect(out).toEqual([])
+      expect(mapper.done).toBe(false)
+    })
+  })
+
   it('accepts the CodeAgent permission.requested alias', () => {
     const { out } = feed([
       ev('permission.requested', { id: 'p', sessionID: S, permission: 'edit', metadata: {} }),

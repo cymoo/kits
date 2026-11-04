@@ -9,7 +9,8 @@
 export type KernelEvent =
   | { type: 'text-delta'; partId: string; text: string }
   | { type: 'reasoning-delta'; partId: string; text: string }
-  | { type: 'tool-start'; callId: string; name: string; input: unknown }
+  // parentCallId：子任务里的工具，值是派它的 task 工具的 callId
+  | { type: 'tool-start'; callId: string; name: string; input: unknown; parentCallId?: string }
   | {
       type: 'tool-end'
       callId: string
@@ -34,6 +35,8 @@ export type KernelEvent =
       always: string[]
       // 关联到 tool-start 的 callId，内核没给时为空
       callId?: string
+      // 子任务（内核的子会话）发起的。子会话不继承主会话的放行规则，由 SessionService 按主会话的规则判断
+      subagent?: boolean
     }
   | {
       type: 'usage'

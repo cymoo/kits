@@ -30,8 +30,9 @@ import {
   UserBlock,
 } from '../../session/thread/Blocks'
 import { ErrorCard, PermissionCard, QuestionCard, RetryBar } from '../../session/thread/Cards'
-import { deriveBlocks } from '../../session/thread/derive'
+import { deriveBlocks, deriveTodos } from '../../session/thread/derive'
 import { useFollowBottom } from '../../session/thread/follow-bottom'
+import { PlanCard } from '../../session/thread/Plan'
 import { Composer } from '../../shell/Composer'
 import { cx } from '../../ui/cx'
 import { ResizeHandle } from '../../ui/ResizeHandle'
@@ -192,6 +193,7 @@ export function SessionPage() {
     return gateway?.models.find((m) => m.id === ref.slice(i + 1))?.contextWindow ?? 0
   }, [session?.model, settings.data])
   const lastAnswer = blocks.findLast((b) => b.kind === 'text')?.id
+  const todos = useMemo(() => (detail ? deriveTodos(detail) : []), [detail])
 
   useShortcuts({
     stop: () => (id && running ? void kits.session.abort(id) : undefined),
@@ -333,6 +335,7 @@ export function SessionPage() {
               </Tooltip>
             )}
             {session.queued?.length ? <Queued items={session.queued} /> : null}
+            {todos.length ? <PlanCard items={todos} /> : null}
             <ContextBanner
               session={session}
               used={usage.context}
