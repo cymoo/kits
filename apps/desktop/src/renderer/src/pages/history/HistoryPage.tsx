@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { type MessageKey, t } from '../../app/i18n'
 import { basename } from '../../lib/composer-prefs'
+import { errorText } from '../../lib/errors'
 import { kits, useHomeLabel } from '../../lib/kits'
 import { type Group, groupSessions } from '../../lib/session-groups'
 import {
@@ -17,7 +18,8 @@ import {
 import { sessionKeys, useSessions } from '../../lib/sessions'
 import { useUi } from '../../lib/ui-store'
 import { useNow } from '../../lib/use-now'
-import { PinButton, StatusDot } from '../../shell/SessionList'
+import { PinButton } from '../../shell/SessionList'
+import { StatusDot } from '../../shell/StatusDot'
 import { cx } from '../../ui/cx'
 import { Menu, MenuContent, MenuRadioGroup, MenuRadioItem, MenuTrigger } from '../../ui/Menu'
 
@@ -35,11 +37,6 @@ const FILTERS: StatusFilter[] = ['all', 'active', 'attention', 'done']
 
 const pill =
   'inline-flex h-[26px] cursor-pointer items-center gap-1.5 rounded-[13px] border px-2.5 text-[0.923rem]'
-
-function errorText(e: unknown): string {
-  const m = e instanceof Error ? e.message : String(e)
-  return m.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-}
 
 function subline(s: SessionSummary): string {
   if (s.status === 'error' && s.lastError) return s.lastError

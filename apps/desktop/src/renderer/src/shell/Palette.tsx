@@ -14,7 +14,7 @@ import { settingsSections } from '../pages/settings/sections'
 import { cx } from '../ui/cx'
 import { Dialog, DialogContent } from '../ui/Dialog'
 import { Highlight } from '../ui/Highlight'
-import { StatusDot } from './SessionList'
+import { StatusDot } from './StatusDot'
 
 // ⌘K 面板（原型 shell.js 的 .kk）：搜会话（标题 + 正文全文，命中处高亮）、动作（新会话、全部会话、设置分区）。
 // 没输入时列最近的会话。↑↓ 选择，↵ 打开，Esc 关闭。

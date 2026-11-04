@@ -141,6 +141,8 @@ export const ipcContract = {
     search: method<string, SessionSearchHit[]>(),
     // 删会话：记录、附件都删掉；还在跑的要先停止
     remove: method<string, void>(),
+    // 改标题，不算会话有更新；改完经 session.changed 推回来
+    rename: method<{ id: string; title: string }, void>(),
     // 置顶或取消置顶，不算会话有更新；改完经 session.changed 推回来
     setPinned: method<{ id: string; pinned: boolean }, void>(),
     // 手动压缩上下文：等内核压完；失败抛错

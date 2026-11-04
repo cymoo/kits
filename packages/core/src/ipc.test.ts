@@ -23,6 +23,7 @@ describe('contractEntries', () => {
       ['session', 'get'],
       ['session', 'search'],
       ['session', 'remove'],
+      ['session', 'rename'],
       ['session', 'setPinned'],
       ['session', 'compact'],
       ['session', 'prompt'],

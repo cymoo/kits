@@ -10,16 +10,20 @@ export function MenuContent({
   children,
   className,
   align = 'start',
+  onCloseAutoFocus,
 }: {
   children: ReactNode
   className?: string
   align?: 'start' | 'end'
+  // 菜单关上后焦点回到触发按钮；要把焦点放到别处时在这里 preventDefault
+  onCloseAutoFocus?: (e: Event) => void
 }) {
   return (
     <M.Portal>
       <M.Content
         align={align}
         sideOffset={6}
+        {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}
         className={cx(
           'z-50 min-w-[240px] max-w-[320px] rounded-[12px] border border-line bg-raised p-1.5 text-fg shadow-pop',
           className,
@@ -44,11 +48,25 @@ export function MenuSeparator() {
 }
 
 const item =
-  'flex min-h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[8px] px-2 py-[5px] text-left outline-none data-[highlighted]:bg-active'
+  'flex min-h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[8px] px-2 py-[5px] text-left outline-none data-[highlighted]:bg-active data-[disabled]:cursor-default data-[disabled]:text-fg-subtle'
 
-export function MenuItem({ children, onSelect }: { children: ReactNode; onSelect?: () => void }) {
+export function MenuItem({
+  children,
+  onSelect,
+  disabled,
+  danger,
+}: {
+  children: ReactNode
+  onSelect?: () => void
+  disabled?: boolean
+  danger?: boolean
+}) {
   return (
-    <M.Item className={item} {...(onSelect ? { onSelect } : {})}>
+    <M.Item
+      className={cx(item, danger && !disabled && 'text-danger')}
+      {...(disabled ? { disabled } : {})}
+      {...(onSelect ? { onSelect } : {})}
+    >
       {children}
     </M.Item>
   )

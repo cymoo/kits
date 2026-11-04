@@ -554,6 +554,17 @@ export class SessionService {
     rmSync(path.join(this.deps.attachmentsDir, id), { recursive: true, force: true })
   }
 
+  // 不走 update()：改名不是会话有新内容，updatedAt 变了它会跳到“今天”分组
+  rename(id: string, title: string): void {
+    const trimmed = title.replace(/\s+/g, ' ').trim()
+    if (!trimmed) throw new Error('标题不能为空')
+    const s = this.deps.store.updateSession(id, { title: trimmed })
+    if (!s) throw new Error(`没有这个会话：${id}`)
+    // ⌘K 按标题搜
+    this.deps.store.reindex(id)
+    this.deps.push('session.changed', this.view(s))
+  }
+
   // 不走 update()：置顶不是会话有新内容，updatedAt 变了它会跳到“今天”分组
   setPinned(id: string, pinned: boolean): void {
     const s = this.deps.store.updateSession(id, { pinnedAt: pinned ? this.now() : null })
