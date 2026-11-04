@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.web.json",
     "db:generate": "drizzle-kit generate",
     "package": "pnpm build && electron-builder --config electron-builder.yml",
-    "package:dir": "pnpm build && electron-builder --config electron-builder.yml --dir"
+    "package:dir": "pnpm build && electron-builder --config electron-builder.yml --dir",
+    "package:portable": "pnpm build && electron-builder --config electron-builder.yml --win portable --x64 --publish never"
   },
   "dependencies": {
     "@kits/core": "workspace:*",

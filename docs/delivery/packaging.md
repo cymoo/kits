@@ -96,3 +96,47 @@ phase1-implementation PR20：electron-builder 出 mac dmg（arm64 / x64）、win
 - 没有在另一台 Mac 上验证下载后的打开流程。ad-hoc 不是 Developer ID 签名，Gatekeeper 仍会拦，只是校验不再失败，打开方式见 README。
 - ad-hoc 包的 mac 自动更新仍不生效，要等 Developer ID 证书。
 - 上一节“已知问题”里的“右键打开”和“换成交叉 vendor”以本节为准。
+
+## 2026-11-04　Windows 便携版和安装说明
+
+> 日期：2026-11-04　PR：见本分支 `feat/packaging-win-portable`　作者：Claude Code
+
+### 原始需求
+
+要在另一台 Windows 机器上装好依赖，并打出单个可执行文件。那台机器的 Node 是 24.14.1，`corepack enable` 报 `EPERM: operation not permitted, open 'C:\Program Files\nodejs\pnpm'`。
+
+做到什么程度算完：README 写清楚这个报错怎么处理；一条命令打出便携版，文件名和安装包不冲突。
+
+### 怎么验收
+
+在 Windows x64 机器上操作：
+
+1. 普通用户终端运行 `npm i -g pnpm@12.16.1`，再运行 `pnpm -v`，输出 `12.16.1`。
+2. 在仓库根目录运行 `pnpm install --frozen-lockfile`，无报错。
+3. 运行 `pnpm vendor:kernel`，`vendor/opencode/win-x64/opencode.exe` 出现。
+4. 运行 `pnpm --filter @kits/desktop package:portable`，出现 `apps/desktop/release/kits-0.1.0-win-x64-portable.exe`。
+5. 把这个 exe 拷到另一个目录双击运行（未签名，SmartScreen 提示时点“更多信息 → 仍要运行”），能进首页，设置页显示 OpenCode 已安装。
+6. 运行 `pnpm --filter @kits/desktop package --x64 --publish never`，出现 `apps/desktop/release/kits-0.1.0-win-x64.exe`，第 4 步的便携版还在。
+
+### 主要改动
+
+- `apps/desktop/package.json`：新增 `package:portable` 脚本，固定打 Windows x64 便携版，不发布。
+- `apps/desktop/electron-builder.yml`：新增 `portable.artifactName`，产物带 `-portable` 后缀。不改的话和 NSIS 安装包同名，后打的覆盖先打的。
+- `README.md`：写明 corepack 的 `EPERM` 怎么处理、Windows 创建软链接的前提、便携版怎么打和有什么限制。
+
+默认的 `package` 脚本、`release.yml` 和 NSIS 配置都没动，发版产物不变。数据库 schema 没有变。
+
+### 测试
+
+- 没有新增逻辑，不加单测。`pnpm check` 全过。
+- 本机（mac arm64）：在 `vendor/opencode/win-x64/` 放占位文件后运行 `package:portable`，打包成功，产物是 `kits-0.1.0-win-x64-portable.exe`（约 112 MB）。这只验证脚本和命名，占位内核跑不起来，试打后已删掉占位文件。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 没有在真实 Windows 机器上打包和运行过，上面的验收步骤要在 Windows 上走一遍。
+- `updater.ts` 不区分便携版。配了 `updateUrl` 的便携版仍会检查更新，所以 README 写明不要配。
+- 配置和数据不跟着 exe 走，这个便携版只是免安装，不能带着数据换机器。

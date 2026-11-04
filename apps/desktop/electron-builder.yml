@@ -51,6 +51,9 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   perMachine: false
+# 便携版（pnpm package:portable）：单个 exe，不用安装。文件名和安装包分开，两种放同一个目录不互相覆盖
+portable:
+  artifactName: kits-${version}-win-${arch}-portable.${ext}
 publish:
   # 内网更新：放一个静态目录即可。运行时的地址以 settings.json 的 updateUrl 或 KITS_UPDATE_URL 为准（main/updater.ts），
   # 这里只决定 latest.yml 等元数据文件怎么生成；CI 打包用 --publish never，不往这个地址传
