@@ -169,9 +169,16 @@ export function todosOf(input: unknown): TodoItem[] {
 }
 
 // 取消的项不算进度
+export function todoCounts(items: TodoItem[]): { done: number; total: number } {
+  return {
+    done: items.filter((t) => t.status === 'completed').length,
+    total: items.filter((t) => t.status !== 'cancelled').length,
+  }
+}
+
 export function todoProgress(items: TodoItem[]): string {
-  const done = items.filter((t) => t.status === 'completed').length
-  return `${done}/${items.filter((t) => t.status !== 'cancelled').length}`
+  const { done, total } = todoCounts(items)
+  return `${done}/${total}`
 }
 
 // 输入框上方的计划卡片：还在跑的这一轮最后写下的计划。上一轮的计划不带过来，结束的轮次在工作过程里看

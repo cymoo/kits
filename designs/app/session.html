@@ -60,16 +60,18 @@ a{color:#3659E3}a:hover{color:#2744B8}
 .k-out .s:hover .k-cp,.k-cp:focus-visible,.k-cp[data-done="true"]{opacity:1}
 .k-cp:focus-visible{outline:2px solid #3659E3;outline-offset:-2px}
 .k-cp[data-done="true"]{color:#1E7F43}
-.k-todos{display:flex;flex-direction:column;gap:2px;padding:6px 10px;font-size:13.5px;line-height:20px}
-.k-todo{display:flex;align-items:flex-start;gap:8px;color:#4A4A52}
+.k-todos{display:flex;flex-direction:column;gap:2px;padding:6px;font-size:13.5px;line-height:20px}
+.k-todo{display:flex;align-items:flex-start;gap:8px;padding:3px 6px;border-radius:7px;color:#4A4A52}
 .k-todo .i{flex:0 0 14px;height:20px;display:flex;align-items:center;justify-content:center;color:#9A9AA1}
 .k-todo[data-s="done"]{color:#8A8A92}
 .k-todo[data-s="done"] .t,.k-todo[data-s="cancelled"] .t{text-decoration:line-through}
 .k-todo[data-s="done"] .i{color:#1E7F43}
 .k-todo[data-s="cancelled"]{color:#9A9AA1}
-.k-todo[data-s="doing"]{color:#1B1B1F;font-weight:500}
+.k-todo[data-s="doing"]{color:#2744B8;font-weight:500;background:#EEF2FF}
 .k-plan{margin-bottom:8px;border:1px solid #D5DCF7;border-radius:10px;background:#FFFFFF;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04)}
-.k-plan .k-todos{border-top:1px solid #ECEBE7;max-height:208px;overflow-y:auto}
+.k-plan .k-todos{max-height:208px;overflow-y:auto}
+.k-bar{height:3px;margin:0 12px 6px;border-radius:2px;background:#ECEBE7;overflow:hidden}
+.k-bar span{display:block;height:100%;border-radius:2px;background:#3659E3;transition:width .25s}
 .k-tab{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:0;background:transparent;font:inherit;font-size:13.5px;cursor:pointer;margin-bottom:-1px;color:#6E6E76;border-bottom:2px solid transparent}
 .k-tab[aria-selected="true"]{color:#1B1B1F;font-weight:600;border-bottom-color:#1B1B1F}
 .k-cnt{font-size:12px;font-weight:500;color:#8A8A92;background:#ECEBE7;border-radius:8px;padding:0 6px}
@@ -324,6 +326,7 @@ Error: upstream request failed after 5 retries: ECONNRESET
                 <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{planNow}}</span>
                 <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A9AA1" stroke-width="1.5" stroke-linecap="round" style="{{planChev}}"><path d="m4 6 4 4 4-4"></path></svg>
               </button>
+              <div class="k-bar"><span style="{{plan.barStyle}}"></span></div>
               <sc-if value="{{planOpen}}"><div class="k-todos"><sc-for list="{{plan.items}}" as="t"><div class="k-todo" data-s="{{t.s}}"><span class="i"><sc-if value="{{t.done}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{t.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if><sc-if value="{{t.doing}}"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: #3659E3"></span></sc-if><sc-if value="{{t.pending}}"><span aria-hidden="true" style="width: 10px; height: 10px; border: 1.5px solid #C9C8C1; border-radius: 50%; box-sizing: border-box"></span></sc-if><sc-if value="{{t.cancelled}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8h8"></path></svg></sc-if></span><span class="t">{{t.text}}</span></div></sc-for></div></sc-if>
             </div>
           </sc-if>
@@ -679,6 +682,7 @@ class Component extends DCLogic {
     // ---------- 计划卡片：这一轮写过计划才有，这一轮结束就收掉 ----------
     const plan = sc.plan ? {
       progress: this.progress(sc.plan),
+      barStyle: 'width: ' + Math.round(sc.plan.filter((x) => x[1] === 'done').length / sc.plan.filter((x) => x[1] !== 'cancelled').length * 100) + '%',
       items: sc.plan.map((x) => this.todo(x, true))
     } : null;
     const planDoing = sc.plan && sc.plan.find((x) => x[1] === 'doing');

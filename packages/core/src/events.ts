@@ -34,6 +34,8 @@ export type KernelEvent =
       always: string[]
       // 关联到 tool-start 的 callId，内核没给时为空
       callId?: string
+      // 子任务（内核的子会话）发起的。子会话不继承主会话的放行规则，由 SessionService 按主会话的规则判断
+      subagent?: boolean
     }
   | {
       type: 'usage'

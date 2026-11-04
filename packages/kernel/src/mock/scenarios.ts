@@ -34,6 +34,7 @@ export type MockStep =
         patterns: string[]
         always: string[]
         callId: string
+        subagent?: boolean
       }
       allow: MockStep[]
       reject: MockStep[]
@@ -64,6 +65,7 @@ export const mockScenarioNames = [
   'output-structured',
   'command-failed',
   'plan',
+  'subagent',
 ] as const
 export type MockScenarioName = (typeof mockScenarioNames)[number]
 
@@ -346,6 +348,39 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
         reject: [],
       },
       { delay: 200, text: '都做完了。', partId: 'prt_answer' },
+      usage(9_000, 120),
+    ],
+  },
+  // 子任务里跑一条要确认的命令（真内核里这条请求来自子会话）
+  subagent: {
+    name: 'subagent',
+    steps: [
+      busy,
+      {
+        event: {
+          type: 'tool-start',
+          callId: 'call_task',
+          name: 'task',
+          input: { description: '跑 points 的测试', subagent_type: 'general', prompt: '跑测试' },
+        },
+      },
+      {
+        delay: 300,
+        permission: {
+          requestId: 'perm_sub',
+          tool: 'bash',
+          input: { command: 'touch tests/points/.ran' },
+          patterns: ['touch tests/points/.ran'],
+          always: ['touch *'],
+          callId: 'call_sub_bash',
+          subagent: true,
+        },
+        allow: [{ event: { type: 'tool-end', callId: 'call_task', output: '测试都过了' } }],
+        reject: [
+          { event: { type: 'tool-end', callId: 'call_task', output: null, error: '被拒绝了' } },
+        ],
+      },
+      { delay: 200, text: '子任务跑完了。', partId: 'prt_answer' },
       usage(9_000, 120),
     ],
   },

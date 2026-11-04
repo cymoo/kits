@@ -327,6 +327,45 @@ describe('OpencodeFamilyKernel', () => {
     ])
   })
 
+  it('recovers a subagent permission request from the message snapshot', async () => {
+    const s = await setup()
+    fake.status = { ses_1: { type: 'busy' } }
+    const asked = {
+      id: 'per_c',
+      sessionID: 'ses_child',
+      permission: 'bash',
+      patterns: ['touch x'],
+      metadata: { command: 'touch x' },
+      always: ['touch *'],
+    }
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async (seen) => {
+      await until(() => fake.promptCount === 1)
+      // 子会话的建立和权限请求都丢在断线里，只有主会话消息上的 task 工具带着子会话 id
+      fake.messages = [
+        {
+          info: { id: 'msg_a', sessionID: 'ses_1', role: 'assistant' },
+          parts: [
+            {
+              id: 'prt_t',
+              messageID: 'msg_a',
+              type: 'tool',
+              tool: 'task',
+              callID: 'call_t',
+              state: { status: 'running', input: {}, metadata: { sessionId: 'ses_child' } },
+            },
+          ],
+        },
+      ]
+      fake.permissions = [asked, { ...asked, id: 'per_other', sessionID: 'ses_2' }]
+      await reconnect(seen, false)
+      await until(() => seen.some((e) => e.type === 'permission-request'))
+      send(fake, 'session.idle', { sessionID: 'ses_1' })
+    })
+    expect(events.filter((e) => e.type === 'permission-request')).toEqual([
+      expect.objectContaining({ requestId: 'per_c', subagent: true }),
+    ])
+  })
+
   it('reports a stall when neither the event stream nor the status endpoint answers', async () => {
     const s = await setup({ stallTimeoutMs: 200 })
     fake.hangStatus = true

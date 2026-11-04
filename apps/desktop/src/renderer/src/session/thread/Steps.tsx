@@ -130,7 +130,7 @@ function StepBody({ step }: { step: Step }) {
       data-testid="step-output"
       className="mt-0.5 mr-3.5 mb-1.5 ml-[38px] overflow-hidden rounded-[8px] border border-line-soft bg-raised"
     >
-      {step.todos ? <TodoList items={step.todos} className="px-2.5 py-1.5" /> : null}
+      {step.todos ? <TodoList items={step.todos} /> : null}
       {step.command ? (
         <Section text={step.detail} copy={t('step.copyCommand')} command first />
       ) : null}

@@ -5,7 +5,9 @@ import type { DoneReason, KernelEvent } from '@kits/core'
 // - messageID → role：用户消息的 part 不算回复；
 // - partID → 已发出的文本长度：增量（message.part.delta）和整段（message.part.updated 带 text）都能来，
 //   只发没发过的那一截，断线补齐时把整段消息重放一遍也不会重复；
-// - callID → 工具阶段：pending 时 input 还是空的，到 running 才发 tool-start，completed / error 发 tool-end。
+// - callID → 工具阶段：pending 时 input 还是空的，到 running 才发 tool-start，completed / error 发 tool-end；
+// - 子会话 id：task 工具在内核里开子会话跑，子会话的事件带自己的 sessionID。权限请求要接住，不然子任务一直等下去；
+//   其余事件不算这一轮的（子会话的 session.idle 不代表这一轮结束）。
 
 interface RawEvent {
   type?: string
@@ -32,6 +34,11 @@ interface RawPart {
     metadata?: Record<string, unknown>
     time?: { start?: number; end?: number }
   }
+}
+
+interface RawSessionInfo {
+  id?: string
+  parentID?: string
 }
 
 interface RawMessageInfo {
@@ -103,6 +110,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
   const toolPhase = new Map<string, 'started' | 'ended'>()
   const usageSent = new Set<string>()
   const permissionsSent = new Set<string>()
+  const subsessions = new Set<string>()
   let lastRetry = ''
   // 助手消息上带的错误：轮询收尾时按出错结束，不当成功
   let messageError: string | undefined
@@ -130,9 +138,16 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
     ]
   }
 
+  // task 工具运行时 metadata 里有子会话 id：session.created 丢在断线里时靠消息快照里的它补回来
+  function noteSubsession(part: RawPart) {
+    const id = part.state?.metadata?.sessionId
+    if (part.tool === 'task' && typeof id === 'string') subsessions.add(id)
+  }
+
   function onPart(part: RawPart): KernelEvent[] {
     if (!part.id || !part.type) return []
     partTypes.set(part.id, part.type)
+    noteSubsession(part)
     if (isUserPart(part) || part.synthetic || part.ignored) return []
     if (part.type === 'text' || part.type === 'reasoning') {
       return text(part.id, part.type, part.text)
@@ -216,7 +231,18 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
     const raw = event as RawEvent
     const type = ALIASES[raw.type ?? ''] ?? raw.type
     const p = raw.properties ?? {}
-    if (p.sessionID !== undefined && p.sessionID !== sessionId) return []
+    if (type === 'session.created' || type === 'session.updated') {
+      const info = (p.info ?? {}) as RawSessionInfo
+      if (
+        info.id &&
+        info.parentID &&
+        (info.parentID === sessionId || subsessions.has(info.parentID))
+      )
+        subsessions.add(info.id)
+      return []
+    }
+    const asked = type === 'permission.asked' && subsessions.has(p.sessionID as string)
+    if (p.sessionID !== undefined && p.sessionID !== sessionId && !asked) return []
     switch (type) {
       case 'message.updated':
         return onMessage((p.info ?? {}) as RawMessageInfo)
@@ -234,7 +260,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
         return text(partId, kind === 'reasoning' ? 'reasoning' : 'text', undefined, p.delta)
       }
       case 'permission.asked': {
-        if (p.sessionID !== sessionId || permissionsSent.has(String(p.id))) return []
+        if ((p.sessionID !== sessionId && !asked) || permissionsSent.has(String(p.id))) return []
         permissionsSent.add(String(p.id))
         const tool = p.tool as { callID?: string } | undefined
         return [
@@ -246,6 +272,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
             patterns: (p.patterns as string[] | undefined) ?? [],
             always: (p.always as string[] | undefined) ?? [],
             ...(tool?.callID ? { callId: tool.callID } : {}),
+            ...(asked ? { subagent: true } : {}),
           },
         ]
       }

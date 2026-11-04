@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { t } from '../../app/i18n'
 import { cx } from '../../ui/cx'
 import { Spinner } from '../../ui/Spinner'
-import { type TodoItem, todoProgress } from './derive'
+import { type TodoItem, todoCounts, todoProgress } from './derive'
 
 // 计划（原型 session.html?s=plan）：输入框上方的卡片跟着这一轮走，步骤点开是那一步写下的清单。
 
@@ -27,7 +27,12 @@ export function TodoList({
   className?: string
 }) {
   return (
-    <ul className={cx('m-0 flex list-none flex-col gap-0.5 text-[0.962rem] leading-5', className)}>
+    <ul
+      className={cx(
+        'm-0 flex list-none flex-col gap-0.5 p-1.5 text-[0.962rem] leading-5',
+        className,
+      )}
+    >
       {items.map((item, i) => (
         <li
           // biome-ignore lint/suspicious/noArrayIndexKey: 模型每次重写整份清单，项目没有 id
@@ -35,8 +40,10 @@ export function TodoList({
           data-testid="todo"
           data-status={item.status}
           className={cx(
-            'flex items-start gap-2',
-            item.status === 'in_progress' ? 'font-medium text-fg' : 'text-fg-muted',
+            'flex items-start gap-2 rounded-[7px] px-1.5 py-[3px]',
+            item.status === 'in_progress'
+              ? 'bg-accent-bg font-medium text-accent-fg'
+              : 'text-fg-muted',
             item.status === 'cancelled' && 'text-fg-subtle',
           )}
         >
@@ -60,6 +67,7 @@ export function TodoList({
 export function PlanCard({ items }: { items: TodoItem[] }) {
   const [open, setOpen] = useState(true)
   const doing = items.find((i) => i.status === 'in_progress')
+  const { done, total } = todoCounts(items)
   return (
     <div
       data-testid="plan-card"
@@ -80,13 +88,21 @@ export function PlanCard({ items }: { items: TodoItem[] }) {
           className={cx('shrink-0 text-fg-subtle transition-transform', open && 'rotate-180')}
         />
       </button>
-      {open ? (
-        <TodoList
-          items={items}
-          live
-          className="max-h-[208px] overflow-y-auto border-line-soft border-t px-2.5 py-1.5"
+      {/* biome-ignore lint/a11y/useSemanticElements: 原生 progress 的样式各平台不一样，按原型自绘 */}
+      <div
+        role="progressbar"
+        aria-label={t('plan.title')}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={done}
+        className="mx-3 mb-1.5 h-[3px] overflow-hidden rounded-[2px] bg-hover"
+      >
+        <div
+          className="h-full rounded-[2px] bg-accent transition-[width] duration-200"
+          style={{ width: `${total ? (done / total) * 100 : 0}%` }}
         />
-      ) : null}
+      </div>
+      {open ? <TodoList items={items} live className="max-h-[208px] overflow-y-auto" /> : null}
     </div>
   )
 }

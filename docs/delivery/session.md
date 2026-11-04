@@ -435,7 +435,7 @@ Agent 调 `todowrite` 时界面上只有一行“更新计划”，看不到清�
 
 ### 怎么验收
 
-1. Mock：`KITS_KERNEL=mock KITS_MOCK_SCENARIO=plan pnpm dev`，发一句话。预期：输入框上方出现“计划 1/2”卡片，已完成的项打勾划线，进行中的项转圈加粗；对话里等你确认。
+1. Mock：`KITS_KERNEL=mock KITS_MOCK_SCENARIO=plan pnpm dev`，发一句话。预期：输入框上方出现“计划 1/2”卡片，标题下有进度条，已完成的项打勾划线，进行中的项转圈、整行高亮；对话里等你确认。
 2. 点卡片标题收起：一行显示进度和当前项。再点展开。
 3. 点“允许一次”：这一轮结束，卡片消失。
 4. 展开“第 1 轮”：三条“更新计划”，右边分别是 `0/2`、`1/2`、`2/2`，点开看到当时的清单，不再是 JSON。
@@ -448,6 +448,8 @@ Agent 调 `todowrite` 时界面上只有一行“更新计划”，看不到清�
 - `pages/session/SessionPage.tsx`：输入框上方放卡片。
 - `designs/app/session.html`：新场景 `plan`。
 - `packages/kernel/src/mock/scenarios.ts`：新场景 `plan`。
+
+样式参考 lovia：进度条和高亮当前项。位置没有学它浮在右上角，浮层会盖住对话；放在输入框上方，和 Codex 一样。
 
 几个取舍：清单直接从 `todowrite` 的参数取，不用内核的 `todo.updated` 事件，历史里每一步的快照也有了，不用改事件和数据库。卡片只跟着正在跑的这一轮，这一轮不写计划就不显示，免得上一轮没做完的计划一直挂着。取消的项不算进度。
 
