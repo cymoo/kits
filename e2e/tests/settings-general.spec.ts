@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 import { launchApp } from './app'
@@ -54,37 +54,46 @@ test('sets the default permission mode and explains where data lives', async () 
   }
 })
 
-test('opens onboarding on first launch and shows what the workdir has', async () => {
+test('opens onboarding on first launch and shows the git state of a chosen workdir', async () => {
   const { page, configDir, close } = await launchApp({ KITS_SKIP_ONBOARDING: '0' }, (dir) => {
     mkdirSync(dir, { recursive: true })
     const workdir = path.join(path.dirname(dir), 'member-svc')
-    mkdirSync(path.join(workdir, '.agents', 'skills', 'api-testing'), { recursive: true })
-    writeFileSync(path.join(workdir, 'AGENTS.md'), '# 约定\n')
-    writeFileSync(
-      path.join(workdir, '.agents', 'skills', 'api-testing', 'SKILL.md'),
-      '---\nname: api-testing\ndescription: 接口测试\n---\n',
-    )
-    writeFileSync(path.join(workdir, 'pyproject.toml'), '[project]\nname = "x"\n')
-    writeFileSync(path.join(workdir, 'uv.lock'), '')
+    mkdirSync(workdir, { recursive: true })
     writeFileSync(
       path.join(dir, 'settings.json'),
       JSON.stringify({ workdirs: [{ path: workdir, lastUsedAt: 1 }] }),
     )
   })
   try {
-    await expect(page.getByRole('heading', { name: '先把三件事配好' })).toBeVisible()
-    await page.getByRole('button', { name: /工作目录/ }).click()
-    const step = page.getByTestId('onboarding-workdir')
-    await expect(step).toContainText('member-svc')
-    await expect(step).toContainText('AGENTS.md · 会作为项目约定自动加载')
-    await expect(step).toContainText('1 个项目技能：api-testing')
-    await expect(step).toContainText('测试命令可能是 uv run pytest')
-    await expect(step).toContainText('不是 Git 仓库')
+    await expect(page.getByRole('heading', { name: '开始使用 kits' })).toBeVisible()
+    const row = page.getByTestId('onboarding-workdir')
+    await expect(row).toContainText('member-svc')
+    await expect(row).toContainText('不是 Git 仓库')
     await page.screenshot({ path: 'test-results/onboarding-workdir.png' })
-    await page.getByRole('button', { name: '下一步' }).click()
     await page.getByRole('button', { name: '先跳过' }).click()
     await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
     await expect.poll(() => settingsOf(configDir).onboardingDone).toBe(true)
+    // 已经选了目录，不再建默认目录
+    expect(existsSync(path.join(path.dirname(configDir), 'kits-workspace'))).toBe(false)
+  } finally {
+    await close()
+  }
+})
+
+test('creates the default workdir when onboarding ends without choosing one', async () => {
+  const { page, configDir, close } = await launchApp({ KITS_SKIP_ONBOARDING: '0' })
+  try {
+    const workspace = path.join(path.dirname(configDir), 'kits-workspace')
+    await expect(page.getByRole('heading', { name: '开始使用 kits' })).toBeVisible()
+    await expect(page.getByTestId('onboarding-workdir')).toContainText('kits-workspace')
+    // 还没开始就不建
+    expect(existsSync(workspace)).toBe(false)
+
+    await page.getByRole('button', { name: '先跳过' }).click()
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    expect(existsSync(workspace)).toBe(true)
+    await expect.poll(() => settingsOf(configDir).workdirs[0].path).toBe(realpathSync(workspace))
+    await expect(page.getByRole('main')).toContainText('kits-workspace')
   } finally {
     await close()
   }

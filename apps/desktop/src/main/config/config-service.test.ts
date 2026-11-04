@@ -11,7 +11,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfigService } from './config-service'
-import { resolveConfigDir } from './paths'
+import { resolveConfigDir, resolveWorkspaceDir } from './paths'
 
 // 模拟磁盘满：原子写入按开关失败
 const disk = vi.hoisted(() => ({ writeFails: false }))
@@ -39,6 +39,13 @@ describe('resolveConfigDir', () => {
   it('uses KITS_CONFIG_DIR when set and ~/.kits otherwise', () => {
     expect(resolveConfigDir({ KITS_CONFIG_DIR: dir })).toBe(path.resolve(dir))
     expect(resolveConfigDir({})).toBe(path.join(os.homedir(), '.kits'))
+  })
+})
+
+describe('resolveWorkspaceDir', () => {
+  it('uses KITS_WORKSPACE_DIR when set and ~/kits-workspace otherwise', () => {
+    expect(resolveWorkspaceDir({ KITS_WORKSPACE_DIR: dir })).toBe(path.resolve(dir))
+    expect(resolveWorkspaceDir({})).toBe(path.join(os.homedir(), 'kits-workspace'))
   })
 })
 

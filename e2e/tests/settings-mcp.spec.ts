@@ -106,19 +106,3 @@ test('turns a platform off for the next session from the composer', async () => 
     await close()
   }
 })
-
-test('connects a platform in onboarding step 3', async () => {
-  const { page, close } = await launchApp()
-  try {
-    await page.goto(`${page.url().split('#')[0]}#/onboarding`)
-    await page.getByRole('button', { name: /MCP 服务/ }).click()
-    await expect(page.getByRole('heading', { name: '连接平台（MCP）' })).toBeVisible()
-    await page.getByLabel('服务配置').fill(echoConfig)
-    await page.getByRole('button', { name: '添加并测试' }).click()
-    await expect(page.getByTestId('onboarding-mcp')).toContainText('已连接 · 2 个工具')
-    await page.getByRole('button', { name: '完成，开始使用' }).click()
-    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
-  } finally {
-    await close()
-  }
-})

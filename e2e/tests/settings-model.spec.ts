@@ -65,7 +65,7 @@ test('adds a gateway, picks the default model and keeps the key out of settings.
   }
 })
 
-test('sets up the first gateway in onboarding step 1', async () => {
+test('sets up the first gateway in onboarding and starts using the app', async () => {
   const gw = await startFakeGateway(['m1', 'm2'])
   const { page, configDir, close } = await launchApp()
   try {
@@ -76,11 +76,8 @@ test('sets up the first gateway in onboarding step 1', async () => {
     await expect(page.getByRole('status')).toContainText('2 个模型')
     await page.getByRole('radio', { name: 'm2' }).click()
     await expect(page.getByRole('radio', { name: 'm2' })).toHaveAttribute('aria-checked', 'true')
-    await page.getByRole('button', { name: '下一步' }).click()
-    await expect(page.getByRole('button', { name: /工作目录/ })).toHaveAttribute(
-      'aria-current',
-      'step',
-    )
+    await page.getByRole('button', { name: '开始使用' }).click()
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
     const saved = JSON.parse(readFileSync(path.join(configDir, 'settings.json'), 'utf8'))
     expect(saved.defaultModel).toBe('localhost/m2')
   } finally {
@@ -99,6 +96,7 @@ test('keeps the onboarding form when the gateway lists no models', async () => {
     await page.getByRole('button', { name: '测试连接' }).click()
     await expect(page.getByRole('status')).toContainText('没有列出任何模型')
     await expect(page.getByLabel('网关地址')).toBeVisible()
+    await expect(page.getByRole('button', { name: '开始使用' })).toBeDisabled()
     expect(
       await page.evaluate(() => window.kits.settings.get().then((s) => s.gateways.length)),
     ).toBe(0)

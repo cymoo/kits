@@ -59,6 +59,8 @@ export interface AppInfo {
   userDataDir: string
   // 家目录，界面上把路径缩写成 ~/…
   homeDir: string
+  // 没选工作目录时用的默认目录（~/kits-workspace，可被 KITS_WORKSPACE_DIR 覆盖），用到才创建
+  defaultWorkdir: string
 }
 
 export type GatewayTestResult =
@@ -197,8 +199,10 @@ export const ipcContract = {
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用
     pick: method<undefined, string | null>(),
-    // 看一眼目录里有什么（首次引导用）
+    // 看一眼目录的 Git 状态（首次引导用）
     inspect: method<string, WorkdirInspection>(),
+    // 创建默认工作目录并记进最近使用，返回它的路径
+    createDefault: method<undefined, string>(),
   },
   agents: {
     // 输入框的 Agent 浮层：给了工作目录时含项目 Agent
