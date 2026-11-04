@@ -8,7 +8,7 @@ export const DEFAULT_CONTEXT_WINDOW = 128_000
 export const gatewayModelSchema = z.object({
   id: z.string().min(1),
   note: z.string().default(''),
-  // 网关接口不返回上下文窗口，默认 128K，设置页可改
+  // 网关的模型列表带了就用它的（连接测试、刷新列表时取），没带默认 128K，设置页可改
   contextWindow: z.number().int().positive().default(DEFAULT_CONTEXT_WINDOW),
   toolCall: z.boolean().default(true),
 })

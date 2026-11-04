@@ -116,6 +116,13 @@ export function agentSystemPrompt(agent: AgentProfile): string {
     .join('\n\n')
 }
 
+// 内核按 limit 判断什么时候自动压缩：没写就是 0，永远不压缩，上下文满了直接报错。
+// 上下文减掉 output 是可用的部分，小窗口的模型 output 不能占满整个窗口
+const MAX_OUTPUT_TOKENS = 32_000
+function modelLimit(context: number): { context: number; output: number } {
+  return { context, output: Math.min(MAX_OUTPUT_TOKENS, Math.floor(context / 4)) }
+}
+
 function envName(prefix: string, id: string, suffix = ''): string {
   return `${prefix}${id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}${suffix}`
 }
@@ -295,7 +302,10 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
       name: gw.name || gw.id,
       options: { baseURL: gw.baseUrl, apiKey: key ? `{env:${keyEnv}}` : NO_KEY },
       models: Object.fromEntries(
-        gw.models.map((m) => [m.id, { name: m.id, tool_call: m.toolCall }]),
+        gw.models.map((m) => [
+          m.id,
+          { name: m.id, tool_call: m.toolCall, limit: modelLimit(m.contextWindow) },
+        ]),
       ),
     }
   }
