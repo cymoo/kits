@@ -242,3 +242,44 @@ phase1-implementation PR19（4.3 节）：CodeAgent 方言和配置转换、假�
 
 - **没在真机上跑过**：配置文件名、`{env:…}` 引用、联网开关、改动和压缩的数据形状都是按文档猜的，见清单 5～8、19、20。走 `PATCH /global/config` 时网关 Key 会以明文交给内核，要确认它会不会落盘。
 - 内核自带的 AI Market、账户等联网功能怎么关，文档没写（清单 8）。
+
+## 2026-11-05　子任务卡住：子会话的权限请求没有接住
+
+> PR：#44　作者：Claude Code
+
+### 原始需求
+
+试 `task` 工具时子任务一直不结束（等了半小时），界面只有“正在子任务”的 spinner，只能手动停止。要求子任务能跑完，要确认的命令让人看得到。
+
+根因：OpenCode 的 task 工具在子会话里跑，子任务要确认的命令发出的 `permission.asked` 带子会话的 `sessionID`。适配器只收本会话的事件，这条请求被过滤掉，内核一直等回复。
+
+### 怎么验收
+
+1. `pnpm -F @kits/kernel test`：契约测试 `asks for a command of a subagent and finishes the turn after the reply` 通过（真实 opencode + 假网关，去掉这次改动时这条用例超时）。
+2. 手动：工作目录选一个 Git 仓库，权限选“执行前确认”，发“用 task 工具派一个子任务，让它执行 `touch sub.txt`”。预期：对话里出现确认卡片，“允许一次”后子任务结束，这一轮正常完成。
+3. 同样的话，权限选“全部自动”：不出卡片，子任务直接跑完。
+4. Mock 内核：`KITS_KERNEL=mock KITS_MOCK_SCENARIO=subagent pnpm dev`，发一句话后出现确认卡片。
+
+### 主要改动
+
+- `packages/kernel/src/adapter/events.ts`：映射器记下这一轮的子会话（`session.created` 的 `parentID`、task 工具 metadata 的 `sessionId`，后者用于断线补齐），子会话的 `permission.asked` 映射成 `permission-request`，带 `subagent: true`。子会话的其他事件照旧不算这一轮的。
+- `packages/kernel/src/adapter/opencode-family.ts`：断线补齐时不再按会话 id 过滤待处理权限，交给映射器判断。
+- `apps/desktop/src/main/sessions/session-service.ts`：内核的子会话只继承主会话的拒绝规则，放行规则不继承。`subagent` 请求按主会话规则算出来是允许时自动回复“允许一次”，不弹卡片；所以“全部自动”下子任务不会打扰人。
+- `packages/kernel/src/mock/scenarios.ts`：新场景 `subagent`；`testing/mock-model.ts` 加 `pickTool`，主会话和子会话调不同的工具。
+- `docs/references/codeagent-checklist.md`：第 26 项，CodeAgent 真机要核对子会话的事件。
+
+配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`adapter/events.test.ts`（子会话的权限请求、从 task 工具 metadata 认子会话、别人的子会话不接、子会话 idle 不结束这一轮）、`adapter/opencode-family.test.ts`（断线补齐）、`session-service.test.ts`（询问时弹卡片、放行时自动回复）。
+- 契约测试：`adapter/opencode-family.contract.test.ts` 跑真实的子任务链路。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- CodeAgent 的子任务事件没有真机核对，见清单第 26 项。
+- 已经卡住的会话升级后不会自己恢复，要点“停止”后重发。

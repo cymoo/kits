@@ -9,6 +9,8 @@ import type { AddressInfo } from 'node:net'
 
 export interface MockModelOptions {
   toolCall?: { name: string; arguments: Record<string, unknown> }
+  // 按请求选工具，优先于 toolCall：子任务要主会话和子会话调不同的工具
+  pickTool?: (body: ChatRequest) => { name: string; arguments: Record<string, unknown> }
   // 前 N 个带 tools 的请求直接回 503，触发内核重试
   failFirst?: number
   // 每个请求先等这么久再吐第一个字节（模拟网关首字延迟，测 abort 用）
@@ -120,6 +122,7 @@ export async function startMockModel(options: MockModelOptions = {}): Promise<Mo
       res.write(chunk({ content: textOf(last.content).trim() }))
       res.write(chunk({}, 'stop'))
     } else {
+      const picked = options.pickTool?.(body) ?? toolCall
       res.write(
         chunk({
           role: 'assistant',
@@ -128,7 +131,7 @@ export async function startMockModel(options: MockModelOptions = {}): Promise<Mo
               index: 0,
               id: 'call_mock_1',
               type: 'function',
-              function: { name: toolCall.name, arguments: JSON.stringify(toolCall.arguments) },
+              function: { name: picked.name, arguments: JSON.stringify(picked.arguments) },
             },
           ],
         }),
