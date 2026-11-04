@@ -96,7 +96,7 @@ export function Nav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () 
           <PanelLeft size={14} />
         </button>
       </div>
-      <div className={cx('flex flex-col gap-px', collapsed && 'items-center')}>
+      <div className={cx('flex flex-col gap-1', collapsed && 'items-center')}>
         <NavItem
           to="/"
           icon={<Plus size={15} />}
@@ -130,7 +130,7 @@ export function Nav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () 
       )}
       <div
         className={cx(
-          'flex flex-col gap-px border-line border-t pt-1.5',
+          'flex flex-col gap-1 border-line border-t pt-1.5',
           collapsed && 'w-full items-center border-t-0',
         )}
       >
