@@ -17,7 +17,7 @@ import type {
   SessionSummary,
   ToolCallRegistry,
 } from '@kits/core'
-import { skillPrompt } from '@kits/core'
+import { effectiveLevel, type PermissionRule, skillPrompt } from '@kits/core'
 import {
   type AgentKernel,
   agentPermissions,
@@ -624,6 +624,34 @@ export class SessionService {
     void this.runTurn(session, text, run)
   }
 
+  // 这个会话的完整权限，建内核会话时整串交给内核
+  private sessionRules(
+    session: SessionSummary,
+    profile: ReturnType<SessionServiceDeps['resolveAgent']>,
+  ): PermissionRule[] {
+    return [
+      ...agentPermissions(profile, session.permissionMode, this.deps.loadMcp()),
+      // 关掉的技能和内核自带的技能：会话规则排在全局后面，这里要再拒绝一遍
+      ...skillDenies(this.deps.disabledSkills?.() ?? []),
+      // 输入框里关掉的平台：这个会话里它的工具一律不能用（排在最后，最后命中的生效）
+      ...(this.mcpOff.get(session.id) ?? []).map((server) => ({
+        tool: `${server}_*`,
+        pattern: '*',
+        level: 'deny' as const,
+      })),
+    ]
+  }
+
+  private allowedBySession(
+    session: SessionSummary,
+    profile: ReturnType<SessionServiceDeps['resolveAgent']>,
+    request: { tool: string; patterns: string[] },
+  ): boolean {
+    const rules = this.sessionRules(session, profile)
+    const patterns = request.patterns.length > 0 ? request.patterns : ['*']
+    return patterns.every((p) => effectiveLevel(rules, request.tool, p) === 'allow')
+  }
+
   private async runTurn(session: SessionSummary, text: string, run: Running): Promise<void> {
     const { store, kernels } = this.deps
     const { recorder } = run
@@ -669,17 +697,7 @@ export class SessionService {
             agent: kernelAgent,
             ...(session.model ? { model: session.model } : {}),
             title: session.title,
-            permission: [
-              ...agentPermissions(profile, session.permissionMode, this.deps.loadMcp()),
-              // 关掉的技能和内核自带的技能：会话规则排在全局后面，这里要再拒绝一遍
-              ...skillDenies(this.deps.disabledSkills?.() ?? []),
-              // 输入框里关掉的平台：这个会话里它的工具一律不能用（排在最后，最后命中的生效）
-              ...(this.mcpOff.get(session.id) ?? []).map((server) => ({
-                tool: `${server}_*`,
-                pattern: '*',
-                level: 'deny' as const,
-              })),
-            ],
+            permission: this.sessionRules(session, profile),
           })
       if (!existing) store.updateSession(session.id, { kernelSessionId: ks.id })
       run.ks = ks
@@ -699,6 +717,15 @@ export class SessionService {
         if (!submitted && event.type !== 'done') {
           submitted = true
           await this.assignKernelTurn(session, run, kernel, ks)
+        }
+        // 内核的子会话只继承主会话的拒绝规则：主会话放行的（比如“全部自动”）这里替用户答了，不弹卡片
+        if (
+          event.type === 'permission-request' &&
+          event.subagent &&
+          this.allowedBySession(session, profile, event)
+        ) {
+          await kernel.respondPermission(ks, event.requestId, 'once')
+          continue
         }
         // kits 工具的调用登记到关联表，工具服务收到调用时按参数对到这个会话
         if (event.type === 'tool-start' && event.name.startsWith('kits_')) {

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { builtinAssistant, type KernelEvent, parseMcpFile, parseSettings } from '@kits/core'
@@ -20,6 +20,7 @@ const binary = resolveKernelBinary('opencode', {
 })
 
 const mcp = parseMcpFile({})
+const SUBAGENT_PROMPT = '建一个文件'
 
 describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
   let root: string
@@ -50,6 +51,20 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
         arguments: { command: 'ls && touch kits-chain.txt', description: 'chain' },
       },
     })
+    // 主会话派子任务，子任务跑一条要确认的命令
+    mocks.subagent = await startMockModel({
+      pickTool: (body) =>
+        JSON.stringify(body.messages).includes(SUBAGENT_PROMPT)
+          ? { name: 'bash', arguments: { command: 'touch kits-sub.txt', description: 'touch' } }
+          : {
+              name: 'task',
+              arguments: {
+                description: '建文件',
+                subagent_type: 'general',
+                prompt: SUBAGENT_PROMPT,
+              },
+            },
+    })
     const result = generateOpencodeConfig({
       settings: parseSettings({
         gateways: Object.entries(mocks).map(([id, m]) => ({
@@ -63,7 +78,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       mcp,
       skills: [],
       instructions: [],
-      gatewayKeys: { ok: 'k', flaky: 'k', slow: 'k', chain: 'k', writer: 'k' },
+      gatewayKeys: { ok: 'k', flaky: 'k', slow: 'k', chain: 'k', writer: 'k', subagent: 'k' },
       lookupVar: () => undefined,
     })
     if (!result.ok) throw new Error(JSON.stringify(result.problems))
@@ -202,6 +217,23 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     })
     // 一次请求列出拆开后的每条命令，有一条不在白名单就整体询问
     expect(asked).toEqual([['ls', 'touch kits-chain.txt']])
+  }, 60_000)
+
+  it('asks for a command of a subagent and finishes the turn after the reply', async () => {
+    const s = await session('subagent')
+    const events = await run(s, '派个子任务', (e) =>
+      kernel.respondPermission(s, e.requestId, 'once'),
+    )
+    expect(events.find((e) => e.type === 'permission-request')).toMatchObject({
+      tool: 'bash',
+      patterns: ['touch kits-sub.txt'],
+      subagent: true,
+    })
+    expect(existsSync(path.join(workdir, 'kits-sub.txt'))).toBe(true)
+    const end = events.find((e) => e.type === 'tool-end')
+    expect(end).toMatchObject({ callId: expect.any(String) })
+    expect(end && end.type === 'tool-end' && end.error).toBeUndefined()
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
   }, 60_000)
 
   it('maps the diff of a file the agent wrote', async () => {
