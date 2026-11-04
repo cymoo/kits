@@ -9,7 +9,8 @@
 export type KernelEvent =
   | { type: 'text-delta'; partId: string; text: string }
   | { type: 'reasoning-delta'; partId: string; text: string }
-  | { type: 'tool-start'; callId: string; name: string; input: unknown }
+  // parentCallId：子任务里的工具，值是派它的 task 工具的 callId
+  | { type: 'tool-start'; callId: string; name: string; input: unknown; parentCallId?: string }
   | {
       type: 'tool-end'
       callId: string

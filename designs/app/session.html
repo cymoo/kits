@@ -60,6 +60,13 @@ a{color:#3659E3}a:hover{color:#2744B8}
 .k-out .s:hover .k-cp,.k-cp:focus-visible,.k-cp[data-done="true"]{opacity:1}
 .k-cp:focus-visible{outline:2px solid #3659E3;outline-offset:-2px}
 .k-cp[data-done="true"]{color:#1E7F43}
+.k-sub{display:flex;flex-direction:column;padding:4px 0}
+.k-sub .r{display:flex;align-items:center;gap:8px;padding:2px 10px;font-size:13px;color:#1B1B1F;line-height:20px}
+.k-sub .r .i{flex:0 0 14px;height:20px;display:flex;align-items:center;justify-content:center;color:#9A9AA1}
+.k-sub .r .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.k-sub .r .v{color:#6E6E76}
+.k-sub .r .p{font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.k-sub .r .m{flex:0 0 auto;color:#6E6E76;font-variant-numeric:tabular-nums}
 .k-tab{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:0;background:transparent;font:inherit;font-size:13.5px;cursor:pointer;margin-bottom:-1px;color:#6E6E76;border-bottom:2px solid transparent}
 .k-tab[aria-selected="true"]{color:#1B1B1F;font-weight:600;border-bottom-color:#1B1B1F}
 .k-cnt{font-size:12px;font-weight:500;color:#8A8A92;background:#ECEBE7;border-radius:8px;padding:0 6px}
@@ -80,7 +87,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
 </helmet>
 <div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 14px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
 
-  <svg aria-hidden="true" width="0" height="0" style="position: absolute"><symbol id="k-i-read" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3"></path></symbol><symbol id="k-i-search" viewBox="0 0 16 16"><path d="M7 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM10.5 10.5 14 14"></path></symbol><symbol id="k-i-cmd" viewBox="0 0 16 16"><path d="m3 4.5 3.5 3.5L3 11.5M8 12h5"></path></symbol><symbol id="k-i-edit" viewBox="0 0 16 16"><path d="M10.5 3 13 5.5 6 12.5l-3 .5.5-3zM9 4.5 11.5 7"></path></symbol><symbol id="k-i-new" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3M8 7.5v4M6 9.5h4"></path></symbol><symbol id="k-i-mcp" viewBox="0 0 16 16"><path d="M6 2v3M10 2v3M4.5 5h7v2.5a3.5 3.5 0 0 1-7 0zM8 11v3"></path></symbol><symbol id="k-i-memory" viewBox="0 0 16 16"><path d="M4.5 2.5h7v11L8 11l-3.5 2.5z"></path></symbol><symbol id="k-i-submit" viewBox="0 0 16 16"><path d="M8 10V3M5 5.5 8 3l3 2.5M3 10v3h10v-3"></path></symbol></svg>
+  <svg aria-hidden="true" width="0" height="0" style="position: absolute"><symbol id="k-i-read" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3"></path></symbol><symbol id="k-i-search" viewBox="0 0 16 16"><path d="M7 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM10.5 10.5 14 14"></path></symbol><symbol id="k-i-cmd" viewBox="0 0 16 16"><path d="m3 4.5 3.5 3.5L3 11.5M8 12h5"></path></symbol><symbol id="k-i-edit" viewBox="0 0 16 16"><path d="M10.5 3 13 5.5 6 12.5l-3 .5.5-3zM9 4.5 11.5 7"></path></symbol><symbol id="k-i-new" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3M8 7.5v4M6 9.5h4"></path></symbol><symbol id="k-i-mcp" viewBox="0 0 16 16"><path d="M6 2v3M10 2v3M4.5 5h7v2.5a3.5 3.5 0 0 1-7 0zM8 11v3"></path></symbol><symbol id="k-i-task" viewBox="0 0 16 16"><path d="M8 2v2.5M3.5 4.5h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1zM6 8v1M10 8v1"></path></symbol><symbol id="k-i-memory" viewBox="0 0 16 16"><path d="M4.5 2.5h7v11L8 11l-3.5 2.5z"></path></symbol><symbol id="k-i-submit" viewBox="0 0 16 16"><path d="M8 10V3M5 5.5 8 3l3 2.5M3 10v3h10v-3"></path></symbol></svg>
   <sc-if value="{{wide}}"><k-nav active="session" collapsed></k-nav></sc-if>
   <sc-if value="{{narrow}}"><k-nav active="session"></k-nav></sc-if>
 
@@ -129,7 +136,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
                     </sc-if>
                     <sc-for list="{{b.steps}}" as="s">
                       <button type="button" onClick="{{s.act}}" disabled="{{s.plain}}" aria-expanded="{{s.open}}" title="{{s.tip}}" class="k-row k-step">
-                        <span class="i" style="{{s.iconStyle}}"><sc-if value="{{s.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if><sc-if value="{{s.is.read}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-read"></use></svg></sc-if><sc-if value="{{s.is.search}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-search"></use></svg></sc-if><sc-if value="{{s.is.cmd}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-cmd"></use></svg></sc-if><sc-if value="{{s.is.edit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-edit"></use></svg></sc-if><sc-if value="{{s.is.new}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-new"></use></svg></sc-if><sc-if value="{{s.is.mcp}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-mcp"></use></svg></sc-if><sc-if value="{{s.is.memory}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-memory"></use></svg></sc-if><sc-if value="{{s.is.submit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-submit"></use></svg></sc-if></span>
+                        <span class="i" style="{{s.iconStyle}}"><sc-if value="{{s.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if><sc-if value="{{s.is.read}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-read"></use></svg></sc-if><sc-if value="{{s.is.search}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-search"></use></svg></sc-if><sc-if value="{{s.is.cmd}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-cmd"></use></svg></sc-if><sc-if value="{{s.is.edit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-edit"></use></svg></sc-if><sc-if value="{{s.is.new}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-new"></use></svg></sc-if><sc-if value="{{s.is.mcp}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-mcp"></use></svg></sc-if><sc-if value="{{s.is.task}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-task"></use></svg></sc-if><sc-if value="{{s.is.memory}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-memory"></use></svg></sc-if><sc-if value="{{s.is.submit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-submit"></use></svg></sc-if></span>
                         <span class="b">
                           <sc-if value="{{s.desc}}"><span class="t">{{s.desc}}</span><sc-if value="{{s.sub}}"><span class="c">{{s.detail}}</span></sc-if></sc-if>
                           <sc-if value="{{s.noDesc}}"><span class="t"><span class="v">{{s.verb}}</span> <span class="p">{{s.detail}}</span></span></sc-if>
@@ -143,7 +150,13 @@ a{color:#3659E3}a:hover{color:#2744B8}
                         <div class="k-out">
                           <sc-if value="{{s.isCmd}}"><div class="s c"><pre>{{s.detail}}</pre><button type="button" onClick="{{s.copyCmd}}" class="k-ico k-cp" data-done="{{s.cmdDone}}" aria-label="{{s.cmdLabel}}" title="{{s.cmdLabel}}"><sc-if value="{{s.cmdDone}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{s.cmdDoneNot}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></sc-if></button></div></sc-if>
                           <sc-if value="{{s.args}}"><div class="s"><div class="l">参数</div><pre>{{s.args}}</pre><button type="button" onClick="{{s.copyArgs}}" class="k-ico k-cp" data-done="{{s.argsDone}}" aria-label="{{s.argsLabel}}" title="{{s.argsLabel}}"><sc-if value="{{s.argsDone}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{s.argsDoneNot}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></sc-if></button></div></sc-if>
+                          <sc-if value="{{s.prompt}}"><div class="s"><div class="l">任务</div><pre>{{s.prompt}}</pre></div></sc-if>
+                          <sc-if value="{{s.subs}}"><div class="s"><div class="l">过程</div>
+                            <sc-if value="{{s.subMore}}"><button type="button" onClick="{{s.showAll}}" class="k-more">{{s.subMore}}</button></sc-if>
+                            <div class="k-sub"><sc-for list="{{s.subs}}" as="c"><div class="r"><span class="i"><sc-if value="{{c.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if><sc-if value="{{c.icon}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="{{c.icon}}"></use></svg></sc-if></span><span class="t"><span class="v">{{c.verb}}</span> <span class="p">{{c.detail}}</span></span><sc-if value="{{c.meta}}"><span class="m">{{c.meta}}</span></sc-if></div></sc-for></div>
+                          </div></sc-if>
                           <sc-if value="{{s.out}}"><div class="s">
+                            <sc-if value="{{s.outLabel2}}"><div class="l">{{s.outLabel2}}</div></sc-if>
                             <sc-if value="{{s.args}}"><div class="l">返回</div></sc-if>
                             <sc-if value="{{s.moreTop}}"><button type="button" onClick="{{s.showAll}}" class="k-more">{{s.moreLabel}}</button></sc-if>
                             <pre style="{{s.preStyle}}">{{s.shown}}</pre>
@@ -182,6 +195,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
                 <div style="display: flex; align-items: center; gap: 8px">
                   <span style="{{permIcon}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 5 3 3-3 3M8 11h5"></path></svg></span>
                   <span style="font-weight: 600">{{permHead}}</span>
+                  <sc-if value="{{permFrom}}"><span style="font-size: 13px; color: #6E6E76">{{permFrom}}</span></sc-if>
                   <span style="flex: 1"></span>
                   <span style="font-size: 13px; color: {{permMetaColor}}">{{permMeta}}</span>
                 </div>
@@ -423,13 +437,14 @@ Error: upstream request failed after 5 retries: ECONNRESET
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
-// 演示状态由 ?s= 决定：streaming 运行中、permission 命令确认、question Agent 提问、done 完成、
+// 演示状态由 ?s= 决定：streaming 运行中、subagent 子任务、permission 命令确认、question Agent 提问、done 完成、
 // error 重试与出错、context 上下文接近上限、changes 改动放大、output 产出放大（结构化产出）。
+const SUB_LIMIT = 8;
 class Component extends DCLogic {
   constructor(props) {
     super(props);
     const scene = new URLSearchParams(location.search).get('s') || 'streaming';
-    const tabDefault = { streaming: 'changes', permission: 'changes', question: 'changes', done: 'output', error: 'changes', context: 'context', changes: 'changes', output: 'output' };
+    const tabDefault = { streaming: 'changes', subagent: 'changes', permission: 'changes', question: 'changes', done: 'output', error: 'changes', context: 'context', changes: 'changes', output: 'output' };
     this.scene = scene;
     this.state = {
       open: { think: true }, stepOpen: {}, stepAll: {}, copied: null,
@@ -467,17 +482,24 @@ class Component extends DCLogic {
   sh(desc, cmd, o = {}) {
     return ['执行命令', cmd, o.exit ? '退出 ' + o.exit : o.time || '', false, '', !!o.spin, { desc, ...o }];
   }
+  // 子任务里的步骤，只留最后几步：跑着的时候要看的是它现在在做什么
+  subRows(list, all) {
+    const icons = { 读取: 'read', 搜索: 'search', 运行: 'cmd', 修改: 'edit', 新建: 'new' };
+    return (all ? list : list.slice(-SUB_LIMIT)).map(([verb, detail, meta, spin]) => ({ verb, detail, meta, spin: !!spin, icon: spin ? '' : '#k-i-' + icons[verb] }));
+  }
   stepOf([kind, detail, meta, diff, note, spin, more = {}], key) {
     const s = this.state;
-    const look = { 读取文件: ['读取', 'read'], 搜索: ['搜索', 'search'], 执行命令: ['运行', 'cmd'], 修改文件: ['修改', 'edit'], 新建文件: ['新建', 'new'], 调用平台: ['调用', 'mcp'], 记忆: ['记下', 'memory'], 提交产出: ['提交', 'submit'] }[kind];
+    const look = { 读取文件: ['读取', 'read'], 搜索: ['搜索', 'search'], 执行命令: ['运行', 'cmd'], 修改文件: ['修改', 'edit'], 新建文件: ['新建', 'new'], 调用平台: ['调用', 'mcp'], 记忆: ['记下', 'memory'], 提交产出: ['提交', 'submit'], 子任务: ['子任务', 'task'] }[kind];
     const isCmd = kind === '执行命令';
     const out = more.out !== undefined ? more.out : this.outs[detail];
     const fail = !!more.exit || !!more.error;
     // 改文件的结果就是 diff，放在“改动”里，点了跳过去
     const edit = kind === '修改文件' || kind === '新建文件';
     const jump = edit && !spin;
-    const canOpen = !edit && (isCmd || out !== undefined);
-    const open = canOpen && (s.stepOpen[key] !== undefined ? s.stepOpen[key] : fail);
+    const task = kind === '子任务';
+    const canOpen = !edit && (isCmd || out !== undefined || task);
+    // 子任务在跑时默认展开，看得到它在做什么
+    const open = canOpen && (s.stepOpen[key] !== undefined ? s.stepOpen[key] : fail || (task && !!spin));
     // 只放前 12 行，不在对话里套一层滚动。命令留结尾（失败原因和测试汇总都在最后），文件和搜索留开头
     const LIMIT = 12;
     const lines = (out || '').split('\n');
@@ -493,11 +515,12 @@ class Component extends DCLogic {
       kind, detail, meta, note, spin: !!spin, fail, verb: look[0], is: spin ? {} : { [look[1]]: true }, desc: more.desc || '', noDesc: !more.desc,
       // 展开后命令在下面的框里，行内不重复
       sub: !open, tip: isCmd ? detail : '',
-      isCmd, canOpen, jump, open, plain: !canOpen && !jump, args: more.args || '', out: out || '',
+      isCmd, canOpen, jump, open, plain: !canOpen && !jump, args: more.args || '', out: out || '', prompt: more.prompt || '', subs: task ? this.subRows(more.subs || [], !!s.stepAll[key]) : null,
+      subMore: task && !s.stepAll[key] && (more.subs || []).length > SUB_LIMIT ? '显示前面 ' + ((more.subs || []).length - SUB_LIMIT) + ' 步' : '', outLabel2: task && out ? '结果' : '',
       shown: cut ? (isCmd ? lines.slice(-LIMIT) : lines.slice(0, LIMIT)).join('\n') : out || '',
       preStyle: cut ? 'max-height: none' : '', moreTop: cut && isCmd, moreEnd: cut && !isCmd, moreLabel: isCmd ? '显示前面 ' + hidden + ' 行' : '显示后面 ' + hidden + ' 行',
       showAll: () => this.setState({ stepAll: { ...s.stepAll, [key]: true } }),
-      empty: out ? '' : spin ? '运行中，结束后显示输出' : isCmd ? '没有输出' : '没有结果',
+      empty: out || task ? '' : spin ? '运行中，结束后显示输出' : isCmd ? '没有输出' : '没有结果',
       // 行上已经有的不再写一遍：成功时行上是耗时，失败时行上是退出码
       foot: isCmd ? [fail ? more.time : '', more.how].filter(Boolean).join(' · ') : '',
       copyCmd: copy('cmd'), cmdDone: done('cmd'), cmdDoneNot: !done('cmd'), cmdLabel: done('cmd') ? '已复制' : '复制命令',
@@ -514,7 +537,7 @@ class Component extends DCLogic {
     const list = steps.map((x, i) => this.stepOf(x, id + ':' + i));
     const n = (...kinds) => list.filter((x) => kinds.includes(x.kind));
     const files = (...kinds) => new Set(n(...kinds).map((x) => x.detail)).size;
-    const count = [['读 ', files('读取文件'), ' 个文件'], ['搜索 ', n('搜索').length, ' 次'], ['改 ', files('修改文件', '新建文件'), ' 个文件'], ['运行 ', n('执行命令').length, ' 条命令'], ['调用平台 ', n('调用平台').length, ' 次']];
+    const count = [['子任务 ', n('子任务').length, ' 个'], ['读 ', files('读取文件'), ' 个文件'], ['搜索 ', n('搜索').length, ' 次'], ['改 ', files('修改文件', '新建文件'), ' 个文件'], ['运行 ', n('执行命令').length, ' 条命令'], ['调用平台 ', n('调用平台').length, ' 次']];
     const fails = list.filter((x) => x.fail).length;
     return {
       isTurn: true, title, meta, open, done: status === 'done', running: status === 'running', failed: status === 'failed',
@@ -558,7 +581,19 @@ class Component extends DCLogic {
       this.p('还有一件事你可能要决定：缓存目前在进程内存里，多实例部署时各自独立。要跨实例去重的话得换成 Redis，我没动。')] };
     const doneSummary = { isSummary: true };
 
+    const taskSubs = [['读取', 'MISSION.md', '42 行'], ['读取', 'pyproject.toml', '31 行'], ['搜索', 'glob src/**/*.py', '14 个文件'], ['运行', 'ls -la src', '0.1 秒'], ['读取', 'src/points/api.py', '318 行'], ['读取', 'src/points/redeem.py', '86 行'], ['读取', 'src/points/refund.py', '112 行'], ['搜索', 'grep "request_id" src/', '7 处'], ['读取', 'src/order/create.py', '140 行'], ['运行', 'find src -name "*.py" | wc -l', '0.2 秒']];
+
     const scenes = {
+      subagent: {
+        title: '摸一下仓库结构', pill: s.perm === 'pending' || s.perm === 'denying' ? ['wait', '等你确认'] : ['run', '运行中 · 第 1 轮 · 1:08'], dir: 'member-svc',
+        blocks: [{ isUser: true, text: '派子任务看看这个仓库是做什么的，再把测试跑一下。' },
+          this.turn('t1', '第 1 轮', '进行中 · 1:08', 'running', [
+            ['子任务', '探索仓库结构', '10 步 · 0:41', false, '', false, { prompt: '快速看一遍仓库：是做什么的、目录怎么分、入口在哪。忽略 node_modules。', subs: taskSubs, out: '会员积分服务，FastAPI。src/points 是积分和兑换，src/order 是订单，入口 src/main.py。' }],
+            ['子任务', '跑积分模块的测试', '2 步 · 0:27', false, '', true, { prompt: '跑 tests/points，把失败的用例列出来。', subs: [['读取', 'tests/points/conftest.py', '58 行'], ['运行', 'uv run pytest tests/points -q', '', true]] }]],
+            { summary: '先探索，再跑测试', text: '用户要两件事，派两个子任务。' }),
+          { isPerm: true, from: '来自子任务：跑积分模块的测试' }],
+        changes: 'none', output: 'empty-running', ctx: { usage: ['22K / 200K', 11, '前 0 轮 0K', '14K', ''], rows: 'redeem' }
+      },
       streaming: {
         title: '给兑换接口加幂等校验', pill: ['run', '运行中 · 第 2 轮 · 0:46'], dir: 'member-svc',
         blocks: [redeemUser, redeemTurn1('38 秒'),
@@ -744,6 +779,7 @@ class Component extends DCLogic {
       // 命令确认
       permCardStyle: 'border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; ' + (permWaiting ? 'border: 1px solid #E9B949; background: #FFFBF0; box-shadow: 0 0 0 4px rgba(233,185,73,.12)' : 'border: 1px solid #ECEBE7; background: #FCFCFB'),
       permIcon: 'width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; ' + (permWaiting ? 'background: #F3D9A4; color: #6B4600' : 'background: #ECEBE7; color: #4A4A52'),
+      permFrom: (sc.blocks.find((b) => b.isPerm) || {}).from || '',
       permHead: permWaiting ? '执行命令前需要你确认' : s.perm === 'denied' ? '命令已拒绝' : '已执行命令',
       permMeta: permWaiting ? 'Agent 在等，其他会话不受影响' : s.perm === 'always' ? '本会话内 uv run pytest 开头的命令不再询问' : s.perm === 'once' ? '已允许一次' : '',
       permMetaColor: permWaiting ? '#8A5A00' : '#8A8A92',

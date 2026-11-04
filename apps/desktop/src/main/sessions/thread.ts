@@ -143,7 +143,13 @@ export class TurnRecorder {
             this.upsert(
               `tool:${event.callId}`,
               'tool',
-              () => ({ type: 'tool', callId: event.callId, name: event.name, input: event.input }),
+              () => ({
+                type: 'tool',
+                callId: event.callId,
+                ...(event.parentCallId ? { parentCallId: event.parentCallId } : {}),
+                name: event.name,
+                input: event.input,
+              }),
               'running',
             ),
           ],
@@ -188,6 +194,7 @@ export class TurnRecorder {
                 patterns: event.patterns,
                 always: event.always,
                 ...(event.callId ? { callId: event.callId } : {}),
+                ...(event.subagent ? { subagent: true } : {}),
               }),
               'pending',
             ),

@@ -15,6 +15,7 @@ export type MockStep =
       delay?: number
       tool: string
       callId: string
+      parentCallId?: string
       input: unknown
       output: unknown
       error?: string
@@ -313,7 +314,29 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
           type: 'tool-start',
           callId: 'call_task',
           name: 'task',
-          input: { description: '跑 points 的测试', subagent_type: 'general', prompt: '跑测试' },
+          input: {
+            description: '跑 points 的测试',
+            subagent_type: 'general',
+            prompt: '跑 tests/points，把失败的用例列出来。',
+          },
+        },
+      },
+      {
+        delay: 300,
+        tool: 'read',
+        callId: 'call_task/call_sub_read',
+        parentCallId: 'call_task',
+        input: { filePath: 'tests/points/conftest.py' },
+        output: 'import pytest',
+        count: 58,
+      },
+      {
+        event: {
+          type: 'tool-start',
+          callId: 'call_task/call_sub_bash',
+          parentCallId: 'call_task',
+          name: 'bash',
+          input: { command: 'touch tests/points/.ran', description: '标记跑过' },
         },
       },
       {
@@ -324,11 +347,30 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
           input: { command: 'touch tests/points/.ran' },
           patterns: ['touch tests/points/.ran'],
           always: ['touch *'],
-          callId: 'call_sub_bash',
+          callId: 'call_task/call_sub_bash',
           subagent: true,
         },
-        allow: [{ event: { type: 'tool-end', callId: 'call_task', output: '测试都过了' } }],
+        allow: [
+          { event: { type: 'tool-end', callId: 'call_task/call_sub_bash', output: '' } },
+          {
+            event: {
+              type: 'tool-end',
+              callId: 'call_task',
+              output:
+                '<task id="ses_child" state="completed">\n<task_result>\n测试都过了\n</task_result>\n</task>',
+              durationMs: 2_400,
+            },
+          },
+        ],
         reject: [
+          {
+            event: {
+              type: 'tool-end',
+              callId: 'call_task/call_sub_bash',
+              output: null,
+              error: '被拒绝了',
+            },
+          },
           { event: { type: 'tool-end', callId: 'call_task', output: null, error: '被拒绝了' } },
         ],
       },

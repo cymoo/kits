@@ -363,6 +363,14 @@ export class OpencodeFamilyKernel implements AgentKernel {
               ),
             )
           }
+          // 子任务的步骤：主会话的快照补完才知道全部子会话
+          const subs = mapper.subsessions
+          const subMessages = await Promise.allSettled(
+            subs.map((id) => this.messages({ ...session, id }, this.setupTimeout)),
+          )
+          subMessages.forEach((r, i) => {
+            if (r.status === 'fulfilled') emit(mapper.backfill(r.value as RawMessage[], subs[i]))
+          })
           if (pending.status === 'fulfilled') emit(mapper.permissions(pending.value))
         } finally {
           const events = buffered

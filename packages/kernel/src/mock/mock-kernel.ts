@@ -137,7 +137,13 @@ export class MockKernel implements AgentKernel {
             if (!(await self.wait(session.id, 30))) return 'aborted'
           }
         } else if ('tool' in step) {
-          yield { type: 'tool-start', callId: step.callId, name: step.tool, input: step.input }
+          yield {
+            type: 'tool-start',
+            callId: step.callId,
+            name: step.tool,
+            input: step.input,
+            ...(step.parentCallId ? { parentCallId: step.parentCallId } : {}),
+          }
           if (!(await self.wait(session.id, 150))) return 'aborted'
           yield {
             type: 'tool-end',

@@ -19,6 +19,8 @@ interface Fake {
   hangStatus: boolean
   // GET /session/{id}/message 的内容，和回之前等多久
   messages: unknown[]
+  // 子会话的消息，按会话 id
+  subMessages: Record<string, unknown[]>
   messagesDelayMs: number
   messageRequests: number
   // GET /permission；failPermissions 时回 500
@@ -43,6 +45,7 @@ async function startFake(): Promise<Fake> {
     status: {},
     hangStatus: false,
     messages: [],
+    subMessages: {},
     messagesDelayMs: 0,
     messageRequests: 0,
     permissions: [],
@@ -88,7 +91,8 @@ async function startFake(): Promise<Fake> {
     }
     if (url.pathname.endsWith('/message')) {
       fake.messageRequests += 1
-      const snapshot = fake.messages
+      const sub = url.pathname.split('/')[2] ?? ''
+      const snapshot = fake.subMessages[sub] ?? fake.messages
       if (fake.messagesDelayMs) await new Promise((r) => setTimeout(r, fake.messagesDelayMs))
       return json(snapshot)
     }
@@ -356,6 +360,23 @@ describe('OpencodeFamilyKernel', () => {
           ],
         },
       ]
+      fake.subMessages = {
+        ses_child: [
+          {
+            info: { id: 'msg_c', sessionID: 'ses_child', role: 'assistant' },
+            parts: [
+              {
+                id: 'prt_c',
+                messageID: 'msg_c',
+                type: 'tool',
+                tool: 'read',
+                callID: 'call_c',
+                state: { status: 'completed', input: {}, output: 'x' },
+              },
+            ],
+          },
+        ],
+      }
       fake.permissions = [asked, { ...asked, id: 'per_other', sessionID: 'ses_2' }]
       await reconnect(seen, false)
       await until(() => seen.some((e) => e.type === 'permission-request'))
@@ -364,6 +385,10 @@ describe('OpencodeFamilyKernel', () => {
     expect(events.filter((e) => e.type === 'permission-request')).toEqual([
       expect.objectContaining({ requestId: 'per_c', subagent: true }),
     ])
+    // 子任务的步骤也补回来了
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'tool-end', callId: 'call_t/call_c', output: 'x' }),
+    )
   })
 
   it('reports a stall when neither the event stream nor the status endpoint answers', async () => {
