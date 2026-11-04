@@ -141,6 +141,61 @@ test('expands the sidebar on the settings page and restores it after leaving', a
   }
 })
 
+test('resizes the sidebar by dragging, remembers it and resets on double click', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const nav = page.getByRole('navigation', { name: '主导航' })
+    const handle = page.getByRole('separator', { name: '调整侧栏宽度' })
+    const width = async () => (await nav.boundingBox())?.width
+    expect(await width()).toBe(248)
+
+    const box = await handle.boundingBox()
+    if (!box) throw new Error('没有手柄')
+    await page.mouse.move(box.x + 4, box.y + 300)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 64, box.y + 300, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(width).toBe(308)
+
+    // 键盘也能调
+    await handle.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect.poll(width).toBe(324)
+
+    await page.reload()
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await expect.poll(width).toBe(324)
+
+    await handle.dblclick()
+    await expect.poll(width).toBe(248)
+  } finally {
+    await close()
+  }
+})
+
+test('clears the drag state when the sidebar collapses in the middle of a drag', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const handle = page.getByRole('separator', { name: '调整侧栏宽度' })
+    const box = await handle.boundingBox()
+    if (!box) throw new Error('没有手柄')
+    const root = page.locator('html')
+    await page.mouse.move(box.x + 4, box.y + 300)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 24, box.y + 300, { steps: 2 })
+    await expect(root).toHaveAttribute('data-resizing', '')
+
+    await page.keyboard.press(`${mod}+B`)
+    await expect(handle).toBeHidden()
+    await page.mouse.up()
+    await expect(root).not.toHaveAttribute('data-resizing')
+  } finally {
+    await close()
+  }
+})
+
 test('keeps the slash and at menus inside a short window on the home page', async () => {
   const { app, page, configDir, close } = await launchApp({}, (dir) => {
     // 技能和文件够多，菜单才会长到放不下

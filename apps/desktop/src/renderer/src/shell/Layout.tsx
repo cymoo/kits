@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
+import { t } from '../app/i18n'
 import { useAppearance } from '../app/use-appearance'
 import { kits, useAppInfo, useSettings, useSettingsSync } from '../lib/kits'
 import { useSessionListSync, useSessions } from '../lib/sessions'
 import { isMac, useShortcuts } from '../lib/shortcuts'
 import { useUi } from '../lib/ui-store'
+import { ResizeHandle } from '../ui/ResizeHandle'
 import { Nav } from './Nav'
 import { Palette } from './Palette'
 
@@ -42,6 +44,7 @@ export function Layout() {
   const navPeek = autoCollapse && peekScope === navScope
   // biome-ignore lint/correctness/useExhaustiveDependencies: navScope 变了要清
   useEffect(() => setPeekScope(undefined), [navScope])
+  const collapsed = autoCollapse ? !navPeek : navCollapsed
   const onToggleNav = autoCollapse ? () => setPeekScope(navPeek ? undefined : navScope) : toggleNav
 
   // 侧栏展开还是只留图标：设置里改了才跟着变（会一起记住）；启动时用上次记住的，⌘B 切过的也算
@@ -102,7 +105,8 @@ export function Layout() {
           className="fixed inset-x-0 top-0 z-10 h-7 [-webkit-app-region:drag]"
         />
       ) : null}
-      <Nav collapsed={autoCollapse ? !navPeek : navCollapsed} onToggle={onToggleNav} />
+      <Nav collapsed={collapsed} onToggle={onToggleNav} />
+      {collapsed ? null : <ResizeHandle id="nav" side="left" label={t('resize.nav')} />}
       <main className="flex min-w-0 flex-1 flex-col">
         <Outlet />
       </main>

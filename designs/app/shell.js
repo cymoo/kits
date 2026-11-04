@@ -5,8 +5,14 @@
   const FONT = "Inter,'PingFang SC','Noto Sans SC',system-ui,sans-serif"
   const MONO = "'JetBrains Mono',ui-monospace,monospace"
   const CSS = `
-.kn{height:100vh;flex:0 0 248px;box-sizing:border-box;background:#F1F0EC;border-right:1px solid #E5E4DF;padding:12px 8px 8px;display:flex;flex-direction:column;gap:6px;overflow:hidden;font-family:${FONT};font-size:14px;line-height:1.5;color:#1B1B1F;transition:flex-basis .18s ease}
+.kn{position:relative;height:100vh;flex:0 0 var(--k-nav-w,248px);box-sizing:border-box;background:#F1F0EC;border-right:1px solid #E5E4DF;padding:12px 8px 8px;display:flex;flex-direction:column;gap:6px;overflow:hidden;font-family:${FONT};font-size:14px;line-height:1.5;color:#1B1B1F;transition:flex-basis .18s ease}
 .kn *{box-sizing:border-box}
+.k-rz{position:relative;z-index:20;flex:0 0 0;width:0}
+.k-rz::before{content:'';position:absolute;top:0;bottom:0;left:-4px;width:8px;cursor:col-resize}
+.k-rz::after{content:'';position:absolute;top:0;bottom:0;left:-1px;width:2px;pointer-events:none;transition:background .12s}
+.k-rz:hover::after{background:rgba(54,89,227,.5)}
+.kn>.k-rz{position:absolute;top:0;bottom:0;right:4px}
+.kn[data-collapsed="true"]>.k-rz{display:none}
 .kn-top{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px}
 .kn-logo{width:20px;height:20px;border-radius:6px;background:#1B1B1F;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:0 0 auto}
 .kn-brand{font-weight:650;font-size:15px;letter-spacing:-.01em;text-decoration:none;color:#1B1B1F}
@@ -335,6 +341,28 @@
     if (mod && e.key === ',') { e.preventDefault(); location.href = 'settings.html' }
   })
 
+  // ---------- 拖动改栏宽 ----------
+  // <div class="k-rz" data-w="panel" data-dir="-1">：宽度写在 --k-*-w 上，页面重新渲染也不丢；双击恢复默认
+  const WIDTHS = { nav: [248, 200, 360], panel: [380, 300, 720], chat: [400, 320, 640] }
+  document.addEventListener('pointerdown', (e) => {
+    const h = e.target.closest && e.target.closest('.k-rz')
+    if (!h) return
+    e.preventDefault()
+    const [init, min, max] = WIDTHS[h.dataset.w]
+    const name = '--k-' + h.dataset.w + '-w'
+    const root = document.documentElement
+    const start = parseFloat(root.style.getPropertyValue(name)) || init
+    const x0 = e.clientX
+    const move = (ev) => root.style.setProperty(name, Math.min(max, Math.max(min, start + (ev.clientX - x0) * Number(h.dataset.dir || 1))) + 'px')
+    const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up) }
+    document.addEventListener('pointermove', move)
+    document.addEventListener('pointerup', up)
+  })
+  document.addEventListener('dblclick', (e) => {
+    const h = e.target.closest && e.target.closest('.k-rz')
+    if (h) document.documentElement.style.removeProperty('--k-' + h.dataset.w + '-w')
+  })
+
   // ---------- 侧栏 ----------
   let nav = null
   let autoCollapsed = false
@@ -378,7 +406,8 @@
       </div>
       <div class="kn-foot">
         <a class="kn-item${active === 'settings' ? ' on' : ''}" href="settings.html" title="设置 ⌘,">${svg('sliders', 15)}<span class="kn-label">设置</span><span class="kn-kbd">⌘,</span></a>
-      </div>`
+      </div>
+      <div class="k-rz" data-w="nav" title="拖动改宽度，双击恢复"></div>`
     nav.addEventListener('click', (e) => {
       const t = e.target.closest('[data-act]')
       if (!t) return

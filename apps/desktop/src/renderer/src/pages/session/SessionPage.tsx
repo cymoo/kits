@@ -39,6 +39,7 @@ import { ErrorCard, PermissionCard, QuestionCard, RetryBar } from '../../session
 import { deriveBlocks } from '../../session/thread/derive'
 import { Composer } from '../../shell/Composer'
 import { cx } from '../../ui/cx'
+import { ResizeHandle } from '../../ui/ResizeHandle'
 import { Tooltip } from '../../ui/Tooltip'
 
 // 会话页（原型 session.html）：顶栏（标题、状态、目录、Agent · 内核 · 模型、停止）+ 对话流 + 输入框。
@@ -186,6 +187,7 @@ export function SessionPage() {
   const diffs = useSessionDiffs(id)
   const outputs = useSessionOutputs(id)
   const settings = useSettings()
+  const widths = useUi((u) => u.widths)
   const panel = useUi((u) => u.panel)
   const setPanel = useUi((u) => u.setPanel)
   const [tab, setTab] = useState<PanelTab>('changes')
@@ -277,9 +279,11 @@ export function SessionPage() {
           className={cx(
             'flex min-h-0 min-w-0 flex-col overflow-y-auto',
             panel === 'wide'
-              ? 'w-[400px] shrink-0 border-line-soft border-r bg-panel px-5 pt-5'
+              ? // 窗口窄时给右边的面板留够地方
+                'max-w-[calc(100%-360px)] shrink-0 border-line-soft border-r bg-panel px-5 pt-5'
               : 'flex-1 px-7 pt-6',
           )}
+          style={panel === 'wide' ? { width: widths.chat } : undefined}
         >
           <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col gap-[18px] pb-4">
             {blocks.map((b) => {
@@ -357,12 +361,23 @@ export function SessionPage() {
           </div>
         </section>
         {panel === 'hidden' ? null : (
+          <ResizeHandle
+            id={panel === 'wide' ? 'chat' : 'panel'}
+            side={panel === 'wide' ? 'left' : 'right'}
+            label={t(panel === 'wide' ? 'resize.chat' : 'resize.panel')}
+          />
+        )}
+        {panel === 'hidden' ? null : (
           <aside
             aria-label={t('panel.label')}
             className={cx(
               'flex min-h-0 min-w-0 flex-col bg-panel',
-              panel === 'wide' ? 'flex-1' : 'w-[380px] shrink-0 border-line-soft border-l',
+              panel === 'wide'
+                ? 'flex-1'
+                : // 窗口窄时给对话留够地方
+                  'max-w-[calc(100%-320px)] shrink-0 border-line-soft border-l',
             )}
+            style={panel === 'wide' ? undefined : { width: widths.panel }}
           >
             <Workbench
               detail={detail}
