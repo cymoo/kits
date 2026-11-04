@@ -1,29 +1,54 @@
+# 打包（phase1-implementation PR20）：mac dmg（arm64 / x64）、win nsis（x64）。
+# 先跑 pnpm vendor:kernel 把当前平台的内核拷到 vendor/（OpenCode 来自 npm；CodeAgent 来自 KITS_CODEAGENT_BIN，没有就不带）。
+# 签名和公证：证书到位后只改这里的 mac.identity / win.signtoolOptions 和 CI 的密钥（见 README“打包和发布”）。
 appId: dev.kits.desktop
 productName: kits
+copyright: Copyright © 2026 kits
 directories:
   output: release
+  # 应用图标 icon.png（1024×1024）在这里，electron-builder 自己转成 icns / ico
   buildResources: resources
 files:
   - out/**
   - package.json
 extraResources:
-  # 内核二进制按平台放进 resources/bin/，不进 asar（asar 里的文件不能执行）。
-  # 先跑 pnpm vendor:kernel 把当前平台的 opencode 拷到 vendor/ 下。
+  # 内核二进制按平台放进 resources/bin/，不进 asar（asar 里的文件不能执行）
   - from: ../../vendor/opencode/${os}-${arch}
     to: bin/opencode
+  # CodeAgent 不在 npm 上：vendor 里有就带上，没有设置页会显示“未安装”和安装说明
+  - from: ../../vendor/codeagent/${os}-${arch}
+    to: bin/codeagent
+    filter: ["**/*"]
+  # 数据库迁移、内置 Agent 和技能、托盘图标
   - from: drizzle
     to: drizzle
+  - from: resources/builtin
+    to: builtin
+  - from: resources/tray
+    to: tray
 asar: true
 mac:
   category: public.app-category.developer-tools
-  target: [dmg, zip]
+  # 架构由命令行定（--arm64 / --x64，不给就是本机的）：每个架构的内核要在对应的机器上 vendor，CI 里两种 mac 各跑一台
+  target:
+    - dmg
+    # 自动更新在 mac 上用 zip
+    - zip
   hardenedRuntime: true
+  # 没有证书时不签名（CSC_LINK / CSC_NAME 没设就是未签名包）；公证在证书到位后打开 notarize
+  notarize: false
+dmg:
+  artifactName: kits-${version}-mac-${arch}.${ext}
 win:
-  target: [nsis]
+  target:
+    - nsis
+  artifactName: kits-${version}-win-${arch}.${ext}
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  perMachine: false
 publish:
-  # 内网更新：放一个静态目录即可，地址待定
+  # 内网更新：放一个静态目录即可。运行时的地址以 settings.json 的 updateUrl 或 KITS_UPDATE_URL 为准（main/updater.ts），
+  # 这里只决定 latest.yml 等元数据文件怎么生成；CI 打包用 --publish never，不往这个地址传
   provider: generic
-  url: https://updates.example.internal/kits
+  url: https://updates.invalid/kits

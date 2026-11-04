@@ -1,0 +1,63 @@
+name: release
+
+# 打 tag（v0.1.0 这样）出安装包：mac dmg / zip（arm64、x64），win nsis（x64）。
+# 现在是未签名包；证书到位后在仓库的 Secrets 里加 CSC_LINK / CSC_KEY_PASSWORD（mac、win 各一份）
+# 和公证用的 APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID，再打开 electron-builder.yml 的 notarize。
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 内核二进制按架构来，每个架构在自己的机器上 vendor 和打包
+          - { os: macos-latest, arch: arm64 }
+          - { os: macos-13, arch: x64 }
+          - { os: windows-latest, arch: x64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm vendor:kernel
+      - name: package
+        working-directory: apps/desktop
+        run: pnpm package -- --publish never --${{ matrix.arch }}
+        env:
+          # 没配证书时不去钥匙串里找签名身份
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' && 'true' || 'false' }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kits-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/latest*.yml
+            apps/desktop/release/*.blockmap
+      - name: attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: |
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.exe
+            apps/desktop/release/latest*.yml
+            apps/desktop/release/*.blockmap

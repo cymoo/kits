@@ -24,6 +24,7 @@ import { createElectronPlatform } from './platform'
 import { SessionService } from './sessions/session-service'
 import { SessionStore } from './sessions/session-store'
 import { KitsToolHost } from './tools/kits-tool-host'
+import { createUpdater, updateUrl } from './updater'
 import { inspectWorkdir } from './workdir/inspect'
 
 // 主进程入口：读配置、打开数据库、注册 IPC、开窗口。会话、内核等按模块往里加。
@@ -174,6 +175,12 @@ app.whenReady().then(() => {
     trash: (file) => platform.trashPath(file),
     openPath: (file) => platform.openPath(file),
   })
+  const updater = createUpdater({
+    isPackaged: platform.isPackaged,
+    version: platform.version,
+    url: () => updateUrl(config.getSettings().updateUrl),
+  })
+  updater.start()
   const store = new SessionStore(db)
   // 系统通知：窗口不在前台时，等确认、提问、出错、完成各发一次；点了打开那个会话
   let openSession = (_id: string) => {}
@@ -245,6 +252,7 @@ app.whenReady().then(() => {
   registerIpc(
     {
       app: {
+        checkForUpdates: () => updater.check(),
         info: () => ({
           version: platform.version,
           os: platform.os,

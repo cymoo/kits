@@ -1,10 +1,11 @@
 import type { GeneralSettings } from '@kits/core/ipc'
 import { Check, ChevronDown } from 'lucide-react'
-import { type ReactNode, useMemo } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 import { type MessageKey, t } from '../../../app/i18n'
 import { CODE_FONTS, installedFonts, UI_FONTS } from '../../../lib/fonts'
-import { useSettings, useUpdateSettings } from '../../../lib/kits'
+import { kits, useAppInfo, useSettings, useUpdateSettings } from '../../../lib/kits'
 import { modLabel, shortcuts } from '../../../lib/shortcuts'
+import { Button } from '../../../ui/Button'
 import { cx } from '../../../ui/cx'
 import { Menu, MenuContent, MenuRadioGroup, MenuRadioItem, MenuTrigger } from '../../../ui/Menu'
 import { Segmented } from '../../../ui/Segmented'
@@ -307,6 +308,8 @@ export function GeneralSection() {
         ))}
       </Card>
 
+      <UpdateCard />
+
       <Card title={t('general.keys')} hint={t('general.keysHint')}>
         <div className="grid grid-cols-2 gap-x-6 px-[18px] pt-2 pb-3">
           {KEYS.map(([what, key]) => (
@@ -323,5 +326,44 @@ export function GeneralSection() {
         </div>
       </Card>
     </div>
+  )
+}
+
+// 版本与更新：没配更新地址时说明怎么配；配了能手动查一次
+function UpdateCard() {
+  const info = useAppInfo()
+  const settings = useSettings()
+  const [result, setResult] = useState<Awaited<ReturnType<typeof kits.app.checkForUpdates>>>()
+  const [checking, setChecking] = useState(false)
+  const url = settings.data?.updateUrl ?? ''
+  const check = async () => {
+    setChecking(true)
+    try {
+      setResult(await kits.app.checkForUpdates())
+    } finally {
+      setChecking(false)
+    }
+  }
+  const text = !result
+    ? url
+      ? t('general.updateUrl', { url })
+      : t('general.updateNoUrl')
+    : result.status === 'available'
+      ? t('general.updateAvailable', { version: result.version })
+      : result.status === 'latest'
+        ? t('general.updateLatest')
+        : result.status === 'error'
+          ? t('general.updateError', { message: result.message })
+          : result.reason === 'dev'
+            ? t('general.updateDev')
+            : t('general.updateNoUrl')
+  return (
+    <Card title={t('general.update')}>
+      <Row label={`kits ${info.data?.version ?? ''}`} note={text}>
+        <Button disabled={checking} onClick={() => void check()}>
+          {checking ? t('general.updateChecking') : t('general.updateCheck')}
+        </Button>
+      </Row>
+    </Card>
   )
 }
