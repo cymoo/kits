@@ -55,6 +55,24 @@ const ALIASES: Record<string, string> = {
   'permission.requested': 'permission.asked',
 }
 
+// 步骤行右边的数字。edit 的 metadata 带 filediff，grep 是 matches，glob 是 count，read 是 display.totalLines
+function toolStats(metadata: Record<string, unknown> | undefined): {
+  additions?: number
+  deletions?: number
+  count?: number
+} {
+  const diff = metadata?.filediff as { additions?: unknown; deletions?: unknown } | undefined
+  const display = metadata?.display as { totalLines?: unknown } | undefined
+  const count = [metadata?.matches, metadata?.count, display?.totalLines].find(
+    (n) => typeof n === 'number',
+  )
+  return {
+    ...(typeof diff?.additions === 'number' ? { additions: diff.additions } : {}),
+    ...(typeof diff?.deletions === 'number' ? { deletions: diff.deletions } : {}),
+    ...(typeof count === 'number' ? { count } : {}),
+  }
+}
+
 export interface OpencodeEventMapper {
   map(event: unknown): KernelEvent[]
   // 断线重连后用 GET /session/{id}/message 的结果补齐（调用方先去掉这一轮之前就有的消息）
@@ -147,6 +165,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
           ...(part.state?.time?.start && part.state.time.end
             ? { durationMs: part.state.time.end - part.state.time.start }
             : {}),
+          ...toolStats(part.state?.metadata),
         })
       }
       return out

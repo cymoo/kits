@@ -16,7 +16,7 @@
 1. 首次引导：配一个模型网关（测试连接、拉模型列表、选默认模型），选一个工作目录，粘贴 MCP 配置或跳过。
 2. 首页输入任务，`/` 选技能，`@` 引用工作目录里的文件，拖一个 Word 或 PDF 进来。
 3. 会话页实时看到正文、思考过程和工作步骤；执行命令前弹确认卡片，可以允许一次、本会话允许或拒绝并说明原因；Agent 用 `ask_user` 提问时出现提问卡片，不阻塞时它先按假设继续。
-4. 右侧面板看改动的 diff（统一 / 并排，可放大）、命令输出、上下文用量；上下文接近上限时提示并可手动压缩。
+4. 对话里点开步骤看工具结果；右侧面板看改动的 diff（统一 / 并排，可放大）、上下文用量；上下文接近上限时提示并可手动压缩。
 5. 完成后看总结卡片，编辑回复正文后导出 Markdown；结构化产出导出 JSON。
 6. 网关断连自动重试并显示“重试中”；内核进程退出显示出错卡片，可以继续这一轮。
 7. 设置里改网关、内核、MCP（每个工具三档权限）、技能（内置 / 项目 / 个人三级）、记忆、Agent（Markdown 文件）、通用（主题、字号、通知、启动行为）。
@@ -91,7 +91,7 @@ apps/desktop/src/
     ui/              按 Radix 封装的基础件：Button Menu Popover Dialog Tabs Switch Segmented Tooltip Kbd
     shell/           Nav Composer Palette（对应原型 shell.js）
     pages/           onboarding/ home/ session/ history/ settings/{general,model,mcp,skills,agent}
-    session/         thread/（各类 block）panels/{changes,output,terminal,context} store.ts
+    session/         thread/（各类 block）panels/{changes,output,context} store.ts
     lib/             format.ts markdown.tsx diff.ts shortcuts.ts
 ```
 
@@ -360,7 +360,7 @@ AI 原稿和人工修改分开存（`outputs.ai_draft` / `edited`），导出 JS
 | 块 | 来源 | 原型里的样子 |
 |---|---|---|
 | 用户消息 | role=user 的 message | 右对齐气泡，附件芯片，“编辑后重发” |
-| 工作过程 | 一个 assistant message 里的 reasoning + tool parts | 可折叠的“第 N 轮 · 工作过程”，运行中默认展开、完成后折叠；思考摘要可展开；每步一行（读取文件 / 搜索 / 执行命令 / 修改文件 / 新建文件 / 记忆 / 提交产出），带元信息和转圈 |
+| 工作过程 | 一个 assistant message 里的 reasoning + tool parts | 可折叠的“第 N 轮”，标题是这一轮的摘要和失败数，运行中默认展开、完成后折叠；思考摘要可展开；每步一行（图标 + 模型写的描述或动词 + 路径），点开就地看命令、输出、结果，失败的默认展开，改文件的步骤跳到“改动” |
 | 正文 | 最后一个 tool 之后的 text parts | Markdown，流式时末尾光标；复制、重新生成 |
 | 状态行 | `status: busy` 且没有新 part 超过 2 s | “正在…”转圈 + 计时，等待模型首字时也用它（网关首字 11～15 s） |
 | 确认卡片 | `permission` part | 命令、工作目录、说明；拒绝 / 本会话允许 / 允许一次（⌘↵、Esc）；拒绝时可填原因；执行后显示输出摘要和退出码 |
@@ -370,7 +370,7 @@ AI 原稿和人工修改分开存（`outputs.ai_draft` / `edited`），导出 JS
 | 总结卡片 | `done: completed` 时综合改动、命令、产出 | 三格可点，跳到对应面板 |
 | 压缩分隔 | `compaction` part | “前 N 轮已压缩成摘要”，可展开摘要 |
 
-右侧面板四个页签：改动（文件按轮分组、diff 统一 / 并排、放大模式 `?panel=wide`）、产出（文本可编辑自动保存、导出；结构化只有 JSON 视图）、终端（每条命令的输出和退出码、本会话允许规则）、上下文（用量条三段、Agent / 内核 / 目录 / 约定 / 技能 / MCP / 引用 / 用量）。上下文超过 85% 显示压缩提示条。
+右侧面板三个页签：改动（文件按轮分组、diff 统一 / 并排、放大模式 `?panel=wide`）、产出（文本可编辑自动保存、导出；结构化只有 JSON 视图）、上下文（用量条三段、Agent / 内核 / 目录 / 约定 / 技能 / MCP / 引用 / 用量 / 本会话允许规则）。上下文超过 85% 显示压缩提示条。
 
 ### 6.5 快捷键
 

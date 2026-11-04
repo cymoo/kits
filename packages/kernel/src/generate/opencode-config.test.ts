@@ -101,6 +101,12 @@ describe('generateOpencodeConfig', () => {
     }
   })
 
+  it('writes the plugin that adds a description to the bash tool', () => {
+    const { files } = ok(generateOpencodeConfig(input())).files
+    const plugin = files.find((f) => f.path === 'plugins/kits-describe-bash.js')
+    expect(plugin?.content).toContain("'tool.definition'")
+  })
+
   it('writes the default model and turns off network features', () => {
     expect(config()).toMatchObject({
       model: 'corp/deepseek-v4-pro',

@@ -27,9 +27,10 @@ test('streams a turn from the home page to done', async () => {
     await expect(page.getByText('这个会话做了什么')).toHaveCount(0)
     // 完成后工作过程收起，点开能看到每一步
     const turn = page.getByTestId('turn')
-    await expect(turn).toContainText('第 1 轮 · 工作过程')
+    await expect(turn).toContainText('第 1 轮')
+    await expect(turn).toContainText('读 1 个文件')
     await turn.getByRole('button', { name: /第 1 轮/ }).click()
-    await expect(turn.getByTestId('step').filter({ hasText: '读取文件' })).toContainText(
+    await expect(turn.getByTestId('step').filter({ hasText: '读取' })).toContainText(
       'src/points/redeem.py',
     )
     // 侧栏里有这个会话

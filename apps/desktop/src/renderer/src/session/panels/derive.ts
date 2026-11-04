@@ -1,7 +1,7 @@
 import type { FileDiffView, PartView, SessionDetail } from '@kits/core/ipc'
 import { patchOps } from '../thread/derive'
 
-// 右侧面板的数据（phase1-implementation 6.4 节）：改动按轮分组、命令列表、上下文用量、总结卡片。纯函数，有单测。
+// 右侧面板的数据（phase1-implementation 6.4 节）：改动按轮分组、允许规则、上下文用量。纯函数，有单测。
 
 export interface ChangedFile {
   path: string
@@ -110,71 +110,6 @@ export function deriveRounds(detail: SessionDetail, diffs: FileDiffView[]): Roun
     }
   }
   return rounds.sort((x, y) => y.turn - x.turn)
-}
-
-export interface Command {
-  id: string
-  turn: number
-  command: string
-  output: string
-  // running 在跑、waiting 等你确认、done / failed 结束、interrupted 这一轮结束时还没跑完（停止、崩溃、退出）
-  state: 'running' | 'waiting' | 'done' | 'failed' | 'interrupted'
-  exitCode?: number
-  durationMs?: number
-  // 自动允许 / 已允许 / 本会话允许 / 已拒绝 / 已过期
-  how: string
-}
-
-const HOW: Record<string, string> = {
-  once: '已允许',
-  always: '本会话允许',
-  reject: '已拒绝',
-  expired: '已过期',
-}
-
-// OpenCode 在 bash 输出末尾附了给模型看的 <shell_metadata>，命令面板里不显示
-function cleanOutput(output: unknown): string {
-  if (typeof output !== 'string') return ''
-  return output.replace(/\n*<shell_metadata>[\s\S]*?<\/shell_metadata>\s*$/, '').trimEnd()
-}
-
-export function deriveCommands(detail: SessionDetail): Command[] {
-  const parts = ordered(detail)
-  const finished = new Set(detail.messages.filter((m) => m.completedAt !== null).map((m) => m.id))
-  // 按“消息 + callId”对应：Mock 每轮都用同一个 callId，只看 callId 会把别的轮的确认对到这里
-  const asked = new Map<string, PartView>()
-  for (const { part } of parts) {
-    if (part.payload.type === 'permission' && part.payload.callId)
-      asked.set(`${part.messageId}:${part.payload.callId}`, part)
-  }
-  const out: Command[] = []
-  for (const { part, turn } of parts) {
-    const p = part.payload
-    if (p.type !== 'tool' || p.name !== 'bash') continue
-    const command = (p.input as { command?: unknown } | undefined)?.command
-    const permission = asked.get(`${part.messageId}:${p.callId}`)
-    const waiting = permission?.status === 'pending'
-    const state = waiting
-      ? 'waiting'
-      : part.status === 'running'
-        ? finished.has(part.messageId)
-          ? 'interrupted'
-          : 'running'
-        : part.status === 'error' || (p.exitCode !== undefined && p.exitCode !== 0)
-          ? 'failed'
-          : 'done'
-    out.push({
-      id: part.id,
-      turn,
-      command: typeof command === 'string' ? command : '',
-      output: cleanOutput(p.output) || (p.error ?? ''),
-      state,
-      ...(p.exitCode !== undefined ? { exitCode: p.exitCode } : {}),
-      ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-      how: permission ? (HOW[permission.status ?? ''] ?? '等待确认') : '自动允许',
-    })
-  }
-  return out
 }
 
 // 本会话里点过“本会话允许”的规则

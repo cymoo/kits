@@ -1,16 +1,54 @@
 import type { PartPayload, PartView, SessionActivity, SessionDetail } from '@kits/core/ipc'
+import { formatDuration } from '../../lib/use-now'
 
 // parts → 会话页的块（phase1-implementation 6.4 节）。纯函数，界面只渲染块。
 // 一轮 = 一条用户消息 + 一条助手消息。助手消息里：最后一个工具之后的正文是“正文”块，
 // 之前的思考、工具、过程中说的话都收进“工作过程”块。
 
+export type StepIcon =
+  | 'read'
+  | 'search'
+  | 'command'
+  | 'edit'
+  | 'new'
+  | 'web'
+  | 'task'
+  | 'plan'
+  | 'skill'
+  | 'memory'
+  | 'output'
+  | 'platform'
+  | 'note'
+  | 'tool'
+
 export interface Step {
   id: string
   // 读取文件 / 搜索 / 执行命令 …
   kind: string
+  // 行内的动词：读取 / 搜索 / 运行 …
+  verb: string
+  icon: StepIcon
   detail: string
   state: 'running' | 'done' | 'error'
+  // 行右边的字：耗时、退出码、行数、允许方式
   meta?: string
+  // 模型写的一句话描述，有就当标题，detail 退到第二行
+  desc?: string
+  command?: boolean
+  // MCP 工具的参数，格式化好的 JSON
+  args?: string
+  // 点开看的结果：命令的输出、文件内容、搜索结果、报错
+  output?: string
+  // 命令框底部的一行：行上没写的耗时和允许方式
+  foot?: string
+  // 失败的步骤默认展开，算进“N 步失败”。拒绝、中断不算：那是人停的，不是工具出错
+  failed?: boolean
+  // 改文件的步骤：结果是 diff，点了跳到“改动”里这个文件
+  file?: string
+  // 在跑的命令从这时候算耗时
+  startedAt?: number
+  // meta 是改了多少行
+  isStat?: boolean
 }
 
 export type Block =
@@ -25,6 +63,9 @@ export type Block =
       startedAt: number
       endedAt: number | null
       filesChanged: number
+      // 收起时标题上的摘要
+      summary: { reads: number; searches: number; commands: number; calls: number }
+      failed: number
     }
   | { kind: 'text'; id: string; text: string; streaming: boolean }
   | { kind: 'status'; id: string; text: string; since: number }
@@ -141,49 +182,197 @@ const REPLY_META: Record<string, string> = {
   expired: '已过期',
 }
 
-export function describeTool(p: ToolPayload, workdir: string): { kind: string; detail: string } {
+type ToolLook = Pick<Step, 'kind' | 'verb' | 'icon' | 'detail'>
+
+export function describeTool(p: ToolPayload, workdir: string): ToolLook {
   const input = (p.input ?? {}) as Record<string, unknown>
   switch (p.name) {
     case 'read':
-      return { kind: '读取文件', detail: rel(input.filePath, workdir) }
+      return { kind: '读取文件', verb: '读取', icon: 'read', detail: rel(input.filePath, workdir) }
     case 'glob':
-      return { kind: '搜索', detail: str(input.pattern) }
+      return { kind: '搜索', verb: '搜索', icon: 'search', detail: str(input.pattern) }
     case 'grep':
       return {
         kind: '搜索',
+        verb: '搜索',
+        icon: 'search',
         detail: `grep "${str(input.pattern)}"${input.path ? ` ${rel(input.path, workdir)}` : ''}`,
       }
     case 'list':
-      return { kind: '列出目录', detail: rel(input.path, workdir) || '.' }
+      return {
+        kind: '列出目录',
+        verb: '列出',
+        icon: 'search',
+        detail: rel(input.path, workdir) || '.',
+      }
     case 'bash':
-      return { kind: '执行命令', detail: str(input.command) }
+      return { kind: '执行命令', verb: '运行', icon: 'command', detail: str(input.command) }
     case 'edit':
-      return { kind: '修改文件', detail: rel(input.filePath, workdir) }
+      return { kind: '修改文件', verb: '修改', icon: 'edit', detail: rel(input.filePath, workdir) }
     case 'apply_patch':
-      return { kind: '修改文件', detail: patchTargets(p.input, workdir).join(', ') }
+      return {
+        kind: '修改文件',
+        verb: '修改',
+        icon: 'edit',
+        detail: patchTargets(p.input, workdir).join(', '),
+      }
     case 'write':
-      return { kind: '新建文件', detail: rel(input.filePath, workdir) }
+      return { kind: '新建文件', verb: '新建', icon: 'new', detail: rel(input.filePath, workdir) }
     case 'webfetch':
-      return { kind: '读取网页', detail: str(input.url) }
+      return { kind: '读取网页', verb: '读取', icon: 'web', detail: str(input.url) }
     case 'task':
-      return { kind: '子任务', detail: str(input.description) }
+      return { kind: '子任务', verb: '子任务', icon: 'task', detail: str(input.description) }
     case 'todowrite':
-      return { kind: '更新计划', detail: '' }
+      return { kind: '更新计划', verb: '更新计划', icon: 'plan', detail: '' }
     case 'skill':
-      return { kind: '使用技能', detail: str(input.name) }
+      return { kind: '使用技能', verb: '使用技能', icon: 'skill', detail: str(input.name) }
     case 'kits_remember':
-      return { kind: '记忆', detail: str(input.text) }
+      return { kind: '记忆', verb: '记下', icon: 'memory', detail: str(input.text) }
     case 'kits_submit_output':
-      return { kind: '提交产出', detail: '' }
+      return { kind: '提交产出', verb: '提交产出', icon: 'output', detail: '' }
     case 'kits_ask_user':
-      return { kind: '提问', detail: str(input.question) }
+      return { kind: '提问', verb: '提问', icon: 'note', detail: str(input.question) }
     default: {
       // MCP 工具：<服务名>_<工具名>
       const i = p.name.indexOf('_')
       return i > 0
-        ? { kind: '调用平台', detail: `${p.name.slice(0, i)} · ${p.name.slice(i + 1)}` }
-        : { kind: p.name, detail: '' }
+        ? {
+            kind: '调用平台',
+            verb: '调用',
+            icon: 'platform',
+            detail: `${p.name.slice(0, i)} · ${p.name.slice(i + 1)}`,
+          }
+        : { kind: p.name, verb: p.name, icon: 'tool', detail: '' }
     }
+  }
+}
+
+// 命令耗时：10 秒内带一位小数（0.9 秒、1.2 秒），和原型一致
+function commandTime(ms: number): string {
+  return ms < 10_000 ? `${(ms / 1000).toFixed(1)} 秒` : formatDuration(ms)
+}
+
+// 工具输出里给模型看的部分，界面上不显示：
+// OpenCode 在 bash 输出末尾附的 <shell_metadata>，read 外面包的 <path>、<content> 和文件结尾的统计，grep 开头的“Found N matches”。
+// 只动这些包装和 grep、glob 列出的路径：正文（源码、命中行、MCP 返回）要原样显示、原样复制
+function cleanOutput(name: string, output: unknown, workdir: string): string {
+  if (output === undefined || output === null) return ''
+  const text = typeof output === 'string' ? output : JSON.stringify(output, null, 2)
+  if (name === 'bash') {
+    return text.replace(/\n*<shell_metadata>[\s\S]*?<\/shell_metadata>\s*$/, '').trimEnd()
+  }
+  if (name === 'read') {
+    const body = text.match(/<content>\n([\s\S]*?)\n*(?:\(End of file[^\n]*\n)?<\/content>/)?.[1]
+    return (body ?? text).trimEnd()
+  }
+  if (name === 'glob') {
+    return text
+      .split('\n')
+      .map((line) => rel(line, workdir))
+      .join('\n')
+      .trimEnd()
+  }
+  if (name === 'grep') {
+    // 文件名顶格、以冒号结尾，命中行有缩进
+    return text
+      .replace(/^Found \d+ matches\n/, '')
+      .split('\n')
+      .map((line) => (/^\S.*:$/.test(line) ? `${rel(line.slice(0, -1), workdir)}:` : line))
+      .join('\n')
+      .trimEnd()
+  }
+  return text.trimEnd()
+}
+
+// 点开步骤时最多放这么多行，多的要点“显示”才出来：对话里不再套一层滚动
+export const OUTPUT_LINES = 12
+
+// 命令留结尾（失败原因和测试汇总都在最后），文件和搜索留开头
+export function clipOutput(
+  text: string,
+  keep: 'head' | 'tail',
+  limit = OUTPUT_LINES,
+): { text: string; hidden: number } {
+  const lines = text.split('\n')
+  if (lines.length <= limit) return { text, hidden: 0 }
+  const shown = keep === 'tail' ? lines.slice(-limit) : lines.slice(0, limit)
+  return { text: shown.join('\n'), hidden: lines.length - limit }
+}
+
+// 行右边的数字：读了几行、搜到几处、改了多少行。内核没给就不显示
+function toolStat(p: ToolPayload): { meta: string; isStat?: boolean } | undefined {
+  if (p.name === 'read' && p.count !== undefined) return { meta: `${p.count} 行` }
+  if (p.name === 'grep' && p.count !== undefined) return { meta: `${p.count} 处` }
+  if (p.name === 'glob' && p.count !== undefined) return { meta: `${p.count} 个文件` }
+  if (p.additions !== undefined || p.deletions !== undefined) {
+    const stat = [p.additions ? `+${p.additions}` : '', p.deletions ? `−${p.deletions}` : '']
+    return { meta: stat.filter(Boolean).join(' '), isStat: true }
+  }
+  if (p.name === 'write') {
+    const content = str((p.input as Record<string, unknown> | undefined)?.content)
+    if (content) return { meta: `+${content.trimEnd().split('\n').length}`, isStat: true }
+  }
+  return undefined
+}
+
+function toolStep(
+  p: PartView,
+  payload: ToolPayload,
+  workdir: string,
+  running: boolean,
+  reply: string | undefined,
+  asking: boolean,
+): Step {
+  const look = describeTool(payload, workdir)
+  const command = payload.name === 'bash'
+  const nonZero = payload.exitCode !== undefined && payload.exitCode !== 0
+  const interrupted = p.status === 'running' && !running
+  const errored = p.status === 'error'
+  // 拒绝、过期的命令根本没跑
+  const notRun = reply === 'reject' || reply === 'expired'
+  const failed = !notRun && (errored || nonZero)
+  const how = REPLY_META[reply ?? ''] ?? (asking ? '' : '自动允许')
+  const time = payload.durationMs !== undefined ? commandTime(payload.durationMs) : ''
+  const stat = !failed && !interrupted && !notRun ? toolStat(payload) : undefined
+  const meta = notRun
+    ? REPLY_META[reply ?? '']
+    : asking
+      ? '等待确认'
+      : interrupted
+        ? '中断'
+        : nonZero
+          ? `退出 ${payload.exitCode}`
+          : errored
+            ? '失败'
+            : command
+              ? time
+              : (REPLY_META[reply ?? ''] ?? stat?.meta)
+  const input = (payload.input ?? {}) as Record<string, unknown>
+  const output = cleanOutput(payload.name, payload.output, workdir) || (payload.error ?? '')
+  const edit = EDIT_TOOLS.has(payload.name) && p.status === 'completed'
+  const file = edit ? editedFiles(payload, workdir)[0] : undefined
+  return {
+    id: p.id,
+    ...look,
+    state:
+      interrupted || errored || nonZero ? 'error' : p.status === 'running' ? 'running' : 'done',
+    ...(meta ? { meta } : {}),
+    ...(stat?.isStat && meta === stat.meta ? { isStat: true } : {}),
+    ...(failed ? { failed } : {}),
+    // 改文件成功了结果是 diff；失败时要看报错，还是展开
+    ...(file ? { file } : {}),
+    ...(!edit && output ? { output } : {}),
+    ...(command
+      ? {
+          command,
+          ...(str(input.description) ? { desc: str(input.description) } : {}),
+          ...(notRun ? {} : { foot: [failed ? time : '', how].filter(Boolean).join(' · ') }),
+          ...(p.status === 'running' && running && !asking ? { startedAt: p.createdAt } : {}),
+        }
+      : {}),
+    ...(look.icon === 'platform' && Object.keys(input).length
+      ? { args: JSON.stringify(input, null, 2) }
+      : {}),
   }
 }
 
@@ -247,9 +436,11 @@ export function deriveBlocks(
     let error: string | undefined
     // 回复过的权限请求标在对应的工具步骤上
     const replies = new Map<string, string>()
+    const asking = new Set<string>()
     for (const p of parts) {
-      if (p.payload.type === 'permission' && p.payload.callId && p.status && p.status !== 'pending')
-        replies.set(p.payload.callId, p.status)
+      if (p.payload.type !== 'permission' || !p.payload.callId || !p.status) continue
+      if (p.status === 'pending') asking.add(p.payload.callId)
+      else replies.set(p.payload.callId, p.status)
     }
     parts.forEach((p, i) => {
       const payload = p.payload
@@ -257,35 +448,35 @@ export function deriveBlocks(
       else if (payload.type === 'text') {
         if (i > lastTool) answer.push(payload.text)
         else if (payload.text.trim()) {
+          const said = payload.text.trim()
+          const line = said.split('\n')[0] ?? ''
           steps.push({
             id: p.id,
             kind: '说明',
-            detail: payload.text.trim().split('\n')[0] ?? '',
+            verb: '',
+            icon: 'note',
+            detail: '',
+            desc: line,
             state: 'done',
+            ...(said === line ? {} : { output: said }),
           })
         }
       } else if (payload.type === 'tool') {
-        const { kind, detail: d } = describeTool(payload, session.workdir)
         if (EDIT_TOOLS.has(payload.name) && p.status === 'completed') {
           for (const f of editedFiles(payload, session.workdir)) files.add(f)
         }
         // 提问在对话里有自己的卡片
         if (payload.name === 'kits_ask_user') return
-        const reply = REPLY_META[replies.get(payload.callId) ?? '']
-        steps.push({
-          id: p.id,
-          kind,
-          detail: d,
-          state:
-            p.status === 'running'
-              ? running
-                ? 'running'
-                : 'error'
-              : p.status === 'error'
-                ? 'error'
-                : 'done',
-          ...(reply ? { meta: reply } : p.status === 'error' ? { meta: '失败' } : {}),
-        })
+        steps.push(
+          toolStep(
+            p,
+            payload,
+            session.workdir,
+            running,
+            replies.get(payload.callId),
+            running && asking.has(payload.callId),
+          ),
+        )
       } else if (payload.type === 'permission') {
         const subject = permissionSubject(
           payload.tool,
@@ -309,10 +500,10 @@ export function deriveBlocks(
           // 没有对应工具步骤的（拒绝后工具没跑、过期的）单独记一步
           steps.push({
             id: p.id,
-            kind: describeTool(
+            ...describeTool(
               { type: 'tool', callId: '', name: payload.tool, input: payload.input },
               session.workdir,
-            ).kind,
+            ),
             detail: subject,
             state: p.status === 'reject' ? 'error' : 'done',
             meta: REPLY_META[p.status ?? ''] ?? '没有确认',
@@ -350,6 +541,13 @@ export function deriveBlocks(
         startedAt: m.createdAt,
         endedAt: m.completedAt,
         filesChanged: files.size,
+        summary: {
+          reads: new Set(steps.filter((s) => s.icon === 'read').map((s) => s.detail)).size,
+          searches: steps.filter((s) => s.icon === 'search').length,
+          commands: steps.filter((s) => s.command).length,
+          calls: steps.filter((s) => s.icon === 'platform').length,
+        },
+        failed: steps.filter((s) => s.failed).length,
       })
     }
     blocks.push(...cards)
@@ -387,12 +585,13 @@ export function deriveBlocks(
     if (running && !waiting && !retrying) {
       const last = Math.max(m.createdAt, ...parts.map((p) => p.updatedAt))
       const runningStep = steps.find((s) => s.state === 'running')
+      const stepTitle = runningStep?.desc || runningStep?.detail
       if (now - last > 2_000 || parts.length === 0) {
         const text =
           activity?.state === 'retry'
             ? '模型网关断开，正在重试'
             : runningStep
-              ? `正在${runningStep.kind}${runningStep.detail ? `：${runningStep.detail}` : ''}`
+              ? `正在${runningStep.kind}${stepTitle ? `：${stepTitle}` : ''}`
               : '等待模型回复'
         blocks.push({ kind: 'status', id: `${m.id}:status`, text, since: last })
       }

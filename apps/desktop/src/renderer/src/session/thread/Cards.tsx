@@ -8,7 +8,7 @@ import { useNow } from '../../lib/use-now'
 import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { Kbd } from '../../ui/Kbd'
-import { Spinner } from './Blocks'
+import { Spinner } from '../../ui/Spinner'
 import type { Block } from './derive'
 
 // 对话里要你动手的卡片（原型 session.html）：命令确认、Agent 提问、重试条、出错卡片。

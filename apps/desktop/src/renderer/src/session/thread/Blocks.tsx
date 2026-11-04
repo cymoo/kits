@@ -1,34 +1,15 @@
-import { AlertCircle, Check, ChevronDown, FileText } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, FileText, Lightbulb } from 'lucide-react'
 import { useState } from 'react'
 import { t } from '../../app/i18n'
 import { formatDuration, useNow } from '../../lib/use-now'
 import { cx } from '../../ui/cx'
+import { Spinner } from '../../ui/Spinner'
 import { CopyReply } from './CopyReply'
-import type { Block, Step } from './derive'
+import type { Block } from './derive'
 import { Markdown } from './Markdown'
+import { STEP_ACTION, STEP_ROW, StepChevron, StepRow } from './Steps'
 
 // 会话页的各种块（原型 session.html）。
-
-export function Spinner({
-  tone = 'accent',
-  size = 12,
-}: {
-  tone?: 'accent' | 'warn' | 'muted'
-  size?: number
-}) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{ width: size, height: size }}
-      className={cx(
-        'inline-block shrink-0 animate-spin rounded-full border-2',
-        tone === 'accent' && 'border-accent-bg border-t-accent',
-        tone === 'warn' && 'border-warn-bg border-t-warn',
-        tone === 'muted' && 'border-line border-t-accent',
-      )}
-    />
-  )
-}
 
 export function UserBlock({
   text,
@@ -63,32 +44,26 @@ export function UserBlock({
   )
 }
 
-function StepRow({ step }: { step: Step }) {
-  return (
-    <div
-      className="flex items-baseline gap-2.5 py-1 pr-3.5 pl-[34px] text-[0.962rem]"
-      data-testid="step"
-    >
-      <span className="shrink-0 basis-14 text-fg-muted">{step.kind}</span>
-      <span className="min-w-0 flex-1 truncate font-mono text-[0.923rem]" title={step.detail}>
-        {step.detail}
-      </span>
-      {step.state === 'running' ? <Spinner tone="muted" size={11} /> : null}
-      {step.meta ? (
-        <span
-          className={cx(
-            'shrink-0 text-[0.923rem]',
-            step.state === 'error' ? 'text-danger' : 'text-fg-subtle',
-          )}
-        >
-          {step.meta}
-        </span>
-      ) : null}
-    </div>
-  )
+function turnSummary({ summary, filesChanged }: Extract<Block, { kind: 'turn' }>): string {
+  const counts = [
+    ['turn.reads', summary.reads],
+    ['turn.searches', summary.searches],
+    ['turn.edits', filesChanged],
+    ['turn.commands', summary.commands],
+    ['turn.calls', summary.calls],
+  ] as const
+  const parts = counts.filter(([, n]) => n > 0).map(([key, n]) => t(key, { n }))
+  return parts.join(' · ') || t('turn.think')
 }
 
-export function TurnBlock({ block }: { block: Extract<Block, { kind: 'turn' }> }) {
+export function TurnBlock({
+  block,
+  onOpenFile,
+}: {
+  block: Extract<Block, { kind: 'turn' }>
+  // 点改文件的步骤：在“改动”里打开这一轮的这个文件
+  onOpenFile(turn: number, path: string): void
+}) {
   const running = block.state === 'running'
   // 运行中默认展开，结束后默认收起；用户点过就听用户的
   const [userOpen, setUserOpen] = useState<boolean>()
@@ -96,14 +71,7 @@ export function TurnBlock({ block }: { block: Extract<Block, { kind: 'turn' }> }
   const open = userOpen ?? running
   const now = useNow(1000, running)
   const elapsed = formatDuration((block.endedAt ?? now) - block.startedAt)
-  const meta = [
-    running ? t('turn.running') : null,
-    t('turn.steps', { n: block.steps.length }),
-    elapsed,
-    block.filesChanged > 0 ? t('turn.files', { n: block.filesChanged }) : null,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  const summary = turnSummary(block)
   return (
     <div
       className={cx(
@@ -116,13 +84,26 @@ export function TurnBlock({ block }: { block: Extract<Block, { kind: 'turn' }> }
         type="button"
         aria-expanded={open}
         onClick={() => setUserOpen(!open)}
-        className="flex min-h-9 w-full cursor-pointer items-center gap-2 bg-raised px-3 py-1.5 text-left text-fg-muted hover:bg-active"
+        className="flex min-h-9 w-full cursor-pointer items-center gap-2 bg-raised px-3 py-1.5 text-left text-fg-muted outline-none hover:bg-active focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
       >
         {block.state === 'done' ? <Check size={14} className="text-ok" strokeWidth={2} /> : null}
-        {running ? <Spinner /> : null}
+        {running ? <Spinner tone="accent" /> : null}
         {block.state === 'failed' ? <AlertCircle size={14} className="text-danger" /> : null}
-        <span className="flex-1">
-          <span className="font-medium text-fg">{t('turn.title', { n: block.turn })}</span> · {meta}
+        <span className="shrink-0 font-medium text-fg">{t('turn.title', { n: block.turn })}</span>
+        <span className="min-w-0 flex-1 truncate" title={summary}>
+          {summary}
+        </span>
+        {block.failed ? (
+          <span className="shrink-0 text-[0.923rem] text-danger">
+            {t('turn.failed', { n: block.failed })}
+          </span>
+        ) : null}
+        <span className="shrink-0 text-[0.923rem] tabular-nums">
+          {running
+            ? `${t('turn.running')} · ${elapsed}`
+            : block.state === 'failed'
+              ? `${t('turn.stopped')} · ${elapsed}`
+              : elapsed}
         </span>
         <ChevronDown
           size={14}
@@ -137,25 +118,25 @@ export function TurnBlock({ block }: { block: Extract<Block, { kind: 'turn' }> }
                 type="button"
                 aria-expanded={thinkOpen}
                 onClick={() => setThinkOpen(!thinkOpen)}
-                className="flex cursor-pointer items-baseline gap-2.5 py-1 pr-3.5 pl-[34px] text-left text-[0.962rem] hover:bg-active"
+                className={cx(STEP_ROW, STEP_ACTION)}
               >
-                <span className="shrink-0 basis-14 text-fg-muted">{t('turn.think')}</span>
-                <span className="min-w-0 flex-1 truncate">
+                <span className="flex h-5 w-4 shrink-0 items-center justify-center text-fg-subtle">
+                  <Lightbulb size={14} strokeWidth={1.6} />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-fg-muted">
                   {block.reasoning.trim().split('\n')[0]}
                 </span>
-                <span className="text-[0.923rem] text-fg-subtle">
-                  {thinkOpen ? t('turn.collapse') : t('turn.expand')}
-                </span>
+                <StepChevron open={thinkOpen} />
               </button>
               {thinkOpen ? (
-                <p className="mt-0 mr-3.5 mb-1.5 ml-[100px] whitespace-pre-wrap border-line border-l-2 px-3 py-2 text-[0.962rem] text-fg-muted leading-[1.65]">
+                <p className="mt-0 mr-3.5 mb-1.5 ml-[38px] whitespace-pre-wrap border-line border-l-2 px-3 py-2 text-[0.962rem] text-fg-muted leading-[1.65]">
                   {block.reasoning}
                 </p>
               ) : null}
             </>
           ) : null}
           {block.steps.map((s) => (
-            <StepRow key={s.id} step={s} />
+            <StepRow key={s.id} step={s} onOpenFile={(path) => onOpenFile(block.turn, path)} />
           ))}
         </div>
       ) : null}

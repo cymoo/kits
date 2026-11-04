@@ -1,6 +1,8 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
+import path from 'node:path'
 import { writeGeneratedFiles } from '../generate/write'
 import type {
   GeneratedFiles,
@@ -91,12 +93,27 @@ export function spawnEnv(
   }
 }
 
+// 内核启动时会往每个配置目录 npm install @opencode-ai/plugin，有插件时（kits 的 describe-bash）加载前还要等它结束：
+// 内网连不上 registry 时要卡 70 秒以上。node_modules 在、package-lock.json 的根包声明了这个依赖时它就跳过，
+// 插件也不依赖这个包，所以先放好这两样。不能把 npm 设成离线：子进程的环境变量会传给 Agent 跑的命令和本地 MCP。
+// 要放的是 kits 的配置目录和内核的全局配置目录（XDG_CONFIG_HOME/opencode）。
+export function skipPluginInstall(cfg: Pick<KernelConfig, 'configDir' | 'dataDir'>): void {
+  for (const dir of [cfg.configDir, path.join(cfg.dataDir, 'opencode')]) {
+    mkdirSync(path.join(dir, 'node_modules'), { recursive: true })
+    const lock = path.join(dir, 'package-lock.json')
+    if (existsSync(lock)) continue
+    const root = { dependencies: { '@opencode-ai/plugin': '*' } }
+    writeFileSync(lock, `${JSON.stringify({ packages: { '': root } }, null, 2)}\n`)
+  }
+}
+
 export const opencodeDialect: KernelDialect = {
   id: 'opencode',
   apiPrefix: '',
   permissionListPath: '/permission',
 
   async spawn(cfg: KernelConfig): Promise<SpawnedKernel> {
+    skipPluginInstall(cfg)
     const port = await freePort()
     const password = randomBytes(24).toString('base64url')
     const headers = {

@@ -362,3 +362,65 @@ phase1-implementation PR16（3.5 节记忆、6.4 节会话页的上下文、原�
 
 - 全量跑 E2E 时 `shell.spec.ts` 的“resizes the sidebar by dragging”失败过一次（拖动的中间鼠标事件丢失，宽度停在 260），单独重跑 3 次都通过，和这次改动无关，是用例在高负载下不稳。
 - 原型里完成态的“重新生成”和评价按钮一直没有实现，这次没动。
+
+## 2026-11-05　工具结果在对话里就地看，命令步骤带模型写的描述
+
+> 日期：2026-11-05　PR：见本分支 `feat/session-inline-tool-results`　作者：Claude Code
+
+### 原始需求
+
+工具结果放在右侧“命令”页签有几个问题：步骤和结果连不上，只有 bash 有结果可看，窄栏里终端输出折得很碎，退出码非 0 的命令在步骤上看不出失败，一屏“执行命令”看不出每步在做什么。参考 Claude、Codex、lovia 的做法，改成在对话里就地展开，并给命令加一句话描述。
+
+评审结论：结果就地展开；“命令”页签去掉，审计记录有需要时再加；本会话允许规则移到“上下文”。原型 `designs/app/session.html`（`?s=done` 展开第 2 轮，`?s=streaming`、`?s=question`、`?s=error`）。
+
+做到什么程度算完：所有工具的结果都能在步骤上点开看，失败一眼能看到，模型写了描述就用描述当标题，内网连不上 npm 时内核不被插件拖慢，Agent 跑的 `npm install`、本地 MCP 的 `npx` 不受影响。
+
+### 怎么验收
+
+用 Mock 内核：`KITS_KERNEL=mock KITS_MOCK_SCENARIO=<场景> pnpm dev`，首页发任意任务。
+
+1. 场景 `done`：完成后“第 1 轮”标题是“读 1 个文件 · 改 1 个文件 · 运行 1 条命令”，右边是耗时。点开，“跑 points 的测试”是标题，下面小字是 `uv run pytest tests/points -q`，右边“1.2 秒”。
+2. 点这一行：下面展开 `$ uv run pytest tests/points -q`、输出 `12 passed`、“自动允许”，小字那行消失。鼠标移到命令或输出上，右上角出现复制图标，点了变绿色对勾，剪贴板里没有 `$`。
+3. 点“修改 src/points/redeem.py”：右侧切到“改动”并选中这个文件。先点右上角收起面板再点，面板会打开。
+4. 右侧只有“改动 / 产出 / 上下文”三个页签。
+5. 场景 `command-failed`：标题右边红字“1 步失败”。点开，命令行的图标和“退出 1”是红的，已经自动展开，只有结尾 12 行，框底写“0.9 秒 · 自动允许”；点“显示前面 2 行”看到全部。
+6. 场景 `permission`：等确认时步骤右边写“等待确认”；点“本会话允许”，完成后点开这一步，框底写“本会话允许”，“上下文”页签底部“允许规则”列出 `uv run pytest *`。拒绝时步骤右边写“已拒绝”，不算失败。
+7. 按 Tab 能走到轮次标题、步骤、“显示前面”、复制图标，都有焦点框，回车可以操作。
+8. 真实模型（`.env` 的网关）：让 Agent 跑几条命令，每条命令的标题是一句中文描述。读文件、搜索的步骤点开是文件内容和命中行，路径相对工作目录，右边是行数、处数；改文件的步骤右边是 `+N −M`。
+
+### 主要改动
+
+- `packages/kernel`：
+  - 新增 `generate/describe-bash-plugin.ts`，写到配置目录的 `plugins/kits-describe-bash.js`。OpenCode 1.19.5 的 bash 没有 `description` 参数，配置也加不了，只能用 `tool.definition` 钩子改模型看到的参数表。内核的校验不变，模型漏写时命令照常跑，界面显示命令本身。`input` 本来就落库，事件映射和数据库都不用为描述改。
+  - 内核启动时会往每个配置目录 `npm install @opencode-ai/plugin`，有插件时加载前要等它结束，实测 registry 连不上时卡 70 秒以上。`node_modules` 在、`package-lock.json` 根包声明了这个依赖时它就跳过，所以启动前在 kits 的配置目录和内核的全局配置目录放好这两样（`skipPluginInstall`）。插件不依赖这个包。不用 npm 离线环境变量：子进程的环境变量会传给 Agent 跑的命令和本地 MCP，`npm install`、`npx -y` 都会失败。
+  - 插件只发给 OpenCode。CodeAgent 真机没验过，加载前等 npm 的话内网会卡启动，先不发。
+  - 事件映射取 `metadata.filediff`（edit 的增删行）、`matches`（grep）、`count`（glob）、`display.totalLines`（read）。Mock 加 `command-failed` 场景。
+- `packages/core`、`apps/desktop/src/main/sessions/thread.ts`：`tool-end` 事件和工具 part 加 `additions`、`deletions`、`count`。JSON 字段，数据库 schema 没变。
+- 渲染进程：
+  - `session/thread/derive.ts`：步骤带图标、动词、描述、输出、失败标记、框底信息。退出码非 0 算失败（以前步骤上看不出来），拒绝、中断不算。去掉给模型看的 `<shell_metadata>`、read 的 `<path>`/`<content>` 包装、grep 的 “Found N matches”，grep 的文件名和 glob 的结果转成相对路径；源码、命中行、MCP 返回的正文不动，看到和复制的都是原文。`clipOutput` 按 12 行截，命令留结尾，其余留开头。
+  - 新增 `session/thread/Steps.tsx`：步骤行和结果框。`Blocks.tsx` 的轮次标题改成摘要单行截断，失败数和耗时不被挤掉。
+  - `session/panels`：去掉“命令”页签和 `deriveCommands`；选中的文件提到 `SessionPage`，对话里能跳过来；允许规则进“上下文”。
+  - `ui/Spinner.tsx` 合并了两份转圈组件。`CopyReply.tsx` 抽出 `CopyIcon`。
+- 配置项：无新增。
+- 原型没画到、按风格补的：网页、子任务、计划、技能的图标；过程中说明文字的步骤（多行时能点开看全文）；运行中的命令显示已运行时长，等确认时显示“等待确认”。
+- 和原型的差别：允许规则没有“撤销”按钮，现在没有对应接口，以前的页签里也没有。
+
+### 测试
+
+- 单元测试：`thread/derive.test.ts` 的 `tool steps`（描述和回退、耗时和允许方式、非 0 退出码、失败计数、拒绝不算失败、中断、运行中计时、等待确认、输出清理、正文里的工作目录不被改、改文件跳转、失败的改文件展开、MCP 参数、多行说明、状态行）和 `clipOutput`；`events.test.ts` 的四种工具数字；`opencode.test.ts` 的跳过安装、不设 npm 环境变量；`codeagent.test.ts` 不发插件；`opencode-config.test.ts` 的插件文件。`pnpm test`。
+- 契约测试：`opencode-family.contract.test.ts` 校验真实内核把 `description` 送到了模型的参数表，其余参数还在，事件里的 `input` 带描述。这组测试的 registry 指到连不上的地址，内核等 npm 的话用例会超时（去掉 `skipPluginInstall` 确认过）。
+- E2E：`workbench.spec.ts` 覆盖点开步骤看输出、跳到改动、失败默认展开和显示前面的行、复制反馈、等待确认和允许规则；`session-cards.spec.ts`、`session-stream.spec.ts` 跟着改。`pnpm build && pnpm test:e2e`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- CodeAgent 没有验证过，本机没有二进制。现在不发插件，步骤显示命令本身；真机核对后再打开，已记进 `docs/references/codeagent-checklist.md` 第 25 项。
+- Windows 没有实测。代码里 bash 工具的 id 和参数表各平台共用同一份。
+- 插件要写死 bash 的完整参数表，升级内核时要对一遍。契约测试只校验这几个参数还在，内核新增参数时测不出来。
+- 工作目录里有 `.opencode/`、没有装过依赖、又连不上 registry 时，内核还是会等 npm。这个目录在用户的仓库里，kits 不往里写文件。
+- 输出要等工具结束才有，运行中的命令点开只有“运行中，结束后显示输出”。
+- 步骤多时没有把连续同类步骤合并成一组。
+- 这次动过的旧会话：`additions`、`count` 是新字段，旧会话的步骤右边没有数字，描述和输出不受影响。

@@ -139,6 +139,30 @@ describe('createOpencodeEventMapper', () => {
     expect(out[1]).toMatchObject({ type: 'tool-end', exitCode: 1, durationMs: 1_250 })
   })
 
+  it.each([
+    ['edit', { filediff: { additions: 2, deletions: 1 } }, { additions: 2, deletions: 1 }],
+    ['grep', { matches: 7 }, { count: 7 }],
+    ['glob', { count: 3 }, { count: 3 }],
+    ['read', { display: { totalLines: 86 } }, { count: 86 }],
+  ])('carries the numbers shown on a %s step', (tool, metadata, expected) => {
+    const m = createOpencodeEventMapper('s1')
+    const out = m.map({
+      type: 'message.part.updated',
+      properties: {
+        part: {
+          id: 'p1',
+          messageID: 'a1',
+          sessionID: 's1',
+          type: 'tool',
+          tool,
+          callID: 'c1',
+          state: { status: 'completed', input: {}, output: '', metadata },
+        },
+      },
+    })
+    expect(out[1]).toMatchObject({ type: 'tool-end', ...expected })
+  })
+
   it('emits both start and end when a tool shows up already completed', () => {
     const { out } = feed([assistant, tool('completed', { input: { a: 1 }, output: 'x' })])
     expect(out.map((e) => e.type)).toEqual(['tool-start', 'tool-end'])
