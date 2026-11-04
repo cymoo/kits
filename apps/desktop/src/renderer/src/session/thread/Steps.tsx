@@ -23,6 +23,7 @@ import { cx } from '../../ui/cx'
 import { Spinner } from '../../ui/Spinner'
 import { CopyIcon } from './CopyReply'
 import { clipOutput, type Step, type StepIcon } from './derive'
+import { TodoList } from './Plan'
 
 // 工作过程里的一步（原型 session.html）：图标 + 标题，点开就地看结果；改文件的步骤跳到“改动”。
 
@@ -129,13 +130,14 @@ function StepBody({ step }: { step: Step }) {
       data-testid="step-output"
       className="mt-0.5 mr-3.5 mb-1.5 ml-[38px] overflow-hidden rounded-[8px] border border-line-soft bg-raised"
     >
+      {step.todos ? <TodoList items={step.todos} className="px-2.5 py-1.5" /> : null}
       {step.command ? (
         <Section text={step.detail} copy={t('step.copyCommand')} command first />
       ) : null}
       {step.args ? (
         <Section text={step.args} copy={t('step.copyArgs')} label={t('step.args')} first />
       ) : null}
-      {output ? (
+      {step.todos ? null : output ? (
         <Section
           text={output}
           copy={t(
@@ -171,7 +173,7 @@ function StepBody({ step }: { step: Step }) {
 export function StepRow({ step, onOpenFile }: { step: Step; onOpenFile(path: string): void }) {
   // 失败的默认展开；用户点过就听用户的
   const [userOpen, setUserOpen] = useState<boolean>()
-  const expandable = !step.file && (!!step.command || !!step.output || !!step.args)
+  const expandable = !step.file && (!!step.command || !!step.output || !!step.args || !!step.todos)
   const open = expandable && (userOpen ?? !!step.failed)
   const now = useNow(1000, step.startedAt !== undefined)
   const meta =

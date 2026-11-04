@@ -119,6 +119,7 @@ const zhCN = {
   'turn.calls': '调用平台 {n} 次',
   'turn.failed': '{n} 步失败',
   'turn.think': '思考',
+  'plan.title': '计划',
   'step.args': '参数',
   'step.result': '返回',
   'step.copyCommand': '复制命令',

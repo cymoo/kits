@@ -63,6 +63,7 @@ export const mockScenarioNames = [
   'context',
   'output-structured',
   'command-failed',
+  'plan',
 ] as const
 export type MockScenarioName = (typeof mockScenarioNames)[number]
 
@@ -77,6 +78,11 @@ const usage = (input: number, output: number): MockStep => ({
     cost: 0,
   },
 })
+
+const planTodos = (first: string, second: string) => [
+  { content: '读兑换接口', status: first, priority: 'high' },
+  { content: '跑 tests/points', status: second, priority: 'medium' },
+]
 
 const readRedeem: MockStep = {
   delay: 300,
@@ -299,6 +305,48 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
         delay: 300,
         crash: 'panic: runtime error: invalid memory address or nil pointer dereference',
       },
+    ],
+  },
+  // 带计划的一轮：写计划 → 做 → 等确认时计划还在 → 更新计划 → 收尾
+  plan: {
+    name: 'plan',
+    steps: [
+      busy,
+      {
+        tool: 'todowrite',
+        callId: 'call_plan_1',
+        input: { todos: planTodos('in_progress', 'pending') },
+        output: '[]',
+      },
+      readRedeem,
+      {
+        tool: 'todowrite',
+        callId: 'call_plan_2',
+        input: { todos: planTodos('completed', 'in_progress') },
+        output: '[]',
+      },
+      {
+        delay: 200,
+        permission: {
+          requestId: 'perm_plan',
+          tool: 'bash',
+          input: { command: 'uv run pytest tests/points -q' },
+          patterns: ['uv run pytest tests/points -q'],
+          always: ['uv run pytest *'],
+          callId: 'call_plan_test',
+        },
+        allow: [
+          {
+            tool: 'todowrite',
+            callId: 'call_plan_3',
+            input: { todos: planTodos('completed', 'completed') },
+            output: '[]',
+          },
+        ],
+        reject: [],
+      },
+      { delay: 200, text: '都做完了。', partId: 'prt_answer' },
+      usage(9_000, 120),
     ],
   },
   context: {

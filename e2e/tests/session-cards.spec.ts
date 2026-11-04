@@ -42,6 +42,37 @@ test('allows a command once with the shortcut', async () => {
   }
 })
 
+test('follows the plan above the composer and keeps each update in the steps', async () => {
+  const { page, configDir, close } = await launchApp(mock('plan'))
+  try {
+    await send(page, configDir, '按计划做')
+    const plan = page.getByTestId('plan-card')
+    await expect(page.getByTestId('permission-card')).toBeVisible()
+    await expect(plan).toContainText('1/2')
+    await expect(plan.getByTestId('todo').nth(0)).toHaveAttribute('data-status', 'completed')
+    await expect(plan.getByTestId('todo').nth(1)).toHaveAttribute('data-status', 'in_progress')
+    await page.screenshot({ path: 'test-results/plan-card.png' })
+    await plan.getByRole('button', { name: /计划/ }).click()
+    await expect(plan).toContainText('跑 tests/points')
+    await expect(plan.getByTestId('todo')).toHaveCount(0)
+    await page.keyboard.press(`${mod}+Enter`)
+    await expect(page.getByTestId('answer')).toContainText('都做完了')
+    await expect(plan).toBeHidden()
+    const turn = page.getByTestId('turn')
+    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    const update = turn.getByTestId('step').filter({ hasText: '更新计划' })
+    await expect(update).toHaveCount(3)
+    await update.nth(0).click()
+    await expect(turn.getByTestId('step-output').getByTestId('todo').nth(0)).toHaveAttribute(
+      'data-status',
+      'in_progress',
+    )
+    await expect(update.nth(2)).toContainText('2/2')
+  } finally {
+    await close()
+  }
+})
+
 test('rejects a command with a reason and lets the agent go on', async () => {
   const { page, configDir, close } = await launchApp(mock('permission'))
   try {

@@ -21,6 +21,12 @@ export type StepIcon =
   | 'note'
   | 'tool'
 
+// todowrite 写下的计划的一项
+export interface TodoItem {
+  text: string
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+}
+
 export interface Step {
   id: string
   // 读取文件 / 搜索 / 执行命令 …
@@ -39,6 +45,8 @@ export interface Step {
   args?: string
   // 点开看的结果：命令的输出、文件内容、搜索结果、报错
   output?: string
+  // 更新计划：这一步写下的清单，点开看
+  todos?: TodoItem[]
   // 命令框底部的一行：行上没写的耗时和允许方式
   foot?: string
   // 失败的步骤默认展开，算进“N 步失败”。拒绝、中断不算：那是人停的，不是工具出错
@@ -143,6 +151,40 @@ export function patchOps(
 
 export function patchTargets(input: unknown, workdir: string): string[] {
   return patchOps(input, workdir).map((p) => p.path)
+}
+
+const TODO_STATUS = new Set<string>(['pending', 'in_progress', 'completed', 'cancelled'])
+
+// todowrite 的参数是模型写的，形状不对的项跳过
+export function todosOf(input: unknown): TodoItem[] {
+  const list = (input as { todos?: unknown } | undefined)?.todos
+  if (!Array.isArray(list)) return []
+  return list.flatMap((t: { content?: unknown; status?: unknown }) => {
+    const text = str(t?.content).trim()
+    const status = str(t?.status)
+    return text
+      ? [{ text, status: (TODO_STATUS.has(status) ? status : 'pending') as TodoItem['status'] }]
+      : []
+  })
+}
+
+// 取消的项不算进度
+export function todoProgress(items: TodoItem[]): string {
+  const done = items.filter((t) => t.status === 'completed').length
+  return `${done}/${items.filter((t) => t.status !== 'cancelled').length}`
+}
+
+// 输入框上方的计划卡片：还在跑的这一轮最后写下的计划。上一轮的计划不带过来，结束的轮次在工作过程里看
+export function deriveTodos(detail: SessionDetail): TodoItem[] {
+  const running = detail.messages.filter((m) => m.role === 'assistant' && m.completedAt === null)
+  const ids = new Set(running.map((m) => m.id))
+  const last = detail.parts
+    .filter(
+      (p) => ids.has(p.messageId) && p.payload.type === 'tool' && p.payload.name === 'todowrite',
+    )
+    .sort((a, b) => a.seq - b.seq)
+    .at(-1)
+  return last?.payload.type === 'tool' ? todosOf(last.payload.input) : []
 }
 
 // 这一步改了哪些文件（工作过程里数“改了 N 个文件”）
@@ -301,6 +343,10 @@ export function clipOutput(
 
 // 行右边的数字：读了几行、搜到几处、改了多少行。内核没给就不显示
 function toolStat(p: ToolPayload): { meta: string; isStat?: boolean } | undefined {
+  if (p.name === 'todowrite') {
+    const todos = todosOf(p.input)
+    return todos.length ? { meta: todoProgress(todos) } : undefined
+  }
   if (p.name === 'read' && p.count !== undefined) return { meta: `${p.count} 行` }
   if (p.name === 'grep' && p.count !== undefined) return { meta: `${p.count} 处` }
   if (p.name === 'glob' && p.count !== undefined) return { meta: `${p.count} 个文件` }
@@ -351,6 +397,8 @@ function toolStep(
   const output = cleanOutput(payload.name, payload.output, workdir) || (payload.error ?? '')
   const edit = EDIT_TOOLS.has(payload.name) && p.status === 'completed'
   const file = edit ? editedFiles(payload, workdir)[0] : undefined
+  // 计划的结果就是清单本身，内核回的 JSON 不显示；写失败了还是看报错
+  const todos = payload.name === 'todowrite' && !errored ? todosOf(payload.input) : []
   return {
     id: p.id,
     ...look,
@@ -361,7 +409,7 @@ function toolStep(
     ...(failed ? { failed } : {}),
     // 改文件成功了结果是 diff；失败时要看报错，还是展开
     ...(file ? { file } : {}),
-    ...(!edit && output ? { output } : {}),
+    ...(todos.length ? { todos } : !edit && output ? { output } : {}),
     ...(command
       ? {
           command,

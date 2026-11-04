@@ -1,6 +1,15 @@
 import type { MessageView, PartPayload, PartView, SessionDetail } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { clipOutput, deriveBlocks, describeTool, patchTargets, permissionSubject } from './derive'
+import {
+  clipOutput,
+  deriveBlocks,
+  deriveTodos,
+  describeTool,
+  patchTargets,
+  permissionSubject,
+  todoProgress,
+  todosOf,
+} from './derive'
 
 const session = {
   id: 's1',
@@ -626,5 +635,58 @@ describe('clipOutput', () => {
     const clip = clipOutput(text, 'head', 12)
     expect(clip.hidden).toBe(3)
     expect(clip.text.endsWith('l12')).toBe(true)
+  })
+})
+
+describe('todos', () => {
+  const plan = (...statuses: string[]) => ({
+    todos: statuses.map((status, i) => ({ content: `第 ${i + 1} 项`, status, priority: 'high' })),
+  })
+  const detail = (parts: PartView[], messages = [msg('u1', 'user'), msg('a1', 'assistant')]) => ({
+    session,
+    messages,
+    parts,
+    attachments: [],
+  })
+
+  it('reads the todos of a todowrite call and skips malformed items', () => {
+    expect(
+      todosOf({ todos: [{ content: ' 读接口 ', status: 'done?' }, { status: 'pending' }, 3] }),
+    ).toEqual([{ text: '读接口', status: 'pending' }])
+    expect(todosOf({})).toEqual([])
+  })
+
+  it('leaves cancelled items out of the progress', () => {
+    expect(todoProgress(todosOf(plan('completed', 'pending', 'cancelled')))).toBe('1/2')
+  })
+
+  it('shows a plan update as a step with the progress and the list instead of the json', () => {
+    const blocks = deriveBlocks(
+      detail([tool('todowrite', plan('completed', 'in_progress'))]),
+      undefined,
+      10,
+    )
+    const turn = blocks.find((b) => b.kind === 'turn')
+    expect(turn?.kind === 'turn' && turn.steps[0]).toMatchObject({
+      kind: '更新计划',
+      meta: '1/2',
+      todos: [
+        { text: '第 1 项', status: 'completed' },
+        { text: '第 2 项', status: 'in_progress' },
+      ],
+    })
+    expect(turn?.kind === 'turn' && turn.steps[0]?.output).toBeUndefined()
+  })
+
+  it('takes the last plan of the running turn', () => {
+    const items = deriveTodos(
+      detail([tool('todowrite', plan('pending')), tool('todowrite', plan('completed'))]),
+    )
+    expect(items).toEqual([{ text: '第 1 项', status: 'completed' }])
+  })
+
+  it('has no plan card after the turn ended', () => {
+    const ended = [msg('u1', 'user'), msg('a1', 'assistant', { completedAt: 9 })]
+    expect(deriveTodos(detail([tool('todowrite', plan('pending'))], ended))).toEqual([])
   })
 })
