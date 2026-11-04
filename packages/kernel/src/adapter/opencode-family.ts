@@ -191,6 +191,11 @@ class AsyncQueue<T> {
   }
 }
 
+// 窗口放不下系统提示词和工具定义时，内核压完马上又超，一直压下去。中间调过工具说明任务在往前走，不算
+const MAX_IDLE_COMPACTIONS = 3
+const CONTEXT_TOO_SMALL =
+  '模型的上下文窗口太小，放不下系统提示词和工具定义，压缩也没用。到设置 → 内核与模型里核对这个模型的上下文。'
+
 // 手动压缩：内核调一次模型把前面的对话压成摘要，长会话要一两分钟
 const SUMMARIZE_TIMEOUT_MS = 5 * 60_000
 function composeText(input: UserInput): { type: 'text'; text: string }[] {
@@ -472,9 +477,21 @@ export class OpencodeFamilyKernel implements AgentKernel {
       }, this.poll)
       timer.unref?.()
 
+      let idleCompactions = 0
       for await (const event of queue) {
         if (event.type === 'status' && event.state !== 'idle') sawBusy = true
+        if (event.type === 'tool-start') idleCompactions = 0
         yield event
+        if (event.type === 'compaction' && ++idleCompactions >= MAX_IDLE_COMPACTIONS) {
+          emit(mapper.finish('error', CONTEXT_TOO_SMALL))
+          void this.request(
+            'POST',
+            `/session/${session.id}/abort`,
+            session.workdir,
+            undefined,
+            STATUS_TIMEOUT_MS,
+          ).catch(() => {})
+        }
       }
     } finally {
       if (timer) clearInterval(timer)
