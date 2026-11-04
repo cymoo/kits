@@ -36,8 +36,10 @@ export function useFollowBottom(id: string | undefined) {
     scroller.current = el
     if (!el) return
     const observer = new ResizeObserver(() => {
+      // 窗口变高、内容变少也能回到底部，这时 scrollTop 没变，不会有 scroll 事件
+      following.current = stillFollowing(following.current, el, el.scrollTop)
       if (following.current) el.scrollTop = el.scrollHeight
-      else setAtBottom(nearBottom(el))
+      setAtBottom(following.current)
     })
     observer.observe(el)
     for (const child of el.children) observer.observe(child)

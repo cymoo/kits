@@ -30,4 +30,12 @@ describe('stillFollowing', () => {
   it('follows again once the user is back at the bottom', () => {
     expect(stillFollowing(false, at(590), 300)).toBe(true)
   })
+
+  it('follows again when a resize brings the bottom into view without any scrolling', () => {
+    expect(stillFollowing(false, at(590), 590)).toBe(true)
+  })
+
+  it('stays off when a resize leaves the view away from the bottom', () => {
+    expect(stillFollowing(false, at(300), 300)).toBe(false)
+  })
 })

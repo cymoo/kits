@@ -170,6 +170,52 @@ test('offers a jump to the bottom only after scrolling away from it', async () =
   }
 })
 
+test('follows again when a taller window brings the thread back to the bottom', async () => {
+  const { app, page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'done',
+    KITS_MOCK_SPEED: '0.2',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('第 1 个问题')
+    await box.press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    for (let turn = 2; turn <= 4; turn += 1) {
+      await page.getByLabel('给 Agent 发消息').fill(`第 ${turn} 个问题`)
+      await page.getByLabel('给 Agent 发消息').press('Enter')
+      await expect(page.getByTestId('user-message')).toHaveCount(turn)
+      await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    }
+
+    const thread = page.getByRole('region', { name: '对话' })
+    const jump = page.getByRole('button', { name: '跳转至底部' })
+    const distance = () => thread.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight)
+    await thread.evaluate((el) => {
+      el.scrollTop = el.scrollHeight - el.clientHeight - 100
+    })
+    await expect(jump).toBeVisible()
+
+    // 窗口变高 80px：离底部只剩 20px，scrollTop 没变，不会有 scroll 事件
+    await app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      const [width = 0, height = 0] = win?.getSize() ?? []
+      win?.setSize(width, height + 80)
+    })
+    await expect(jump).toHaveCount(0)
+
+    await page.getByLabel('给 Agent 发消息').fill('第 5 个问题')
+    await page.getByLabel('给 Agent 发消息').press('Enter')
+    await expect(page.getByTestId('user-message')).toHaveCount(5)
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    await expect.poll(distance).toBeLessThan(40)
+  } finally {
+    await close()
+  }
+})
+
 test('copies any reply from the icon under it', async () => {
   const { page, configDir, close } = await launchApp({
     KITS_KERNEL: 'mock',
