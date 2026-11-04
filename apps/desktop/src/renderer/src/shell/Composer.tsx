@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router'
 import { t } from '../app/i18n'
 import { basename, resolvePrefs, usePrefs } from '../lib/composer-prefs'
 import { kits, useSettings } from '../lib/kits'
+import { isMac } from '../lib/shortcuts'
 import { useUi } from '../lib/ui-store'
 import { cx } from '../ui/cx'
 import {
@@ -34,6 +35,11 @@ import {
   MenuTrigger,
 } from '../ui/Menu'
 import { type AtQuery, atQuery, formatSize, insertAt } from './composer-at'
+import { MENU_MAX_HEIGHT, type MenuPlacement, placeMenu } from './composer-menu'
+
+// 菜单和输入框的间距；窗口顶部留的地方，macOS 上要避开隐藏标题栏后的拖动区
+const MENU_GAP = 8
+const MENU_TOP_INSET = isMac ? 40 : 12
 
 // 输入框（原型 shell.js 的 <k-composer>）：文本区自动长高；目录、Agent、权限、内核与模型四个浮层；↵ 发送、⇧↵ 换行。
 // 首页（big）发送时新建会话；会话页发送时在当前会话里接着说。
@@ -114,6 +120,7 @@ export function Composer({
   // 发送失败的原因（比如工作目录被删了）；草稿留着，改了再发
   const [error, setError] = useState<string>()
   const area = useRef<HTMLTextAreaElement>(null)
+  const box = useRef<HTMLDivElement>(null)
   const picker = useRef<HTMLInputElement>(null)
   const inputId = big ? 'composer-home' : 'composer-session'
   const [files, setFiles] = useState<File[]>([])
@@ -215,6 +222,28 @@ export function Composer({
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 220)}px`
   }, [text])
+
+  // / 和 @ 菜单：按输入框上下还有多少地方决定往哪边开；窗口变了、输入框长高了都要重算
+  const [place, setPlace] = useState<MenuPlacement>({ side: 'up', maxHeight: MENU_MAX_HEIGHT })
+  const menuOpen = slashOpen || atOpen
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 文本变了输入框的位置可能跟着变
+  useLayoutEffect(() => {
+    if (!menuOpen) return
+    const measure = () => {
+      const rect = box.current?.getBoundingClientRect()
+      if (!rect) return
+      setPlace(
+        placeMenu(rect.top - MENU_GAP - MENU_TOP_INSET, innerHeight - rect.bottom - MENU_GAP * 2),
+      )
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [menuOpen, text])
+  const menuClass = cx(
+    'absolute right-3 left-3 z-40 flex flex-col overflow-hidden rounded-[12px] border border-line bg-raised p-1.5 shadow-pop',
+    place.side === 'up' ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]',
+  )
 
   const missing = locked
     ? undefined
@@ -324,6 +353,7 @@ export function Composer({
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: 拖文件进来的落点，键盘用户走 + 菜单
     <div
+      ref={box}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes('Files')) return
         e.preventDefault()
@@ -355,37 +385,44 @@ export function Composer({
           role="listbox"
           aria-label={t('composer.skillsTitle')}
           data-testid="slash-menu"
-          className="absolute right-3 bottom-[calc(100%+8px)] left-3 z-40 flex max-h-[360px] flex-col gap-px overflow-y-auto rounded-[12px] border border-line bg-raised p-1.5 shadow-pop"
+          className={menuClass}
+          style={{ maxHeight: place.maxHeight }}
         >
-          <div className="px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
+          <div className="shrink-0 px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
             {t('composer.skillsTitle')}
           </div>
           {skills.isFetched && skillItems.length === 0 ? (
             <div className="px-2.5 py-2 text-fg-muted">{t('composer.skillsEmpty')}</div>
           ) : null}
-          {skillItems.map((s, i) => (
-            <button
-              key={s.name}
-              id={`${inputId}-slash-${i}`}
-              type="button"
-              role="option"
-              aria-selected={i === atIndex}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pickSkill(s.name)}
-              onPointerMove={() => setAtIndex(i)}
-              ref={i === atIndex ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
-              className={cx(
-                'flex min-h-[38px] w-full cursor-pointer items-center gap-3 rounded-[8px] px-2.5 py-1 text-left',
-                i === atIndex && 'bg-accent-bg',
-              )}
-            >
-              <span className="shrink-0 basis-[120px] font-medium font-mono text-[0.962rem]">
-                /{s.name}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-fg-muted">{s.description}</span>
-            </button>
-          ))}
-          <div className="mt-1 flex items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.885rem] text-fg-label">
+          {/* 名字一列按最长的算，太长就截断，不折行 */}
+          <div className="grid min-h-0 flex-auto grid-cols-[fit-content(45%)_minmax(0,1fr)] content-start gap-y-px overflow-y-auto">
+            {skillItems.map((s, i) => (
+              <button
+                key={s.name}
+                id={`${inputId}-slash-${i}`}
+                type="button"
+                role="option"
+                aria-selected={i === atIndex}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pickSkill(s.name)}
+                onPointerMove={() => setAtIndex(i)}
+                ref={i === atIndex ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+                className={cx(
+                  'col-span-full grid min-h-[38px] cursor-pointer grid-cols-subgrid items-center gap-x-3 rounded-[8px] px-2.5 py-1 text-left',
+                  i === atIndex && 'bg-accent-bg',
+                )}
+              >
+                <span
+                  className="truncate font-medium font-mono text-[0.962rem]"
+                  title={`/${s.name}`}
+                >
+                  /{s.name}
+                </span>
+                <span className="truncate text-fg-muted">{s.description}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-1 flex shrink-0 items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.885rem] text-fg-label">
             <span>{t('composer.atHint.pick')}</span>
             <span>{t('composer.slashHint')}</span>
             <span>{t('composer.atHint.close')}</span>
@@ -406,9 +443,10 @@ export function Composer({
           role="listbox"
           aria-label={t('composer.atTitle')}
           data-testid="at-menu"
-          className="absolute right-3 bottom-[calc(100%+8px)] left-3 z-40 flex max-h-[360px] flex-col gap-px overflow-y-auto rounded-[12px] border border-line bg-raised p-1.5 shadow-pop"
+          className={menuClass}
+          style={{ maxHeight: place.maxHeight }}
         >
-          <div className="px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
+          <div className="shrink-0 px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
             {t('composer.atTitle')}
           </div>
           {!workdir ? (
@@ -416,28 +454,30 @@ export function Composer({
           ) : found.length === 0 && matches.isFetched ? (
             <div className="px-2.5 py-2 text-fg-muted">{t('composer.atEmpty')}</div>
           ) : null}
-          {found.map((f, i) => (
-            <button
-              key={f}
-              id={`${inputId}-at-${i}`}
-              type="button"
-              role="option"
-              aria-selected={i === atIndex}
-              // 不抢输入框的焦点
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => pick(f)}
-              onPointerMove={() => setAtIndex(i)}
-              ref={i === atIndex ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
-              className={cx(
-                'flex min-h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-[8px] px-2.5 py-1 text-left',
-                i === atIndex && 'bg-accent-bg',
-              )}
-            >
-              <FileText size={13} className="shrink-0 text-fg-muted" />
-              <span className="min-w-0 flex-1 truncate font-mono text-[0.923rem]">{f}</span>
-            </button>
-          ))}
-          <div className="mt-1 flex items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.885rem] text-fg-label">
+          <div className="flex min-h-0 flex-auto flex-col gap-px overflow-y-auto">
+            {found.map((f, i) => (
+              <button
+                key={f}
+                id={`${inputId}-at-${i}`}
+                type="button"
+                role="option"
+                aria-selected={i === atIndex}
+                // 不抢输入框的焦点
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pick(f)}
+                onPointerMove={() => setAtIndex(i)}
+                ref={i === atIndex ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+                className={cx(
+                  'flex min-h-[34px] w-full shrink-0 cursor-pointer items-center gap-2.5 rounded-[8px] px-2.5 py-1 text-left',
+                  i === atIndex && 'bg-accent-bg',
+                )}
+              >
+                <FileText size={13} className="shrink-0 text-fg-muted" />
+                <span className="min-w-0 flex-1 truncate font-mono text-[0.923rem]">{f}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-1 flex shrink-0 items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.885rem] text-fg-label">
             <span>{t('composer.atHint.pick')}</span>
             <span>{t('composer.atHint.insert')}</span>
             <span>{t('composer.atHint.close')}</span>

@@ -44,7 +44,7 @@ export function SessionList() {
   return (
     <>
       {groups.map(([group, items]) => (
-        <div key={group} className="flex flex-col gap-px">
+        <div key={group} className="flex flex-col gap-0.5">
           <div className="px-2 pt-2 pb-1 font-medium text-[0.885rem] text-fg-label">
             {t(GROUP_LABEL[group])}
           </div>
