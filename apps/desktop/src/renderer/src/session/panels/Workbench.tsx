@@ -1,28 +1,32 @@
 import type { OutputView, SessionDetail } from '@kits/core/ipc'
 import { useQuery } from '@tanstack/react-query'
-import { SquareTerminal } from 'lucide-react'
 import { Tabs as T } from 'radix-ui'
-import { type ReactNode, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../../app/i18n'
 import { kits, useHomeLabel } from '../../lib/kits'
-import { formatDuration } from '../../lib/use-now'
 import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { Segmented } from '../../ui/Segmented'
-import { Spinner } from '../thread/Blocks'
-import { type ChangedFile, type Command, formatTokens, type Round, type Usage } from './derive'
+import { type ChangedFile, formatTokens, type Round, type Usage } from './derive'
 import { OutputPanel } from './OutputPanel'
 import { type DiffLine, parsePatch, splitRows } from './patch'
 
-// 会话页右侧的工作区面板（原型 session.html 的 aside）：改动、产出、命令、上下文四个页签。
+// 会话页右侧的工作区面板（原型 session.html 的 aside）：改动、产出、上下文三个页签。工具结果在对话里点开步骤看。
 // 放大模式下改动是左右两栏（文件列表 + diff），diff 可以切并排。
 
-export type PanelTab = 'changes' | 'output' | 'terminal' | 'context'
+export type PanelTab = 'changes' | 'output' | 'context'
+
+// 改动里选中的文件：对话里点改文件的步骤时带这一轮，点文件列表时也一样
+export interface PickedFile {
+  turn: number
+  path: string
+}
 
 export interface WorkbenchProps {
   detail: SessionDetail
   rounds: Round[]
-  commands: Command[]
+  picked: PickedFile | undefined
+  onPick(file: PickedFile): void
   rules: string[]
   outputs: OutputView[]
   usage: Usage
@@ -47,10 +51,9 @@ function Count({ n, on }: { n: number; on: boolean }) {
   )
 }
 
-function Empty({ icon, title, note }: { icon?: ReactNode; title: string; note: string }) {
+function Empty({ title, note }: { title: string; note: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-fg-muted">
-      {icon}
       <span className="font-medium text-fg">{title}</span>
       <span className="max-w-[240px] text-[0.923rem]">{note}</span>
     </div>
@@ -58,7 +61,7 @@ function Empty({ icon, title, note }: { icon?: ReactNode; title: string; note: s
 }
 
 export function Workbench(props: WorkbenchProps) {
-  const { rounds, commands, wide, tab, onTab } = props
+  const { rounds, wide, tab, onTab } = props
   const [view, setView] = useState<'unified' | 'split'>('unified')
   const files = rounds.reduce((n, r) => n + r.files.length, 0)
   return (
@@ -73,7 +76,6 @@ export function Workbench(props: WorkbenchProps) {
             [
               ['changes', t('panel.changes'), files],
               ['output', t('panel.output'), 0],
-              ['terminal', t('panel.terminal'), commands.length],
               ['context', t('panel.context'), 0],
             ] as const
           ).map(([value, label, n]) => (
@@ -113,9 +115,6 @@ export function Workbench(props: WorkbenchProps) {
           agent={props.detail.session.agent}
         />
       </T.Content>
-      <T.Content value="terminal" className="flex min-h-0 flex-1 flex-col outline-none">
-        <TerminalPanel commands={commands} rules={props.rules} />
-      </T.Content>
       <T.Content value="context" className="flex min-h-0 flex-1 flex-col outline-none">
         <ContextPanel {...props} />
       </T.Content>
@@ -146,18 +145,30 @@ function ChangesPanel({
   rounds,
   wide,
   view,
+  picked,
+  onPick,
 }: WorkbenchProps & { view: 'unified' | 'split' }) {
   const first = rounds[0]?.files[0]
-  const [picked, setPicked] = useState<{ turn: number; path: string }>()
-  // 选中的文件没了（新一轮的改动替换了列表）就回到第一个
+  // 选中的文件没了（新一轮的改动替换了列表）就回到第一个。这一轮的 diff 里没有时（内核没算出来）找别的轮
   const selected = useMemo(() => {
-    for (const r of rounds) {
-      if (r.turn !== picked?.turn) continue
-      const f = r.files.find((x) => x.path === picked.path)
-      if (f) return { round: r, file: f }
+    const find = (list: Round[]) => {
+      for (const r of list) {
+        const f = r.files.find((x) => x.path === picked?.path)
+        if (f) return { round: r, file: f }
+      }
     }
-    return first && rounds[0] ? { round: rounds[0], file: first } : undefined
+    return (
+      find(rounds.filter((r) => r.turn === picked?.turn)) ??
+      find(rounds) ??
+      (first && rounds[0] ? { round: rounds[0], file: first } : undefined)
+    )
   }, [rounds, picked, first])
+  // 从对话跳过来时，选中的文件可能在列表下面
+  const pickedRow = useRef<HTMLButtonElement>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: picked 变了才滚动，列表自己刷新时不动
+  useEffect(() => {
+    pickedRow.current?.scrollIntoView({ block: 'nearest' })
+  }, [picked])
 
   if (!rounds.length) {
     return <Empty title={t('changes.empty')} note={t('changes.emptyNote')} />
@@ -188,8 +199,9 @@ function ChangesPanel({
                 <button
                   key={f.path}
                   type="button"
+                  ref={on ? pickedRow : undefined}
                   aria-pressed={on}
-                  onClick={() => setPicked({ turn: r.turn, path: f.path })}
+                  onClick={() => onPick({ turn: r.turn, path: f.path })}
                   className={cx(
                     'flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-[7px] px-1.5 text-left',
                     on ? 'bg-hover' : 'hover:bg-active',
@@ -329,98 +341,9 @@ function DiffView({
   )
 }
 
-// ---------- 命令 ----------
-
-function TerminalPanel({ commands, rules }: { commands: Command[]; rules: string[] }) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2" data-testid="terminal">
-      {commands.length ? (
-        commands.map((c) => <CommandCard key={c.id} command={c} />)
-      ) : (
-        <Empty
-          icon={<SquareTerminal size={22} className="text-fg-subtle" strokeWidth={1.4} />}
-          title={t('terminal.empty')}
-          note={t('terminal.emptyNote')}
-        />
-      )}
-      <div className="mx-1.5 mt-2 flex flex-col gap-1.5 text-[0.923rem] text-fg-label">
-        <span>{t('terminal.rules')}</span>
-        {rules.length ? (
-          <span className="flex flex-wrap gap-1.5">
-            {rules.map((r) => (
-              <span key={r} className="rounded-[4px] bg-hover px-[5px] font-mono text-fg">
-                {r}
-              </span>
-            ))}
-          </span>
-        ) : (
-          <span>{t('terminal.noRules')}</span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// 命令耗时：10 秒内带一位小数（0.9 秒、1.2 秒），和原型一致
-function commandTime(ms: number): string {
-  return ms < 10_000 ? `${(ms / 1000).toFixed(1)} 秒` : formatDuration(ms)
-}
-
-function CommandCard({ command: c }: { command: Command }) {
-  const status =
-    c.state === 'waiting'
-      ? t('terminal.waiting')
-      : c.state === 'interrupted'
-        ? t('terminal.interrupted')
-        : c.state === 'running'
-          ? t('terminal.running')
-          : c.exitCode !== undefined
-            ? t('terminal.exit', { code: c.exitCode })
-            : c.state === 'failed'
-              ? t('terminal.failed')
-              : t('terminal.done')
-  const meta = [c.durationMs !== undefined ? commandTime(c.durationMs) : null, c.how]
-    .filter(Boolean)
-    .join(' · ')
-  return (
-    <div
-      data-testid="command"
-      className={cx(
-        'flex shrink-0 flex-col overflow-hidden rounded-[10px] border',
-        c.state === 'waiting' ? 'border-warn-icon bg-warn-soft' : 'border-line-soft bg-raised',
-      )}
-    >
-      <div className="flex items-center gap-2 px-3 py-2 text-[0.923rem]">
-        <span className="min-w-0 flex-1 truncate font-mono" title={c.command}>
-          {c.command}
-        </span>
-        {c.state === 'running' ? <Spinner tone="muted" size={11} /> : null}
-        <span
-          className={cx(
-            'shrink-0 font-medium',
-            c.state === 'waiting' || c.state === 'running'
-              ? 'text-warn'
-              : c.state === 'failed' || c.state === 'interrupted'
-                ? 'text-danger'
-                : 'text-ok',
-          )}
-        >
-          {status}
-        </span>
-        {meta ? <span className="shrink-0 text-fg-subtle">{meta}</span> : null}
-      </div>
-      {c.output ? (
-        <pre className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-all border-line-soft border-t px-3 py-2.5 font-mono text-[0.885rem] text-fg-muted leading-[1.6]">
-          {c.output}
-        </pre>
-      ) : null}
-    </div>
-  )
-}
-
 // ---------- 上下文 ----------
 
-function ContextPanel({ detail, usage, contextWindow }: WorkbenchProps) {
+function ContextPanel({ detail, usage, contextWindow, rules }: WorkbenchProps) {
   const homeLabel = useHomeLabel()
   const { session } = detail
   const [compactError, setCompactError] = useState<string>()
@@ -543,6 +466,24 @@ function ContextPanel({ detail, usage, contextWindow }: WorkbenchProps) {
           </span>
         </div>
       ))}
+      <div className="flex gap-3 border-line-soft border-b py-2.5" data-testid="allow-rules">
+        <span className="shrink-0 basis-[60px] text-[0.923rem] text-fg-muted">
+          {t('context.rules')}
+        </span>
+        {rules.length ? (
+          <span className="flex min-w-0 flex-1 flex-wrap gap-1.5 text-[0.923rem]">
+            {rules.map((r) => (
+              <span key={r} className="rounded-[4px] bg-hover px-[5px] font-mono">
+                {r}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="min-w-0 flex-1 text-[0.923rem] text-fg-label">
+            {t('context.noRules')}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

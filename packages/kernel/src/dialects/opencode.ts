@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { createServer } from 'node:net'
+import path from 'node:path'
 import { writeGeneratedFiles } from '../generate/write'
 import type {
   GeneratedFiles,
@@ -69,6 +70,8 @@ async function waitForHealth(
 // 从 models.dev 拉模型列表和自动下载 LSP（内网连不上，还会拖慢启动）。
 // 外部技能不关：它会从会话目录往上找到仓库根，读项目的 .agents/skills（kits 的项目技能）；
 // “全局”那一份在 {OPENCODE_TEST_HOME}/.agents/skills，也就是 kits 的数据目录，不会读到用户家目录里的技能。
+// 内核启动时会往每个配置目录 npm install @opencode-ai/plugin，配置目录里有插件时（kits 的 describe-bash）还要等它装完：
+// 内网连不上 registry 时要卡 70 秒以上。插件不依赖这个包，npm 设成离线、缓存指到空目录，安装立刻失败，不影响加载。
 // cfg.env（网关 key 等）最后叠上，配置文件里用 `{env:…}` 引用。
 // 只给子进程设，别 export 到当前 shell：XDG_DATA_HOME 会影响 fnm 之类的工具。
 export function spawnEnv(
@@ -87,6 +90,8 @@ export function spawnEnv(
     OPENCODE_DISABLE_CLAUDE_CODE: '1',
     OPENCODE_DISABLE_MODELS_FETCH: '1',
     OPENCODE_DISABLE_LSP_DOWNLOAD: '1',
+    npm_config_offline: 'true',
+    npm_config_cache: path.join(cfg.dataDir, 'npm-cache'),
     ...cfg.env,
   }
 }

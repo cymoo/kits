@@ -62,6 +62,9 @@ export function codeagentEnv(
     XDG_CACHE_HOME: cfg.dataDir,
     XDG_CONFIG_HOME: cfg.dataDir,
     XDG_STATE_HOME: cfg.dataDir,
+    // 和 OpenCode 一样：配置目录里有插件时不能等 npm 联网（见 opencode.ts 的 spawnEnv）
+    npm_config_offline: 'true',
+    npm_config_cache: path.join(cfg.dataDir, 'npm-cache'),
     ...cfg.env,
   }
 }

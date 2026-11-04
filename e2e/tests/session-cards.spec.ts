@@ -35,7 +35,8 @@ test('allows a command once with the shortcut', async () => {
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     const turn = page.getByTestId('turn')
     await turn.getByRole('button', { name: /第 1 轮/ }).click()
-    await expect(turn.getByTestId('step').filter({ hasText: '执行命令' })).toContainText('已允许')
+    await turn.getByTestId('step').filter({ hasText: '跑 points 的测试' }).click()
+    await expect(turn.getByTestId('step-output')).toContainText('已允许')
   } finally {
     await close()
   }
@@ -56,7 +57,9 @@ test('rejects a command with a reason and lets the agent go on', async () => {
     await expect(page.getByTestId('answer')).toContainText('不跑测试了')
     const turn = page.getByTestId('turn')
     await turn.getByRole('button', { name: /第 1 轮/ }).click()
-    await expect(turn.getByTestId('step').filter({ hasText: '执行命令' })).toContainText('已拒绝')
+    await expect(turn.getByTestId('step').filter({ hasText: '跑 points 的测试' })).toContainText(
+      '已拒绝',
+    )
   } finally {
     await close()
   }

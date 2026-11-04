@@ -19,6 +19,10 @@ export type KernelEvent =
       // 命令的退出码（bash）和工具耗时，内核给了才有
       exitCode?: number
       durationMs?: number
+      // 这一步改了多少行（edit）；count 是搜到几处（grep、glob）或文件有几行（read）。都是内核给了才有
+      additions?: number
+      deletions?: number
+      count?: number
     }
   | {
       type: 'permission-request'

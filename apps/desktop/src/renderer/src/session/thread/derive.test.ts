@@ -1,6 +1,6 @@
 import type { MessageView, PartPayload, PartView, SessionDetail } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { deriveBlocks, describeTool, patchTargets, permissionSubject } from './derive'
+import { clipOutput, deriveBlocks, describeTool, patchTargets, permissionSubject } from './derive'
 
 const session = {
   id: 's1',
@@ -78,7 +78,7 @@ describe('deriveBlocks', () => {
     )
     expect(blocks.map((b) => b.kind)).toEqual(['user', 'turn', 'text'])
     const turn = blocks[1]
-    expect(turn?.kind === 'turn' && turn.steps.map((s) => [s.kind, s.detail])).toEqual([
+    expect(turn?.kind === 'turn' && turn.steps.map((s) => [s.kind, s.desc ?? s.detail])).toEqual([
       ['说明', '我先读一下代码。'],
       ['读取文件', 'src/points/redeem.py'],
       ['修改文件', 'src/points/redeem.py'],
@@ -138,7 +138,7 @@ describe('describeTool', () => {
   it('names mcp tools by server and tool', () => {
     expect(
       describeTool({ type: 'tool', callId: 'c', name: 'wiki_get_page', input: {} }, '/w'),
-    ).toEqual({
+    ).toMatchObject({
       kind: '调用平台',
       detail: 'wiki · get_page',
     })
@@ -177,7 +177,7 @@ describe('deriveBlocks cards', () => {
     const blocks = deriveBlocks(detail([t, perm('always', callId)]))
     const turn = blocks.find((b) => b.kind === 'turn')
     expect(turn?.kind === 'turn' && turn.steps).toEqual([
-      expect.objectContaining({ kind: '执行命令', meta: '本会话允许' }),
+      expect.objectContaining({ kind: '执行命令', foot: '本会话允许' }),
     ])
     expect(blocks.some((b) => b.kind === 'permission')).toBe(false)
   })
@@ -374,5 +374,232 @@ describe('apply_patch', () => {
     const turn = blocks.find((b) => b.kind === 'turn')
     expect(turn?.kind === 'turn' && turn.filesChanged).toBe(2)
     expect(turn?.kind === 'turn' && turn.steps[0]?.detail).toBe('src/a.py, src/b.py')
+  })
+})
+
+describe('tool steps', () => {
+  type Tool = Extract<PartPayload, { type: 'tool' }>
+  const step = (
+    name: string,
+    input: unknown,
+    extra: Partial<Tool> = {},
+    status = 'completed',
+    assistant: Partial<MessageView> = { completedAt: 9, finishReason: 'completed' },
+  ) => {
+    seq = 0
+    const p = part({ type: 'tool', callId: 'c', name, input, ...extra }, status)
+    const turn = deriveBlocks(detail([p], assistant), undefined, 10).find((b) => b.kind === 'turn')
+    if (turn?.kind !== 'turn') throw new Error('no turn')
+    return turn.steps[0]
+  }
+
+  it('uses the description the model wrote as the title and keeps the command', () => {
+    expect(step('bash', { command: 'git status', description: '看工作区' })).toMatchObject({
+      desc: '看工作区',
+      detail: 'git status',
+    })
+  })
+
+  it('falls back to the command when the kernel gives no description', () => {
+    const s = step('bash', { command: 'git status' })
+    expect(s?.desc).toBeUndefined()
+    expect(s).toMatchObject({ verb: '运行', detail: 'git status' })
+  })
+
+  it('shows how long a finished command took and how it was allowed', () => {
+    expect(step('bash', { command: 'ls' }, { exitCode: 0, durationMs: 1_200 })).toMatchObject({
+      state: 'done',
+      meta: '1.2 秒',
+      foot: '自动允许',
+    })
+  })
+
+  it('marks a non-zero exit as failed even though the tool completed', () => {
+    const s = step('bash', { command: 'pytest' }, { exitCode: 1, durationMs: 900 })
+    expect(s).toMatchObject({
+      state: 'error',
+      failed: true,
+      meta: '退出 1',
+      foot: '0.9 秒 · 自动允许',
+    })
+  })
+
+  it('counts failed steps on the turn', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail(
+        [
+          part({ type: 'tool', callId: 'a', name: 'bash', input: {}, exitCode: 2 }, 'completed'),
+          part({ type: 'tool', callId: 'b', name: 'bash', input: {}, exitCode: 0 }, 'completed'),
+          part({ type: 'tool', callId: 'c', name: 'read', input: {}, error: 'x' }, 'error'),
+        ],
+        { completedAt: 9, finishReason: 'completed' },
+      ),
+    )
+    expect(blocks.find((b) => b.kind === 'turn')).toMatchObject({
+      failed: 2,
+      summary: { commands: 2, reads: 1 },
+    })
+  })
+
+  it('does not count a rejected command as failed', () => {
+    seq = 0
+    const t = part({ type: 'tool', callId: 'c', name: 'bash', input: {}, error: 'no' }, 'error')
+    const blocks = deriveBlocks(
+      detail(
+        [
+          t,
+          part(
+            {
+              type: 'permission',
+              requestId: 'r',
+              tool: 'bash',
+              input: {},
+              patterns: [],
+              always: [],
+              callId: 'c',
+            },
+            'reject',
+          ),
+        ],
+        { completedAt: 9, finishReason: 'completed' },
+      ),
+    )
+    const turn = blocks.find((b) => b.kind === 'turn')
+    expect(turn).toMatchObject({ failed: 0 })
+    expect(turn?.kind === 'turn' && turn.steps[0]).toMatchObject({ state: 'error', meta: '已拒绝' })
+  })
+
+  it('marks a command still running when its turn ended as interrupted', () => {
+    const s = step('bash', { command: 'sleep 100' }, {}, 'running')
+    expect(s).toMatchObject({ state: 'error', meta: '中断' })
+    expect(s?.failed).toBeUndefined()
+  })
+
+  it('times a running command from when it started', () => {
+    const s = step('bash', { command: 'sleep 100' }, {}, 'running', {})
+    expect(s).toMatchObject({ state: 'running', startedAt: 3 })
+    expect(s?.meta).toBeUndefined()
+  })
+
+  it('shows a command waiting for your confirmation instead of a timer', () => {
+    seq = 0
+    const t = part({ type: 'tool', callId: 'c', name: 'bash', input: {} }, 'running')
+    const asked = part(
+      {
+        type: 'permission',
+        requestId: 'r',
+        tool: 'bash',
+        input: {},
+        patterns: [],
+        always: [],
+        callId: 'c',
+      },
+      'pending',
+    )
+    const turn = deriveBlocks(detail([t, asked])).find((b) => b.kind === 'turn')
+    const s = turn?.kind === 'turn' ? turn.steps[0] : undefined
+    expect(s).toMatchObject({ state: 'running', meta: '等待确认' })
+    expect(s?.startedAt).toBeUndefined()
+  })
+
+  it('drops the shell metadata opencode appends for the model', () => {
+    const output = 'hi\n\n<shell_metadata>\nshell tool terminated\n</shell_metadata>\n'
+    expect(step('bash', { command: 'ls' }, { output })?.output).toBe('hi')
+  })
+
+  it('shows the file content without the wrapper opencode adds for the model', () => {
+    const output =
+      '<path>/repo/member-svc/a.py</path>\n<type>file</type>\n<content>\n1: one\n2: two\n\n(End of file - total 2 lines)\n</content>'
+    expect(step('read', { filePath: '/repo/member-svc/a.py' }, { output, count: 2 })).toMatchObject(
+      {
+        output: '1: one\n2: two',
+        meta: '2 行',
+      },
+    )
+  })
+
+  it('shows search hits with paths relative to the workdir', () => {
+    const output = 'Found 1 matches\n/repo/member-svc/a.py:\n  Line 2: two\n'
+    expect(step('grep', { pattern: 'two' }, { output, count: 1 })).toMatchObject({
+      output: 'a.py:\n  Line 2: two',
+      meta: '1 处',
+    })
+  })
+
+  it('points an edit at the changes panel instead of expanding', () => {
+    const s = step(
+      'edit',
+      { filePath: '/repo/member-svc/a.py' },
+      { output: 'Edit applied successfully.', additions: 2, deletions: 1 },
+    )
+    expect(s).toMatchObject({ file: 'a.py', meta: '+2 −1', isStat: true })
+    expect(s?.output).toBeUndefined()
+  })
+
+  it('counts the lines of a new file from its content', () => {
+    expect(step('write', { filePath: '/repo/member-svc/a.py', content: 'a\nb\n' })).toMatchObject({
+      file: 'a.py',
+      meta: '+2',
+    })
+  })
+
+  it('expands a failed edit to show the error', () => {
+    const s = step('edit', { filePath: '/repo/member-svc/a.py' }, { error: 'no match' }, 'error')
+    expect(s).toMatchObject({ failed: true, output: 'no match', meta: '失败' })
+    expect(s?.file).toBeUndefined()
+  })
+
+  it('shows the arguments and the result of an mcp tool', () => {
+    expect(step('wiki_get_page', { id: 1 }, { output: { title: 'a' } })).toMatchObject({
+      args: '{\n  "id": 1\n}',
+      output: '{\n  "title": "a"\n}',
+    })
+  })
+
+  it('keeps the whole text of a multi-line note and titles it with the first line', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([
+        part({ type: 'text', text: '先看代码。\n再改。' }),
+        tool('read', { filePath: '/repo/member-svc/a.py' }),
+      ]),
+    )
+    const turn = blocks.find((b) => b.kind === 'turn')
+    expect(turn?.kind === 'turn' && turn.steps[0]).toMatchObject({
+      desc: '先看代码。',
+      output: '先看代码。\n再改。',
+    })
+  })
+
+  it('names a running command by its description in the status line', () => {
+    seq = 0
+    const p = part(
+      { type: 'tool', callId: 'c', name: 'bash', input: { command: 'x', description: '跑测试' } },
+      'running',
+    )
+    const blocks = deriveBlocks(detail([p]), undefined, 10_000)
+    expect(blocks.at(-1)).toMatchObject({ kind: 'status', text: '正在执行命令：跑测试' })
+  })
+})
+
+describe('clipOutput', () => {
+  const text = Array.from({ length: 15 }, (_, i) => `l${i + 1}`).join('\n')
+
+  it('keeps a short output whole', () => {
+    expect(clipOutput('a\nb', 'tail')).toEqual({ text: 'a\nb', hidden: 0 })
+  })
+
+  it('keeps the end of a long command output', () => {
+    const clip = clipOutput(text, 'tail', 12)
+    expect(clip.hidden).toBe(3)
+    expect(clip.text.startsWith('l4\n')).toBe(true)
+    expect(clip.text.endsWith('l15')).toBe(true)
+  })
+
+  it('keeps the start of a long file', () => {
+    const clip = clipOutput(text, 'head', 12)
+    expect(clip.hidden).toBe(3)
+    expect(clip.text.endsWith('l12')).toBe(true)
   })
 })

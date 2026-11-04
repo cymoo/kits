@@ -1,6 +1,6 @@
 import type { MessageView, PartPayload, PartView, SessionDetail } from '@kits/core/ipc'
 import { describe, expect, it } from 'vitest'
-import { alwaysRules, deriveCommands, deriveRounds, deriveUsage, formatTokens } from './derive'
+import { alwaysRules, deriveRounds, deriveUsage, formatTokens } from './derive'
 
 const session = {
   id: 's1',
@@ -43,17 +43,6 @@ const part = (messageId: string, payload: PartPayload, status: string | null = n
   createdAt: 0,
   updatedAt: 0,
 })
-const bash = (
-  messageId: string,
-  command: string,
-  extra: Partial<PartPayload> = {},
-  status = 'completed',
-) =>
-  part(
-    messageId,
-    { type: 'tool', callId: `c${seq}`, name: 'bash', input: { command }, ...extra } as PartPayload,
-    status,
-  )
 const detail = (messages: MessageView[], parts: PartView[]): SessionDetail => ({
   session,
   messages,
@@ -162,128 +151,17 @@ describe('deriveRounds with apply_patch', () => {
   })
 })
 
-describe('deriveCommands', () => {
-  it('shows each command with its exit code, duration and how it was allowed', () => {
+describe('alwaysRules', () => {
+  it('lists the rules of the permissions answered with allow for this session', () => {
     seq = 0
-    const ok = bash('a1', 'git status', { output: 'clean', exitCode: 0, durationMs: 120 })
-    const failed = bash('a1', 'uv run pytest', { output: '1 failed', exitCode: 1 })
-    const callId = failed.payload.type === 'tool' ? failed.payload.callId : ''
-    const perm = part(
-      'a1',
-      {
-        type: 'permission',
-        requestId: 'per_1',
-        tool: 'bash',
-        input: {},
-        patterns: [],
-        always: ['uv run pytest *'],
-        callId,
-      },
-      'always',
-    )
-    const commands = deriveCommands(detail([msg('a1', 1)], [ok, failed, perm]))
-    expect(commands).toEqual([
-      expect.objectContaining({
-        command: 'git status',
-        state: 'done',
-        exitCode: 0,
-        how: '自动允许',
-      }),
-      expect.objectContaining({
-        command: 'uv run pytest',
-        state: 'failed',
-        exitCode: 1,
-        how: '本会话允许',
-      }),
-    ])
-    expect(alwaysRules(detail([msg('a1', 1)], [ok, failed, perm]))).toEqual(['uv run pytest *'])
-  })
-
-  it('marks a command still waiting for your confirmation', () => {
-    seq = 0
-    const t = bash('a1', 'rm -rf build', {}, 'running')
-    const callId = t.payload.type === 'tool' ? t.payload.callId : ''
-    const perm = part(
-      'a1',
-      {
-        type: 'permission',
-        requestId: 'p',
-        tool: 'bash',
-        input: {},
-        patterns: [],
-        always: [],
-        callId,
-      },
-      'pending',
-    )
-    expect(deriveCommands(detail([msg('a1', 1)], [t, perm]))[0]).toMatchObject({
-      state: 'waiting',
-      how: '等待确认',
-    })
-  })
-
-  it('matches a permission to the command of the same turn when call ids repeat', () => {
-    seq = 0
-    const first = part(
-      'a1',
-      {
-        type: 'tool',
-        callId: 'call_bash',
-        name: 'bash',
-        input: { command: 'pytest' },
-        exitCode: 0,
-      },
-      'completed',
-    )
-    const firstPerm = part(
-      'a1',
-      {
-        type: 'permission',
-        requestId: 'r1',
-        tool: 'bash',
-        input: {},
-        patterns: [],
-        always: [],
-        callId: 'call_bash',
-      },
-      'once',
-    )
-    const second = part(
-      'a2',
-      { type: 'tool', callId: 'call_bash', name: 'bash', input: { command: 'pytest' } },
-      'running',
-    )
-    const secondPerm = part(
-      'a2',
-      {
-        type: 'permission',
-        requestId: 'r2',
-        tool: 'bash',
-        input: {},
-        patterns: [],
-        always: [],
-        callId: 'call_bash',
-      },
-      'pending',
-    )
-    const commands = deriveCommands(
-      detail(
-        [msg('a1', 1), msg('a2', 2, { completedAt: null, finishReason: null })],
-        [first, firstPerm, second, secondPerm],
-      ),
-    )
-    expect(commands.map((c) => [c.state, c.how])).toEqual([
-      ['done', '已允许'],
-      ['waiting', '等待确认'],
-    ])
-  })
-
-  it('drops the shell metadata opencode appends for the model', () => {
-    seq = 0
-    const t = bash('a1', 'ls', {
-      output: 'a.py\nb.py\n\n<shell_metadata>\nexit 0\n</shell_metadata>\n',
-    })
-    expect(deriveCommands(detail([msg('a1', 1)], [t]))[0]?.output).toBe('a.py\nb.py')
+    const asked = (status: string, always: string[]) =>
+      part(
+        'a1',
+        { type: 'permission', requestId: 'p', tool: 'bash', input: {}, patterns: [], always },
+        status,
+      )
+    const parts = [asked('always', ['uv run pytest *']), asked('once', ['rm *'])]
+    expect(alwaysRules(detail([msg('a1', 1)], parts))).toEqual(['uv run pytest *'])
   })
 })
 
@@ -307,12 +185,6 @@ describe('deriveUsage', () => {
     )
     expect(usage).toMatchObject({ context: 50_000, input: 90_000, cacheRead: 60_000 })
     expect(usage.cost).toBeCloseTo(0.1)
-  })
-
-  it('marks a command still running when its turn ended as interrupted', () => {
-    seq = 0
-    const t = bash('a1', 'sleep 100', {}, 'running')
-    expect(deriveCommands(detail([msg('a1', 1)], [t]))[0]?.state).toBe('interrupted')
   })
 
   it('formats token counts the way the prototype does', () => {

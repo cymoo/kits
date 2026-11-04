@@ -20,14 +20,8 @@ import { useLiveSession, useSessionDiffs, useSessionOutputs } from '../../lib/se
 import { shortcuts, useShortcuts } from '../../lib/shortcuts'
 import { useUi } from '../../lib/ui-store'
 import { formatDuration, useNow } from '../../lib/use-now'
-import {
-  alwaysRules,
-  deriveCommands,
-  deriveRounds,
-  deriveUsage,
-  formatTokens,
-} from '../../session/panels/derive'
-import { type PanelTab, Workbench } from '../../session/panels/Workbench'
+import { alwaysRules, deriveRounds, deriveUsage, formatTokens } from '../../session/panels/derive'
+import { type PanelTab, type PickedFile, Workbench } from '../../session/panels/Workbench'
 import {
   CompactionDivider,
   StatusLine,
@@ -44,7 +38,7 @@ import { ResizeHandle } from '../../ui/ResizeHandle'
 import { Tooltip } from '../../ui/Tooltip'
 
 // 会话页（原型 session.html）：顶栏（标题、状态、目录、Agent · 内核 · 模型、停止）+ 对话流 + 输入框。
-// 右侧的改动 / 产出 / 命令 / 上下文面板在 PR9。
+// 右侧的改动 / 产出 / 上下文面板在 PR9。
 
 function StatusPill({
   session,
@@ -180,11 +174,11 @@ export function SessionPage() {
   const panel = useUi((u) => u.panel)
   const setPanel = useUi((u) => u.setPanel)
   const [tab, setTab] = useState<PanelTab>('changes')
+  const [picked, setPicked] = useState<PickedFile>()
   const rounds = useMemo(
     () => (detail ? deriveRounds(detail, diffs.data ?? []) : []),
     [detail, diffs.data],
   )
-  const commands = useMemo(() => (detail ? deriveCommands(detail) : []), [detail])
   const rules = useMemo(() => (detail ? alwaysRules(detail) : []), [detail])
   const usage = useMemo(
     () =>
@@ -271,7 +265,17 @@ export function SessionPage() {
                 case 'user':
                   return <UserBlock key={b.id} text={b.text} attachments={b.attachments} />
                 case 'turn':
-                  return <TurnBlock key={b.id} block={b} />
+                  return (
+                    <TurnBlock
+                      key={b.id}
+                      block={b}
+                      onOpenFile={(turn, path) => {
+                        setPicked({ turn, path })
+                        setTab('changes')
+                        if (panel === 'hidden') setPanel('side')
+                      }}
+                    />
+                  )
                 case 'text':
                   return <TextBlock key={b.id} block={b} quiet={running || b.id !== lastAnswer} />
                 case 'status':
@@ -365,7 +369,8 @@ export function SessionPage() {
             <Workbench
               detail={detail}
               rounds={rounds}
-              commands={commands}
+              picked={picked}
+              onPick={setPicked}
               rules={rules}
               outputs={outputs.data ?? []}
               usage={usage}

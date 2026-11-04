@@ -55,6 +55,9 @@ export type PartPayload =
       title?: string
       exitCode?: number
       durationMs?: number
+      additions?: number
+      deletions?: number
+      count?: number
     }
   | {
       type: 'permission'

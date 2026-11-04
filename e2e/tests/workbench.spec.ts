@@ -2,7 +2,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { launchApp, mod } from './app'
 import { prepare } from './session'
 
-// 会话页右侧的工作区面板（PR9）：改动（按轮、diff 统一 / 并排、放大）、命令、上下文；完成时的总结卡片。内核用 Mock。
+// 会话页右侧的工作区面板（PR9）：改动（按轮、diff 统一 / 并排、放大）、上下文；对话里点开步骤看工具结果；完成时的总结卡片。内核用 Mock。
 
 const mock = (scenario: string) => ({
   KITS_KERNEL: 'mock',
@@ -34,15 +34,41 @@ test('shows the changed files, commands and usage of a finished turn', async () 
     await expect(panel.getByRole('tab', { name: /改动/ })).toContainText('1')
 
     await page.screenshot({ path: 'test-results/workbench-changes.png' })
-    await panel.getByRole('tab', { name: /命令/ }).click()
-    const command = panel.getByTestId('command')
-    await expect(command).toContainText('uv run pytest tests/points -q')
-    await expect(command).toContainText('退出 0')
-    await expect(command).toContainText('1.2 秒 · 自动允许')
-    await expect(command).toContainText('12 passed')
+    await expect(panel.getByRole('tab')).toHaveText([/改动/, '产出', '上下文'])
+
+    // 命令的结果在对话里就地看：标题是模型写的描述，点开是命令、输出和允许方式
+    const turn = page.getByTestId('turn')
+    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    const step = turn.getByTestId('step').filter({ hasText: '跑 points 的测试' })
+    await expect(step).toContainText('uv run pytest tests/points -q')
+    await expect(step).toContainText('1.2 秒')
+    await step.click()
+    const output = turn.getByTestId('step-output')
+    await expect(output).toContainText('uv run pytest tests/points -q')
+    await expect(output).toContainText('12 passed')
+    await expect(output).toContainText('自动允许')
+    await page.screenshot({ path: 'test-results/workbench-step-output.png' })
 
     await panel.getByRole('tab', { name: '上下文' }).click()
     await expect(panel.getByTestId('context-usage')).toHaveText('21K / 128K')
+
+    // 改文件的步骤跳到“改动”
+    await turn.getByTestId('step').filter({ hasText: '修改' }).click()
+    await expect(panel.getByRole('tab', { name: /改动/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
+
+    // 面板收起时也能跳过去
+    await page.getByRole('button', { name: '收起工作区面板' }).click()
+    await expect(panel).toBeHidden()
+    await turn.getByTestId('step').filter({ hasText: '修改' }).click()
+    await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
+
+    // 键盘：聚焦步骤回车展开，再回车收起
+    await step.focus()
+    await page.keyboard.press('Enter')
+    await expect(output).toBeHidden()
+    await page.keyboard.press('Enter')
+    await expect(output).toContainText('12 passed')
   } finally {
     await close()
   }
@@ -129,21 +155,53 @@ test('resizes the workspace panel and the chat column of the wide layout', async
   }
 })
 
-test('lists a command waiting for confirmation in the commands tab', async () => {
+test('opens a failed command with the end of its output', async () => {
+  const { page, configDir, close } = await launchApp(mock('command-failed'))
+  try {
+    await send(page, configDir, '跑一下测试')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    const turn = page.getByTestId('turn')
+    await expect(turn).toContainText('1 步失败')
+    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await expect(turn.getByTestId('step').filter({ hasText: '跑 points 的测试' })).toContainText(
+      '退出 1',
+    )
+    // 失败的默认展开，只放结尾，前面的点了才有
+    const output = turn.getByTestId('step-output')
+    await expect(output).toContainText('1 failed, 15 passed')
+    await expect(output).toContainText('0.9 秒 · 自动允许')
+    await expect(output).not.toContainText('.............F..')
+    await output.getByRole('button', { name: '显示前面 2 行' }).click()
+    await expect(output).toContainText('.............F..')
+
+    await output.hover()
+    await output.getByRole('button', { name: '复制输出' }).click()
+    await expect(output.getByRole('button', { name: '已复制' })).toBeVisible()
+  } finally {
+    await close()
+  }
+})
+
+test('shows a command waiting for confirmation on its step', async () => {
   const { page, configDir, close } = await launchApp(mock('permission'))
   try {
     await send(page, configDir, '改完跑一下测试')
     await expect(page.getByTestId('permission-card')).toBeVisible()
-    const panel = page.getByRole('complementary', { name: '工作区面板' })
-    await panel.getByRole('tab', { name: /命令/ }).click()
-    await expect(panel.getByTestId('command')).toContainText('等待确认')
+    const turn = page.getByTestId('turn')
+    const step = turn.getByTestId('step').filter({ hasText: '跑 points 的测试' })
+    await expect(step).toContainText('等待确认')
     await page
       .getByTestId('permission-card')
       .getByRole('button', { name: /本会话允许/ })
       .click()
-    await expect(panel.getByTestId('command')).toContainText('退出 0')
-    await expect(panel.getByTestId('command')).toContainText('本会话允许')
-    await expect(panel.getByTestId('terminal')).toContainText('uv run pytest *')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await expect(step).toContainText('3.4 秒')
+    await step.click()
+    await expect(turn.getByTestId('step-output')).toContainText('本会话允许')
+    const panel = page.getByRole('complementary', { name: '工作区面板' })
+    await panel.getByRole('tab', { name: '上下文' }).click()
+    await expect(panel.getByTestId('allow-rules')).toContainText('uv run pytest *')
   } finally {
     await close()
   }

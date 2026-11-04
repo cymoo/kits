@@ -20,6 +20,9 @@ export type MockStep =
       error?: string
       exitCode?: number
       durationMs?: number
+      additions?: number
+      deletions?: number
+      count?: number
     }
   // 权限请求：等 respondPermission，按回复走 allow 或 reject 分支
   | {
@@ -59,6 +62,7 @@ export const mockScenarioNames = [
   'crash',
   'context',
   'output-structured',
+  'command-failed',
 ] as const
 export type MockScenarioName = (typeof mockScenarioNames)[number]
 
@@ -80,6 +84,7 @@ const readRedeem: MockStep = {
   callId: 'call_read',
   input: { filePath: 'src/points/redeem.py' },
   output: 'def redeem(request_id, user_id, coupon_id):\n    ...',
+  count: 86,
 }
 
 const redeemDiff: FileDiff = {
@@ -109,6 +114,8 @@ const editRedeem: MockStep = {
   callId: 'call_edit',
   input: { filePath: 'src/points/redeem.py' },
   output: 'Edit applied successfully.',
+  additions: 6,
+  deletions: 1,
 }
 
 const runTests: MockStep = {
@@ -124,6 +131,31 @@ const runTests: MockStep = {
 const answer =
   '改好了：把幂等检查抽成了装饰器 `@idempotent`，兑换接口加了一行。\n\n' +
   '| 文件 | 改动 |\n|---|---|\n| src/points/redeem.py | +6 −1 |\n\n跑一下 `tests/points` 确认没有回归。'
+
+const failedTests: MockStep = {
+  delay: 200,
+  tool: 'bash',
+  callId: 'call_fail',
+  input: { command: 'uv run pytest tests/points -q', description: '跑 points 的测试' },
+  output: [
+    '.............F..                                                         [100%]',
+    '=================================== FAILURES ===================================',
+    '_______________ test_refund_same_request_id_returns_first_result _______________',
+    '',
+    '    def test_refund_same_request_id_returns_first_result():',
+    '>       first = refund(order_id=1, amount=10, refund_request_id="r-1")',
+    "E       TypeError: refund() got an unexpected keyword argument 'refund_request_id'",
+    '',
+    'tests/points/test_refund.py:90: TypeError',
+    '------------------------------ Captured log call -------------------------------',
+    'INFO     points.refund:refund.py:14 refund start order=1',
+    '=========================== short test summary info ============================',
+    'FAILED tests/points/test_refund.py::test_refund_same_request_id_returns_first_result',
+    '1 failed, 15 passed in 0.91s',
+  ].join('\n'),
+  exitCode: 1,
+  durationMs: 900,
+}
 
 export const mockScenarios: Record<MockScenarioName, MockScenario> = {
   done: {
@@ -142,6 +174,20 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
       usage(21_400, 320),
     ],
     diff: [redeemDiff],
+  },
+  'command-failed': {
+    name: 'command-failed',
+    steps: [
+      busy,
+      readRedeem,
+      failedTests,
+      {
+        delay: 200,
+        text: '有 1 个测试没过，`refund()` 还没接收请求号参数。',
+        partId: 'prt_answer',
+      },
+      usage(9_800, 120),
+    ],
   },
   streaming: {
     name: 'streaming',

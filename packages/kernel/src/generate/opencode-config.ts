@@ -20,6 +20,7 @@ import {
   type SkillInfo,
 } from '@kits/core'
 import type { GeneratedFiles } from '../kernel'
+import { DESCRIBE_BASH_PLUGIN, DESCRIBE_BASH_PLUGIN_PATH } from './describe-bash-plugin'
 
 // 统一配置 → opencode.json（phase1-implementation 4.1 节）。纯函数：输入全部配置和本次运行的参数，
 // 输出要写的文件和要传给子进程的环境变量。密钥只进环境变量，配置文件里写 `{env:…}`，不落盘。
@@ -425,7 +426,10 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
     ok: true,
     config,
     files: {
-      files: [{ path: 'opencode.json', content: `${JSON.stringify(config, null, 2)}\n` }],
+      files: [
+        { path: 'opencode.json', content: `${JSON.stringify(config, null, 2)}\n` },
+        { path: DESCRIBE_BASH_PLUGIN_PATH, content: DESCRIBE_BASH_PLUGIN },
+      ],
       env,
     },
   }

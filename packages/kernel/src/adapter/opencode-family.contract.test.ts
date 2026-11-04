@@ -126,7 +126,23 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     const permission = events.find((e) => e.type === 'permission-request')
     expect(permission).toMatchObject({ tool: 'bash', patterns: ["printf 'hi'"] })
     const start = events.find((e) => e.type === 'tool-start')
-    expect(start).toMatchObject({ name: 'bash', input: { command: "printf 'hi'" } })
+    expect(start).toMatchObject({
+      name: 'bash',
+      input: { command: "printf 'hi'", description: 'Print hi' },
+    })
+    // 配置目录里的插件把 description 加进了模型看到的参数表，其余参数还在
+    const bash = (mocks.ok?.requests ?? [])
+      .flatMap((r) => (r.tools ?? []) as { function: { name: string; parameters: unknown } }[])
+      .find((t) => t.function.name === 'bash')
+    expect(bash?.function.parameters).toMatchObject({
+      properties: {
+        command: expect.anything(),
+        description: expect.anything(),
+        timeout: expect.anything(),
+        workdir: expect.anything(),
+      },
+      required: expect.arrayContaining(['description']),
+    })
     const end = events.find((e) => e.type === 'tool-end')
     // OpenCode 1.19.5 在 CI 上偶尔拿不到很快就退出的命令的输出，回 "(no output)"；这里验的是映射，两种都接受
     expect(end && end.type === 'tool-end' && String(end.output)).toMatch(/hi|\(no output\)/)

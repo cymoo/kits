@@ -32,6 +32,12 @@ describe('spawnEnv', () => {
     for (const key of keys) expect(env[key]).toBe('/kits/data')
   })
 
+  it('keeps npm offline so a plugin in the config dir never waits for the registry', () => {
+    const env = spawnEnv(cfg, {})
+    expect(env.npm_config_offline).toBe('true')
+    expect(env.npm_config_cache).toBe(path.join('/kits/data', 'npm-cache'))
+  })
+
   it('disables autoupdate, claude code config and network downloads but keeps project skills', () => {
     const env = spawnEnv(cfg, {})
     expect(env.OPENCODE_DISABLE_AUTOUPDATE).toBe('1')

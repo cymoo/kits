@@ -29,9 +29,37 @@ a{color:#3659E3}a:hover{color:#2744B8}
 .k-ico:hover{background:#EFEEEA;color:#1B1B1F}
 .k-link{height:24px;padding:0 8px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:13px;color:#3659E3;cursor:pointer}
 .k-code{font-family:'JetBrains Mono',monospace;font-size:14px;background:#F4F3F0;border-radius:4px;padding:0 4px}
-.k-step{display:flex;align-items:baseline;gap:10px;padding:4px 14px 4px 34px;font-size:13.5px}
-.k-step .k{color:#6E6E76;flex:0 0 56px}
-.k-step .d{font-family:'JetBrains Mono',monospace;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.k-step{display:flex;align-items:flex-start;gap:8px;width:100%;box-sizing:border-box;padding:4px 14px;border:0;background:transparent;font:inherit;font-size:13.5px;color:#1B1B1F;text-align:left;cursor:pointer}
+.k-step:disabled{cursor:default;color:#1B1B1F}
+.k-step:disabled:hover{background:transparent}
+.k-step:focus-visible,.k-head:focus-visible,.k-more:focus-visible{outline:2px solid #3659E3;outline-offset:-2px;border-radius:6px}
+.k-step .i{flex:0 0 16px;height:20px;display:flex;align-items:center;justify-content:center;color:#9A9AA1}
+.k-step .b{flex:1;min-width:0;display:flex;flex-direction:column}
+.k-step .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.k-step .v{color:#6E6E76}
+.k-step .p{font-family:'JetBrains Mono',monospace;font-size:13px}
+.k-step .c{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:18px;color:#6E6E76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.k-step .m{flex:0 0 auto;font-size:13px;line-height:20px;color:#6E6E76;font-variant-numeric:tabular-nums}
+.k-step .x{flex:0 0 14px;height:20px;display:flex;align-items:center;justify-content:center;color:#6E6E76;opacity:0}
+.k-step:hover .x,.k-step:focus-visible .x,.k-step[aria-expanded="true"] .x{opacity:1}
+.k-out{margin:2px 14px 6px 38px;border:1px solid #ECEBE7;border-radius:8px;background:#FFFFFF;overflow:hidden}
+.k-out .s{position:relative}
+.k-out .s+.s{border-top:1px solid #F0EFEB}
+.k-out .l{padding:6px 10px 0;font-size:12px;color:#6E6E76}
+.k-out pre{margin:0;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6;color:#4A4A52;white-space:pre-wrap;overflow-wrap:anywhere;max-height:480px;overflow-y:auto}
+.k-out .s.c{background:#FBFBF9}
+.k-out .s.c pre{color:#1B1B1F}
+.k-out .s.c pre::before{content:'$ ';color:#9A9AA1;user-select:none}
+.k-out .e{padding:8px 10px;font-size:13px;color:#6E6E76}
+.k-out .f{padding:5px 10px;border-top:1px solid #F0EFEB;font-size:12.5px;color:#6E6E76;font-variant-numeric:tabular-nums}
+.k-more{display:block;width:100%;height:26px;padding:0 10px;border:0;background:transparent;font:inherit;font-size:12.5px;color:#6E6E76;text-align:left;cursor:pointer}
+.k-more:hover{background:#F4F3F0;color:#1B1B1F}
+.k-cp{position:absolute;top:4px;right:4px;background:#FFFFFF;opacity:0}
+.k-out .s.c .k-cp{background:#FBFBF9}
+.k-out .s .k-cp:hover{background:#EFEEEA}
+.k-out .s:hover .k-cp,.k-cp:focus-visible,.k-cp[data-done="true"]{opacity:1}
+.k-cp:focus-visible{outline:2px solid #3659E3;outline-offset:-2px}
+.k-cp[data-done="true"]{color:#1E7F43}
 .k-tab{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:0;background:transparent;font:inherit;font-size:13.5px;cursor:pointer;margin-bottom:-1px;color:#6E6E76;border-bottom:2px solid transparent}
 .k-tab[aria-selected="true"]{color:#1B1B1F;font-weight:600;border-bottom-color:#1B1B1F}
 .k-cnt{font-size:12px;font-weight:500;color:#8A8A92;background:#ECEBE7;border-radius:8px;padding:0 6px}
@@ -39,10 +67,6 @@ a{color:#3659E3}a:hover{color:#2744B8}
 .k-file:hover{background:#F4F3F0}
 .k-file[aria-pressed="true"]{background:#ECEBE7}
 .k-badge{flex:0 0 auto;font-size:11.5px;font-weight:600;border-radius:4px;padding:0 5px}
-.k-term{display:flex;flex-direction:column;border:1px solid #ECEBE7;border-radius:10px;background:#FFFFFF;overflow:hidden}
-.k-term .h{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px}
-.k-term .h .c{font-family:'JetBrains Mono',monospace;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.k-term pre{margin:0;padding:10px 12px;border-top:1px solid #F0EFEB;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6;color:#4A4A52;white-space:pre-wrap}
 .k-jump{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:32px;height:32px;border:1px solid #E5E4DF;border-radius:50%;background:#FFFFFF;color:#6E6E76;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .k-jump:hover{background:#EFEEEA;color:#1B1B1F}
 .k-jump[hidden]{display:none}
@@ -56,6 +80,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
 </helmet>
 <div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 14px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
 
+  <svg aria-hidden="true" width="0" height="0" style="position: absolute"><symbol id="k-i-read" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3"></path></symbol><symbol id="k-i-search" viewBox="0 0 16 16"><path d="M7 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM10.5 10.5 14 14"></path></symbol><symbol id="k-i-cmd" viewBox="0 0 16 16"><path d="m3 4.5 3.5 3.5L3 11.5M8 12h5"></path></symbol><symbol id="k-i-edit" viewBox="0 0 16 16"><path d="M10.5 3 13 5.5 6 12.5l-3 .5.5-3zM9 4.5 11.5 7"></path></symbol><symbol id="k-i-new" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3M8 7.5v4M6 9.5h4"></path></symbol><symbol id="k-i-mcp" viewBox="0 0 16 16"><path d="M6 2v3M10 2v3M4.5 5h7v2.5a3.5 3.5 0 0 1-7 0zM8 11v3"></path></symbol><symbol id="k-i-memory" viewBox="0 0 16 16"><path d="M4.5 2.5h7v11L8 11l-3.5 2.5z"></path></symbol><symbol id="k-i-submit" viewBox="0 0 16 16"><path d="M8 10V3M5 5.5 8 3l3 2.5M3 10v3h10v-3"></path></symbol></svg>
   <sc-if value="{{wide}}"><k-nav active="session" collapsed></k-nav></sc-if>
   <sc-if value="{{narrow}}"><k-nav active="session"></k-nav></sc-if>
 
@@ -86,22 +111,49 @@ a{color:#3659E3}a:hover{color:#2744B8}
 
             <sc-if value="{{b.isTurn}}">
               <div style="{{b.boxStyle}}">
-                <button type="button" onClick="{{b.toggle}}" aria-expanded="{{b.open}}" class="k-row" style="width: 100%; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 12px; border: 0; background: #FFFFFF; font: inherit; color: #4A4A52; cursor: pointer; text-align: left">
+                <button type="button" onClick="{{b.toggle}}" aria-expanded="{{b.open}}" class="k-row k-head" style="width: 100%; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 12px; border: 0; background: #FFFFFF; font: inherit; color: #4A4A52; cursor: pointer; text-align: left">
                   <sc-if value="{{b.done}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#1E7F43" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if>
                   <sc-if value="{{b.running}}"><span aria-hidden="true" style="width: 12px; height: 12px; border: 2px solid #D5DCF7; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box; margin: 0 1px"></span></sc-if>
                   <sc-if value="{{b.failed}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#B42318" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5M8 11v.1"></path></svg></sc-if>
-                  <span style="flex: 1"><span style="font-weight: 500; color: #1B1B1F">{{b.title}}</span> · {{b.meta}}</span>
+                  <span style="flex: 0 0 auto; font-weight: 500; color: #1B1B1F">{{b.title}}</span>
+                  <span title="{{b.summary}}" style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{b.summary}}</span>
+                  <sc-if value="{{b.failText}}"><span style="flex: 0 0 auto; font-size: 13px; color: #B42318">{{b.failText}}</span></sc-if>
+                  <span style="flex: 0 0 auto; font-size: 13px; color: #6E6E76; font-variant-numeric: tabular-nums">{{b.meta}}</span>
                   <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A9AA1" stroke-width="1.5" stroke-linecap="round" style="{{b.chev}}"><path d="m4 6 4 4 4-4"></path></svg>
                 </button>
                 <sc-if value="{{b.open}}">
                   <div style="border-top: 1px solid #ECEBE7; background: #FCFCFB; display: flex; flex-direction: column; padding: 4px 0 8px">
                     <sc-if value="{{b.think}}">
-                      <button type="button" onClick="{{b.toggleThink}}" aria-expanded="{{b.thinkOpen}}" class="k-row k-step" style="border: 0; background: transparent; font: inherit; color: #4A4A52; cursor: pointer; text-align: left"><span class="k">思考</span><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{b.think.summary}}</span><span style="color: #9A9AA1; font-size: 13px">{{b.thinkLabel}}</span></button>
-                      <sc-if value="{{b.thinkOpen}}"><p style="margin: 0 14px 6px 100px; padding: 8px 12px; border-left: 2px solid #E5E4DF; font-size: 13.5px; line-height: 1.65; color: #6E6E76">{{b.think.text}}</p></sc-if>
+                      <button type="button" onClick="{{b.toggleThink}}" aria-expanded="{{b.thinkOpen}}" class="k-row k-step"><span class="i"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2a4 4 0 0 0-2.5 7.1c.5.5.8 1 .8 1.6v.3h3.4v-.3c0-.6.3-1.1.8-1.6A4 4 0 0 0 8 2zM6.5 13.5h3"></path></svg></span><span class="b"><span class="t" style="color: #4A4A52">{{b.think.summary}}</span></span><span class="x"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="{{b.thinkChev}}"><path d="m6 4 4 4-4 4"></path></svg></span></button>
+                      <sc-if value="{{b.thinkOpen}}"><p style="margin: 0 14px 6px 38px; padding: 8px 12px; border-left: 2px solid #E5E4DF; font-size: 13.5px; line-height: 1.65; color: #6E6E76">{{b.think.text}}</p></sc-if>
                     </sc-if>
                     <sc-for list="{{b.steps}}" as="s">
-                      <div class="k-step"><span class="k">{{s.kind}}</span><span class="d">{{s.detail}}</span><sc-if value="{{s.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box; align-self: center"></span></sc-if><sc-if value="{{s.meta}}"><span style="{{s.metaStyle}}">{{s.meta}}</span></sc-if></div>
-                      <sc-if value="{{s.note}}"><div style="padding: 0 14px 3px 100px; font-size: 12.5px; color: #8A8A92">{{s.note}}</div></sc-if>
+                      <button type="button" onClick="{{s.act}}" disabled="{{s.plain}}" aria-expanded="{{s.open}}" title="{{s.tip}}" class="k-row k-step">
+                        <span class="i" style="{{s.iconStyle}}"><sc-if value="{{s.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if><sc-if value="{{s.is.read}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-read"></use></svg></sc-if><sc-if value="{{s.is.search}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-search"></use></svg></sc-if><sc-if value="{{s.is.cmd}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-cmd"></use></svg></sc-if><sc-if value="{{s.is.edit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-edit"></use></svg></sc-if><sc-if value="{{s.is.new}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-new"></use></svg></sc-if><sc-if value="{{s.is.mcp}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-mcp"></use></svg></sc-if><sc-if value="{{s.is.memory}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-memory"></use></svg></sc-if><sc-if value="{{s.is.submit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-submit"></use></svg></sc-if></span>
+                        <span class="b">
+                          <sc-if value="{{s.desc}}"><span class="t">{{s.desc}}</span><sc-if value="{{s.sub}}"><span class="c">{{s.detail}}</span></sc-if></sc-if>
+                          <sc-if value="{{s.noDesc}}"><span class="t"><span class="v">{{s.verb}}</span> <span class="p">{{s.detail}}</span></span></sc-if>
+                        </span>
+                        <sc-if value="{{s.meta}}"><span class="m" style="{{s.metaStyle}}">{{s.meta}}</span></sc-if>
+                        <sc-if value="{{s.canOpen}}"><span class="x"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="{{s.chev}}"><path d="m6 4 4 4-4 4"></path></svg></span></sc-if>
+                        <sc-if value="{{s.jump}}"><span class="x"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11l6-6M6 5h5v5"></path></svg></span></sc-if>
+                      </button>
+                      <sc-if value="{{s.note}}"><div style="padding: 0 14px 3px 38px; font-size: 12.5px; color: #6E6E76">{{s.note}}</div></sc-if>
+                      <sc-if value="{{s.open}}">
+                        <div class="k-out">
+                          <sc-if value="{{s.isCmd}}"><div class="s c"><pre>{{s.detail}}</pre><button type="button" onClick="{{s.copyCmd}}" class="k-ico k-cp" data-done="{{s.cmdDone}}" aria-label="{{s.cmdLabel}}" title="{{s.cmdLabel}}"><sc-if value="{{s.cmdDone}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{s.cmdDoneNot}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></sc-if></button></div></sc-if>
+                          <sc-if value="{{s.args}}"><div class="s"><div class="l">参数</div><pre>{{s.args}}</pre><button type="button" onClick="{{s.copyArgs}}" class="k-ico k-cp" data-done="{{s.argsDone}}" aria-label="{{s.argsLabel}}" title="{{s.argsLabel}}"><sc-if value="{{s.argsDone}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{s.argsDoneNot}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></sc-if></button></div></sc-if>
+                          <sc-if value="{{s.out}}"><div class="s">
+                            <sc-if value="{{s.args}}"><div class="l">返回</div></sc-if>
+                            <sc-if value="{{s.moreTop}}"><button type="button" onClick="{{s.showAll}}" class="k-more">{{s.moreLabel}}</button></sc-if>
+                            <pre style="{{s.preStyle}}">{{s.shown}}</pre>
+                            <sc-if value="{{s.moreEnd}}"><button type="button" onClick="{{s.showAll}}" class="k-more">{{s.moreLabel}}</button></sc-if>
+                            <button type="button" onClick="{{s.copyOut}}" class="k-ico k-cp" data-done="{{s.outDone}}" aria-label="{{s.outLabel}}" title="{{s.outLabel}}"><sc-if value="{{s.outDone}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{s.outDoneNot}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></sc-if></button>
+                          </div></sc-if>
+                          <sc-if value="{{s.empty}}"><div class="e">{{s.empty}}</div></sc-if>
+                          <sc-if value="{{s.foot}}"><div class="f">{{s.foot}}</div></sc-if>
+                        </div>
+                      </sc-if>
                     </sc-for>
                   </div>
                 </sc-if>
@@ -154,7 +206,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
                     <pre style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; background: #FFFFFF; border: 1px solid #ECEBE7; border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; color: #4A4A52">.....F......
 FAILED tests/points/test_redeem.py::test_redeem_without_request_id
 1 failed, 11 passed in 0.84s</pre>
-                    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6E6E76"><span style="font-weight: 600; color: #B42318">退出码 1</span><span>· 0.9 秒 · 完整输出在右侧“命令”</span></div>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6E6E76"><span style="font-weight: 600; color: #B42318">退出码 1</span><span>· 0.9 秒</span></div>
                   </div>
                 </sc-if>
                 <sc-if value="{{permIsDenied}}"><div style="font-size: 13px; color: #6E6E76">已拒绝 · Agent 不会执行这条命令，会在总结里列出需要你手动运行的命令。</div></sc-if>
@@ -350,19 +402,6 @@ Error: upstream request failed after 5 retries: ECONNRESET
           </sc-if>
         </sc-if>
 
-        <sc-if value="{{isTerminal}}">
-          <div data-keep-scroll="term" style="flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px">
-            <sc-for list="{{commands}}" as="c">
-              <div class="k-term" style="{{c.style}}"><div class="h"><span class="c">{{c.cmd}}</span><span style="{{c.exitStyle}}">{{c.exit}}</span><span style="color: #9A9AA1">{{c.meta}}</span></div><sc-if value="{{c.out}}"><pre>{{c.out}}</pre></sc-if></div>
-            </sc-for>
-            <div style="display: flex; flex-direction: column; gap: 6px; margin: 8px 6px 0; font-size: 13px; color: #8A8A92">
-              <span>本会话的允许规则</span>
-              <sc-if value="{{alwaysRule}}"><span style="display: inline-flex; align-items: center; gap: 6px; color: #1B1B1F"><span style="font-family: 'JetBrains Mono', monospace; background: #ECEBE7; border-radius: 4px; padding: 0 5px">uv run pytest *</span><button type="button" class="k-small" style="height: 22px; font-size: 12.5px">撤销</button></span></sc-if>
-              <sc-if value="{{noRule}}"><span>还没有。只读命令（git status、ls、cat…）自动允许，其余命令执行前会在对话里问你。</span></sc-if>
-            </div>
-          </div>
-        </sc-if>
-
         <sc-if value="{{isContext}}">
           <div data-keep-scroll="ctx" style="flex: 1; min-height: 0; overflow: auto; padding: 6px 16px 16px; display: flex; flex-direction: column">
             <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-bottom: 1px solid #F0EFEB">
@@ -372,6 +411,10 @@ Error: upstream request failed after 5 retries: ECONNRESET
               <div style="font-size: 13px; color: #4A4A52; line-height: 1.6">{{usageNote}}</div>
             </div>
             <sc-for list="{{ctxRows}}" as="c"><div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F0EFEB"><span style="flex: 0 0 60px; font-size: 13px; color: #6E6E76">{{c.k}}</span><span style="flex: 1; min-width: 0; font-size: 13px; font-family: 'JetBrains Mono', monospace; white-space: pre-line">{{c.v}}</span></div></sc-for>
+            <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F0EFEB"><span style="flex: 0 0 60px; font-size: 13px; color: #6E6E76">允许规则</span><span style="flex: 1; min-width: 0; font-size: 13px">
+              <sc-if value="{{alwaysRule}}"><span style="display: inline-flex; align-items: center; gap: 6px"><span style="font-family: 'JetBrains Mono', monospace; background: #ECEBE7; border-radius: 4px; padding: 0 5px">uv run pytest *</span><button type="button" class="k-small" style="height: 22px; font-size: 12.5px">撤销</button></span></sc-if>
+              <sc-if value="{{noRule}}"><span style="color: #8A8A92">还没有。只读命令（git status、ls、cat…）自动允许，其余命令执行前会在对话里问你。</span></sc-if>
+            </span></div>
           </div>
         </sc-if>
       </aside>
@@ -386,13 +429,31 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     const scene = new URLSearchParams(location.search).get('s') || 'streaming';
-    const tabDefault = { streaming: 'changes', permission: 'terminal', question: 'terminal', done: 'output', error: 'changes', context: 'context', changes: 'changes', output: 'output' };
+    const tabDefault = { streaming: 'changes', permission: 'changes', question: 'changes', done: 'output', error: 'changes', context: 'context', changes: 'changes', output: 'output' };
     this.scene = scene;
     this.state = {
-      open: { think: true },
+      open: { think: true }, stepOpen: {}, stepAll: {}, copied: null,
       perm: 'pending', answer: null, retry: 'retry', retryOpen: true, ctx: 'near', summaryOpen: true,
       tab: tabDefault[scene] || 'changes', sel: null, view: 'unified', vote: null, tags: [],
       itemOpen: 1, filter: 'all', exportOpen: scene === 'output', removed: [6], edited: [2]
+    };
+    // 读文件、搜索的结果，点开步骤时显示
+    this.outs = {
+      'src/points/redeem.py': '12  def redeem(user_id, coupon_id):\n13      points = get_points(user_id)\n14      coupon = get_coupon(coupon_id)\n…\n40      return result',
+      'grep "request_id" src/': 'src/points/api.py:42:    request_id = headers.get("X-Request-Id")\nsrc/points/api.py:58:    log.info("redeem", request_id=request_id)\nsrc/order/create.py:17:    request_id = ctx.request_id\n… 还有 4 处',
+      'src/points/refund.py': '10  def refund(order_id, amount):\n11      order = get_order(order_id)\n12      if order.status != "paid":\n13          raise RefundError("order not paid")',
+      'grep "refund_request_id" src/ tests/': 'src/points/api.py:77:    refund_request_id = body["refund_request_id"]\nsrc/points/schemas.py:31:    refund_request_id: str | None = None\ntests/points/test_api.py:120:    "refund_request_id": "r-1",',
+      'logs/order-svc-2026-11-02.log': '22:00:01 INFO  refund start order=O-88190\n22:00:03 WARN  gateway refund status=429 retry=1\n22:00:33 ERROR refund timeout order=O-88190 after 30.0s\n… 只读了 22:00 后的 2.1 MB',
+      'grep "429" src/payment/': '',
+      'src/payment/gateway.py': '88  def refund(self, order_id, amount):\n89      for attempt in range(self.max_retry):\n90          resp = self.client.post("/refund", ...)\n91          if resp.ok:\n92              return resp.json()',
+      'src/order/refund.py': '24  def submit_refund(order):\n25      result = gateway.refund(order.id, order.amount)\n26      order.mark_refunded(result)',
+      'glob src/points/**/*.py': 'src/points/api.py\nsrc/points/schemas.py\nsrc/points/redeem.py\nsrc/points/refund.py\n… 还有 10 个文件',
+      'src/points/api.py': '31  @router.get("/balance")\n32  def balance(query: BalanceQuery):\n33      return get_points(query.user_id)\n…',
+      'src/points/schemas.py': '12  class BalanceQuery(BaseModel):\n13      user_id: int',
+      'src/member/rules.yaml': '1  levels:\n2    - name: gold\n3      threshold: 50000\n4  protect_days: 30',
+      'src/member/level.py': '140  def should_downgrade(member, today):\n141      days_since = (today - member.drop_at).days\n142      return days_since > rules.protect_days',
+      'grep "protect_days" src/ tests/': 'src/member/rules.yaml:4:protect_days: 30\nsrc/member/level.py:142:    return days_since > rules.protect_days\ntests/member/test_level.py:88:    rules.protect_days = 30\ntests/member/test_level.py:96:    # 第 30 天',
+      'docs/api/points.md': '1  # 积分模块接口\n2\n3  基础路径 `/api/points`，鉴权走网关统一的 Bearer。\n…'
     };
   }
 
@@ -402,19 +463,67 @@ class Component extends DCLogic {
   }
   p(text, caret) { return { isP: true, segs: this.seg(text), caret: !!caret }; }
   li(text) { return { isLi: true, segs: this.seg(text) }; }
-  stepOf([kind, detail, meta, diff, note, spin]) {
-    return { kind, detail, meta, note, spin: !!spin, metaStyle: 'flex: 0 0 auto; font-size: 13px; color: ' + (diff ? '#1E7F43' : '#9A9AA1') };
+  // 命令步骤。desc 是模型写的一句话描述，内核不给时为空，退回“运行 + 命令”
+  sh(desc, cmd, o = {}) {
+    return ['执行命令', cmd, o.exit ? '退出 ' + o.exit : o.time || '', false, '', !!o.spin, { desc, ...o }];
+  }
+  stepOf([kind, detail, meta, diff, note, spin, more = {}], key) {
+    const s = this.state;
+    const look = { 读取文件: ['读取', 'read'], 搜索: ['搜索', 'search'], 执行命令: ['运行', 'cmd'], 修改文件: ['修改', 'edit'], 新建文件: ['新建', 'new'], 调用平台: ['调用', 'mcp'], 记忆: ['记下', 'memory'], 提交产出: ['提交', 'submit'] }[kind];
+    const isCmd = kind === '执行命令';
+    const out = more.out !== undefined ? more.out : this.outs[detail];
+    const fail = !!more.exit || !!more.error;
+    // 改文件的结果就是 diff，放在“改动”里，点了跳过去
+    const edit = kind === '修改文件' || kind === '新建文件';
+    const jump = edit && !spin;
+    const canOpen = !edit && (isCmd || out !== undefined);
+    const open = canOpen && (s.stepOpen[key] !== undefined ? s.stepOpen[key] : fail);
+    // 只放前 12 行，不在对话里套一层滚动。命令留结尾（失败原因和测试汇总都在最后），文件和搜索留开头
+    const LIMIT = 12;
+    const lines = (out || '').split('\n');
+    const cut = lines.length > LIMIT && !s.stepAll[key];
+    const hidden = lines.length - LIMIT;
+    const copy = (id) => () => {
+      const mark = key + ':' + id;
+      this.setState({ copied: mark });
+      setTimeout(() => { if (this.state.copied === mark) this.setState({ copied: null }); }, 1200);
+    };
+    const done = (id) => s.copied === key + ':' + id;
+    return {
+      kind, detail, meta, note, spin: !!spin, fail, verb: look[0], is: spin ? {} : { [look[1]]: true }, desc: more.desc || '', noDesc: !more.desc,
+      // 展开后命令在下面的框里，行内不重复
+      sub: !open, tip: isCmd ? detail : '',
+      isCmd, canOpen, jump, open, plain: !canOpen && !jump, args: more.args || '', out: out || '',
+      shown: cut ? (isCmd ? lines.slice(-LIMIT) : lines.slice(0, LIMIT)).join('\n') : out || '',
+      preStyle: cut ? 'max-height: none' : '', moreTop: cut && isCmd, moreEnd: cut && !isCmd, moreLabel: isCmd ? '显示前面 ' + hidden + ' 行' : '显示后面 ' + hidden + ' 行',
+      showAll: () => this.setState({ stepAll: { ...s.stepAll, [key]: true } }),
+      empty: out ? '' : spin ? '运行中，结束后显示输出' : isCmd ? '没有输出' : '没有结果',
+      // 行上已经有的不再写一遍：成功时行上是耗时，失败时行上是退出码
+      foot: isCmd ? [fail ? more.time : '', more.how].filter(Boolean).join(' · ') : '',
+      copyCmd: copy('cmd'), cmdDone: done('cmd'), cmdDoneNot: !done('cmd'), cmdLabel: done('cmd') ? '已复制' : '复制命令',
+      copyArgs: copy('args'), argsDone: done('args'), argsDoneNot: !done('args'), argsLabel: done('args') ? '已复制' : '复制参数',
+      copyOut: copy('out'), outDone: done('out'), outDoneNot: !done('out'), outLabel: done('out') ? '已复制' : isCmd ? '复制输出' : more.args ? '复制返回' : '复制结果',
+      iconStyle: fail ? 'color: #B42318' : '', metaStyle: fail ? 'color: #B42318' : diff ? 'color: #1E7F43' : '',
+      chev: open ? 'transform: rotate(90deg)' : '',
+      act: jump ? () => this.setState({ tab: 'changes', sel: detail }) : () => this.setState({ stepOpen: { ...s.stepOpen, [key]: !open } })
+    };
   }
   turn(id, title, meta, status, steps, think) {
     const s = this.state;
     const open = s.open[id] !== undefined ? s.open[id] : status === 'running';
+    const list = steps.map((x, i) => this.stepOf(x, id + ':' + i));
+    const n = (...kinds) => list.filter((x) => kinds.includes(x.kind));
+    const files = (...kinds) => new Set(n(...kinds).map((x) => x.detail)).size;
+    const count = [['读 ', files('读取文件'), ' 个文件'], ['搜索 ', n('搜索').length, ' 次'], ['改 ', files('修改文件', '新建文件'), ' 个文件'], ['运行 ', n('执行命令').length, ' 条命令'], ['调用平台 ', n('调用平台').length, ' 次']];
+    const fails = list.filter((x) => x.fail).length;
     return {
       isTurn: true, title, meta, open, done: status === 'done', running: status === 'running', failed: status === 'failed',
+      summary: count.filter((c) => c[1]).map((c) => c.join('')).join(' · ') || '思考', failText: fails ? fails + ' 步失败' : '',
       boxStyle: 'border: 1px solid ' + (status === 'running' ? '#D5DCF7' : '#ECEBE7') + '; border-radius: 12px; overflow: hidden',
       chev: open ? 'transform: rotate(180deg)' : '',
       toggle: () => this.setState({ open: { ...s.open, [id]: !open } }),
-      steps: steps.map((x) => this.stepOf(x)),
-      think: think || null, thinkOpen: !!s.open.think, thinkLabel: s.open.think ? '收起' : '展开',
+      steps: list,
+      think: think || null, thinkOpen: !!s.open.think, thinkChev: s.open.think ? 'transform: rotate(90deg)' : '',
       toggleThink: () => this.setState({ open: { ...s.open, think: !s.open.think } })
     };
   }
@@ -426,14 +535,21 @@ class Component extends DCLogic {
 
     // ---------- 各场景的对话流 ----------
     const redeemUser = { isUser: true, text: '给积分兑换接口加上重复提交校验：同一个请求号只处理一次。改完跑一下 tests/points 下的测试。', attach: 'R-1024 积分兑换优惠券' };
-    const redeemTurn1 = (meta) => this.turn('t1', '第 1 轮 · 工作过程', meta, 'done', [
-      ['读取文件', 'src/points/redeem.py', '86 行'], ['搜索', 'grep "request_id" src/', '7 处'], ['执行命令', 'git status --short', '自动允许 · 0.1 秒'],
-      ['修改文件', 'src/points/redeem.py', '+18 −3', true], ['新建文件', 'src/points/idempotency.py', '+42', true], ['执行命令', 'uv run pytest tests/points -q', '已允许 · 12 passed']]);
+    const redeemSteps = [
+      ['读取文件', 'src/points/redeem.py', '86 行'], ['搜索', 'grep "request_id" src/', '7 处'], this.sh('看工作区有没有没提交的改动', 'git status --short', { time: '0.1 秒', how: '自动允许', out: '' }),
+      ['修改文件', 'src/points/redeem.py', '+18 −3', true], ['新建文件', 'src/points/idempotency.py', '+42', true]];
+    const redeemTest = this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', { time: '1.2 秒', how: '已允许', out: '............\n12 passed in 0.84s' });
+    const redeemTurn1 = (meta) => this.turn('t1', '第 1 轮', meta, 'done', redeemSteps.concat([redeemTest]));
     const redeemText1 = { isText: true, actions: true, paras: [this.p('我在 `redeem()` 里加了按请求号的幂等检查，缓存放在新文件 `idempotency.py`。tests/points 下 12 个测试全部通过。')] };
     const refundUser = { isUser: true, text: '退款接口也一起改了，用同一套请求号规则。' };
-    const doneTurn2 = this.turn('t2', '第 2 轮 · 工作过程', '8 步 · 1:34 · 改了 3 个文件 · 跑了 1 条命令', 'done', [
-      ['读取文件', 'src/points/refund.py', '112 行'], ['搜索', 'grep "refund_request_id" src/ tests/', '3 处'], ['修改文件', 'src/points/idempotency.py', '+21 −9', true], ['修改文件', 'src/points/refund.py', '+3 −1', true],
-      ['修改文件', 'tests/points/test_refund.py', '+38', true], ['执行命令', 'uv run pytest tests/points -q', '本会话允许 · 16 passed'], ['执行命令', 'git status --short', '自动允许'], ['记忆', '记下：请求号字段叫 request_id / refund_request_id', '项目记忆']]);
+    const doneTurn2 = this.turn('t2', '第 2 轮', '1:34', 'done', [
+      ['调用平台', 'req-platform · get_requirement', '0.3 秒', false, '', false, { args: '{\n  "id": "R-1024"\n}', out: '{\n  "title": "积分兑换优惠券",\n  "status": "开发中",\n  "owner": "会员组"\n}' }],
+      ['读取文件', 'src/points/refund.py', '112 行'], ['搜索', 'grep "refund_request_id" src/ tests/', '3 处'], ['修改文件', 'src/points/idempotency.py', '+21 −9', true], ['修改文件', 'src/points/refund.py', '+2', true], ['修改文件', 'tests/points/test_refund.py', '+38', true],
+      this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', { exit: 1, time: '0.9 秒', how: '本会话允许', out: '.............F..                                                         [100%]\n=================================== FAILURES ===================================\n_______________ test_refund_same_request_id_returns_first_result _______________\n\n    def test_refund_same_request_id_returns_first_result():\n>       first = refund(order_id=1, amount=10, refund_request_id="r-1")\nE       TypeError: refund() got an unexpected keyword argument \'refund_request_id\'\n\ntests/points/test_refund.py:90: TypeError\n------------------------------ Captured log call -------------------------------\nINFO     points.refund:refund.py:14 refund start order=1\n=========================== short test summary info ============================\nFAILED tests/points/test_refund.py::test_refund_same_request_id_returns_first_result\n1 failed, 15 passed in 0.91s' }),
+      ['修改文件', 'src/points/refund.py', '+1 −1', true],
+      this.sh('再跑一遍确认修好了', 'uv run pytest tests/points -q', { time: '1.0 秒', how: '本会话允许', out: '................\n16 passed in 1.02s' }),
+      this.sh('看这轮改了哪些文件', 'git status --short', { time: '0.1 秒', how: '自动允许', out: ' M src/points/idempotency.py\n M src/points/refund.py\n M tests/points/test_refund.py' }),
+      ['记忆', '请求号字段叫 request_id / refund_request_id', '项目记忆']]);
     const doneText = { isText: true, paras: [
       this.p('两个接口现在共用一个装饰器 `@idempotent(key)`：按请求号查缓存，命中直接返回第一次的结果，没命中就执行并写入，缓存 24 小时。'),
       this.li('`redeem()` 和 `refund()` 各加了一行装饰器，参数名分别是 `request_id` 和 `refund_request_id`。'),
@@ -445,48 +561,49 @@ class Component extends DCLogic {
     const scenes = {
       streaming: {
         title: '给兑换接口加幂等校验', pill: ['run', '运行中 · 第 2 轮 · 0:46'], dir: 'member-svc',
-        blocks: [redeemUser, this.turn('t1', '第 1 轮 · 工作过程', '6 步 · 38 秒 · 改了 2 个文件', 'done', [
-            ['读取文件', 'src/points/redeem.py', '86 行'], ['搜索', 'grep "request_id" src/', '7 处'], ['执行命令', 'git status --short', '自动允许 · 0.1 秒'],
-            ['修改文件', 'src/points/redeem.py', '+18 −3', true], ['新建文件', 'src/points/idempotency.py', '+42', true], ['执行命令', 'uv run pytest tests/points -q', '已允许 · 12 passed']]),
+        blocks: [redeemUser, redeemTurn1('38 秒'),
           redeemText1, refundUser,
-          this.turn('t2', '第 2 轮 · 工作过程', '进行中 · 5 步 · 0:46', 'running', [
-            ['读取文件', 'src/points/refund.py', '112 行'], ['搜索', 'grep "refund_request_id" src/ tests/', '3 处'], ['修改文件', 'src/points/idempotency.py', '+21 −9', true], ['修改文件', 'src/points/refund.py', '+3 −1', true], ['修改文件', 'tests/points/test_refund.py', '', false, '', true]],
+          this.turn('t2', '第 2 轮', '进行中 · 0:46', 'running', [
+            ['读取文件', 'src/points/refund.py', '112 行'], ['搜索', 'grep "refund_request_id" src/ tests/', '3 处'], ['修改文件', 'src/points/idempotency.py', '+21 −9', true], ['修改文件', 'src/points/refund.py', '+3 −1', true], ['修改文件', 'tests/points/test_refund.py', '+38', true],
+            this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', { spin: true, time: '0:08', how: '本会话允许' })],
             { summary: '把幂等检查抽成装饰器，先确认退款的参数名', text: '退款和兑换都要按请求号去重，缓存逻辑一样，不该复制两份。把 idempotency 里的 get/put 抽成一个装饰器，两个接口都用它。退款的请求号字段叫 refund_request_id，先确认一下 refund.py 里的参数名再改。' }),
-          { isText: true, paras: [this.p('退款接口和兑换共用同一套请求号规则，所以我把 `idempotency` 里的检查抽成了装饰器 `@idempotent("refund_request_id")`，两个接口各加一行就行。正在补退款的测试', true)] }],
-        changes: 'both', terminal: 'streaming', output: 'empty-running', ctx: { usage: ['71K / 200K', 35.5, '前 1 轮 50K', '9K', ''], rows: 'redeem' }
+          { isText: true, paras: [this.p('退款接口和兑换共用同一套请求号规则，所以我把 `idempotency` 里的检查抽成了装饰器 `@idempotent("refund_request_id")`，两个接口各加一行就行。退款的测试补好了，正在跑一遍', true)] }],
+        changes: 'both', output: 'empty-running', ctx: { usage: ['71K / 200K', 35.5, '前 1 轮 50K', '9K', ''], rows: 'redeem' }
       },
       permission: {
         title: '给兑换接口加幂等校验', pill: s.perm === 'pending' || s.perm === 'denying' ? ['wait', '等你确认'] : ['run', '运行中 · 第 1 轮 · 1:20'], dir: 'member-svc',
-        blocks: [redeemUser, this.turn('t2', '第 1 轮 · 工作过程', '进行中 · 5 步 · 1:12', 'running', [
-            ['读取文件', 'src/points/redeem.py', '86 行'], ['搜索', 'grep "request_id" src/', '7 处'], ['执行命令', 'git status --short', '自动允许 · 0.1 秒'], ['修改文件', 'src/points/redeem.py', '+18 −3', true], ['新建文件', 'src/points/idempotency.py', '+42', true]]),
+        blocks: [redeemUser, this.turn('t2', '第 1 轮', '进行中 · 1:12', 'running', redeemSteps),
           { isText: true, paras: [this.p('幂等检查加好了，缓存放在新文件 `idempotency.py`。接下来跑 tests/points 下的测试确认没改坏。')] },
           { isPerm: true }],
-        changes: 'round1', terminal: 'permission', output: 'empty-running', ctx: { usage: ['48K / 200K', 24, '前 0 轮 0K', '36K', ''], rows: 'redeem' }
+        changes: 'round1', output: 'empty-running', ctx: { usage: ['48K / 200K', 24, '前 0 轮 0K', '36K', ''], rows: 'redeem' }
       },
       question: {
         title: '排查订单退款超时', pill: scene === 'question' && s.answer === null ? ['wait', '等你回答'] : ['run', '运行中 · 第 1 轮 · 1:30'], dir: 'order-svc',
         blocks: [{ isUser: true, text: '昨晚 22 点以后退款接口大量超时，看一下原因。日志在 logs/ 下。', attach: 'logs/order-svc-2026-11-02.log · 48 MB' },
-          this.turn('t1', '第 1 轮 · 工作过程', '7 步 · 1:04 · 没有改文件', 'done', [
-            ['读取文件', 'logs/order-svc-2026-11-02.log', '只读了 22:00 后的 2.1 MB'], ['执行命令', 'grep -c "refund.*timeout" logs/…', '自动允许'], ['执行命令', 'awk … | head', '自动允许'], ['搜索', 'grep "429" src/payment/', '0 处'], ['读取文件', 'src/payment/gateway.py', '204 行'], ['读取文件', 'src/order/refund.py', '131 行'], ['执行命令', 'git log --oneline -5 -- src/payment/gateway.py', '自动允许']]),
+          this.turn('t1', '第 1 轮', '1:04', 'done', [
+            ['读取文件', 'logs/order-svc-2026-11-02.log', '只读了 22:00 后的 2.1 MB'], this.sh('数一下退款超时的次数', 'grep -c "refund.*timeout" logs/order-svc-2026-11-02.log', { time: '0.4 秒', how: '自动允许', out: '1284' }),
+            this.sh('看 22 点后网关的日志', "awk '/22:0[0-9]/ && /gateway/' logs/order-svc-2026-11-02.log | head", { time: '0.6 秒', how: '自动允许', out: '22:00:03 WARN gateway refund status=429 retry=1\n22:00:03 WARN gateway refund status=429 retry=2\n22:00:04 WARN gateway refund status=429 retry=3\n22:00:33 ERROR refund timeout order=O-88213 after 30.0s' }),
+            ['搜索', 'grep "429" src/payment/', '0 处'], ['读取文件', 'src/payment/gateway.py', '204 行'], ['读取文件', 'src/order/refund.py', '131 行'],
+            this.sh('', 'git log --oneline -5 -- src/payment/gateway.py', { time: '0.1 秒', how: '自动允许', out: 'a3f21c0 refactor(payment): share the http client\n9be17d2 feat(payment): retry refund on network errors' })]),
           { isText: true, paras: [this.p('22:00 到 23:40 之间有 1,284 次退款超时，全部卡在 `PaymentGateway.refund()` 上，平均等了 30 秒后被客户端断开。网关那边同一时段返回的是 `429 Too Many Requests`，但我们的代码没有处理 429，一直重试到超时。'), this.p('修法有两种，取决于你们对退款时效的要求，我先问一下：')] },
           { isQuestion: true, q: '退款遇到网关限流时，应该怎么处理？', nonblocking: true, options: [
             ['遇到 429 就按网关给的 Retry-After 等待再重试', '退款慢一点但最终都能成功，最多等 60 秒'], ['直接返回“退款处理中”，转异步队列重试', '接口立刻返回，需要加一个重试任务和状态查询'], ['先只加 429 的告警，不改行为', '最小改动，先把问题暴露出来']].map(([label, note]) => ({ label, note, pick: () => this.setState({ answer: label }) })) },
           this.turn('t2', '第 1 轮 · 继续', s.answer === null ? '先按“按 Retry-After 等待再重试”做' : '按你的回答调整中', 'running', [['读取文件', 'src/payment/gateway.py', '204 行'], ['修改文件', 'src/payment/gateway.py', '', false, '', true]])],
-        changes: 'none', terminal: 'question', output: 'empty-running', ctx: { usage: ['64K / 200K', 32, '前 0 轮 0K', '52K', ''], rows: 'order' }
+        changes: 'none', output: 'empty-running', ctx: { usage: ['64K / 200K', 32, '前 0 轮 0K', '52K', ''], rows: 'order' }
       },
       done: {
         title: '给兑换接口加幂等校验', pill: ['done', '已完成 · 2 轮 · 3:12'], dir: 'member-svc',
         blocks: [refundUser, doneTurn2, doneText, doneSummary],
-        changes: 'both', terminal: 'done', output: 'text', ctx: { usage: ['98K / 200K', 49, '前 1 轮 74K', '12K', ''], rows: 'redeemDone' }
+        changes: 'both', output: 'text', ctx: { usage: ['98K / 200K', 49, '前 1 轮 74K', '12K', ''], rows: 'redeemDone' }
       },
       error: {
         title: '生成积分模块接口文档', pill: s.retry === 'retry' ? ['retry', '重试中 · 第 2 次'] : ['err', '出错 · 未完成'], dir: 'member-svc',
         blocks: [{ isUser: true, text: '给 src/points 下所有对外接口写一份接口文档，Markdown，放到 docs/api/points.md。' },
-          this.turn('t2', '第 1 轮 · 工作过程', s.retry === 'retry' ? '进行中 · 4 步 · 3:40' : '中断 · 4 步 · 5:02', s.retry === 'retry' ? 'running' : 'failed', [
-            ['搜索', 'glob src/points/**/*.py', '14 个文件'], ['读取文件', 'src/points/api.py', '318 行'], ['读取文件', 'src/points/schemas.py', '96 行'], ['新建文件', 'docs/api/points.md', '+212', true]]),
+          this.turn('t2', '第 1 轮', s.retry === 'retry' ? '进行中 · 3:40' : '中断 · 5:02', s.retry === 'retry' ? 'running' : 'failed', [
+            ['搜索', 'glob src/points/**/*.py', '14 个文件'], ['读取文件', 'src/points/api.py', '318 行'], ['读取文件', 'src/points/legacy.py', '失败', false, '', false, { error: true, out: 'File not found: src/points/legacy.py' }], ['读取文件', 'src/points/schemas.py', '96 行'], ['新建文件', 'docs/api/points.md', '+212', true]]),
           { isText: true, paras: [this.p('文档已经写了前 6 个接口（查询积分、兑换、退款、流水、冻结、解冻），正在补剩下 3 个的请求示例和错误码')] },
           s.retry === 'retry' ? { isRetry: true } : { isCrash: true }],
-        changes: 'doc', terminal: 'none', output: 'empty-running', ctx: { usage: ['55K / 200K', 27.5, '前 0 轮 0K', '43K', ''], rows: 'redeem' }
+        changes: 'doc', output: 'empty-running', ctx: { usage: ['55K / 200K', 27.5, '前 0 轮 0K', '43K', ''], rows: 'redeem' }
       },
       context: {
         title: '梳理会员等级规则', pill: ['idle', '空闲 · 9 轮 · 42 分钟'], dir: 'member-svc',
@@ -494,17 +611,17 @@ class Component extends DCLogic {
             { k: '任务', v: '梳理会员等级的升降规则，指出代码里和产品文档不一致的地方。' }, { k: '已确认', v: '等级由 LevelService.evaluate() 按近 12 个月累计消费计算；降级有 30 天保护期；文档里写的“连续 3 个月”在代码里不存在。' },
             { k: '看过的', v: 'src/member/level.py · src/member/rules.yaml · docs/member-level.md · 7 个测试文件' }, { k: '待办', v: '把差异整理成一张表给产品确认；保护期的边界用例还没对。' }] }] : [])
           .concat([{ isUser: true, text: '保护期的边界呢？第 30 天当天降不降？' },
-            this.turn('t9', '第 9 轮 · 工作过程', '3 步 · 22 秒', 'done', [['读取文件', 'src/member/rules.yaml', '40 行'], ['读取文件', 'src/member/level.py', '210 行'], ['搜索', 'grep "protect_days" src/ tests/', '4 处']]),
+            this.turn('t9', '第 9 轮', '22 秒', 'done', [['读取文件', 'src/member/rules.yaml', '40 行'], ['读取文件', 'src/member/level.py', '210 行'], ['搜索', 'grep "protect_days" src/ tests/', '4 处']]),
             { isText: true, actions: true, paras: [this.p('第 30 天当天不降。`rules.yaml` 里 `protect_days: 30`，代码用的是 `days_since > 30`，所以第 31 天才会降。但测试 `test_downgrade_boundary` 断言的是第 30 天降，这条测试现在是被跳过的（`@skip("待产品确认")`）。这个也该进差异表。')] }]),
-        changes: 'none', terminal: 'none', output: 'text-short', ctx: { usage: s.ctx === 'done' ? ['27K / 200K', 3, '摘要 6K', '9K', '刚压缩过。前 8 轮换成了 6K 的摘要，原始消息还在本机。'] : ['178K / 200K', 78.5, '前 8 轮 157K', '9K', '接近上限。压缩会把前面几轮换成摘要，最近的对话和改动清单会原样保留。'], rows: 'member' }
+        changes: 'none', output: 'text-short', ctx: { usage: s.ctx === 'done' ? ['27K / 200K', 3, '摘要 6K', '9K', '刚压缩过。前 8 轮换成了 6K 的摘要，原始消息还在本机。'] : ['178K / 200K', 78.5, '前 8 轮 157K', '9K', '接近上限。压缩会把前面几轮换成摘要，最近的对话和改动清单会原样保留。'], rows: 'member' }
       },
-      changes: { title: '给兑换接口加幂等校验', pill: ['done', '已完成 · 2 轮'], dir: 'member-svc', blocks: [refundUser, doneTurn2, doneText], changes: 'both', terminal: 'done', output: 'text', ctx: { usage: ['98K / 200K', 49, '前 1 轮 74K', '12K', ''], rows: 'redeemDone' } },
+      changes: { title: '给兑换接口加幂等校验', pill: ['done', '已完成 · 2 轮'], dir: 'member-svc', blocks: [refundUser, doneTurn2, doneText], changes: 'both', output: 'text', ctx: { usage: ['98K / 200K', 49, '前 1 轮 74K', '12K', ''], rows: 'redeemDone' } },
       output: {
         title: '接口文档和实现对不上的地方', pill: ['done', '已完成 · 1 轮'], dir: 'member-svc', agent: 'api-reviewer',
         blocks: [{ isUser: true, text: '对照 docs/api/points.md 和 src/points/api.py，把文档和实现对不上的地方列出来。' },
-          this.turn('t1', '第 1 轮 · 工作过程', '6 步 · 1:48', 'done', [['读取文件', 'docs/api/points.md', '212 行'], ['读取文件', 'src/points/api.py', '318 行'], ['读取文件', 'src/points/schemas.py', '96 行'], ['提交产出', 'submit_output · 7 条', '格式不符', false, '第 3 条缺 severity，已把错误返回给模型'], ['提交产出', 'submit_output · 7 条', '通过校验', true]]),
+          this.turn('t1', '第 1 轮', '1:48', 'done', [['读取文件', 'docs/api/points.md', '212 行'], ['读取文件', 'src/points/api.py', '318 行'], ['读取文件', 'src/points/schemas.py', '96 行'], ['提交产出', 'submit_output · 7 条', '格式不符', false, '第 3 条缺 severity，已把错误返回给模型'], ['提交产出', 'submit_output · 7 条', '通过校验', true]]),
           { isText: true, paras: [this.p('找到 7 处不一致，2 处严重（接口行为和文档相反）、3 处中等、2 处轻微。已按 api-reviewer 的输出格式提交，在右侧逐条看。严重的两处建议先改代码而不是改文档。')] }],
-        changes: 'none', terminal: 'none', output: 'items', ctx: { usage: ['41K / 200K', 20.5, '前 0 轮 0K', '29K', ''], rows: 'reviewer' }
+        changes: 'none', output: 'items', ctx: { usage: ['41K / 200K', 20.5, '前 0 轮 0K', '29K', ''], rows: 'reviewer' }
       }
     };
     const sc = scenes[scene] || scenes.streaming;
@@ -554,20 +671,6 @@ class Component extends DCLogic {
     const stats = { 'src/points/idempotency.py': sc.changes === 'round1' ? '+42' : '+21 −9', 'src/points/refund.py': '+3 −1', 'tests/points/test_refund.py': '+38', 'src/points/redeem.py': '+18 −3', 'docs/api/points.md': '+212' };
     const fileCount = rd.reduce((n, r) => n + r[2].length, 0);
 
-    // ---------- 右侧面板：命令 ----------
-    const termDefs = {
-      streaming: [['uv run pytest tests/points -q', 0, '1.2 秒', '............\n12 passed in 0.84s'], ['git diff --stat', 0, '自动允许', '']],
-      permission: (s.perm === 'once' || s.perm === 'always' ? [['uv run pytest tests/points -q', 1, '0.9 秒', '.....F......\n=================================== FAILURES ===================================\n____________________ test_redeem_without_request_id ____________________\ntests/points/test_redeem.py:41: in test_redeem_without_request_id\n    redeem(user_id=1, coupon_id=7)\nE   TypeError: redeem() missing 1 required positional argument: \'request_id\'\n1 failed, 11 passed in 0.84s']] : [['uv run pytest tests/points -q', 'wait', '', '']]).concat([['git status --short', 0, '自动允许', '']]),
-      question: [['grep -c "refund.*timeout" logs/order-svc-2026-11-02.log', 0, '自动允许', '1284'], ['awk \'/22:0[0-9]/ && /gateway/\' logs/… | head', 0, '自动允许', '22:00:03 WARN gateway refund status=429 retry=1\n22:00:03 WARN gateway refund status=429 retry=2\n22:00:04 WARN gateway refund status=429 retry=3\n22:00:33 ERROR refund timeout order=O-88213 after 30.0s'], ['git log --oneline -5 -- src/payment/gateway.py', 0, '自动允许', '']],
-      done: [['uv run pytest tests/points -q', 0, '本会话允许', '................\n16 passed in 1.02s'], ['uv run pytest tests/points -q', 1, '经你确认', '.....F......\n1 failed, 11 passed in 0.84s'], ['git status --short', 0, '自动允许', '']],
-      none: []
-    };
-    const commands = termDefs[sc.terminal].map(([cmd, exit, meta, out]) => ({
-      cmd, meta, out, exit: exit === 'wait' ? '等待确认' : '退出 ' + exit,
-      exitStyle: 'font-weight: 500; color: ' + (exit === 'wait' ? '#8A5A00' : exit === 0 ? '#1E7F43' : '#B42318'),
-      style: exit === 'wait' ? 'border-color: #F3D9A4; background: #FFFBF0' : ''
-    }));
-
     // ---------- 右侧面板：产出 ----------
     const sevs = { high: ['严重', 'color: #7A1E12; background: #F8D4CD'], mid: ['中等', 'color: #6B4600; background: #FBF0D9'], low: ['轻微', 'color: #4A4A52; background: #ECEBE7'] };
     const itemDefs = [
@@ -613,7 +716,7 @@ class Component extends DCLogic {
     const segBar = (w, c) => 'width: ' + w + '%; height: 100%; background: ' + c;
 
     // ---------- 页签 ----------
-    const tabDefs = [['changes', '改动', fileCount ? String(fileCount) : ''], ['output', '产出', sc.output === 'items' ? String(7 - removedN) : ''], ['terminal', '命令', commands.length ? String(commands.length) : ''], ['context', '上下文', '']];
+    const tabDefs = [['changes', '改动', fileCount ? String(fileCount) : ''], ['output', '产出', sc.output === 'items' ? String(7 - removedN) : ''], ['context', '上下文', '']];
     const tabs = tabDefs.map(([k, label, count]) => ({ label, count, on: s.tab === k, pick: () => this.setState({ tab: k }), cntStyle: s.tab === k ? 'color: #1B1B1F' : '' }));
 
     // ---------- 确认卡片 / 提问卡片 / 其他交互 ----------
@@ -662,7 +765,7 @@ class Component extends DCLogic {
       compress: () => { this.setState({ ctx: 'compressing' }); setTimeout(() => this.setState({ ctx: 'done' }), 1200); },
       summaryOpen: s.summaryOpen, summaryChev: s.summaryOpen ? 'transform: rotate(180deg)' : '', summaryLabel: s.summaryOpen ? '收起摘要' : '查看摘要', toggleSummary: () => this.setState({ summaryOpen: !s.summaryOpen }),
       // 面板
-      tabs, isChanges: s.tab === 'changes', isOutput: s.tab === 'output', isTerminal: s.tab === 'terminal', isContext: s.tab === 'context',
+      tabs, isChanges: s.tab === 'changes', isOutput: s.tab === 'output', isContext: s.tab === 'context',
       showDiffView: wide && s.tab === 'changes', unified: s.view === 'unified', split: s.view === 'split', setUnified: () => this.setState({ view: 'unified' }), setSplit: () => this.setState({ view: 'split' }),
       noChanges: !rounds.length, hasChanges: !!rounds.length, rounds, selPath: sel, selStat: stats[sel] || '', lines: (diffs[sel] || []).map(([k, a, b, t]) => line(k, a, b, t)),
       changesLayout: 'flex: 1; min-height: 0; display: flex; flex-direction: ' + (wide ? 'row' : 'column'),
@@ -671,7 +774,6 @@ class Component extends DCLogic {
       outputText: outputMd, outputItems: sc.output === 'items', items, filters, kept: String(7 - removedN - editedN), edited: String(editedN), removed: String(removedN),
       exportOpen: s.exportOpen, exportCount: String(7 - removedN), toggleExport: () => this.setState({ exportOpen: !s.exportOpen }),
       exportOpts: [['Excel', '一行一条，字段做列'], ['Markdown', '按严重度分节'], ['JSON', '原始结构，给脚本用'], ['复制为表格', '粘到飞书、Wiki'], ['推送到缺陷平台', 'MCP · 会先确认']].map(([label, note]) => ({ label, note })),
-      commands,
       usageText, histLabel, recentK, usageNote, barSys: segBar(6, '#9A9AA1'), barHist: segBar(histPct, '#8FA3F0'), barRecent: segBar(4.5, '#3659E3'),
       ctxRows: ctxRowDefs[sc.ctx.rows].map(([k, v]) => ({ k, v }))
     };
