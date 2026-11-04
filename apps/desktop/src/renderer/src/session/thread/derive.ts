@@ -45,6 +45,8 @@ export interface Step {
   failed?: boolean
   // 改文件的步骤：结果是 diff，点了跳到“改动”里这个文件
   file?: string
+  // 通过校验的产出：点了跳到“产出”
+  toOutput?: boolean
   // 在跑的命令从这时候算耗时
   startedAt?: number
   // meta 是改了多少行
@@ -220,6 +222,8 @@ export function describeTool(p: ToolPayload, workdir: string): ToolLook {
       return { kind: '新建文件', verb: '新建', icon: 'new', detail: rel(input.filePath, workdir) }
     case 'webfetch':
       return { kind: '读取网页', verb: '读取', icon: 'web', detail: str(input.url) }
+    case 'websearch':
+      return { kind: '搜索网页', verb: '搜索', icon: 'web', detail: str(input.query) }
     case 'task':
       return { kind: '子任务', verb: '子任务', icon: 'task', detail: str(input.description) }
     case 'todowrite':
@@ -232,6 +236,9 @@ export function describeTool(p: ToolPayload, workdir: string): ToolLook {
       return { kind: '提交产出', verb: '提交产出', icon: 'output', detail: '' }
     case 'kits_ask_user':
       return { kind: '提问', verb: '提问', icon: 'note', detail: str(input.question) }
+    // 模型调了不存在的工具或参数不对，内核转给这个工具，input.tool 是模型想调的
+    case 'invalid':
+      return { kind: '调用出错', verb: '调用出错', icon: 'tool', detail: str(input.tool) }
     default: {
       // MCP 工具：<服务名>_<工具名>
       const i = p.name.indexOf('_')
@@ -260,6 +267,12 @@ function cleanOutput(name: string, output: unknown, workdir: string): string {
   const text = typeof output === 'string' ? output : JSON.stringify(output, null, 2)
   if (name === 'bash') {
     return text.replace(/\n*<shell_metadata>[\s\S]*?<\/shell_metadata>\s*$/, '').trimEnd()
+  }
+  if (name === 'skill') {
+    const body = text.match(
+      /<skill_content[^>]*>\n?([\s\S]*?)\n*(?:Base directory for this skill:|<\/skill_content>)/,
+    )?.[1]
+    return (body ?? text).trimEnd()
   }
   if (name === 'read') {
     const body = text.match(/<content>\n([\s\S]*?)\n*(?:\(End of file[^\n]*\n)?<\/content>/)?.[1]
@@ -301,6 +314,11 @@ export function clipOutput(
 
 // 行右边的数字：读了几行、搜到几处、改了多少行。内核没给就不显示
 function toolStat(p: ToolPayload): { meta: string; isStat?: boolean } | undefined {
+  if (p.name === 'kits_submit_output') return { meta: '通过校验', isStat: true }
+  if (p.name === 'kits_remember') {
+    const { scope } = (p.input ?? {}) as { scope?: unknown }
+    return { meta: scope === 'personal' ? '个人记忆' : '项目记忆' }
+  }
   if (p.name === 'read' && p.count !== undefined) return { meta: `${p.count} 行` }
   if (p.name === 'grep' && p.count !== undefined) return { meta: `${p.count} 处` }
   if (p.name === 'glob' && p.count !== undefined) return { meta: `${p.count} 个文件` }
@@ -327,7 +345,8 @@ function toolStep(
   const command = payload.name === 'bash'
   const nonZero = payload.exitCode !== undefined && payload.exitCode !== 0
   const interrupted = p.status === 'running' && !running
-  const errored = p.status === 'error'
+  // invalid 工具本身跑成功了，但这一步是模型调错了
+  const errored = p.status === 'error' || payload.name === 'invalid'
   // 拒绝、过期的命令根本没跑
   const notRun = reply === 'reject' || reply === 'expired'
   const failed = !notRun && (errored || nonZero)
@@ -343,7 +362,9 @@ function toolStep(
         : nonZero
           ? `退出 ${payload.exitCode}`
           : errored
-            ? '失败'
+            ? payload.name === 'kits_submit_output'
+              ? '格式不符'
+              : '失败'
             : command
               ? time
               : (REPLY_META[reply ?? ''] ?? stat?.meta)
@@ -351,6 +372,9 @@ function toolStep(
   const output = cleanOutput(payload.name, payload.output, workdir) || (payload.error ?? '')
   const edit = EDIT_TOOLS.has(payload.name) && p.status === 'completed'
   const file = edit ? editedFiles(payload, workdir)[0] : undefined
+  const toOutput = payload.name === 'kits_submit_output' && p.status === 'completed'
+  // 这两个成功时只回一句“已提交”“已记住”，行上已经写了
+  const quiet = toOutput || (payload.name === 'kits_remember' && !errored)
   return {
     id: p.id,
     ...look,
@@ -361,7 +385,8 @@ function toolStep(
     ...(failed ? { failed } : {}),
     // 改文件成功了结果是 diff；失败时要看报错，还是展开
     ...(file ? { file } : {}),
-    ...(!edit && output ? { output } : {}),
+    ...(toOutput ? { toOutput } : {}),
+    ...(!edit && !quiet && output ? { output } : {}),
     ...(command
       ? {
           command,

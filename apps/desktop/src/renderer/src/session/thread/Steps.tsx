@@ -168,7 +168,15 @@ function StepBody({ step }: { step: Step }) {
   )
 }
 
-export function StepRow({ step, onOpenFile }: { step: Step; onOpenFile(path: string): void }) {
+export function StepRow({
+  step,
+  onOpenFile,
+  onOpenOutput,
+}: {
+  step: Step
+  onOpenFile(path: string): void
+  onOpenOutput(): void
+}) {
   // 失败的默认展开；用户点过就听用户的
   const [userOpen, setUserOpen] = useState<boolean>()
   const expandable = !step.file && (!!step.command || !!step.output || !!step.args)
@@ -177,7 +185,7 @@ export function StepRow({ step, onOpenFile }: { step: Step; onOpenFile(path: str
   const meta =
     step.meta ?? (step.startedAt !== undefined ? formatDuration(now - step.startedAt) : '')
   const Icon = ICONS[step.icon]
-  const { file } = step
+  const { file, toOutput } = step
   const content = (
     <>
       <span
@@ -220,7 +228,7 @@ export function StepRow({ step, onOpenFile }: { step: Step; onOpenFile(path: str
         </span>
       ) : null}
       {expandable ? <StepChevron open={open} /> : null}
-      {file ? (
+      {file || toOutput ? (
         <span className={HINT}>
           <ArrowUpRight size={12} />
         </span>
@@ -229,13 +237,13 @@ export function StepRow({ step, onOpenFile }: { step: Step; onOpenFile(path: str
   )
   return (
     <>
-      {expandable || file ? (
+      {expandable || file || toOutput ? (
         <button
           type="button"
           data-testid="step"
           title={step.command ? step.detail : undefined}
           {...(expandable ? { 'aria-expanded': open } : {})}
-          onClick={() => (file ? onOpenFile(file) : setUserOpen(!open))}
+          onClick={() => (file ? onOpenFile(file) : toOutput ? onOpenOutput() : setUserOpen(!open))}
           className={cx(STEP_ROW, STEP_ACTION)}
         >
           {content}

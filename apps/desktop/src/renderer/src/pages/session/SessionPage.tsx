@@ -274,6 +274,10 @@ export function SessionPage() {
                         setTab('changes')
                         if (panel === 'hidden') setPanel('side')
                       }}
+                      onOpenOutput={() => {
+                        setTab('output')
+                        if (panel === 'hidden') setPanel('side')
+                      }}
                     />
                   )
                 case 'text':
