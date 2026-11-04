@@ -264,6 +264,7 @@ export class SessionService {
       createdAt: at,
       updatedAt: at,
       lastError: null,
+      pinnedAt: null,
     }
     this.deps.store.insertSession(session)
     if (input.mcpOff?.length) this.mcpOff.set(id, input.mcpOff)
@@ -551,6 +552,12 @@ export class SessionService {
     this.deps.store.remove(id)
     this.mcpOff.delete(id)
     rmSync(path.join(this.deps.attachmentsDir, id), { recursive: true, force: true })
+  }
+
+  // 不走 update()：置顶不是会话有新内容，updatedAt 变了它会跳到“今天”分组
+  setPinned(id: string, pinned: boolean): void {
+    const s = this.deps.store.updateSession(id, { pinnedAt: pinned ? this.now() : null })
+    if (s) this.deps.push('session.changed', this.view(s))
   }
 
   private startTurn(

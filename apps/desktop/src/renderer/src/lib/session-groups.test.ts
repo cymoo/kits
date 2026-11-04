@@ -32,7 +32,8 @@ describe('groupOf across a daylight saving change', () => {
 
 describe('groupSessions', () => {
   it('keeps the group order and the order inside a group', () => {
-    const s = (id: string, updatedAt: number) => ({ id, updatedAt }) as SessionSummary
+    const s = (id: string, updatedAt: number) =>
+      ({ id, updatedAt, pinnedAt: null }) as SessionSummary
     const groups = groupSessions(
       [s('a', at(0)), s('b', at(10)), s('c', at(0, 8)), s('d', at(1))],
       now,
@@ -41,6 +42,16 @@ describe('groupSessions', () => {
       ['today', ['a', 'c']],
       ['yesterday', ['d']],
       ['earlier', ['b']],
+    ])
+  })
+
+  it('puts pinned sessions first, the latest pinned on top, whatever their age', () => {
+    const s = (id: string, updatedAt: number, pinnedAt: number | null) =>
+      ({ id, updatedAt, pinnedAt }) as SessionSummary
+    const groups = groupSessions([s('a', at(0), null), s('b', at(0, 8), 1), s('c', at(10), 2)], now)
+    expect(groups.map(([g, items]) => [g, items.map((x) => x.id)])).toEqual([
+      ['pinned', ['c', 'b']],
+      ['today', ['a']],
     ])
   })
 })

@@ -25,6 +25,8 @@ a{color:#3659E3}a:hover{color:#2744B8}
 .k-primary{height:34px;padding:0 16px;border:0;border-radius:9px;background:#1B1B1F;font:inherit;font-weight:500;color:#FFFFFF;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
 .k-small{height:24px;padding:0 8px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:13px;color:#6E6E76;cursor:pointer}
 .k-small:hover{background:#EFEEEA}
+.k-ico{width:24px;height:24px;border:0;border-radius:6px;background:transparent;color:#6E6E76;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.k-ico:hover{background:#EFEEEA;color:#1B1B1F}
 .k-link{height:24px;padding:0 8px;border:0;border-radius:6px;background:transparent;font:inherit;font-size:13px;color:#3659E3;cursor:pointer}
 .k-code{font-family:'JetBrains Mono',monospace;font-size:14px;background:#F4F3F0;border-radius:4px;padding:0 4px}
 .k-step{display:flex;align-items:baseline;gap:10px;padding:4px 14px 4px 34px;font-size:13.5px}
@@ -41,6 +43,9 @@ a{color:#3659E3}a:hover{color:#2744B8}
 .k-term .h{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px}
 .k-term .h .c{font-family:'JetBrains Mono',monospace;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .k-term pre{margin:0;padding:10px 12px;border-top:1px solid #F0EFEB;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.6;color:#4A4A52;white-space:pre-wrap}
+.k-jump{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:32px;height:32px;border:1px solid #E5E4DF;border-radius:50%;background:#FFFFFF;color:#6E6E76;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.k-jump:hover{background:#EFEEEA;color:#1B1B1F}
+.k-jump[hidden]{display:none}
 .k-seg{display:flex;padding:2px;background:#F1F0EC;border-radius:7px;gap:2px}
 .k-seg button{height:24px;padding:0 10px;border:0;border-radius:5px;font:inherit;font-size:13px;cursor:pointer;background:transparent;color:#6E6E76}
 .k-seg button[aria-checked="true"]{background:#FFFFFF;color:#1B1B1F;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
@@ -109,7 +114,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
                   <sc-if value="{{p.isP}}"><p style="margin: 0; font-size: 15px; line-height: 1.7"><sc-for list="{{p.segs}}" as="g"><sc-if value="{{g.code}}"><code class="k-code">{{g.t}}</code></sc-if><sc-if value="{{g.text}}">{{g.t}}</sc-if></sc-for><sc-if value="{{p.caret}}"><span aria-hidden="true" style="display: inline-block; width: 7px; height: 15px; background: #1B1B1F; vertical-align: text-bottom; margin-left: 2px; border-radius: 1px; animation: k-caret 1s steps(1) infinite"></span></sc-if></p></sc-if>
                   <sc-if value="{{p.isLi}}"><div style="display: flex; gap: 10px; font-size: 15px; line-height: 1.7; padding-left: 6px"><span style="color: #9A9AA1">•</span><span><sc-for list="{{p.segs}}" as="g"><sc-if value="{{g.code}}"><code class="k-code">{{g.t}}</code></sc-if><sc-if value="{{g.text}}">{{g.t}}</sc-if></sc-for></span></div></sc-if>
                 </sc-for>
-                <sc-if value="{{b.actions}}"><div class="k-act" style="display: flex; gap: 2px"><button type="button" class="k-small">复制</button><button type="button" class="k-small">重新生成</button></div></sc-if>
+                <sc-if value="{{b.actions}}"><div class="k-act" style="display: flex; gap: 2px"><button type="button" class="k-ico" aria-label="复制回复" title="复制回复"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></button><button type="button" class="k-small">重新生成</button></div></sc-if>
               </div>
             </sc-if>
 
@@ -214,16 +219,8 @@ Error: upstream request failed after 5 retries: ECONNRESET
 
             <sc-if value="{{b.isSummary}}">
               <div class="k-msg" style="display: flex; flex-direction: column; gap: 10px">
-                <div style="display: flex; flex-direction: column; border: 1px solid #ECEBE7; border-radius: 12px; overflow: hidden">
-                  <div style="display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: #FBFBF9; border-bottom: 1px solid #ECEBE7; font-size: 13px; font-weight: 500; color: #6E6E76">这个会话做了什么</div>
-                  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr))">
-                    <button type="button" onClick="{{goChanges}}" class="k-row" style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 0; border-right: 1px solid #ECEBE7; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-size: 13px; color: #6E6E76">改动</span><span style="font-weight: 600; font-size: 15px">{{b.changes}}</span><span style="font-size: 13px"><span style="color: #1E7F43">{{b.add}}</span> <span style="color: #B42318">{{b.del}}</span> · {{b.rounds}}</span></button>
-                    <button type="button" onClick="{{goTerminal}}" class="k-row" style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 0; border-right: 1px solid #ECEBE7; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-size: 13px; color: #6E6E76">命令</span><span style="font-weight: 600; font-size: 15px">{{b.cmds}}</span><span style="font-size: 13px; color: #6E6E76">{{b.cmdNote}}</span></button>
-                    <button type="button" onClick="{{goOutput}}" class="k-row" style="display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 0; background: transparent; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left"><span style="font-size: 13px; color: #6E6E76">产出</span><span style="font-weight: 600; font-size: 15px">{{b.output}}</span><span style="font-size: 13px; color: #6E6E76">{{b.outputNote}}</span></button>
-                  </div>
-                </div>
-                <div style="display: flex; align-items: center; gap: 2px; margin-top: 2px">
-                  <button type="button" class="k-small">复制</button><button type="button" class="k-small">重新生成</button>
+                <div style="display: flex; align-items: center; gap: 2px">
+                  <button type="button" class="k-ico" aria-label="复制回复" title="复制回复"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></button><button type="button" class="k-small">重新生成</button>
                   <span style="flex: 1"></span><span style="font-size: 13px; color: #9A9AA1; margin-right: 4px">结果靠谱吗？</span>
                   <button type="button" onClick="{{voteUp}}" aria-pressed="{{isUp}}" aria-label="有用" style="{{upStyle}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 7h2.5v6H3zM5.5 7l3-5c1 0 1.8.8 1.6 1.8L9.6 6H13a1 1 0 0 1 1 1.2l-1 5a1 1 0 0 1-1 .8H5.5"></path></svg></button>
                   <button type="button" onClick="{{voteDown}}" aria-pressed="{{isDown}}" aria-label="有问题" style="{{downStyle}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M13 9h-2.5V3H13zM10.5 9l-3 5c-1 0-1.8-.8-1.6-1.8L6.4 10H3a1 1 0 0 1-1-1.2l1-5a1 1 0 0 1 1-.8h6.5"></path></svg></button>
@@ -254,6 +251,7 @@ Error: upstream request failed after 5 retries: ECONNRESET
         </div>
 
         <div style="{{composerWrap}}">
+          <button type="button" class="k-jump" aria-label="跳转至底部" title="跳转至底部" hidden><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v10M3.5 8.5 8 13l4.5-4.5"></path></svg></button>
           <sc-if value="{{ctxNear}}">
             <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid #E9B949; border-radius: 10px; background: #FFFBF0; font-size: 13.5px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8A5A00" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5M8 11v.1"></path></svg><span style="flex: 1"><span style="font-weight: 600">上下文已用 178K / 200K。</span><span style="color: #4A4A52"> 再聊一两轮会自动压缩前面的内容，现在压缩可以自己看一眼摘要。</span></span><a href="index.html" style="font-size: 13px; text-decoration: none; margin-right: 4px">带着结论新开会话</a><button type="button" onClick="{{compress}}" class="k-primary" style="height: 28px; font-size: 13px">现在压缩</button></div>
           </sc-if>
@@ -442,7 +440,7 @@ class Component extends DCLogic {
       this.li('没传请求号时按原来的行为直接执行，不做幂等，兼容老调用方。'),
       this.li('补了 4 个测试：重复提交、不同请求号、没传请求号、缓存过期。tests/points 共 16 个全部通过。'),
       this.p('还有一件事你可能要决定：缓存目前在进程内存里，多实例部署时各自独立。要跨实例去重的话得换成 Redis，我没动。')] };
-    const doneSummary = { isSummary: true, changes: '3 个文件', add: '+84', del: '−13', rounds: '2 轮', cmds: '3 条', cmdNote: '1 条经你确认 · 测试 16 passed', output: '回复正文', outputNote: '可编辑后导出 Markdown' };
+    const doneSummary = { isSummary: true };
 
     const scenes = {
       streaming: {
@@ -657,8 +655,6 @@ class Component extends DCLogic {
       // 重试 / 出错
       retryOpen: s.retryOpen, retryChev: s.retryOpen ? 'transform: rotate(180deg)' : '', toggleRetry: () => this.setState({ retryOpen: !s.retryOpen }),
       toCrash: () => this.setState({ retry: 'crash' }), toRetry: () => this.setState({ retry: 'retry', retryOpen: true }),
-      // 完成态
-      goChanges: () => this.setState({ tab: 'changes' }), goTerminal: () => this.setState({ tab: 'terminal' }), goOutput: () => this.setState({ tab: 'output' }),
       isUp: s.vote === 'up', isDown: s.vote === 'down', upStyle: voteStyle(s.vote === 'up'), downStyle: voteStyle(s.vote === 'down'),
       voteUp: () => this.setState({ vote: s.vote === 'up' ? null : 'up' }), voteDown: () => this.setState({ vote: s.vote === 'down' ? null : 'down' }), tags,
       // 上下文压缩
@@ -681,6 +677,20 @@ class Component extends DCLogic {
     };
   }
 }
+</script>
+<script>
+// 演示：对话往上翻时输入框上方出现“跳转至底部”
+const thread = (el) => el.closest && el.closest('section[aria-label="对话"]')
+document.addEventListener('scroll', (e) => {
+  if (e.target.nodeType !== 1 || !e.target.matches('section[aria-label="对话"]')) return
+  const el = e.target
+  el.querySelector('.k-jump').hidden = el.scrollHeight - el.scrollTop - el.clientHeight < 40
+}, true)
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.k-jump')) return
+  const el = thread(e.target)
+  el.scrollTop = el.scrollHeight
+})
 </script>
 </body>
 </html>

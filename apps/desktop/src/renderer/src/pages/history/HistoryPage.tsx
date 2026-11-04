@@ -17,13 +17,14 @@ import {
 import { sessionKeys, useSessions } from '../../lib/sessions'
 import { useUi } from '../../lib/ui-store'
 import { useNow } from '../../lib/use-now'
-import { StatusDot } from '../../shell/SessionList'
+import { PinButton, StatusDot } from '../../shell/SessionList'
 import { cx } from '../../ui/cx'
 import { Menu, MenuContent, MenuRadioGroup, MenuRadioItem, MenuTrigger } from '../../ui/Menu'
 
 // 会话历史（原型 history.html）：状态筛选、目录和 Agent 筛选、按时间分组；行尾可以删除（点两下）。
 
 const GROUP_LABEL: Record<Group, MessageKey> = {
+  pinned: 'nav.pinned',
   today: 'nav.today',
   yesterday: 'nav.yesterday',
   week: 'nav.week',
@@ -187,7 +188,7 @@ export function HistoryPage() {
                   >
                     <Link
                       to={`/s/${s.id}`}
-                      className="grid min-h-12 grid-cols-[16px_minmax(0,1fr)_140px_80px_112px] items-center gap-3 rounded-[10px] px-3 py-2 text-fg no-underline"
+                      className="grid min-h-12 grid-cols-[16px_minmax(0,1fr)_140px_80px_144px] items-center gap-3 rounded-[10px] px-3 py-2 text-fg no-underline"
                     >
                       <span className="flex justify-center">
                         <StatusDot status={s.status} />
@@ -205,10 +206,11 @@ export function HistoryPage() {
                       <span className={cx('font-medium text-[0.923rem]', TONE[state.tone])}>
                         {state.label}
                       </span>
-                      <span className="pr-8 text-right text-[0.923rem] text-fg-label">
+                      <span className="pr-16 text-right text-[0.923rem] text-fg-label">
                         {whenLabel(s.updatedAt, now)}
                       </span>
                     </Link>
+                    <PinButton session={s} className="right-9 h-7 w-7 rounded-[7px]" />
                     {busy ? null : (
                       <button
                         type="button"

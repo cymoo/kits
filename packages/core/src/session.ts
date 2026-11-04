@@ -19,6 +19,8 @@ export interface SessionSummary {
   createdAt: number
   updatedAt: number
   lastError: string | null
+  // 置顶的时间，没置顶为 null
+  pinnedAt: number | null
   // 运行中发的消息，这一轮结束后一起发出去（不落库）
   queued?: string[]
 }

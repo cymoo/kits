@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { t } from '../../app/i18n'
 import { formatDuration, useNow } from '../../lib/use-now'
 import { cx } from '../../ui/cx'
+import { CopyReply } from './CopyReply'
 import type { Block, Step } from './derive'
 import { Markdown } from './Markdown'
 
@@ -162,10 +163,18 @@ export function TurnBlock({ block }: { block: Extract<Block, { kind: 'turn' }> }
   )
 }
 
-export function TextBlock({ block }: { block: Extract<Block, { kind: 'text' }> }) {
+// quiet：复制按钮平时藏着，鼠标移到回复上才出现；最后一条回复做完后一直显示
+export function TextBlock({
+  block,
+  quiet,
+}: {
+  block: Extract<Block, { kind: 'text' }>
+  quiet: boolean
+}) {
   return (
-    <div className="flex flex-col gap-2" data-testid="answer">
+    <div className="group flex flex-col gap-1" data-testid="answer">
       <Markdown text={block.text} caret={block.streaming} />
+      {block.streaming ? null : <CopyReply text={block.text} quiet={quiet} />}
     </div>
   )
 }

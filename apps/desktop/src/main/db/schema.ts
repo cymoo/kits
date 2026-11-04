@@ -24,6 +24,8 @@ export const sessions = sqliteTable(
     // 给已有的行加列时要有默认值
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(sql`0`),
     lastError: text('last_error'),
+    // 置顶的时间（毫秒），没置顶为空
+    pinnedAt: integer('pinned_at'),
   },
   (t) => [index('sessions_updated_at').on(t.updatedAt)],
 )

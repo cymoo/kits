@@ -23,6 +23,8 @@ test('streams a turn from the home page to done', async () => {
     await expect(page.getByTestId('user-message')).toHaveText('给兑换接口加幂等校验')
     await expect(page.getByTestId('answer')).toContainText('改好了')
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    // 完成后对话末尾没有总结卡片，改动、命令、产出看右侧面板
+    await expect(page.getByText('这个会话做了什么')).toHaveCount(0)
     // 完成后工作过程收起，点开能看到每一步
     const turn = page.getByTestId('turn')
     await expect(turn).toContainText('第 1 轮 · 工作过程')
@@ -123,6 +125,81 @@ test('keeps the draft and says why when sending fails', async () => {
     await expect(page.getByRole('alert')).toContainText('ENOENT')
     await expect(box).toHaveValue('给兑换接口加幂等校验')
     await expect(page).not.toHaveURL(/#\/s\//)
+  } finally {
+    await close()
+  }
+})
+
+test('offers a jump to the bottom only after scrolling away from it', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'done',
+    KITS_MOCK_SPEED: '0.2',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('给兑换接口加幂等校验')
+    await box.press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    for (let turn = 2; turn <= 4; turn += 1) {
+      await page.getByLabel('给 Agent 发消息').fill(`第 ${turn} 个问题`)
+      await page.getByLabel('给 Agent 发消息').press('Enter')
+      await expect(page.getByTestId('user-message')).toHaveCount(turn)
+      await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    }
+
+    const thread = page.getByRole('region', { name: '对话' })
+    const jump = page.getByRole('button', { name: '跳转至底部' })
+    const distance = () => thread.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight)
+    await expect.poll(distance).toBeLessThan(40)
+    await expect(jump).toHaveCount(0)
+
+    await thread.evaluate((el) => {
+      el.scrollTop = 0
+    })
+    await expect(jump).toBeVisible()
+    await page.screenshot({ path: 'test-results/jump-to-bottom.png' })
+
+    await jump.click()
+    await expect(jump).toHaveCount(0)
+    await expect.poll(distance).toBeLessThan(40)
+  } finally {
+    await close()
+  }
+})
+
+test('copies any reply from the icon under it', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'done',
+    KITS_MOCK_SPEED: '0.1',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    await page.getByLabel('给 Agent 发消息').fill('第一轮')
+    await page.getByLabel('给 Agent 发消息').press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成 · 1 轮/)
+    await page.getByLabel('给 Agent 发消息').fill('再来一轮')
+    await page.getByLabel('给 Agent 发消息').press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成 · 2 轮/)
+
+    const answers = page.getByTestId('answer')
+    await expect(answers).toHaveCount(2)
+    const first = answers.first().getByRole('button', { name: '复制回复' })
+    const last = answers.last().getByRole('button', { name: '复制回复' })
+    // 最后一条一直显示，前面的鼠标移上去才出现
+    await expect(last).toHaveCSS('opacity', '1')
+    await page.getByLabel('给 Agent 发消息').hover()
+    await expect(first).toHaveCSS('opacity', '0')
+    await answers.first().hover()
+    await expect(first).toHaveCSS('opacity', '1')
+
+    await first.click()
+    await expect(answers.first().getByRole('button', { name: '已复制' })).toBeVisible()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('改好了')
   } finally {
     await close()
   }

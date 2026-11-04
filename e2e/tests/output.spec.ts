@@ -26,11 +26,8 @@ test('edits the reply, keeps the AI draft apart and exports the edited markdown'
   try {
     await send(page, configDir, '给兑换接口加幂等校验')
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
-    const summary = page.getByTestId('summary')
-    await expect(summary).toContainText('回复正文')
-    await summary.getByRole('button', { name: /产出/ }).click()
-
     const panel = page.getByRole('complementary', { name: '工作区面板' })
+    await panel.getByRole('tab', { name: /产出/ }).click()
     const editor = panel.getByLabel('产出内容')
     await expect(editor).toHaveValue(/改好了/)
     // 光标放到末尾（mac 的 textarea 不认 ⌘End）

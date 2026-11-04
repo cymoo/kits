@@ -15,6 +15,7 @@ const session = {
   createdAt: 0,
   updatedAt: 0,
   lastError: null,
+  pinnedAt: null,
 }
 const msg = (
   id: string,

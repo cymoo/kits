@@ -1,6 +1,7 @@
 import type { SessionSummary } from '@kits/core/ipc'
 import {
   AlertCircle,
+  ArrowDown,
   Check,
   Clock,
   Folder,
@@ -10,7 +11,7 @@ import {
   PanelRightOpen,
   Square,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { t } from '../../app/i18n'
 import { basename, usePrefs } from '../../lib/composer-prefs'
@@ -26,7 +27,6 @@ import {
   deriveUsage,
   formatTokens,
 } from '../../session/panels/derive'
-import { SummaryCard } from '../../session/panels/Summary'
 import { type PanelTab, Workbench } from '../../session/panels/Workbench'
 import {
   CompactionDivider,
@@ -37,6 +37,7 @@ import {
 } from '../../session/thread/Blocks'
 import { ErrorCard, PermissionCard, QuestionCard, RetryBar } from '../../session/thread/Cards'
 import { deriveBlocks } from '../../session/thread/derive'
+import { useFollowBottom } from '../../session/thread/follow-bottom'
 import { Composer } from '../../shell/Composer'
 import { cx } from '../../ui/cx'
 import { ResizeHandle } from '../../ui/ResizeHandle'
@@ -170,19 +171,7 @@ export function SessionPage() {
   const lastTurnStart =
     detail?.messages.filter((m) => m.role === 'assistant').at(-1)?.createdAt ?? 0
 
-  // 新内容来了滚到底；用户往上翻了就不打扰
-  const scroller = useRef<HTMLElement>(null)
-  const pinned = useRef(true)
-  // 换了会话就重新跟随到底；同一会话里往上翻了才不打扰
-  // biome-ignore lint/correctness/useExhaustiveDependencies: id 变了才重置
-  useEffect(() => {
-    pinned.current = true
-  }, [id])
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 块变了才需要滚动
-  useEffect(() => {
-    const el = scroller.current
-    if (el && pinned.current) el.scrollTop = el.scrollHeight
-  }, [blocks])
+  const thread = useFollowBottom(id)
 
   const diffs = useSessionDiffs(id)
   const outputs = useSessionOutputs(id)
@@ -208,13 +197,7 @@ export function SessionPage() {
     const gateway = settings.data?.gateways.find((g) => g.id === ref.slice(0, i))
     return gateway?.models.find((m) => m.id === ref.slice(i + 1))?.contextWindow ?? 0
   }, [session?.model, settings.data])
-  // 总结卡片点哪格就打开哪个页签；面板收起着就先打开
-  const openTab = (next: PanelTab) => {
-    setTab(next)
-    if (panel === 'hidden') setPanel('side')
-  }
-  const lastAnswer = [...blocks].reverse().find((b) => b.kind === 'text')
-  const lastAnswerText = lastAnswer?.kind === 'text' ? lastAnswer.text : ''
+  const lastAnswer = blocks.findLast((b) => b.kind === 'text')?.id
 
   useShortcuts({
     stop: () => (id && running ? void kits.session.abort(id) : undefined),
@@ -270,12 +253,9 @@ export function SessionPage() {
       </header>
       <div className="flex min-h-0 flex-1">
         <section
-          ref={scroller}
+          ref={thread.ref}
           aria-label={t('session.thread')}
-          onScroll={(e) => {
-            const el = e.currentTarget
-            pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40
-          }}
+          onScroll={thread.onScroll}
           className={cx(
             'flex min-h-0 min-w-0 flex-col overflow-y-auto',
             panel === 'wide'
@@ -293,7 +273,7 @@ export function SessionPage() {
                 case 'turn':
                   return <TurnBlock key={b.id} block={b} />
                 case 'text':
-                  return <TextBlock key={b.id} block={b} />
+                  return <TextBlock key={b.id} block={b} quiet={running || b.id !== lastAnswer} />
                 case 'status':
                   return <StatusLine key={b.id} block={b} />
                 case 'permission':
@@ -325,15 +305,6 @@ export function SessionPage() {
                   return null
               }
             })}
-            {session.status === 'done' && blocks.at(-1)?.kind !== 'compaction' ? (
-              <SummaryCard
-                rounds={rounds}
-                commands={commands}
-                output={outputs.data?.at(-1)}
-                answer={lastAnswerText}
-                onOpen={openTab}
-              />
-            ) : null}
           </div>
           <div
             className={cx(
@@ -341,6 +312,18 @@ export function SessionPage() {
               panel === 'wide' ? 'to-panel' : 'to-raised',
             )}
           >
+            {thread.atBottom ? null : (
+              <Tooltip content={t('session.toBottom')} side="top">
+                <button
+                  type="button"
+                  aria-label={t('session.toBottom')}
+                  onClick={thread.jump}
+                  className="absolute bottom-full left-1/2 flex h-8 w-8 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-line bg-raised text-fg-muted shadow-pop hover:bg-active hover:text-fg"
+                >
+                  <ArrowDown size={15} />
+                </button>
+              </Tooltip>
+            )}
             {session.queued?.length ? <Queued items={session.queued} /> : null}
             <ContextBanner
               session={session}

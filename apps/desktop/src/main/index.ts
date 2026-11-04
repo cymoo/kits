@@ -297,6 +297,7 @@ app.whenReady().then(() => {
         get: (id) => sessions.get(id),
         search: (query) => sessions.search(query),
         remove: (id) => sessions.remove(id),
+        setPinned: ({ id, pinned }) => sessions.setPinned(id, pinned),
         compact: (id) => sessions.compact(id),
         prompt: ({ id, text, attachments }) => sessions.prompt(id, text, attachments),
         abort: (id) => sessions.abort(id),
