@@ -533,6 +533,8 @@ const zhCN = {
   'onboarding.next': '下一步',
   'onboarding.noModels': '连上了，但网关没有列出任何模型，检查一下地址是不是指到了 /v1',
   'onboarding.finish': '先到这里，进入首页',
+  'onboarding.doneGateway': '已连接 · {model}',
+  'onboarding.doneMcp': '已接入 {n} 个服务',
   'onboarding.workdirTitle': '工作目录',
   'onboarding.workdirIntro':
     'Agent 只在工作目录里读写文件，目录以外的操作要先问你。新建会话时还能换。',

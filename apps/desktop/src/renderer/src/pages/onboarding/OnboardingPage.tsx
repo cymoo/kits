@@ -136,7 +136,10 @@ function GatewayStep({ onNext }: { onNext(): void }) {
           </RadioGroup.Root>
         </div>
       ) : null}
-      <div className="flex justify-end border-line-soft border-t py-4">
+      <div className="flex items-center justify-end border-line-soft border-t py-4">
+        <span className="flex-1 text-[0.923rem] text-fg-muted">
+          {t('onboarding.stepOf', { n: 1 })}
+        </span>
         <Button variant="primary" disabled={!added || !defaultModel} onClick={onNext}>
           {t('onboarding.next')}
         </Button>
@@ -324,6 +327,18 @@ export function OnboardingPage() {
   const navigate = useNavigate()
   const update = useUpdateSettings()
   useAppearance()
+  // 左边步骤下面的小字：配好了显示配了什么（原型 onboarding.html），没配显示说明
+  const settings = useSettings()
+  const homeLabel = useHomeLabel()
+  const mcp = useMcpOverview()
+  const s = settings.data
+  const progress: (string | undefined)[] = [
+    s?.defaultModel
+      ? t('onboarding.doneGateway', { model: s.defaultModel.split('/').pop() ?? '' })
+      : undefined,
+    s?.workdirs[0] ? homeLabel(s.workdirs[0].path) : undefined,
+    mcp.data?.servers.length ? t('onboarding.doneMcp', { n: mcp.data.servers.length }) : undefined,
+  ]
   // 完成或跳过都算走过引导，之后启动不再进来
   const finish = () => {
     update.mutate({ onboardingDone: true })
@@ -372,7 +387,9 @@ export function OnboardingPage() {
                 </span>
                 <span className="flex min-w-0 flex-col gap-px">
                   <span className="font-medium">{s.title}</span>
-                  <span className="text-[0.923rem] text-fg-muted">{s.sub}</span>
+                  <span className="truncate text-[0.923rem] text-fg-muted">
+                    {progress[i] ?? s.sub}
+                  </span>
                 </span>
               </button>
             ))}
