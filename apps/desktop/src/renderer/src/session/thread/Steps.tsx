@@ -23,6 +23,7 @@ import { cx } from '../../ui/cx'
 import { Spinner } from '../../ui/Spinner'
 import { CopyIcon } from './CopyReply'
 import { clipOutput, type Step, type StepIcon } from './derive'
+import { TodoList } from './Plan'
 
 // 工作过程里的一步（原型 session.html）：图标 + 标题，点开就地看结果；改文件的步骤跳到“改动”。
 
@@ -171,13 +172,14 @@ function StepBody({
         <Section text={step.prompt} copy={t('step.copyPrompt')} label={t('step.prompt')} first />
       ) : null}
       {step.subSteps?.length ? <SubSteps steps={step.subSteps} onOpenFile={onOpenFile} /> : null}
+      {step.todos ? <TodoList items={step.todos} /> : null}
       {step.command ? (
         <Section text={step.detail} copy={t('step.copyCommand')} command first />
       ) : null}
       {step.args ? (
         <Section text={step.args} copy={t('step.copyArgs')} label={t('step.args')} first />
       ) : null}
-      {output ? (
+      {step.todos ? null : output ? (
         <Section
           text={output}
           copy={t(
@@ -224,7 +226,8 @@ export function StepRow({
   // 失败的、在跑的子任务默认展开；用户点过就听用户的
   const [userOpen, setUserOpen] = useState<boolean>()
   const expandable =
-    !step.file && (!!step.command || !!step.output || !!step.args || !!step.subSteps)
+    !step.file &&
+    (!!step.command || !!step.output || !!step.args || !!step.subSteps || !!step.todos)
   const open =
     expandable && (userOpen ?? (!!step.failed || (!!step.subSteps && step.state === 'running')))
   const now = useNow(1000, step.startedAt !== undefined)

@@ -25,6 +25,24 @@ describe('mergeModels', () => {
       { id: 'b', note: '', contextWindow: 128_000, toolCall: true },
     ])
   })
+
+  it('takes the context window the gateway reports for new models', () => {
+    expect(mergeModels([], ['a'], { a: 1_048_576 })).toEqual([
+      { id: 'a', note: '', contextWindow: 1_048_576, toolCall: true },
+    ])
+  })
+
+  it('replaces the default context window of a listed model', () => {
+    const current = [{ id: 'a', note: '主力', contextWindow: 128_000, toolCall: true }]
+    expect(mergeModels(current, ['a'], { a: 1_048_576 })).toEqual([
+      { id: 'a', note: '主力', contextWindow: 1_048_576, toolCall: true },
+    ])
+  })
+
+  it('keeps a context window the user changed', () => {
+    const current = [{ id: 'a', note: '', contextWindow: 64_000, toolCall: true }]
+    expect(mergeModels(current, ['a'], { a: 1_048_576 })).toEqual(current)
+  })
 })
 
 describe('fixDefaultModel', () => {

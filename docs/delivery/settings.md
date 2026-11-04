@@ -101,3 +101,44 @@ phase1-implementation PR17（6.2 节主题、6.3 节 `#general` / `#perm` / `#pr
 - 界面语言只有中文（英文选项以后加）。
 - 字体检测只在候选列表里挑（常见的中英文界面字体和等宽字体），列表外的字体要手改 `settings.json` 的 `uiFont` / `codeFont`。
 - 数据与隐私页还没有“导出评测数据（JSONL）”，方案里也没排进第一阶段的 PR。
+
+## 2026-11-05　上下文窗口从网关读，并交给内核
+
+> PR：#45　作者：Claude Code
+
+### 原始需求
+
+会话的“上下文”面板始终显示 128K，测试用的模型是 1M。
+
+原因有两层：连接测试只取模型 id，不看网关报的上下文窗口，新模型一律是默认的 128K；设置里的上下文窗口也没写进内核配置，内核不知道模型上限，“接近上限时自动压缩”实际不会发生。
+
+### 怎么验收
+
+1. 设置 → 内核与模型，展开网关，点“刷新列表”。预期：DeepSeek 这类带 `context_window` 的网关，模型的“上下文”从 128 变成 1049（K）。升级前加的网关要点这一次才会更新。
+2. 把某个模型的上下文改成 64，再点“刷新列表”。预期：还是 64，手改的值不被覆盖。
+3. 回到会话，右侧“上下文”：`18K / 1.0M`，进度条按 1M 算。
+4. 新加一个网关、首次引导加网关：模型直接带网关报的窗口。网关不报时是 128K，可以手改。
+5. 改了上下文后新开一个会话，打开 `<用户数据目录>/kernel/opencode/config/opencode.json`：`provider.<网关>.models.<模型>.limit` 是 `{ context, output }`。
+
+### 主要改动
+
+- `apps/desktop/src/main/gateway/gateway-client.ts`：连接测试的结果多了 `contextWindows`，读 `context_window`、`context_length`、`max_context_length`、`max_model_len`。
+- `apps/desktop/src/renderer/src/lib/gateway.ts`：`mergeModels` 用网关报的窗口。已有模型只有还是默认值 128K 时才替换，手改过的不动；手改成正好 128K 的会被网关的值替换。
+- `packages/kernel/src/generate/opencode-config.ts`：模型写 `limit`。`output` 取 32K 和窗口四分之一里小的那个：内核拿“窗口减 output”当可用上下文，小窗口模型不能让它变成负数。
+- `docs/references/codeagent-checklist.md`：第 27 项。
+
+配置文件格式、数据库 schema 没有变化。界面没有变化，不改原型。
+
+### 测试
+
+- 单元测试：`gateway-client.test.ts`（各家字段名）、`lib/gateway.test.ts`（新模型、替换默认值、保留手改值）、`opencode-config.test.ts`（`limit`、小窗口）。
+- 契约测试：`opencode-config.contract.test.ts` 从真实 opencode 的 `/config/providers` 读回 `limit`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 写了 `limit` 以后内核会自动压缩：128K 窗口约在用到 96K 时触发。网关不报窗口、实际窗口又比 128K 大的模型，要手改，不然压缩来得过早。
+- 已有网关不会自动更新，要点一次“刷新列表”。

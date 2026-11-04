@@ -126,6 +126,7 @@ const zhCN = {
   'step.taskResult': '结果',
   'step.subCount': '{n} 步',
   'step.moreSteps': '显示前面 {n} 步',
+  'plan.title': '计划',
   'step.args': '参数',
   'step.result': '返回',
   'step.copyCommand': '复制命令',

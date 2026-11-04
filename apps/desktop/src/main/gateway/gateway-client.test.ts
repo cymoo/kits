@@ -27,6 +27,28 @@ describe('testGateway', () => {
     expect(auth).toBe('Bearer sk')
   })
 
+  it('reads the context window under the field names gateways use', async () => {
+    const baseUrl = await serve((_req, res) => {
+      res.end(
+        JSON.stringify({
+          data: [
+            { id: 'deepseek', context_window: 1_048_576 },
+            { id: 'openrouter', context_length: 200_000 },
+            { id: 'vllm', max_model_len: 32_768 },
+            { id: 'bad', context_window: '128k' },
+            { id: 'plain' },
+          ],
+        }),
+      )
+    })
+    const r = await testGateway({ baseUrl })
+    expect(r).toMatchObject({
+      ok: true,
+      contextWindows: { deepseek: 1_048_576, openrouter: 200_000, vllm: 32_768 },
+    })
+    expect(r.ok && Object.keys(r.contextWindows)).toHaveLength(3)
+  })
+
   it('fails on a 200 reply that is not a model list', async () => {
     const baseUrl = await serve((_req, res) => {
       res.end(JSON.stringify({ error: { message: 'quota exceeded' } }))
