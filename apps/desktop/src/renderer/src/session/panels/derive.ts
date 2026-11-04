@@ -1,7 +1,7 @@
 import type { FileDiffView, PartView, SessionDetail } from '@kits/core/ipc'
 import { patchOps } from '../thread/derive'
 
-// 右侧面板的数据（phase1-implementation 6.4 节）：改动按轮分组、终端的命令列表、上下文用量、总结卡片。纯函数，有单测。
+// 右侧面板的数据（phase1-implementation 6.4 节）：改动按轮分组、命令列表、上下文用量、总结卡片。纯函数，有单测。
 
 export interface ChangedFile {
   path: string
@@ -132,7 +132,7 @@ const HOW: Record<string, string> = {
   expired: '已过期',
 }
 
-// OpenCode 在 bash 输出末尾附了给模型看的 <shell_metadata>，终端里不显示
+// OpenCode 在 bash 输出末尾附了给模型看的 <shell_metadata>，命令面板里不显示
 function cleanOutput(output: unknown): string {
   if (typeof output !== 'string') return ''
   return output.replace(/\n*<shell_metadata>[\s\S]*?<\/shell_metadata>\s*$/, '').trimEnd()

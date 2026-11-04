@@ -104,6 +104,42 @@ test('closes the command palette when a shortcut jumps to another page', async (
   }
 })
 
+test('expands the sidebar on the settings page and restores it after leaving', async () => {
+  const { page, close } = await launchApp()
+  try {
+    const nav = page.getByRole('navigation', { name: '主导航' })
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await expect(nav).toHaveAttribute('data-collapsed', 'false')
+
+    await page.keyboard.press(`${mod}+Comma`)
+    await expect(nav).toHaveAttribute('data-collapsed', 'true')
+    await nav.getByRole('button', { name: '展开侧栏' }).click()
+    await expect(nav).toHaveAttribute('data-collapsed', 'false')
+    await page.getByRole('link', { name: 'MCP 服务' }).click()
+    await expect(nav).toHaveAttribute('data-collapsed', 'false')
+    await nav.getByRole('button', { name: '折叠侧栏' }).click()
+    await expect(nav).toHaveAttribute('data-collapsed', 'true')
+
+    await page.keyboard.press(`${mod}+B`)
+    await expect(nav).toHaveAttribute('data-collapsed', 'false')
+    await nav.getByRole('link', { name: '新会话' }).click()
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await expect(nav).toHaveAttribute('data-collapsed', 'false')
+    await page.keyboard.press(`${mod}+B`)
+    await expect(nav).toHaveAttribute('data-collapsed', 'true')
+
+    // 记住折叠后再进设置，展开只管这一页，出来还是折叠
+    await page.keyboard.press(`${mod}+Comma`)
+    await nav.getByRole('button', { name: '展开侧栏' }).click()
+    await expect(nav).toHaveAttribute('data-collapsed', 'false')
+    await nav.getByRole('link', { name: '新会话' }).click()
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await expect(nav).toHaveAttribute('data-collapsed', 'true')
+  } finally {
+    await close()
+  }
+})
+
 test('keeps the option picked with the arrow keys in view at the large ui scale', async () => {
   const { page, close } = await launchApp()
   try {

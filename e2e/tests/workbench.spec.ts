@@ -2,7 +2,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { launchApp, mod } from './app'
 import { prepare } from './session'
 
-// 会话页右侧的工作区面板（PR9）：改动（按轮、diff 统一 / 并排、放大）、终端、上下文；完成时的总结卡片。内核用 Mock。
+// 会话页右侧的工作区面板（PR9）：改动（按轮、diff 统一 / 并排、放大）、命令、上下文；完成时的总结卡片。内核用 Mock。
 
 const mock = (scenario: string) => ({
   KITS_KERNEL: 'mock',
@@ -33,7 +33,7 @@ test('shows the changed files, commands and usage of a finished turn', async () 
     await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
     await expect(panel.getByRole('tab', { name: /改动/ })).toContainText('1')
 
-    // 总结卡片：点“命令”跳到终端
+    // 总结卡片：点“命令”跳到命令页签
     const summary = page.getByTestId('summary')
     await expect(summary).toContainText('1 个文件')
     await expect(summary).toContainText('都成功了')
@@ -76,13 +76,13 @@ test('widens the panel with the shortcut and shows the diff side by side', async
   }
 })
 
-test('lists a command waiting for confirmation in the terminal', async () => {
+test('lists a command waiting for confirmation in the commands tab', async () => {
   const { page, configDir, close } = await launchApp(mock('permission'))
   try {
     await send(page, configDir, '改完跑一下测试')
     await expect(page.getByTestId('permission-card')).toBeVisible()
     const panel = page.getByRole('complementary', { name: '工作区面板' })
-    await panel.getByRole('tab', { name: /终端/ }).click()
+    await panel.getByRole('tab', { name: /命令/ }).click()
     await expect(panel.getByTestId('command')).toContainText('等待确认')
     await page
       .getByTestId('permission-card')

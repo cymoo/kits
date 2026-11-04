@@ -2,7 +2,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { launchApp, mod } from './app'
 import { prepare } from './session'
 
-// 会话历史和搜索（PR15）：⌘K 按回复正文搜到会话、高亮命中；会话历史筛选、删除；首页建议和“继续上次”。内核用 Mock。
+// 会话历史和搜索（PR15）：⌘K 按回复正文搜到会话、高亮命中；会话历史筛选、删除；首页建议、侧栏的全部会话。内核用 Mock。
 
 const mock = {
   KITS_KERNEL: 'mock',
@@ -77,7 +77,7 @@ test('filters and removes sessions on the history page', async () => {
   }
 })
 
-test('fills a suggestion into the composer and shows recent sessions to continue', async () => {
+test('fills a suggestion into the composer and opens all sessions from the sidebar', async () => {
   const { page, configDir, close } = await launchApp(mock)
   try {
     await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
@@ -85,10 +85,7 @@ test('fills a suggestion into the composer and shows recent sessions to continue
     await runTask(page, '给兑换接口加幂等校验')
     await page.goto(`${page.url().split('#')[0]}#/`)
 
-    const cards = page.getByTestId('continue-cards')
-    await expect(cards.getByRole('link')).toHaveCount(1)
-    await expect(cards).toContainText('给兑换接口加幂等校验')
-    await expect(cards).toContainText('已完成')
+    await expect(page.getByTestId('session-list')).toContainText('给兑换接口加幂等校验')
     await page.screenshot({ path: 'test-results/home.png' })
 
     await page
@@ -96,6 +93,9 @@ test('fills a suggestion into the composer and shows recent sessions to continue
       .getByRole('button', { name: /写用例/ })
       .click()
     await expect(page.getByLabel('给 Agent 发消息')).toHaveValue(/按 docs\/ 下的需求文档/)
+
+    await page.getByRole('link', { name: '全部会话' }).click()
+    await expect(page.getByRole('heading', { name: '会话', exact: true })).toBeVisible()
   } finally {
     await close()
   }

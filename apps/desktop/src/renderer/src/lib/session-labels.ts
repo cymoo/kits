@@ -1,6 +1,6 @@
 import type { SessionSummary } from '@kits/core/ipc'
 
-// 会话历史、首页“继续上次”、⌘K 共用：什么时候、什么状态、按状态筛选。
+// 会话历史、⌘K 共用：什么时候、什么状态、按状态筛选。
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
@@ -57,10 +57,4 @@ export function matchesFilter(s: SessionSummary, filter: StatusFilter): boolean 
   if (filter === 'attention') return s.status === 'waiting' || s.status === 'error'
   if (filter === 'done') return s.status === 'done' || s.status === 'aborted'
   return true
-}
-
-// 首页“继续上次”：先放等人处理的（待确认、提问、出错），再按最近更新，最多 n 个
-export function continueCards(list: SessionSummary[], n = 3): SessionSummary[] {
-  const rank = (s: SessionSummary) => (s.status === 'waiting' ? 0 : s.status === 'error' ? 1 : 2)
-  return [...list].sort((a, b) => rank(a) - rank(b) || b.updatedAt - a.updatedAt).slice(0, n)
 }

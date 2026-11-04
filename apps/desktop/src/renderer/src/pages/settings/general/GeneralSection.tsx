@@ -204,7 +204,7 @@ export function GeneralSection() {
               <span className="font-medium">{t('general.scale')}</span>
               <small className="text-[0.923rem] text-fg-muted">
                 {t('general.scaleHint', {
-                  px: g.uiScale === 's' ? 12 : g.uiScale === 'l' ? 14 : 13,
+                  px: g.uiScale === 's' ? 13 : g.uiScale === 'l' ? 15 : 14,
                 })}
               </small>
             </div>

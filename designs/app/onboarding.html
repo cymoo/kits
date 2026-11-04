@@ -20,30 +20,30 @@ a{color:#3659E3}a:hover{color:#2744B8}
 @keyframes k-spin{to{transform:rotate(360deg)}}
 </style>
 </helmet>
-<div style="min-height: 100vh; display: flex; flex-direction: column; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 13px; line-height: 1.5; background: #F6F5F2">
+<div style="min-height: 100vh; display: flex; flex-direction: column; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 14px; line-height: 1.5; background: #F6F5F2">
 
   <header style="display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 24px; box-sizing: border-box">
-    <span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 6px; background: #1B1B1F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px">k</span>
-    <span style="font-weight: 650; font-size: 15px; letter-spacing: -0.01em">kits</span>
+    <span aria-hidden="true" style="width: 22px; height: 22px; border-radius: 6px; background: #1B1B1F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px">k</span>
+    <span style="font-weight: 650; font-size: 16px; letter-spacing: -0.01em">kits</span>
     <span style="flex: 1"></span>
-    <span style="font-size: 12px; color: #6E6E76">首次使用 · 十分钟内配好模型、目录和平台</span>
+    <span style="font-size: 13px; color: #6E6E76">首次使用 · 十分钟内配好模型、目录和平台</span>
   </header>
 
   <main style="flex: 1; display: flex; justify-content: center; padding: 32px 24px 48px; box-sizing: border-box">
     <div style="width: 100%; max-width: 980px; display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start">
 
       <nav aria-label="引导步骤" style="flex: 1 1 240px; max-width: 280px; display: flex; flex-direction: column; gap: 4px; padding-top: 12px">
-        <h1 style="margin: 0 0 16px 12px; font-size: 22px; font-weight: 600; letter-spacing: -0.01em">先把三件事配好</h1>
+        <h1 style="margin: 0 0 16px 12px; font-size: 23.5px; font-weight: 600; letter-spacing: -0.01em">先把三件事配好</h1>
         <sc-for list="{{stepItems}}" as="st">
           <button type="button" onClick="{{st.go}}" aria-current="{{st.current}}" class="k-step" style="{{st.style}}">
             <span style="{{st.numStyle}}">{{st.num}}</span>
             <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0">
               <span style="font-weight: 500">{{st.title}}</span>
-              <span style="font-size: 12px; color: #6E6E76">{{st.sub}}</span>
+              <span style="font-size: 13px; color: #6E6E76">{{st.sub}}</span>
             </span>
           </button>
         </sc-for>
-        <p style="margin: 20px 12px 0; font-size: 12px; color: #6E6E76; line-height: 1.6">这些以后都能在“设置”里改。数据只存在本机，模型只走配置好的网关。</p>
+        <p style="margin: 20px 12px 0; font-size: 13px; color: #6E6E76; line-height: 1.6">这些以后都能在“设置”里改。数据只存在本机，模型只走配置好的网关。</p>
       </nav>
 
       <section aria-live="polite" style="flex: 999 1 520px; min-width: 0; background: #FFFFFF; border: 1px solid #E5E4DF; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.03), 0 8px 32px rgba(0,0,0,.04); display: flex; flex-direction: column">
@@ -51,18 +51,18 @@ a{color:#3659E3}a:hover{color:#2744B8}
         <sc-if value="{{isStep1}}">
           <div style="padding: 28px 32px 8px; display: flex; flex-direction: column; gap: 22px">
             <div style="display: flex; flex-direction: column; gap: 4px">
-              <h2 style="margin: 0; font-size: 18px; font-weight: 600">模型网关</h2>
+              <h2 style="margin: 0; font-size: 19.5px; font-weight: 600">模型网关</h2>
               <p style="margin: 0; color: #6E6E76">kits 通过 LLM 网关（OpenAI 兼容接口）调用模型，不直连外网。这里先配一个，内网自建的 vLLM 之类以后在“设置 · 内核与模型”里加。</p>
             </div>
             <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
               <label style="display: flex; flex-direction: column; gap: 6px">
                 <span style="font-weight: 500">网关地址</span>
-                <input class="k-in" type="url" value="https://llm-gateway.corp.example/v1" style="height: 36px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #1B1B1F; background: #FFFFFF">
+                <input class="k-in" type="url" value="https://llm-gateway.corp.example/v1" style="height: 36px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: #1B1B1F; background: #FFFFFF">
               </label>
               <label style="display: flex; flex-direction: column; gap: 6px">
                 <span style="font-weight: 500">API Key</span>
-                <input class="k-in" type="password" value="sk-corp-xxxxxxxxxxxxxxxxxxxxxxxx" style="height: 36px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #1B1B1F; background: #FFFFFF">
-                <span style="font-size: 12px; color: #6E6E76">存在系统钥匙串，不写进配置文件</span>
+                <input class="k-in" type="password" value="sk-corp-xxxxxxxxxxxxxxxxxxxxxxxx" style="height: 36px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: #1B1B1F; background: #FFFFFF">
+                <span style="font-size: 13px; color: #6E6E76">存在系统钥匙串，不写进配置文件</span>
               </label>
             </div>
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
@@ -77,21 +77,21 @@ a{color:#3659E3}a:hover{color:#2744B8}
             </div>
             <sc-if value="{{tested}}">
               <div style="display: flex; flex-direction: column; gap: 10px">
-                <div style="display: flex; align-items: baseline; gap: 8px"><span style="font-weight: 500">默认模型</span><span style="font-size: 12px; color: #6E6E76">写代码和跑测试用这个，每个 Agent 可以单独改</span></div>
+                <div style="display: flex; align-items: baseline; gap: 8px"><span style="font-weight: 500">默认模型</span><span style="font-size: 13px; color: #6E6E76">写代码和跑测试用这个，每个 Agent 可以单独改</span></div>
                 <div role="radiogroup" aria-label="默认模型" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
                   <sc-for list="{{models}}" as="m">
                     <button type="button" role="radio" aria-checked="{{m.on}}" onClick="{{m.pick}}" style="{{m.style}}">
-                      <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500">{{m.id}}</span><span style="font-size: 12px; color: #6E6E76">{{m.note}}</span></span>
+                      <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 500">{{m.id}}</span><span style="font-size: 13px; color: #6E6E76">{{m.note}}</span></span>
                       <span style="{{m.tickStyle}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></span>
                     </button>
                   </sc-for>
                 </div>
               </div>
               <div style="display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px">
-                <div style="display: flex; align-items: baseline; gap: 8px"><span style="font-weight: 500">Agent 内核</span><span style="font-size: 12px; color: #6E6E76">随应用打包，不用另外安装</span></div>
+                <div style="display: flex; align-items: baseline; gap: 8px"><span style="font-weight: 500">Agent 内核</span><span style="font-size: 13px; color: #6E6E76">随应用打包，不用另外安装</span></div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap">
-                  <span style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid #3659E3; border-radius: 8px; background: #F1F4FF; font-weight: 500">CodeAgent <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #6E6E76; font-weight: 400">v0.9.4 · 默认</span></span>
-                  <span style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF">OpenCode <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #6E6E76">v1.2.0 · 兜底</span></span>
+                  <span style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid #3659E3; border-radius: 8px; background: #F1F4FF; font-weight: 500">CodeAgent <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #6E6E76; font-weight: 400">v0.9.4 · 默认</span></span>
+                  <span style="display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF">OpenCode <span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: #6E6E76">v1.2.0 · 兜底</span></span>
                 </div>
               </div>
             </sc-if>
@@ -101,27 +101,27 @@ a{color:#3659E3}a:hover{color:#2744B8}
         <sc-if value="{{isStep2}}">
           <div style="padding: 28px 32px 8px; display: flex; flex-direction: column; gap: 22px">
             <div style="display: flex; flex-direction: column; gap: 4px">
-              <h2 style="margin: 0; font-size: 18px; font-weight: 600">工作目录</h2>
+              <h2 style="margin: 0; font-size: 19.5px; font-weight: 600">工作目录</h2>
               <p style="margin: 0; color: #6E6E76">Agent 只在工作目录里读写文件，目录以外的操作要先问你。新建会话时还能换。</p>
             </div>
             <sc-if value="{{noDir}}">
               <button type="button" onClick="{{pickDir}}" class="k-ghost" style="display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 36px 20px; border: 1px dashed #C9C8C1; border-radius: 12px; background: #FAFAF8; font: inherit; color: #1B1B1F; cursor: pointer">
                 <svg aria-hidden="true" width="28" height="28" viewBox="0 0 16 16" fill="none" stroke="#6E6E76" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg>
                 <span style="font-weight: 500">选择一个代码仓库目录</span>
-                <span style="font-size: 12px; color: #6E6E76">不会默认使用你的主目录</span>
+                <span style="font-size: 13px; color: #6E6E76">不会默认使用你的主目录</span>
               </button>
             </sc-if>
             <sc-if value="{{hasDir}}">
               <div style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 8px">
                 <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid #E5E4DF; border-radius: 12px">
                   <svg aria-hidden="true" width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#6E6E76" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg>
-                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 500">~/repo/member-svc</span><span style="font-size: 12px; color: #6E6E76">Git 仓库 · main 分支 · 工作区干净</span></span>
-                  <button type="button" onClick="{{clearDir}}" class="k-ghost" style="height: 30px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 12px; color: #1B1B1F; cursor: pointer">换一个</button>
+                  <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1"><span style="font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500">~/repo/member-svc</span><span style="font-size: 13px; color: #6E6E76">Git 仓库 · main 分支 · 工作区干净</span></span>
+                  <button type="button" onClick="{{clearDir}}" class="k-ghost" style="height: 30px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 7px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1B1F; cursor: pointer">换一个</button>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border-radius: 10px; background: #F6F5F2">
-                  <span style="font-size: 12px; font-weight: 500; color: #6E6E76">在这个目录里发现</span>
+                  <span style="font-size: 13px; font-weight: 500; color: #6E6E76">在这个目录里发现</span>
                   <sc-for list="{{found}}" as="f">
-                    <div style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#1E7F43" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg><span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">{{f.file}}</span> · {{f.note}}</span></div>
+                    <div style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#1E7F43" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg><span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">{{f.file}}</span> · {{f.note}}</span></div>
                   </sc-for>
                 </div>
               </div>
@@ -132,12 +132,12 @@ a{color:#3659E3}a:hover{color:#2744B8}
         <sc-if value="{{isStep3}}">
           <div style="padding: 28px 32px 8px; display: flex; flex-direction: column; gap: 22px">
             <div style="display: flex; flex-direction: column; gap: 4px">
-              <h2 style="margin: 0; font-size: 18px; font-weight: 600">连接平台（MCP）</h2>
-              <p style="margin: 0; color: #6E6E76">需求平台、用例平台、知识库这些通过 MCP 接入。已有 <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px">mcpServers</span> 配置的话直接粘贴，这一步也可以跳过。</p>
+              <h2 style="margin: 0; font-size: 19.5px; font-weight: 600">连接平台（MCP）</h2>
+              <p style="margin: 0; color: #6E6E76">需求平台、用例平台、知识库这些通过 MCP 接入。已有 <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">mcpServers</span> 配置的话直接粘贴，这一步也可以跳过。</p>
             </div>
             <label style="display: flex; flex-direction: column; gap: 6px">
               <span style="font-weight: 500">粘贴配置</span>
-              <textarea class="k-in" rows="7" style="padding: 10px 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; color: #1B1B1F; background: #FFFFFF; resize: vertical">{
+              <textarea class="k-in" rows="7" style="padding: 10px 12px; border: 1px solid #E5E4DF; border-radius: 8px; font: inherit; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; color: #1B1B1F; background: #FFFFFF; resize: vertical">{
   "mcpServers": {
     "req-platform": { "url": "https://req.corp.example/mcp", "headers": { "Authorization": "Bearer ${REQ_TOKEN}" } },
     "wiki": { "command": "npx", "args": ["-y", "@corp/wiki-mcp"] }
@@ -145,15 +145,15 @@ a{color:#3659E3}a:hover{color:#2744B8}
 }</textarea>
             </label>
             <div style="display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px">
-              <span style="font-size: 12px; font-weight: 500; color: #6E6E76">识别到 2 个服务</span>
-              <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid #E5E4DF; border-radius: 10px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: #1E7F43"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500">req-platform</span><span style="font-size: 12px; color: #6E6E76">HTTP · 已连接 · 6 个工具</span><span style="flex: 1"></span><span style="font-size: 12px; color: #6E6E76">令牌从环境变量 REQ_TOKEN 读取</span></div>
-              <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid #E5E4DF; border-radius: 10px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: #B4650A"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500">wiki</span><span style="font-size: 12px; color: #6E6E76">stdio · 正在启动进程…</span><span style="flex: 1"></span><button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 12px; color: #3659E3; cursor: pointer">查看日志</button></div>
+              <span style="font-size: 13px; font-weight: 500; color: #6E6E76">识别到 2 个服务</span>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid #E5E4DF; border-radius: 10px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: #1E7F43"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 500">req-platform</span><span style="font-size: 13px; color: #6E6E76">HTTP · 已连接 · 6 个工具</span><span style="flex: 1"></span><span style="font-size: 13px; color: #6E6E76">令牌从环境变量 REQ_TOKEN 读取</span></div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid #E5E4DF; border-radius: 10px"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: #B4650A"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 13.5px; font-weight: 500">wiki</span><span style="font-size: 13px; color: #6E6E76">stdio · 正在启动进程…</span><span style="flex: 1"></span><button type="button" class="k-ghost" style="height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font: inherit; font-size: 13px; color: #3659E3; cursor: pointer">查看日志</button></div>
             </div>
           </div>
         </sc-if>
 
         <footer style="display: flex; align-items: center; gap: 10px; padding: 16px 32px 20px; border-top: 1px solid #F0EFEB; margin-top: 8px">
-          <span style="font-size: 12px; color: #6E6E76">第 {{step}} 步，共 3 步</span>
+          <span style="font-size: 13px; color: #6E6E76">第 {{step}} 步，共 3 步</span>
           <span style="flex: 1"></span>
           <sc-if value="{{canBack}}"><button type="button" onClick="{{back}}" class="k-ghost" style="height: 36px; padding: 0 14px; border: 1px solid #E5E4DF; border-radius: 9px; background: #FFFFFF; font: inherit; color: #1B1B1F; cursor: pointer">上一步</button></sc-if>
           <sc-if value="{{isStep3}}"><a href="index.html" class="k-ghost" style="display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: 9px; font: inherit; color: #6E6E76; text-decoration: none">先跳过</a></sc-if>
@@ -185,7 +185,7 @@ class Component extends DCLogic {
         num: done ? '✓' : String(n), title, sub, current: cur,
         go: () => this.setState({ step: n }),
         style: 'display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border: 0; border-radius: 10px; background: ' + (cur ? '#FFFFFF' : 'transparent') + '; box-shadow: ' + (cur ? '0 1px 2px rgba(0,0,0,.04), 0 0 0 1px #E5E4DF' : 'none') + '; font: inherit; color: #1B1B1F; cursor: pointer; text-align: left; width: 100%',
-        numStyle: 'flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 600; ' + (done ? 'background: #E3F3E9; color: #1E7F43' : cur ? 'background: #1B1B1F; color: #FFFFFF' : 'background: #E9E8E3; color: #6E6E76')
+        numStyle: 'flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 600; ' + (done ? 'background: #E3F3E9; color: #1E7F43' : cur ? 'background: #1B1B1F; color: #FFFFFF' : 'background: #E9E8E3; color: #6E6E76')
       };
     });
     const models = [['coder-main', '主力 · 写代码、跑测试'], ['coder-fast', '快 · 适合小改动和问答'], ['reasoner-pro', '慢 · 复杂分析']].map(([id, note]) => {
