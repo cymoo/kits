@@ -13,7 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "package": "pnpm build && electron-builder --config electron-builder.yml",
     "package:dir": "pnpm build && electron-builder --config electron-builder.yml --dir",
-    "package:portable": "pnpm build && electron-builder --config electron-builder.yml --win portable --x64 --publish never"
+    "package:portable": "pnpm build && electron-builder --config electron-builder.yml --win portable --x64 --publish never --config.electronDist=node_modules/electron/dist"
   },
   "dependencies": {
     "@kits/core": "workspace:*",

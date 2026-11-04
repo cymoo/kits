@@ -140,3 +140,45 @@ phase1-implementation PR20：electron-builder 出 mac dmg（arm64 / x64）、win
 - 没有在真实 Windows 机器上打包和运行过，上面的验收步骤要在 Windows 上走一遍。
 - `updater.ts` 不区分便携版。配了 `updateUrl` 的便携版仍会检查更新，所以 README 写明不要配。
 - 配置和数据不跟着 exe 走，这个便携版只是免安装，不能带着数据换机器。
+
+## 2026-11-04　便携版打包不再依赖 GitHub
+
+> 日期：2026-11-04　分支：`fix/packaging-portable-local-electron`　作者：Claude Code
+
+### 原始需求
+
+在 Windows 上运行 `package:portable`，依赖都装好了，打包时报 `connect ETIMEDOUT 20.205.243.166:443`，这是 GitHub 的地址。electron-builder 不用 Electron 包自带的校验值，每次打包都要去 GitHub 取 `SHASUMS256.txt`，本地缓存里有 zip 也一样。
+
+做到什么程度算完：在连不上 GitHub 的 Windows 机器上，`package:portable` 能打出便携版。
+
+### 怎么验收
+
+在 Windows x64 机器上操作，依赖和内核按上一节第 1～3 步准备好：
+
+1. 运行 `Test-Path apps\desktop\node_modules\electron\dist\electron.exe`，输出 `True`。
+2. 运行 `pnpm --filter @kits/desktop package:portable`，日志出现 `using custom unpacked Electron distribution`，没有 `ETIMEDOUT`，出现 `apps/desktop/release/kits-0.1.0-win-x64-portable.exe`。
+3. 把这个 exe 拷到另一个目录双击运行，能进首页，设置页显示 OpenCode 已安装。
+
+### 主要改动
+
+- `apps/desktop/package.json`：`package:portable` 加上 `--config.electronDist=node_modules/electron/dist`，直接用已安装的 Electron，不下载。
+- `apps/desktop/electron-builder.yml`：注释写明这个参数的原因和平台限制。
+- `README.md`：便携版一条写明不用连 GitHub，只能在 Windows x64 上跑。
+
+默认的 `package` 脚本和 `release.yml` 没动，发版产物不变。数据库 schema 没有变。
+
+### 测试
+
+- 没有新增逻辑，不加单测。`pnpm check` 全过。
+- 本机（mac arm64）：解开 win32-x64 的 Electron zip，在 `vendor/opencode/win-x64/` 放占位文件，用 `package:portable` 的参数打包，只把 `electronDist` 换成解开的目录。打包成功，产物是 `kits-0.1.0-win-x64-portable.exe`（约 112 MB），日志显示用的是指定目录、没有下载 Electron。这只验证参数和命名，占位内核跑不起来，试打后已删掉占位文件。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 没有在真实 Windows 机器上打包和运行过，上面的验收步骤要在 Windows 上走一遍。
+- `package:portable` 只能在 Windows x64 上跑：`node_modules/electron/dist` 是本机平台的 Electron。上一节“测试”里在 mac 上直接跑这个脚本的做法不再适用。
+- 用本地 Electron 时 electron-builder 不清理 `default_app.asar`，它会留在包里，不影响运行（Electron 优先加载 `app.asar`）。
+- 默认的 `package` 脚本没改，在连不上 GitHub 的机器上打安装包，要手动在命令后加 `--config.electronDist=node_modules/electron/dist`。
