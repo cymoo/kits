@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -13,6 +14,8 @@ export interface LaunchedApp {
   page: Page
   configDir: string
   userDataDir: string
+  // 用同一份用户数据再启动一次，和用户再双击一次一样；等这个进程退出
+  launchAgain(): Promise<void>
   close(): Promise<void>
 }
 
@@ -45,6 +48,14 @@ export async function launchApp(
     page,
     configDir,
     userDataDir,
+    async launchAgain() {
+      const electronPath = await app.evaluate(() => process.execPath)
+      await new Promise<void>((resolve, reject) => {
+        const second = spawn(electronPath, [main], { env: merged, stdio: 'ignore' })
+        second.once('error', reject)
+        second.once('exit', () => resolve())
+      })
+    },
     async close() {
       await app.close()
       rmSync(root, { recursive: true, force: true })

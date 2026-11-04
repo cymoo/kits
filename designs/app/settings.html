@@ -314,7 +314,7 @@ class Component extends DCLogic {
     });
     const sizes = [['s', '小'], ['m', '标准'], ['l', '大']].map(([id, label]) => ({ label, on: s.size === id, pick: () => this.setState({ size: id }) }));
     const codeSizes = ['11', '12', '13', '14'].map((id) => ({ label: id + ' px', on: s.code === id, pick: () => this.setState({ code: id }) }));
-    const toggles = [['notifyWait', '需要我处理时发系统通知', '命令等确认、Agent 提问、出错；窗口在前台时不发'], ['notifyDone', '会话完成时发系统通知', '只在窗口不在前台时发'], ['keepRunning', '关闭窗口后继续运行', '关到菜单栏，运行中的会话不中断；退出用 ⌘Q']].map(([id, label, note]) => ({ label, note, on: s.on[id], flip: () => this.setState({ on: { ...s.on, [id]: !s.on[id] } }) }));
+    const toggles = [['notifyWait', '需要我处理时发系统通知', '命令等确认、Agent 提问、出错；窗口在前台时不发'], ['notifyDone', '会话完成时发系统通知', '只在窗口不在前台时发'], ['keepRunning', '关闭窗口后继续运行', '关到菜单栏 / 托盘，运行中的会话不中断；彻底退出用菜单栏 / 托盘里的“退出 kits”']].map(([id, label, note]) => ({ label, note, on: s.on[id], flip: () => this.setState({ on: { ...s.on, [id]: !s.on[id] } }) }));
     const keys = [['新会话', '⌘N'], ['搜索与跳转', '⌘K'], ['设置', '⌘,'], ['停止 Agent', '⌘.'], ['允许这条命令', '⌘↵'], ['拒绝这条命令', 'Esc'], ['发送 / 换行', '↵ / ⇧↵'], ['折叠侧栏', '⌘B']].map(([what, key]) => ({ what, key }));
 
     // 内核与模型
