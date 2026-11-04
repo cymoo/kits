@@ -23,7 +23,7 @@ export function SettingsPage() {
       <nav
         aria-label={t('settings.title')}
         className={cx(
-          'flex w-[200px] min-w-0 shrink-0 flex-col gap-px border-line border-r bg-bg px-2.5 pb-5',
+          'flex w-[200px] min-w-0 shrink-0 flex-col gap-1 border-line border-r bg-bg px-2.5 pb-5',
           // 红绿灯会横跨到这一栏，标题和侧栏的第一项对齐
           isMac ? 'pt-11' : 'pt-5',
         )}

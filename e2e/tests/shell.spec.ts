@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { launchApp, mod } from './app'
+import { prepare } from './session'
 
 // 外壳：侧栏、⌘K 面板、快捷键、设置读写（phase1-implementation PR4）。
 
@@ -135,6 +136,42 @@ test('expands the sidebar on the settings page and restores it after leaving', a
     await nav.getByRole('link', { name: '新会话' }).click()
     await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
     await expect(nav).toHaveAttribute('data-collapsed', 'true')
+  } finally {
+    await close()
+  }
+})
+
+test('keeps the slash and at menus inside a short window on the home page', async () => {
+  const { app, page, configDir, close } = await launchApp({}, (dir) => {
+    // 技能和文件够多，菜单才会长到放不下
+    for (let i = 0; i < 14; i++) {
+      const skill = path.join(dir, 'skills', `a-long-skill-name-for-the-menu-${i}`)
+      mkdirSync(skill, { recursive: true })
+      writeFileSync(
+        path.join(skill, 'SKILL.md'),
+        `---\nname: a-long-skill-name-for-the-menu-${i}\ndescription: 占位\n---\n`,
+      )
+    }
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const workdir = await prepare(page, configDir)
+    for (let i = 0; i < 14; i++) writeFileSync(path.join(workdir, `file-${i}.md`), '')
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.setSize(900, 600))
+
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.click()
+    await box.pressSequentially('/')
+    const slash = page.getByTestId('slash-menu')
+    await expect(slash).toContainText('/a-long-skill-name-for-the-menu-0')
+    await expect(slash).toBeInViewport({ ratio: 1 })
+    await expect(slash.getByText('技能', { exact: false }).first()).toBeInViewport({ ratio: 1 })
+
+    await box.fill('')
+    await box.pressSequentially('@file')
+    const at = page.getByTestId('at-menu')
+    await expect(at.getByRole('option').first()).toBeVisible()
+    await expect(at).toBeInViewport({ ratio: 1 })
   } finally {
     await close()
   }

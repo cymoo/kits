@@ -48,7 +48,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
 
   <k-nav active="settings" collapsed></k-nav>
 
-  <nav aria-label="设置分类" style="flex: 0 0 200px; display: flex; flex-direction: column; gap: 1px; padding: 20px 10px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F6F5F2">
+  <nav aria-label="设置分类" style="flex: 0 0 200px; display: flex; flex-direction: column; gap: 4px; padding: 20px 10px; box-sizing: border-box; border-right: 1px solid #E5E4DF; background: #F6F5F2">
     <h1 style="margin: 0 0 12px 10px; font-size: 16px; font-weight: 600">设置</h1>
     <sc-for list="{{sections}}" as="sec">
       <a href="{{sec.href}}" aria-current="{{sec.current}}" class="k-snav" style="{{sec.style}}"><span style="flex: 1">{{sec.label}}</span><sc-if value="{{sec.alert}}"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; background: #C8381F"></span></sc-if></a>

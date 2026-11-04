@@ -18,7 +18,7 @@
 .kn-item svg{flex:0 0 auto}
 .kn-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kn-kbd{font-size:12px;color:#9A9AA1}
-.kn-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:1px;margin-top:6px}
+.kn-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin-top:6px}
 .kn-h{font-size:12.5px;color:#8A8A92;padding:8px 8px 4px;font-weight:500}
 .kn-list .kn-item{height:30px;gap:8px}
 .kn-st{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
@@ -27,7 +27,7 @@
 .kn-st.err{background:#C8381F}
 .kn-tag{font-size:12px;flex:0 0 auto;font-weight:400}
 @keyframes kn-pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.kn-foot{display:flex;flex-direction:column;gap:1px;padding-top:6px;border-top:1px solid #E5E4DF}
+.kn-foot{display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid #E5E4DF}
 .kn[data-collapsed="true"]{flex-basis:56px;padding:12px 8px 8px;align-items:center}
 .kn[data-collapsed="true"] .kn-label,.kn[data-collapsed="true"] .kn-kbd,.kn[data-collapsed="true"] .kn-list,.kn[data-collapsed="true"] .kn-brand{display:none}
 .kn[data-collapsed="true"] .kn-top{flex-direction:column;height:auto;gap:8px;padding:0}
@@ -51,6 +51,7 @@
 .kc-send:disabled{opacity:.25;cursor:default}
 .kc-menu{position:absolute;left:12px;right:12px;bottom:calc(100% + 8px);background:#fff;border:1px solid #E5E4DF;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 16px 40px rgba(0,0,0,.12);padding:6px;display:flex;flex-direction:column;gap:1px;max-height:360px;overflow-y:auto;z-index:40}
 .kc-menu[hidden]{display:none}
+.kc-menu.down{bottom:auto;top:calc(100% + 8px)}
 .kc-mh{font-size:12.5px;font-weight:500;color:#8A8A92;padding:6px 10px 4px}
 .kc-mi{display:flex;align-items:center;gap:12px;min-height:38px;padding:5px 10px;border:0;border-radius:8px;background:transparent;font:inherit;color:#1B1B1F;cursor:pointer;text-align:left;width:100%}
 .kc-mi:hover,.kc-mi.on{background:#F1F4FF}
@@ -366,7 +367,7 @@
         <span style="flex:1"></span>
         <button type="button" class="kn-icon" data-act="collapse" aria-label="折叠侧栏" title="折叠侧栏 ⌘B">${svg('side', 14)}</button>
       </div>
-      <div class="kn-main" style="display:flex;flex-direction:column;gap:1px">
+      <div class="kn-main" style="display:flex;flex-direction:column;gap:4px">
         <a class="kn-item${active === 'new' ? ' on' : ''}" href="index.html" title="新会话 ⌘N">${svg('plus', 15, 1.6)}<span class="kn-label">新会话</span><span class="kn-kbd">⌘N</span></a>
         <button type="button" class="kn-item${active === 'search' ? ' on' : ''}" data-act="search" title="搜索 ⌘K">${svg('search', 15, 1.6)}<span class="kn-label">搜索</span><span class="kn-kbd">⌘K</span></button>
         <a class="kn-item${active === 'history' ? ' on' : ''}" href="history.html" title="全部会话">${svg('history', 15, 1.6)}<span class="kn-label">全部会话</span></a>
@@ -412,6 +413,16 @@
     const menu = box.querySelector('.kc-menu')
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 220) + 'px'; send.disabled = !ta.value.trim() }
 
+    // 向上放得下就向上开，放不下看哪边地方大，不顶出窗口
+    function placeMenu() {
+      const r = box.getBoundingClientRect()
+      const above = r.top - 8 - 12
+      const below = innerHeight - r.bottom - 16
+      const up = above >= 220 || above >= below
+      menu.classList.toggle('down', !up)
+      menu.style.maxHeight = Math.min(360, up ? above : below) + 'px'
+    }
+
     // 输入 / 列出命令（技能），输入 @ 列出可引用的文件和需求
     function renderMenu() {
       const v = ta.value
@@ -437,6 +448,7 @@
       } else {
         menu.hidden = true
       }
+      if (!menu.hidden) placeMenu()
     }
     menu.addEventListener('click', (e) => {
       const t = e.target.closest('[data-cmd],[data-ref]')
