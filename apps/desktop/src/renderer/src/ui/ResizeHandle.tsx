@@ -1,4 +1,4 @@
-import type { KeyboardEvent, PointerEvent } from 'react'
+import { type KeyboardEvent, type PointerEvent, useEffect, useRef } from 'react'
 import { useUi } from '../lib/ui-store'
 import { WIDTH_LIMITS, type WidthId } from '../lib/widths'
 
@@ -20,6 +20,10 @@ export function ResizeHandle({
   const width = useUi((s) => s.widths[id])
   const setWidth = useUi((s) => s.setWidth)
   const dir = side === 'left' ? 1 : -1
+  const endDrag = useRef<() => void>(undefined)
+
+  // 拖到一半手柄可能被卸载（比如按 ⌘B 收起侧栏），这时收不到手柄上的事件
+  useEffect(() => () => endDrag.current?.(), [])
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     const handle = e.currentTarget
@@ -37,14 +41,15 @@ export function ResizeHandle({
     const onMove = (ev: globalThis.PointerEvent) =>
       setWidth(id, startWidth + dir * (ev.clientX - startX))
     const onEnd = () => {
+      endDrag.current = undefined
       delete root.dataset.resizing
       handle.removeEventListener('pointermove', onMove)
-      handle.removeEventListener('pointerup', onEnd)
-      handle.removeEventListener('pointercancel', onEnd)
+      handle.removeEventListener('lostpointercapture', onEnd)
     }
+    endDrag.current = onEnd
     handle.addEventListener('pointermove', onMove)
-    handle.addEventListener('pointerup', onEnd)
-    handle.addEventListener('pointercancel', onEnd)
+    // 松手和取消之后都会触发它，一个事件就够
+    handle.addEventListener('lostpointercapture', onEnd)
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {

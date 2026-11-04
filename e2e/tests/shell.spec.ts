@@ -173,6 +173,28 @@ test('resizes the sidebar by dragging, remembers it and resets on double click',
   }
 })
 
+test('clears the drag state when the sidebar collapses in the middle of a drag', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const handle = page.getByRole('separator', { name: '调整侧栏宽度' })
+    const box = await handle.boundingBox()
+    if (!box) throw new Error('没有手柄')
+    const root = page.locator('html')
+    await page.mouse.move(box.x + 4, box.y + 300)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 24, box.y + 300, { steps: 2 })
+    await expect(root).toHaveAttribute('data-resizing', '')
+
+    await page.keyboard.press(`${mod}+B`)
+    await expect(handle).toBeHidden()
+    await page.mouse.up()
+    await expect(root).not.toHaveAttribute('data-resizing')
+  } finally {
+    await close()
+  }
+})
+
 test('keeps the option picked with the arrow keys in view at the large ui scale', async () => {
   const { page, close } = await launchApp()
   try {
