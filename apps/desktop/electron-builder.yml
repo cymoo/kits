@@ -55,6 +55,9 @@ nsis:
 # 脚本用 --config.electronDist 指到 node_modules 里的 Electron，打包不连 GitHub；这个目录是本机平台的，所以只能在 Windows x64 上跑
 portable:
   artifactName: kits-${version}-win-${arch}-portable.${ext}
+  # 每次启动解压到各自的临时目录。默认目录是构建时定死的，启动前还要先清空：再双击一次会删掉运行中实例的文件。
+  # 文档写的是 false，但 electron-builder 26 的代码里只有 true 才走这条路
+  unpackDirName: true
 publish:
   # 内网更新：放一个静态目录即可。运行时的地址以 settings.json 的 updateUrl 或 KITS_UPDATE_URL 为准（main/updater.ts），
   # 这里只决定 latest.yml 等元数据文件怎么生成；CI 打包用 --publish never，不往这个地址传

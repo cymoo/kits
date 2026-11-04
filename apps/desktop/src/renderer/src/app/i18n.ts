@@ -315,7 +315,8 @@ const zhCN = {
   'general.notifyDone': '会话完成时发系统通知',
   'general.notifyDoneHint': '只在窗口不在前台时发',
   'general.keepRunning': '关闭窗口后继续运行',
-  'general.keepRunningHint': '关到菜单栏 / 托盘，运行中的会话不中断；彻底退出用 ⌘Q',
+  'general.keepRunningHint':
+    '关到菜单栏 / 托盘，运行中的会话不中断；彻底退出用菜单栏 / 托盘里的“退出 kits”',
   'general.update': '版本与更新',
   'general.updateNoUrl':
     '没配更新地址，不自动检查。内网有更新目录的，在 settings.json 里写 updateUrl，或设环境变量 KITS_UPDATE_URL。',

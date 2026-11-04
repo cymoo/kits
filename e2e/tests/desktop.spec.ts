@@ -29,6 +29,32 @@ test('hides the window on close and keeps the app running', async () => {
   }
 })
 
+test('shows the hidden window when the app is launched again', async () => {
+  const { app, page, launchAgain, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close())
+    await expect
+      .poll(() =>
+        app.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows().map((w) => w.isVisible()),
+        ),
+      )
+      .toEqual([false])
+    // 第二个进程拿不到单实例锁就退出，已有的窗口要自己回来
+    await launchAgain()
+    await expect
+      .poll(() =>
+        app.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows().map((w) => w.isVisible()),
+        ),
+      )
+      .toEqual([true])
+  } finally {
+    await close()
+  }
+})
+
 test('really closes the window when keep running is off', async () => {
   const { app, page, close } = await launchApp()
   try {

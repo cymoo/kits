@@ -39,17 +39,15 @@ if (process.env.KITS_USER_DATA_DIR) {
   app.setPath('userData', process.env.KITS_USER_DATA_DIR)
 }
 
+// 把窗口叫回来。窗口开好之前是空的：启动完窗口自己会显示
+let reveal = () => {}
+
 // 同一份用户数据只开一个实例：两个实例各自缓存再写回密钥表、数据库会互相覆盖。
-// 第二个实例直接退出，把已有窗口叫到前面。
+// 第二个实例直接退出，把已有窗口叫到前面。关窗后窗口只是藏起来，focus 对隐藏的窗口不起作用，要走 reveal
 if (!app.requestSingleInstanceLock()) {
   app.exit(0)
 } else {
-  app.on('second-instance', () => {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (!win) return
-    if (win.isMinimized()) win.restore()
-    win.focus()
-  })
+  app.on('second-instance', () => reveal())
 }
 
 let shutdown: (() => Promise<void>) | undefined
@@ -460,6 +458,7 @@ app.whenReady().then(() => {
     return win
   }
   open()
+  reveal = background.show
   onBackgroundChanged = () => background.sync()
   openSession = (id) => {
     background.show()

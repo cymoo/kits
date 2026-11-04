@@ -41,3 +41,51 @@ phase1-implementation PR18：系统通知（待确认 / 提问 / 出错 / 完成
 - 通知文案和图标用系统默认样式；Windows 上未打包时通知的应用名是 Electron（打包后用 `appId`，见 PR20）。
 - 托盘图标是手画的位图，设计稿出来后替换 `resources/tray/` 里的四张图就行。
 - Linux 没有专门处理（不在第一阶段的目标平台里）。
+
+## 2026-11-04　关窗后再次启动能叫回窗口
+
+> 日期：2026-11-04　分支：`fix/desktop-reopen-hidden-window`　作者：Claude Code
+
+### 原始需求
+
+Windows 上关闭 kits 后再双击 exe 没有任何反应，打不开。这是严重问题，要修复。便携版启动慢不算痛点，这次不处理。
+
+做到什么程度算完：开着“关闭窗口后继续运行”（默认开）时关窗，再次启动应用，原来的窗口回到前台；运行中的实例不受影响。
+
+### 怎么验收
+
+便携版在 Windows x64 上操作，打包方式见 `docs/delivery/packaging.md`；安装版第 1～3 步相同。
+
+1. 双击打开 kits，进到首页后点窗口的关闭按钮。窗口消失，任务管理器里还有 kits 进程，托盘（可能在折叠区）有 kits 图标。
+2. 再双击一次 exe。安装版窗口马上回来；便携版要等解压完（十几秒，期间没有界面），窗口回来。
+3. 到设置 · 通用，“关闭窗口后继续运行”的说明写的是用菜单栏 / 托盘里的“退出 kits”彻底退出。
+4. 便携版：第 2 步之后到设置 → 内核与模型，OpenCode 仍显示已安装；设置 → 技能与记忆里内置技能还在。
+5. 从托盘菜单点“退出 kits”，进程消失；再双击 exe，能正常打开。
+
+自动化：`pnpm build && pnpm test:e2e`，`desktop.spec.ts` 的 `shows the hidden window when the app is launched again` 真的再起一个进程。
+
+### 主要改动
+
+- `apps/desktop/src/main/index.ts`：第二个实例启动时走 `background.show()`，和点托盘、点程序坞同一条路。原来只调 `win.focus()`，它对隐藏的窗口不起作用，这个 bug 不分便携版和安装版，mac 上强开第二个实例（`open -n`）也会遇到；mac 上正常双击走 `activate`，一直是好的。窗口都不在时也会新建一个，原来直接返回。
+- `apps/desktop/electron-builder.yml`：`portable.unpackDirName: true`，便携版每次启动解压到各自的临时目录。原来的目录是构建时定死的，启动前先清空，结束时再删一次，再双击一次会删掉运行中实例的 `builtin`、`drizzle` 等文件。electron-builder 文档写的是 `false`，但 26.18 的代码里 `false` 仍然生成固定目录，只有 `true` 生效。
+- `设置 · 通用`的提示：`⌘Q` 在 Windows 上不适用，改成不分平台的说法。`designs/app/settings.html` 和 `i18n.ts` 一起改。
+- `e2e/tests/app.ts`：`launchApp` 新增 `launchAgain()`，用同一份用户数据再启动一次。
+
+配置项和数据库 schema 没有变。
+
+### 测试
+
+- E2E：新增上面那条用例，修复前连跑 4 次全部失败，修复后连跑 3 次全部通过。`pnpm test:e2e` 67 条全过（mac arm64）。这条用例改之前第一次跑时通过过一次，之后没有再出现，原因没查到。
+- 单测：窗口行为按约定交给 E2E，没有新增。`pnpm check` 全过（488 个用例）。
+- 便携版配置：本机用缓存的 Windows Electron 和占位内核试打成功，`makensis` 的参数里不再有 `UNPACK_DIR_NAME`，产物约 117 MB。占位内核跑不起来，试打后已删掉。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 没有在真实 Windows 机器上跑过，上面第 1～5 步要在 Windows 上走一遍；CI 的 Windows E2E 会覆盖第二个实例这条路径。
+- 便携版再次双击时，窗口要等壳解压完才回来，期间没有界面。便携版只在开发时用，这次不处理。
+- 关窗时没有提示，用户不一定知道应用还在托盘里。
+- 退出途中（内核启动中最多等 30 秒）再启动，新窗口会随着退出一起消失。
