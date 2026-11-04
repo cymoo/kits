@@ -52,6 +52,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   perMachine: false
 # 便携版（pnpm package:portable）：单个 exe，不用安装。文件名和安装包分开，两种放同一个目录不互相覆盖
+# 脚本用 --config.electronDist 指到 node_modules 里的 Electron，打包不连 GitHub；这个目录是本机平台的，所以只能在 Windows x64 上跑
 portable:
   artifactName: kits-${version}-win-${arch}-portable.${ext}
 publish:
