@@ -62,15 +62,17 @@ function NavItem({
 
 export function Nav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const setPaletteOpen = useUi((s) => s.setPaletteOpen)
+  const width = useUi((s) => s.widths.nav)
   const toggleLabel = t(collapsed ? 'nav.expand' : 'nav.collapse')
   return (
     <nav
       aria-label={t('nav.label')}
       data-collapsed={collapsed}
+      style={collapsed ? undefined : { width }}
       className={cx(
         // 宽度动画期间文字不换行，展开 / 收起时不会挤成好几行
         'flex h-full min-w-0 shrink-0 flex-col gap-1.5 overflow-hidden whitespace-nowrap border-line border-r bg-muted px-2 pb-2 transition-[width] duration-150',
-        collapsed ? 'w-14 items-center' : 'w-[248px]',
+        collapsed ? 'w-14 items-center' : 'max-w-[40vw]',
         // macOS 隐藏了标题栏，左上角的红绿灯占了约 40px 高，内容从它下面开始
         isMac ? 'pt-11' : 'pt-3',
       )}
@@ -96,7 +98,7 @@ export function Nav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () 
           <PanelLeft size={14} />
         </button>
       </div>
-      <div className={cx('flex flex-col gap-px', collapsed && 'items-center')}>
+      <div className={cx('flex flex-col gap-1', collapsed && 'items-center')}>
         <NavItem
           to="/"
           icon={<Plus size={15} />}
@@ -130,7 +132,7 @@ export function Nav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () 
       )}
       <div
         className={cx(
-          'flex flex-col gap-px border-line border-t pt-1.5',
+          'flex flex-col gap-1 border-line border-t pt-1.5',
           collapsed && 'w-full items-center border-t-0',
         )}
       >

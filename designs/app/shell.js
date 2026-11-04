@@ -5,8 +5,14 @@
   const FONT = "Inter,'PingFang SC','Noto Sans SC',system-ui,sans-serif"
   const MONO = "'JetBrains Mono',ui-monospace,monospace"
   const CSS = `
-.kn{height:100vh;flex:0 0 248px;box-sizing:border-box;background:#F1F0EC;border-right:1px solid #E5E4DF;padding:12px 8px 8px;display:flex;flex-direction:column;gap:6px;overflow:hidden;font-family:${FONT};font-size:14px;line-height:1.5;color:#1B1B1F;transition:flex-basis .18s ease}
+.kn{position:relative;height:100vh;flex:0 0 var(--k-nav-w,248px);box-sizing:border-box;background:#F1F0EC;border-right:1px solid #E5E4DF;padding:12px 8px 8px;display:flex;flex-direction:column;gap:6px;overflow:hidden;font-family:${FONT};font-size:14px;line-height:1.5;color:#1B1B1F;transition:flex-basis .18s ease}
 .kn *{box-sizing:border-box}
+.k-rz{position:relative;z-index:20;flex:0 0 0;width:0}
+.k-rz::before{content:'';position:absolute;top:0;bottom:0;left:-4px;width:8px;cursor:col-resize}
+.k-rz::after{content:'';position:absolute;top:0;bottom:0;left:-1px;width:2px;pointer-events:none;transition:background .12s}
+.k-rz:hover::after{background:rgba(54,89,227,.5)}
+.kn>.k-rz{position:absolute;top:0;bottom:0;right:4px}
+.kn[data-collapsed="true"]>.k-rz{display:none}
 .kn-top{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px}
 .kn-logo{width:20px;height:20px;border-radius:6px;background:#1B1B1F;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:0 0 auto}
 .kn-brand{font-weight:650;font-size:15px;letter-spacing:-.01em;text-decoration:none;color:#1B1B1F}
@@ -18,7 +24,7 @@
 .kn-item svg{flex:0 0 auto}
 .kn-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kn-kbd{font-size:12px;color:#9A9AA1}
-.kn-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:1px;margin-top:6px}
+.kn-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin-top:6px}
 .kn-h{font-size:12.5px;color:#8A8A92;padding:8px 8px 4px;font-weight:500}
 .kn-list .kn-item{height:30px;gap:8px}
 .kn-st{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
@@ -27,7 +33,7 @@
 .kn-st.err{background:#C8381F}
 .kn-tag{font-size:12px;flex:0 0 auto;font-weight:400}
 @keyframes kn-pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.kn-foot{display:flex;flex-direction:column;gap:1px;padding-top:6px;border-top:1px solid #E5E4DF}
+.kn-foot{display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid #E5E4DF}
 .kn[data-collapsed="true"]{flex-basis:56px;padding:12px 8px 8px;align-items:center}
 .kn[data-collapsed="true"] .kn-label,.kn[data-collapsed="true"] .kn-kbd,.kn[data-collapsed="true"] .kn-list,.kn[data-collapsed="true"] .kn-brand{display:none}
 .kn[data-collapsed="true"] .kn-top{flex-direction:column;height:auto;gap:8px;padding:0}
@@ -51,6 +57,7 @@
 .kc-send:disabled{opacity:.25;cursor:default}
 .kc-menu{position:absolute;left:12px;right:12px;bottom:calc(100% + 8px);background:#fff;border:1px solid #E5E4DF;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 16px 40px rgba(0,0,0,.12);padding:6px;display:flex;flex-direction:column;gap:1px;max-height:360px;overflow-y:auto;z-index:40}
 .kc-menu[hidden]{display:none}
+.kc-menu.down{bottom:auto;top:calc(100% + 8px)}
 .kc-mh{font-size:12.5px;font-weight:500;color:#8A8A92;padding:6px 10px 4px}
 .kc-mi{display:flex;align-items:center;gap:12px;min-height:38px;padding:5px 10px;border:0;border-radius:8px;background:transparent;font:inherit;color:#1B1B1F;cursor:pointer;text-align:left;width:100%}
 .kc-mi:hover,.kc-mi.on{background:#F1F4FF}
@@ -334,6 +341,28 @@
     if (mod && e.key === ',') { e.preventDefault(); location.href = 'settings.html' }
   })
 
+  // ---------- 拖动改栏宽 ----------
+  // <div class="k-rz" data-w="panel" data-dir="-1">：宽度写在 --k-*-w 上，页面重新渲染也不丢；双击恢复默认
+  const WIDTHS = { nav: [248, 200, 360], panel: [380, 300, 720], chat: [400, 320, 640] }
+  document.addEventListener('pointerdown', (e) => {
+    const h = e.target.closest && e.target.closest('.k-rz')
+    if (!h) return
+    e.preventDefault()
+    const [init, min, max] = WIDTHS[h.dataset.w]
+    const name = '--k-' + h.dataset.w + '-w'
+    const root = document.documentElement
+    const start = parseFloat(root.style.getPropertyValue(name)) || init
+    const x0 = e.clientX
+    const move = (ev) => root.style.setProperty(name, Math.min(max, Math.max(min, start + (ev.clientX - x0) * Number(h.dataset.dir || 1))) + 'px')
+    const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up) }
+    document.addEventListener('pointermove', move)
+    document.addEventListener('pointerup', up)
+  })
+  document.addEventListener('dblclick', (e) => {
+    const h = e.target.closest && e.target.closest('.k-rz')
+    if (h) document.documentElement.style.removeProperty('--k-' + h.dataset.w + '-w')
+  })
+
   // ---------- 侧栏 ----------
   let nav = null
   let autoCollapsed = false
@@ -366,7 +395,7 @@
         <span style="flex:1"></span>
         <button type="button" class="kn-icon" data-act="collapse" aria-label="折叠侧栏" title="折叠侧栏 ⌘B">${svg('side', 14)}</button>
       </div>
-      <div class="kn-main" style="display:flex;flex-direction:column;gap:1px">
+      <div class="kn-main" style="display:flex;flex-direction:column;gap:4px">
         <a class="kn-item${active === 'new' ? ' on' : ''}" href="index.html" title="新会话 ⌘N">${svg('plus', 15, 1.6)}<span class="kn-label">新会话</span><span class="kn-kbd">⌘N</span></a>
         <button type="button" class="kn-item${active === 'search' ? ' on' : ''}" data-act="search" title="搜索 ⌘K">${svg('search', 15, 1.6)}<span class="kn-label">搜索</span><span class="kn-kbd">⌘K</span></button>
         <a class="kn-item${active === 'history' ? ' on' : ''}" href="history.html" title="全部会话">${svg('history', 15, 1.6)}<span class="kn-label">全部会话</span></a>
@@ -377,7 +406,8 @@
       </div>
       <div class="kn-foot">
         <a class="kn-item${active === 'settings' ? ' on' : ''}" href="settings.html" title="设置 ⌘,">${svg('sliders', 15)}<span class="kn-label">设置</span><span class="kn-kbd">⌘,</span></a>
-      </div>`
+      </div>
+      <div class="k-rz" data-w="nav" title="拖动改宽度，双击恢复"></div>`
     nav.addEventListener('click', (e) => {
       const t = e.target.closest('[data-act]')
       if (!t) return
@@ -412,6 +442,16 @@
     const menu = box.querySelector('.kc-menu')
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 220) + 'px'; send.disabled = !ta.value.trim() }
 
+    // 向上放得下就向上开，放不下看哪边地方大，不顶出窗口
+    function placeMenu() {
+      const r = box.getBoundingClientRect()
+      const above = r.top - 8 - 12
+      const below = innerHeight - r.bottom - 16
+      const up = above >= 220 || above >= below
+      menu.classList.toggle('down', !up)
+      menu.style.maxHeight = Math.min(360, up ? above : below) + 'px'
+    }
+
     // 输入 / 列出命令（技能），输入 @ 列出可引用的文件和需求
     function renderMenu() {
       const v = ta.value
@@ -437,6 +477,7 @@
       } else {
         menu.hidden = true
       }
+      if (!menu.hidden) placeMenu()
     }
     menu.addEventListener('click', (e) => {
       const t = e.target.closest('[data-cmd],[data-ref]')
