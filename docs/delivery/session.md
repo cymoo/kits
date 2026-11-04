@@ -373,7 +373,7 @@ phase1-implementation PR16（3.5 节记忆、6.4 节会话页的上下文、原�
 
 评审结论：结果就地展开；“命令”页签去掉，审计记录有需要时再加；本会话允许规则移到“上下文”。原型 `designs/app/session.html`（`?s=done` 展开第 2 轮，`?s=streaming`、`?s=question`、`?s=error`）。
 
-做到什么程度算完：所有工具的结果都能在步骤上点开看，失败一眼能看到，模型写了描述就用描述当标题，内网连不上 npm 时内核不被插件拖慢。
+做到什么程度算完：所有工具的结果都能在步骤上点开看，失败一眼能看到，模型写了描述就用描述当标题，内网连不上 npm 时内核不被插件拖慢，Agent 跑的 `npm install`、本地 MCP 的 `npx` 不受影响。
 
 ### 怎么验收
 
@@ -392,11 +392,12 @@ phase1-implementation PR16（3.5 节记忆、6.4 节会话页的上下文、原�
 
 - `packages/kernel`：
   - 新增 `generate/describe-bash-plugin.ts`，写到配置目录的 `plugins/kits-describe-bash.js`。OpenCode 1.19.5 的 bash 没有 `description` 参数，配置也加不了，只能用 `tool.definition` 钩子改模型看到的参数表。内核的校验不变，模型漏写时命令照常跑，界面显示命令本身。`input` 本来就落库，事件映射和数据库都不用为描述改。
-  - 内核子进程加 `npm_config_offline=true` 和指到数据目录的 `npm_config_cache`。内核启动时会往每个配置目录 `npm install @opencode-ai/plugin`，有插件时加载前要等它结束；实测 registry 连不上时卡 70 秒以上，设了之后 0.2 秒。插件不依赖这个包，安装失败没有影响。CodeAgent 同样设了。
+  - 内核启动时会往每个配置目录 `npm install @opencode-ai/plugin`，有插件时加载前要等它结束，实测 registry 连不上时卡 70 秒以上。`node_modules` 在、`package-lock.json` 根包声明了这个依赖时它就跳过，所以启动前在 kits 的配置目录和内核的全局配置目录放好这两样（`skipPluginInstall`）。插件不依赖这个包。不用 npm 离线环境变量：子进程的环境变量会传给 Agent 跑的命令和本地 MCP，`npm install`、`npx -y` 都会失败。
+  - 插件只发给 OpenCode。CodeAgent 真机没验过，加载前等 npm 的话内网会卡启动，先不发。
   - 事件映射取 `metadata.filediff`（edit 的增删行）、`matches`（grep）、`count`（glob）、`display.totalLines`（read）。Mock 加 `command-failed` 场景。
 - `packages/core`、`apps/desktop/src/main/sessions/thread.ts`：`tool-end` 事件和工具 part 加 `additions`、`deletions`、`count`。JSON 字段，数据库 schema 没变。
 - 渲染进程：
-  - `session/thread/derive.ts`：步骤带图标、动词、描述、输出、失败标记、框底信息。退出码非 0 算失败（以前步骤上看不出来），拒绝、中断不算。去掉给模型看的 `<shell_metadata>`、read 的 `<path>`/`<content>` 包装、grep 的 “Found N matches”。`clipOutput` 按 12 行截，命令留结尾，其余留开头。
+  - `session/thread/derive.ts`：步骤带图标、动词、描述、输出、失败标记、框底信息。退出码非 0 算失败（以前步骤上看不出来），拒绝、中断不算。去掉给模型看的 `<shell_metadata>`、read 的 `<path>`/`<content>` 包装、grep 的 “Found N matches”，grep 的文件名和 glob 的结果转成相对路径；源码、命中行、MCP 返回的正文不动，看到和复制的都是原文。`clipOutput` 按 12 行截，命令留结尾，其余留开头。
   - 新增 `session/thread/Steps.tsx`：步骤行和结果框。`Blocks.tsx` 的轮次标题改成摘要单行截断，失败数和耗时不被挤掉。
   - `session/panels`：去掉“命令”页签和 `deriveCommands`；选中的文件提到 `SessionPage`，对话里能跳过来；允许规则进“上下文”。
   - `ui/Spinner.tsx` 合并了两份转圈组件。`CopyReply.tsx` 抽出 `CopyIcon`。
@@ -406,8 +407,8 @@ phase1-implementation PR16（3.5 节记忆、6.4 节会话页的上下文、原�
 
 ### 测试
 
-- 单元测试：`thread/derive.test.ts` 的 `tool steps`（描述和回退、耗时和允许方式、非 0 退出码、失败计数、拒绝不算失败、中断、运行中计时、等待确认、三种输出清理、改文件跳转、失败的改文件展开、MCP 参数、多行说明、状态行）和 `clipOutput`；`events.test.ts` 的四种工具数字；`opencode.test.ts` 的 npm 离线；`opencode-config.test.ts` 的插件文件。`pnpm test`。
-- 契约测试：`opencode-family.contract.test.ts` 校验真实内核把 `description` 送到了模型的参数表，其余参数还在，事件里的 `input` 带描述。
+- 单元测试：`thread/derive.test.ts` 的 `tool steps`（描述和回退、耗时和允许方式、非 0 退出码、失败计数、拒绝不算失败、中断、运行中计时、等待确认、输出清理、正文里的工作目录不被改、改文件跳转、失败的改文件展开、MCP 参数、多行说明、状态行）和 `clipOutput`；`events.test.ts` 的四种工具数字；`opencode.test.ts` 的跳过安装、不设 npm 环境变量；`codeagent.test.ts` 不发插件；`opencode-config.test.ts` 的插件文件。`pnpm test`。
+- 契约测试：`opencode-family.contract.test.ts` 校验真实内核把 `description` 送到了模型的参数表，其余参数还在，事件里的 `input` 带描述。这组测试的 registry 指到连不上的地址，内核等 npm 的话用例会超时（去掉 `skipPluginInstall` 确认过）。
 - E2E：`workbench.spec.ts` 覆盖点开步骤看输出、跳到改动、失败默认展开和显示前面的行、复制反馈、等待确认和允许规则；`session-cards.spec.ts`、`session-stream.spec.ts` 跟着改。`pnpm build && pnpm test:e2e`。
 
 ### 新增依赖
@@ -416,10 +417,10 @@ phase1-implementation PR16（3.5 节记忆、6.4 节会话页的上下文、原�
 
 ### 已知问题
 
-- CodeAgent 没有验证过：本机没有二进制，插件会不会加载未知，不加载时界面显示命令本身。已记进 `docs/references/codeagent-checklist.md` 第 25 项。
+- CodeAgent 没有验证过，本机没有二进制。现在不发插件，步骤显示命令本身；真机核对后再打开，已记进 `docs/references/codeagent-checklist.md` 第 25 项。
 - Windows 没有实测。代码里 bash 工具的 id 和参数表各平台共用同一份。
 - 插件要写死 bash 的完整参数表，升级内核时要对一遍。契约测试只校验这几个参数还在，内核新增参数时测不出来。
-- 项目目录里的 `.opencode/` 带 npm 依赖时，npm 离线后不会自动安装。kits 不依赖这个能力。
+- 工作目录里有 `.opencode/`、没有装过依赖、又连不上 registry 时，内核还是会等 npm。这个目录在用户的仓库里，kits 不往里写文件。
 - 输出要等工具结束才有，运行中的命令点开只有“运行中，结束后显示输出”。
 - 步骤多时没有把连续同类步骤合并成一组。
 - 这次动过的旧会话：`additions`、`count` 是新字段，旧会话的步骤右边没有数字，描述和输出不受影响。

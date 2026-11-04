@@ -1,4 +1,5 @@
 import type { GeneratedFiles } from '../kernel'
+import { DESCRIBE_BASH_PLUGIN_PATH } from './describe-bash-plugin'
 
 // CodeAgent 的配置（phase1-implementation 4.3 节）：文档“Global.Config”一章的字段和 opencode.json 一样
 // （model、provider、agent、mcp、permission、instructions、enabled_providers …），所以直接用 OpenCode 的转换结果，
@@ -12,11 +13,14 @@ export const CODEAGENT_CONFIG_FILE = 'codeagent.json'
 export function toCodeagentFiles(opencode: GeneratedFiles): GeneratedFiles {
   return {
     env: opencode.env,
-    files: opencode.files.map((f) => {
-      if (f.path !== 'opencode.json') return f
-      const { $schema: _, ...config } = JSON.parse(f.content) as Record<string, unknown>
-      return { path: CODEAGENT_CONFIG_FILE, content: `${JSON.stringify(config, null, 2)}\n` }
-    }),
+    // describe-bash 插件先不给 CodeAgent：真机没验过，加载前等 npm 的话内网会卡启动。没有描述时界面显示命令本身
+    files: opencode.files
+      .filter((f) => f.path !== DESCRIBE_BASH_PLUGIN_PATH)
+      .map((f) => {
+        if (f.path !== 'opencode.json') return f
+        const { $schema: _, ...config } = JSON.parse(f.content) as Record<string, unknown>
+        return { path: CODEAGENT_CONFIG_FILE, content: `${JSON.stringify(config, null, 2)}\n` }
+      }),
   }
 }
 

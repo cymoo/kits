@@ -77,7 +77,8 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       binary: binary ?? '',
       configDir,
       dataDir: path.join(root, 'data'),
-      env: result.files.env,
+      // registry 连不上：等 npm 安装的话，下面的用例都会超时
+      env: { ...result.files.env, npm_config_registry: 'http://127.0.0.1:9' },
     })
   }, 60_000)
 

@@ -38,7 +38,7 @@ CodeAgent 方言（`packages/kernel/src/dialects/codeagent.ts`）按 [codeagent-
 | 21 | 提问 | kits 用自己的 `ask_user`（MCP 工具），内核自带的 `question.asked` 应该不会出现 | 有没有被内核自带的提问工具抢走 | 内核配置里关掉自带的提问工具 |
 | 22 | kits 工具 | `mcp.kits = { type: "remote", url, headers }`（本机 HTTP MCP） | `ask_user`、`submit_output`、`remember` 能调到吗 | `generate/opencode-config.ts` 的 `mcp` 段 |
 | 23 | 技能 | `skills.paths`、项目 `.agents/skills` 的发现 | | 同 OpenCode 的处理 |
-| 25 | 命令描述 | 配置目录的 `plugins/kits-describe-bash.js` 用 `tool.definition` 钩子给 bash 加 `description` 参数 | 插件加载吗；事件里 `input.description` 有没有；有没有因为等 npm 卡启动（子进程已设 `npm_config_offline`） | 不支持时界面退回显示命令，不用改代码；卡启动就把插件从 CodeAgent 的配置里去掉（`toCodeagentFiles`） |
+| 25 | 命令描述 | OpenCode 用配置目录的 `plugins/kits-describe-bash.js`（`tool.definition` 钩子）给 bash 加 `description` 参数；CodeAgent 现在没发这个插件，步骤显示命令本身 | bash 自带 `description` 吗；不带的话 `tool.definition` 钩子有没有；加载插件前会不会等 npm（内网会卡启动） | 能用就让 `toCodeagentFiles` 留下插件；要等 npm 就照 `skipPluginInstall` 处理 CodeAgent 的配置目录 |
 | 24 | 退出 | 关 kits 时内核和它拉起的 MCP 进程一起结束（Windows `taskkill /T`） | 任务管理器里还有没有残留 | `dialects/child.ts` 的 `stopChild` |
 
 ## 跑完以后

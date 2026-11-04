@@ -2,8 +2,8 @@
 // 1.19.5 的 bash 只有 command / timeout / workdir，也没有配置项能加参数，只有 tool.definition 钩子能改。
 // 这里只改模型看到的参数表，内核的参数校验不变：模型漏写时命令照常跑，界面退回显示命令本身。
 // 钩子改不了原参数表（Effect Schema），只能整份替换，升级内核时要对一遍 bash 的参数（契约测试会校验这一份送到了模型）。
-// 内核从配置目录的 plugins/ 自动加载，加载前要等 npm 安装结束，所以子进程的 npm 设成了离线（见 opencode.ts 的 spawnEnv）。
-// CodeAgent 不加载时只是没有描述。
+// 内核从配置目录的 plugins/ 自动加载，加载前要等 npm 安装结束，所以启动前先让它跳过安装（opencode.ts 的 skipPluginInstall）。
+// CodeAgent 真机验过之前不发这个插件（codeagent-config.ts）。
 
 export const DESCRIBE_BASH_PLUGIN_PATH = 'plugins/kits-describe-bash.js'
 

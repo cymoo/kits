@@ -527,6 +527,31 @@ describe('tool steps', () => {
     })
   })
 
+  it('shows glob results relative to the workdir', () => {
+    const output = '/repo/member-svc/a.py\n/repo/member-svc/src/b.py'
+    expect(step('glob', { pattern: '*' }, { output })?.output).toBe('a.py\nsrc/b.py')
+  })
+
+  it('leaves the workdir inside a matched line as it is', () => {
+    const output =
+      'Found 1 matches\n/repo/member-svc/a.py:\n  Line 2: ROOT = "/repo/member-svc/data"\n'
+    expect(step('grep', { pattern: 'ROOT' }, { output })?.output).toBe(
+      'a.py:\n  Line 2: ROOT = "/repo/member-svc/data"',
+    )
+  })
+
+  it('leaves the workdir inside file content as it is', () => {
+    const output = '<content>\n1: ROOT = "/repo/member-svc/data"\n</content>'
+    expect(step('read', { filePath: '/repo/member-svc/a.py' }, { output })?.output).toBe(
+      '1: ROOT = "/repo/member-svc/data"',
+    )
+  })
+
+  it('leaves the workdir inside an mcp result as it is', () => {
+    const output = '{"path":"/repo/member-svc/data"}'
+    expect(step('wiki_get_page', {}, { output })?.output).toBe(output)
+  })
+
   it('points an edit at the changes panel instead of expanding', () => {
     const s = step(
       'edit',

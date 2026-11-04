@@ -1,9 +1,9 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { resolveKernelBinary } from '../binary'
-import { opencodeDialect, spawnEnv } from './opencode'
+import { opencodeDialect, skipPluginInstall, spawnEnv } from './opencode'
 
 // 契约测试：启动真实的 opencode serve，验证方言层的启动、就绪判断和关闭。不调模型。
 const binary = resolveKernelBinary('opencode', {
@@ -19,6 +19,39 @@ const cfg = {
   env: { KITS_GW_CORP_KEY: 'test' },
 }
 
+describe('skipPluginInstall', () => {
+  it('marks the plugin package as installed in both config dirs', () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'kits-skip-'))
+    try {
+      const configDir = path.join(root, 'config')
+      const dataDir = path.join(root, 'data')
+      skipPluginInstall({ configDir, dataDir })
+      for (const dir of [configDir, path.join(dataDir, 'opencode')]) {
+        expect(existsSync(path.join(dir, 'node_modules'))).toBe(true)
+        const lock = JSON.parse(readFileSync(path.join(dir, 'package-lock.json'), 'utf8'))
+        expect(lock.packages[''].dependencies).toHaveProperty('@opencode-ai/plugin')
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps a lock file the kernel already wrote', () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'kits-skip-'))
+    try {
+      const configDir = path.join(root, 'config')
+      mkdirSync(configDir)
+      writeFileSync(path.join(configDir, 'package-lock.json'), '{"name":"real"}')
+      skipPluginInstall({ configDir, dataDir: path.join(root, 'data') })
+      expect(readFileSync(path.join(configDir, 'package-lock.json'), 'utf8')).toBe(
+        '{"name":"real"}',
+      )
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('spawnEnv', () => {
   it('points every XDG home and the opencode home at the kits data dir', () => {
     const env = spawnEnv(cfg, {})
@@ -32,10 +65,9 @@ describe('spawnEnv', () => {
     for (const key of keys) expect(env[key]).toBe('/kits/data')
   })
 
-  it('keeps npm offline so a plugin in the config dir never waits for the registry', () => {
+  it('leaves npm alone for the commands and mcp servers the kernel starts', () => {
     const env = spawnEnv(cfg, {})
-    expect(env.npm_config_offline).toBe('true')
-    expect(env.npm_config_cache).toBe(path.join('/kits/data', 'npm-cache'))
+    expect(Object.keys(env).filter((k) => k.toLowerCase().startsWith('npm_'))).toEqual([])
   })
 
   it('disables autoupdate, claude code config and network downloads but keeps project skills', () => {

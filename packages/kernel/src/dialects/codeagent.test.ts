@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { resolveEnvRefs, toCodeagentFiles } from '../generate/codeagent-config'
+import { DESCRIBE_BASH_PLUGIN_PATH } from '../generate/describe-bash-plugin'
 import { codeagentEnv, parseReadyLine } from './codeagent'
 
 describe('parseReadyLine', () => {
@@ -43,6 +44,17 @@ describe('toCodeagentFiles', () => {
     expect(out.files[0]?.path).toBe('codeagent.json')
     expect(JSON.parse(out.files[0]?.content ?? '')).toEqual({ model: 'corp/m' })
     expect(out.env).toEqual({ A: '1' })
+  })
+
+  it('leaves out the opencode plugin until it is checked on a real kernel', () => {
+    const out = toCodeagentFiles({
+      files: [
+        { path: 'opencode.json', content: '{}' },
+        { path: DESCRIBE_BASH_PLUGIN_PATH, content: '' },
+      ],
+      env: {},
+    })
+    expect(out.files.map((f) => f.path)).toEqual(['codeagent.json'])
   })
 })
 

@@ -253,21 +253,35 @@ function commandTime(ms: number): string {
 }
 
 // 工具输出里给模型看的部分，界面上不显示：
-// OpenCode 在 bash 输出末尾附的 <shell_metadata>，read 外面包的 <path>、<content> 和文件结尾的统计，grep 开头的“Found N matches”
+// OpenCode 在 bash 输出末尾附的 <shell_metadata>，read 外面包的 <path>、<content> 和文件结尾的统计，grep 开头的“Found N matches”。
+// 只动这些包装和 grep、glob 列出的路径：正文（源码、命中行、MCP 返回）要原样显示、原样复制
 function cleanOutput(name: string, output: unknown, workdir: string): string {
   if (output === undefined || output === null) return ''
   const text = typeof output === 'string' ? output : JSON.stringify(output, null, 2)
   if (name === 'bash') {
     return text.replace(/\n*<shell_metadata>[\s\S]*?<\/shell_metadata>\s*$/, '').trimEnd()
   }
-  const body =
-    name === 'read'
-      ? (text.match(/<content>\n([\s\S]*?)\n*(?:\(End of file[^\n]*\n)?<\/content>/)?.[1] ?? text)
-      : name === 'grep'
-        ? text.replace(/^Found \d+ matches\n/, '')
-        : text
-  const base = `${workdir.replace(/[\\/]+$/, '')}/`
-  return body.split(base).join('').trimEnd()
+  if (name === 'read') {
+    const body = text.match(/<content>\n([\s\S]*?)\n*(?:\(End of file[^\n]*\n)?<\/content>/)?.[1]
+    return (body ?? text).trimEnd()
+  }
+  if (name === 'glob') {
+    return text
+      .split('\n')
+      .map((line) => rel(line, workdir))
+      .join('\n')
+      .trimEnd()
+  }
+  if (name === 'grep') {
+    // 文件名顶格、以冒号结尾，命中行有缩进
+    return text
+      .replace(/^Found \d+ matches\n/, '')
+      .split('\n')
+      .map((line) => (/^\S.*:$/.test(line) ? `${rel(line.slice(0, -1), workdir)}:` : line))
+      .join('\n')
+      .trimEnd()
+  }
+  return text.trimEnd()
 }
 
 // 点开步骤时最多放这么多行，多的要点“显示”才出来：对话里不再套一层滚动
