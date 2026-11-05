@@ -123,14 +123,14 @@
 .kc-mf{display:flex;align-items:center;gap:12px;padding:8px 10px 4px;border-top:1px solid #F2F2F0;margin-top:4px;font-size:12px;color:#84878E}
 .kc-mf a{margin-left:auto;text-decoration:none;color:#3563E0}
 
-.kp{position:fixed;z-index:50;min-width:240px;max-width:320px;background:#fff;border:1px solid #E8E8E5;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 16px 40px rgba(0,0,0,.12);padding:6px;font-family:${FONT};font-size:14px;line-height:22px;color:#16171A;box-sizing:border-box}
+.kp{position:fixed;z-index:50;min-width:240px;max-width:400px;background:#fff;border:1px solid #E8E8E5;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,.04),0 16px 40px rgba(0,0,0,.12);padding:6px;font-family:${FONT};font-size:14px;line-height:22px;color:#16171A;box-sizing:border-box}
 .kp *{box-sizing:border-box}
 .kp[hidden]{display:none}
 .kp-h{font-size:12px;color:#84878E;padding:6px 8px 4px;font-weight:500}
 .kp-sep{height:1px;background:#EFEFEC;margin:5px 2px}
 .kp-opt{display:flex;align-items:center;gap:10px;width:100%;min-height:34px;padding:5px 8px;border:0;border-radius:8px;background:transparent;font:inherit;color:#16171A;cursor:pointer;text-align:left;text-decoration:none}
 .kp-opt:hover{background:#F6F6F4}
-.kp-opt small{display:block;font-size:13px;color:#60646B}
+.kp-opt small{display:block;font-size:13px;color:#60646B;white-space:nowrap}
 .kp-opt svg{flex:0 0 auto;color:#60646B}
 .kp-tick{width:14px;flex:0 0 auto;color:#16171A;visibility:hidden;margin-left:auto}
 .kp-opt[aria-checked="true"] .kp-tick{visibility:visible}
@@ -817,6 +817,8 @@
       ring.dataset.near = String(pct >= 80)
       ring.title = `上下文 ${label}，点开看明细`
     }
+    // 进首页就能打字
+    if (big) setTimeout(() => ta.focus())
     box.setRunning = (on) => { running = on; paint() }
     box.fill = (text) => { ta.value = text; grow(); ta.focus(); ta.setSelectionRange(text.length, text.length); renderMenu() }
     return box

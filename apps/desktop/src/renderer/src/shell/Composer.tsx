@@ -24,7 +24,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { t } from '../app/i18n'
 import { basename, resolvePrefs, usePrefs } from '../lib/composer-prefs'
 import { errorText } from '../lib/errors'
@@ -187,6 +187,12 @@ export function Composer({
   // 发送失败的原因（比如工作目录被删了）；草稿留着，改了再发
   const [error, setError] = useState<string>()
   const area = useRef<HTMLTextAreaElement>(null)
+  // 进首页就能打字：点“新会话”、⌘N、工作区的 +，已经在首页时再点一次也算
+  const { key: locationKey } = useLocation()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 每次导航聚焦一次
+  useEffect(() => {
+    if (big) area.current?.focus()
+  }, [big, locationKey])
   const box = useRef<HTMLDivElement>(null)
   const picker = useRef<HTMLInputElement>(null)
   const inputId = big ? 'composer-home' : 'composer-session'
@@ -453,7 +459,7 @@ export function Composer({
         <span>{t(`perm.${permission}`)}</span>
         {locked ? <ChevronDown size={12} className="@max-[420px]:hidden" /> : null}
       </MenuTrigger>
-      <MenuContent align={locked ? 'start' : 'end'}>
+      <MenuContent align={locked ? 'start' : 'end'} className="max-w-none!">
         <MenuLabel>{t(locked ? 'composer.permissionNow' : 'composer.permissionTitle')}</MenuLabel>
         <MenuRadioGroup
           value={permission}
@@ -466,7 +472,9 @@ export function Composer({
           {PERMS.map((p) => (
             <MenuRadioItem key={p} value={p}>
               <span className="block">{t(`perm.${p}`)}</span>
-              <small className="block text-[0.929rem] text-fg-muted">{t(`perm.${p}.note`)}</small>
+              <small className="block whitespace-nowrap text-[0.929rem] text-fg-muted">
+                {t(`perm.${p}.note`)}
+              </small>
             </MenuRadioItem>
           ))}
         </MenuRadioGroup>
