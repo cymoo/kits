@@ -183,6 +183,17 @@ export type OutputView = {
   | { kind: 'structured'; aiDraft: unknown; edited: unknown | null }
 )
 
+// 文件面板：目录里的一项，path 是相对工作区的路径，分隔符一律是 /
+export interface FileEntry {
+  name: string
+  path: string
+  dir: boolean
+}
+
+export type FilePreview =
+  | { kind: 'text'; text: string; size: number; truncated: boolean }
+  | { kind: 'unsupported'; reason: 'binary' | 'large'; size: number }
+
 // ⌘K 搜会话：命中的部分夹在 \u0001 和 \u0002 之间，渲染进程按它高亮
 export interface SessionSearchHit {
   session: SessionSummary

@@ -17,6 +17,7 @@ import { SecretStore } from './config/secrets'
 import { openDatabase } from './db'
 import { Notifier } from './desktop/notifier'
 import { setupBackground } from './desktop/tray'
+import { listDir, readPreview, resolveInside } from './files/browse'
 import { FileSearch } from './files/search'
 import { testGateway } from './gateway/gateway-client'
 import { push, registerIpc, trustedUrl } from './ipc/register'
@@ -409,6 +410,10 @@ app.whenReady().then(() => {
       },
       files: {
         search: ({ workdir, query }) => files.search(workdir, query),
+        list: ({ workdir, dir }) => listDir(workdir, dir),
+        read: ({ workdir, path: file }) => readPreview(workdir, file),
+        open: async ({ workdir, path: file }) =>
+          platform.openPath(await resolveInside(workdir, file)),
       },
       workdir: {
         rename: ({ path: dir, label }) => {

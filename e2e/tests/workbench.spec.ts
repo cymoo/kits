@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 import { launchApp, mod } from './app'
@@ -36,7 +36,7 @@ test('shows the changed files, commands and usage of a finished turn', async () 
     await expect(panel.getByRole('tab', { name: /改动/ })).toContainText('1')
 
     await page.screenshot({ path: 'test-results/workbench-changes.png' })
-    await expect(panel.getByRole('tab')).toHaveText([/改动/])
+    await expect(panel.getByRole('tab')).toHaveText([/改动/, '文件'])
 
     // 命令的结果在对话里就地看：标题是模型写的描述，点开是命令、输出和允许方式
     const turn = page.getByTestId('turn')
@@ -240,6 +240,71 @@ test('manages the session from the header menu', async () => {
     await page.getByRole('menuitem', { name: '删除' }).click()
     await page.getByRole('alertdialog').getByRole('button', { name: '删除' }).click()
     await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+  } finally {
+    await close()
+  }
+})
+
+test('browses the workspace files and previews them', async () => {
+  const { page, configDir, close } = await launchApp(mock('done'))
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const workdir = await prepare(page, configDir)
+    mkdirSync(path.join(workdir, 'src', 'points'), { recursive: true })
+    writeFileSync(path.join(workdir, 'README.md'), '# 积分模块\n\n基础路径 `/api/points`\n')
+    writeFileSync(path.join(workdir, 'src', 'points', 'redeem.py'), 'def redeem():\n    return 1\n')
+    writeFileSync(path.join(workdir, 'orders.csv'), 'id,status\nO-1,paid\n')
+    writeFileSync(path.join(workdir, 'a.bin'), Buffer.from([1, 0, 2]))
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('看看文件')
+    await box.press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+
+    const panel = page.getByRole('complementary', { name: '会话面板' })
+    await panel.getByRole('tab', { name: '文件' }).click()
+    const tree = panel.getByTestId('file-tree')
+
+    // Markdown 渲染，能切源码；窄栏有返回
+    await tree.getByRole('button', { name: 'README.md' }).click()
+    const preview = panel.getByTestId('file-preview')
+    await expect(preview.getByRole('heading', { name: '积分模块' })).toBeVisible()
+    await preview.getByRole('radio', { name: '源码' }).click()
+    await expect(preview.getByTestId('file-code')).toContainText('# 积分模块')
+    await preview.getByRole('button', { name: '返回文件列表' }).click()
+
+    // 目录懒加载，代码有高亮
+    await tree.getByRole('button', { name: 'src' }).click()
+    await tree.getByRole('button', { name: 'points' }).click()
+    await tree.getByRole('button', { name: 'redeem.py' }).click()
+    await expect(preview.getByTestId('file-code')).toContainText('def redeem():')
+    await expect(preview.locator('[data-testid="file-code"] span[style]').first()).toBeVisible()
+    await page.screenshot({ path: 'test-results/files-code.png' })
+
+    // 引用填进输入框
+    await preview.getByRole('button', { name: '在对话里引用' }).click()
+    await expect(box).toHaveValue('@src/points/redeem.py ')
+    await box.fill('')
+    await preview.getByRole('button', { name: '返回文件列表' }).click()
+
+    // CSV 是表格，二进制给打开入口
+    await tree.getByRole('button', { name: 'orders.csv' }).click()
+    await expect(preview.getByTestId('file-table')).toContainText('O-1')
+    await preview.getByRole('button', { name: '返回文件列表' }).click()
+    await tree.getByRole('button', { name: 'a.bin' }).click()
+    await expect(preview).toContainText('这种格式不能预览')
+    await preview.getByRole('button', { name: '返回文件列表' }).click()
+
+    // 筛选平铺结果
+    await panel.getByLabel('筛选文件').fill('redeem')
+    await expect(tree.getByRole('button', { name: 'src/points/redeem.py' })).toBeVisible()
+    await panel.getByLabel('筛选文件').fill('')
+
+    // 放大后左树右预览
+    await page.getByRole('button', { name: '放大面板' }).click()
+    await expect(panel.getByText('点左边的文件查看内容')).toBeVisible()
+    await tree.getByRole('button', { name: 'README.md' }).click()
+    await expect(tree).toBeVisible()
+    await expect(preview.getByRole('heading', { name: '积分模块' })).toBeVisible()
   } finally {
     await close()
   }

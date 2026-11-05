@@ -95,3 +95,48 @@ phase1-implementation PR9（6.4 节的右侧面板和总结卡片）：会话页
 - 结构化产出还是 JSON 视图，原型里逐条审核的样子这次没做。
 - 手动压缩失败的错误显示在顶栏下面。
 
+## 2026-11-06　界面改版 7：文件面板
+
+> PR：分支 `feat/workbench-files-panel`　作者：Claude Code
+
+### 原始需求
+
+没有地方看工作区里的文件。见[界面改版方案](../plans/2026-11-ui-refresh.md)的决策 6 和“文件面板”一节。这个 PR 做文本类预览，图片、PDF、Word 在下一个 PR。
+
+### 怎么验收
+
+1. 会话页右侧点“文件”：目录树，依赖目录（`node_modules`、`.git`、`dist` 等）不列。这个会话改过的文件标 A / M，收起的目录上有小点。
+2. 点 Markdown 文件：渲染，能切源码。窄栏有返回按钮；放大后左树右预览。
+3. 点代码文件：有行号和高亮，深色主题下配色正常。JSON、YAML、XML 同样。
+4. 点 CSV：表格，只显示前 1000 行。
+5. 二进制文件、超过 20 MB 的文件：提示不能预览，给“用系统应用打开”。超过 2 MB 的文本只显示开头并有提示。
+6. 预览顶上的 `@`：把路径填进输入框。筛选框：平铺匹配的文件。
+7. Agent 改了文件后，展开的目录和正看的文件自动刷新；也有手动刷新按钮。
+8. 指向工作区外的软链接点开提示读不了。
+
+### 主要改动
+
+- `main/files/browse.ts`：`listDir`、`readPreview`、`resolveInside`。根目录和目标都取真实路径再比，软链接逃出去的一律拒绝。
+- `files.list`、`files.read`、`files.open` 三个 IPC。
+- `session/panels/FilesPanel.tsx`、`lib/highlight.ts`、`lib/csv.ts`。
+- 这版不用 `fs.watch`：工具调用结束和回合结束时刷新。
+- 配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`files/browse.test.ts`（路径限制、大文件、二进制）、`lib/csv.test.ts`、`lib/highlight.test.ts`。
+- E2E：`workbench.spec.ts` 的 `browses the workspace files and previews them`。
+
+### 新增依赖
+
+| 依赖 | 版本 | 用途 | 许可证 |
+|---|---|---|---|
+| `shiki` | 4.6.0 | 文件预览的代码高亮。用 JS 正则引擎，没有原生依赖，不加载 wasm，语言按需加载 | MIT |
+
+按约定要在群里说一声，用户还没发。
+
+### 已知问题
+
+- 回复里的代码块还没有高亮。
+- 超过 5000 行或 300 KB 的代码不高亮，超过 2 万行不显示行号。
+
