@@ -198,3 +198,41 @@
 ### 已知问题
 
 - 菜单向下开时会盖住首页的建议，关掉菜单就恢复。
+
+## 2026-11-05　侧栏会话的菜单：重命名和删除
+
+> PR：#49　作者：Claude Code
+
+### 原始需求
+
+侧栏的会话要能删除和重命名：点行右边的 `…` 弹出菜单选动作。原型见 `designs/app/shell.js`，任一页面的侧栏都能点。
+
+### 怎么验收
+
+1. 鼠标移到侧栏一个会话上：右边出现 `…`，点开有“置顶 / 重命名 / 删除”。右键这一行是同一个菜单。键盘 Tab 到 `…` 也能打开。
+2. 重命名：行变成输入框，标题全选。回车或点别处保存，Esc 放弃，清空不保存。打开的会话顶栏标题跟着变，⌘K 能用新标题搜到。改名后会话不跳到“今天”分组。
+3. 删除：弹确认框，默认焦点在“取消”。确认后从列表消失。删的是正在看的会话时回到首页，删别的会话留在当前页。
+4. 运行中、等确认的会话：“删除”是灰的，右边写“运行中”。
+
+### 主要改动
+
+- `packages/core/src/ipc.ts`、`apps/desktop/src/main/sessions/session-service.ts`：新增 `session.rename`，连续空白压成一个空格，空标题报错，更新搜索索引，不改 `updatedAt`。
+- `apps/desktop/src/renderer/src/shell/SessionRow.tsx`：新组件，一行会话：链接、菜单、就地改名、删除确认。
+- `ui/Menu.tsx`：`MenuItem` 加 `disabled`、`danger`，`MenuContent` 加 `onCloseAutoFocus`。`ui/Button.tsx`：加 `danger`。
+- `designs/app/shell.js`：菜单、改名输入框、确认框。原来行上的置顶按钮收进菜单，“全部会话”页的置顶按钮不变。
+
+配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`session-service.test.ts` 的 `SessionService rename`（不算更新、推送、搜索索引、空标题、没有这个会话）。
+- E2E：`history.spec.ts` 的 `renames a session in place from its menu`、`deletes a session after confirming and leaves its page`，置顶用例改走菜单。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 删除不能撤销，靠确认框兜底。
+- “全部会话”页没有重命名，只在侧栏。

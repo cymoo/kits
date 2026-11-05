@@ -14,7 +14,7 @@
 | `session.html` | 会话：对话流 + 工作区面板（改动 / 产出 / 上下文）；工具结果在对话里点开步骤看。`?s=` 切换演示状态：`streaming` 运行中、`plan` 带计划的运行中（输入框上方的计划卡片，“更新计划”步骤点开看清单）、`subagent` 子任务（步骤点开看任务、过程、结果）、`permission` 命令确认、`question` Agent 提问、`done` 完成、`error` 重试与出错、`context` 上下文接近上限、`changes` 改动面板放大、`output` 结构化产出放大 |
 | `history.html` | 会话历史，按状态筛选；置顶的会话排在最前 |
 | `settings.html` | 设置：`#general` 通用、`#model` 内核与模型、`#mcp` MCP 服务、`#skills` 技能与记忆、`#agent` Agent |
-| `shell.js` | 共用的侧栏（⌘B 折叠）、拖动改栏宽的手柄 `.k-rz`、输入框（含 `/` 和 `@` 菜单、各个下拉）、⌘K 面板，以及它们用的演示数据 |
+| `shell.js` | 共用的侧栏（⌘B 折叠；会话行的 `…` 或右键打开菜单：置顶、重命名、删除）、拖动改栏宽的手柄 `.k-rz`、输入框（含 `/` 和 `@` 菜单、各个下拉）、⌘K 面板，以及它们用的演示数据 |
 
 预览：`python3 -m http.server 8765 --directory designs/app`，或 Claude Code 的 `app` 预览配置。
 

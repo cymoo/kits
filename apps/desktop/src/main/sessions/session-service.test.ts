@@ -673,6 +673,37 @@ describe('SessionService setPinned', () => {
   })
 })
 
+describe('SessionService rename', () => {
+  it('changes the title without counting as an update and pushes the change', async () => {
+    const { service, store, pushed, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const before = store.session(s.id)?.updatedAt
+    service.rename(s.id, '  幂等\n校验 ')
+    expect(store.session(s.id)).toMatchObject({ title: '幂等 校验', updatedAt: before })
+    expect(pushed.at(-1)).toMatchObject({
+      channel: 'session.changed',
+      payload: { id: s.id, title: '幂等 校验' },
+    })
+  })
+
+  it('finds the session by the new title', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    service.rename(s.id, '独一无二的标题')
+    expect(service.search('独一无二').map((h) => h.session.id)).toEqual([s.id])
+  })
+
+  it('refuses an empty title and an unknown session', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    expect(() => service.rename(s.id, '   ')).toThrow('不能为空')
+    expect(() => service.rename('nope', '标题')).toThrow('没有这个会话')
+  })
+})
+
 describe('SessionService search and remove', () => {
   it('indexes the user message and the reply once the turn is done', async () => {
     const { service, waitFor } = setup('done')

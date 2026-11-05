@@ -37,10 +37,26 @@
 .kn-st.err{background:#C8381F}
 .kn-tag{font-size:12px;flex:0 0 auto;font-weight:400}
 .kn-row{position:relative}
-.kn-row:hover .kn-item,.kn-row:has(.kn-pin:focus-visible) .kn-item{background:#E9E8E3;padding-right:32px}
+.kn-row:hover .kn-item,.kn-row:has(.kn-pin:focus-visible) .kn-item,.kn-row[data-open="true"] .kn-item{background:#E9E8E3;padding-right:32px}
 .kn-pin{position:absolute;top:4px;right:4px;width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:#6E6E76;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0}
-.kn-row:hover .kn-pin,.kn-pin:focus-visible{opacity:1}
-.kn-pin:hover{background:#DEDDD8;color:#1B1B1F}
+.kn-row:hover .kn-pin,.kn-pin:focus-visible,.kn-row[data-open="true"] .kn-pin{opacity:1}
+.kn-pin:hover,.kn-row[data-open="true"] .kn-pin{background:#DEDDD8;color:#1B1B1F}
+.kn-rename{display:block;box-sizing:border-box;width:100%;height:30px;padding:0 8px;border:1px solid #3659E3;border-radius:8px;background:#FFFFFF;font:inherit;color:#1B1B1F;outline:none;box-shadow:0 0 0 3px rgba(54,89,227,.15)}
+.kn-pop{position:fixed;z-index:60;box-sizing:border-box;width:188px;padding:6px;border:1px solid #E5E4DF;border-radius:12px;background:#FFFFFF;box-shadow:0 2px 4px rgba(0,0,0,.04),0 16px 40px rgba(0,0,0,.12);font-size:14px}
+.kn-pop hr{margin:5px 2px;border:0;border-top:1px solid #ECEBE7}
+.kn-pop button{display:flex;align-items:center;gap:10px;box-sizing:border-box;width:100%;min-height:34px;padding:5px 8px;border:0;border-radius:8px;background:transparent;font:inherit;color:#1B1B1F;text-align:left;cursor:pointer}
+.kn-pop button:hover:not(:disabled){background:#F4F3F0}
+.kn-pop button.danger{color:#B42318}
+.kn-pop button:disabled{cursor:default;color:#B0B0B6}
+.kn-pop button span{flex:1;min-width:0}
+.kn-pop button small{flex:0 0 auto;font-size:12px;color:#9A9AA1}
+.kn-mask{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:rgba(27,27,31,.32)}
+.kn-dlg{box-sizing:border-box;width:420px;max-width:calc(100% - 48px);padding:20px;border-radius:14px;background:#FFFFFF;color:#1B1B1F;box-shadow:0 24px 64px rgba(0,0,0,.2);font-size:14px;line-height:1.6}
+.kn-dlg h2{margin:0 0 6px;font-size:16px;font-weight:600}
+.kn-dlg p{margin:0;color:#4A4A52;overflow-wrap:anywhere}
+.kn-dlg div{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.kn-dlg button{height:32px;padding:0 12px;border:1px solid #E5E4DF;border-radius:8px;background:#FFFFFF;font:inherit;color:#1B1B1F;cursor:pointer}
+.kn-dlg button.danger{border-color:#B42318;background:#B42318;color:#FFFFFF;font-weight:500}
 @keyframes kn-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .kn-foot{display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid #E5E4DF}
 .kn[data-collapsed="true"]{flex-basis:56px;padding:12px 8px 8px;align-items:center}
@@ -117,6 +133,9 @@
 
   const icon = {
     plus: '<path d="M8 3v10M3 8h10"/>',
+    more: '<path d="M3.5 8h.01M8 8h.01M12.5 8h.01" stroke-width="2.2"/>',
+    edit: '<path d="M10.5 3 13 5.5 6 12.5l-3 .5.5-3zM9 4.5 11.5 7"/>',
+    trash: '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 8.5h6l.5-8.5M6.8 7v3.5M9.2 7v3.5"/>',
     pin: '<path d="M8 11v3.5"/><path d="M5.5 2.5h5l-.5 4 2 2.5v2H4V9l2-2.5z"/>',
     unpin: '<path d="M8 11v3.5"/><path d="M5.5 2.5h5l-.5 4 2 2.5v2H4V9l2-2.5z"/><path d="m2.5 2.5 11 11"/>',
     history: '<path d="M2.5 8a5.5 5.5 0 1 0 1.7-4L2.5 5.6"/><path d="M2.5 2.5v3.1h3.1"/><path d="M8 5v3.2l2.2 1.3"/>',
@@ -414,7 +433,7 @@
       </div>
       <div class="kn-list">
         ${convs.map(([h, items]) => `<div class="kn-h">${h}</div>` + items.map(([title, href, st, tag]) =>
-          `<div class="kn-row"><a class="kn-item${href === here ? ' on' : ''}" href="${href}" title="${esc(title)}">${st ? `<span class="kn-st ${st}"></span>` : ''}<span class="kn-label">${esc(title)}</span>${tag ? `<span class="kn-tag" style="color:${st === 'err' ? '#C8381F' : '#B4650A'}">${tag}</span>` : ''}</a><button type="button" class="kn-pin" aria-label="${h === '置顶' ? '取消置顶' : '置顶'}“${esc(title)}”" title="${h === '置顶' ? '取消置顶' : '置顶'}">${svg(h === '置顶' ? 'unpin' : 'pin', 13, 1.5)}</button></div>`).join('')).join('')}
+          `<div class="kn-row"><a class="kn-item${href === here ? ' on' : ''}" href="${href}" title="${esc(title)}">${st ? `<span class="kn-st ${st}"></span>` : ''}<span class="kn-label">${esc(title)}</span>${tag ? `<span class="kn-tag" style="color:${st === 'err' ? '#C8381F' : '#B4650A'}">${tag}</span>` : ''}</a><button type="button" class="kn-pin" data-act="more" data-title="${esc(title)}" data-pinned="${h === '置顶'}" data-busy="${st === 'run'}" aria-haspopup="menu" aria-label="“${esc(title)}”的更多操作" title="更多">${svg('more', 14)}</button></div>`).join('')).join('')}
       </div>
       <div class="kn-foot">
         <a class="kn-item${active === 'settings' ? ' on' : ''}" href="settings.html" title="设置 ⌘,">${svg('sliders', 15)}<span class="kn-label">设置</span><span class="kn-kbd">⌘,</span></a>
@@ -425,9 +444,94 @@
       if (!t) return
       if (t.dataset.act === 'collapse') toggleNav()
       if (t.dataset.act === 'search') openPalette()
+      if (t.dataset.act === 'more') openRowMenu(t)
+    })
+    // 右键行和点 … 是同一个菜单
+    nav.addEventListener('contextmenu', (e) => {
+      const more = e.target.closest('.kn-row')?.querySelector('[data-act="more"]')
+      if (!more) return
+      e.preventDefault()
+      openRowMenu(more)
     })
     setCollapseTitle()
     return nav
+  }
+
+  // ---------- 侧栏会话的菜单：置顶、重命名、删除 ----------
+  function closeRowMenu() {
+    document.querySelector('.kn-pop')?.remove()
+    document.querySelector('.kn-row[data-open]')?.removeAttribute('data-open')
+  }
+  function openRowMenu(more) {
+    closeRowMenu()
+    const row = more.closest('.kn-row')
+    const { title, pinned, busy } = more.dataset
+    row.dataset.open = 'true'
+    const pop = document.createElement('div')
+    pop.className = 'kn-pop'
+    pop.setAttribute('role', 'menu')
+    pop.innerHTML = `
+      <button type="button" role="menuitem" data-do="pin">${svg(pinned === 'true' ? 'unpin' : 'pin', 14)}<span>${pinned === 'true' ? '取消置顶' : '置顶'}</span></button>
+      <button type="button" role="menuitem" data-do="rename">${svg('edit', 14)}<span>重命名</span></button>
+      <hr>
+      <button type="button" role="menuitem" data-do="remove" class="danger"${busy === 'true' ? ' disabled' : ''}>${svg('trash', 14)}<span>删除</span>${busy === 'true' ? '<small>运行中</small>' : ''}</button>`
+    const box = more.getBoundingClientRect()
+    pop.style.left = box.left + 'px'
+    pop.style.top = box.bottom + 6 + 'px'
+    document.body.appendChild(pop)
+    pop.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-do]')?.dataset.do
+      if (!act) return
+      closeRowMenu()
+      if (act === 'rename') renameRow(row, title)
+      if (act === 'remove') confirmRemove(row, title)
+    })
+    setTimeout(() => document.addEventListener('click', closeRowMenu, { once: true }))
+  }
+  // 就地改：回车或点别处保存，Esc 放弃，空的不保存
+  function renameRow(row, title) {
+    const link = row.querySelector('.kn-item')
+    const input = document.createElement('input')
+    input.className = 'kn-rename'
+    input.value = title
+    input.setAttribute('aria-label', '会话标题')
+    link.hidden = true
+    link.style.display = 'none'
+    row.querySelector('.kn-pin').hidden = true
+    row.appendChild(input)
+    input.select()
+    let finished = false
+    const done = (save) => {
+      if (finished) return
+      finished = true
+      const value = input.value.trim()
+      if (save && value) {
+        link.querySelector('.kn-label').textContent = value
+        link.title = value
+      }
+      input.remove()
+      link.style.display = ''
+      link.hidden = false
+      row.querySelector('.kn-pin').hidden = false
+    }
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) done(true)
+      if (e.key === 'Escape') done(false)
+    })
+    input.addEventListener('blur', () => done(true))
+  }
+  function confirmRemove(row, title) {
+    const mask = document.createElement('div')
+    mask.className = 'kn-mask'
+    mask.innerHTML = `<div class="kn-dlg" role="alertdialog" aria-modal="true" aria-label="删除这个会话？"><h2>删除这个会话？</h2><p>“${esc(title)}”的对话记录和附件都会删掉，不能恢复。工作目录里的文件不受影响。</p><div><button type="button" data-do="cancel">取消</button><button type="button" class="danger" data-do="ok">删除</button></div></div>`
+    document.body.appendChild(mask)
+    mask.querySelector('[data-do="cancel"]').focus()
+    mask.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-do]')?.dataset.do
+      if (e.target !== mask && !act) return
+      if (act === 'ok') row.remove()
+      mask.remove()
+    })
   }
 
   // ---------- 输入框 ----------

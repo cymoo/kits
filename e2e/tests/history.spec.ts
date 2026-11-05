@@ -101,6 +101,90 @@ test('fills a suggestion into the composer and opens all sessions from the sideb
   }
 })
 
+test('renames a session in place from its menu', async () => {
+  const { page, configDir, close } = await launchApp(mock)
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    await runTask(page, '给兑换接口加幂等校验')
+    const list = page.getByTestId('session-list')
+    const open = async (title: string) => {
+      await list.getByRole('link', { name: title }).hover()
+      await list.getByRole('button', { name: `“${title}”的更多操作` }).click()
+      await page.getByRole('menuitem', { name: '重命名' }).click()
+    }
+
+    await open('给兑换接口加幂等校验')
+    const input = list.getByLabel('会话标题')
+    await expect(input).toBeFocused()
+    await expect(input).toHaveValue('给兑换接口加幂等校验')
+    await page.screenshot({ path: 'test-results/session-rename.png' })
+    await input.fill('幂等校验')
+    await input.press('Enter')
+    await expect(list.getByRole('link', { name: '幂等校验' })).toBeVisible()
+    // 打开的会话标题跟着变
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('幂等校验')
+
+    // Esc 放弃，清空不保存
+    await open('幂等校验')
+    await list.getByLabel('会话标题').fill('不要这个')
+    await list.getByLabel('会话标题').press('Escape')
+    await expect(list.getByRole('link', { name: '幂等校验' })).toBeVisible()
+    await open('幂等校验')
+    await list.getByLabel('会话标题').fill('   ')
+    await list.getByLabel('会话标题').press('Enter')
+    await expect(list.getByRole('link', { name: '幂等校验' })).toBeVisible()
+
+    // 点别处也算保存
+    await open('幂等校验')
+    await list.getByLabel('会话标题').fill('点别处保存')
+    await page.getByTestId('answer').click()
+    await expect(list.getByRole('link', { name: '点别处保存' })).toBeVisible()
+
+    await page.reload()
+    await expect(list.getByRole('link', { name: '点别处保存' })).toBeVisible()
+  } finally {
+    await close()
+  }
+})
+
+test('deletes a session after confirming and leaves its page', async () => {
+  const { page, configDir, close } = await launchApp(mock)
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    await runTask(page, '给兑换接口加幂等校验')
+    await runTask(page, '排查订单退款超时')
+    const list = page.getByTestId('session-list')
+
+    // 右键行打开同一个菜单；删别的会话不离开当前页
+    await list.getByRole('link', { name: '给兑换接口加幂等校验' }).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: '删除' }).click()
+    const dialog = page.getByRole('alertdialog', { name: '删除这个会话？' })
+    await expect(dialog).toContainText('“给兑换接口加幂等校验”')
+    await expect(dialog.getByRole('button', { name: '取消' })).toBeFocused()
+    await page.screenshot({ path: 'test-results/session-remove.png' })
+    await dialog.getByRole('button', { name: '取消' }).click()
+    await expect(list.getByRole('link')).toHaveCount(2)
+
+    await list.getByRole('link', { name: '给兑换接口加幂等校验' }).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: '删除' }).click()
+    await dialog.getByRole('button', { name: '删除' }).click()
+    await expect(list.getByRole('link')).toHaveText(['排查订单退款超时'])
+    await expect(page).toHaveURL(/#\/s\//)
+
+    // 删正在看的会话回到首页
+    await list.getByRole('link', { name: '排查订单退款超时' }).hover()
+    await list.getByRole('button', { name: '“排查订单退款超时”的更多操作' }).click()
+    await page.getByRole('menuitem', { name: '删除' }).click()
+    await dialog.getByRole('button', { name: '删除' }).click()
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await expect(page.getByText('还没有会话')).toBeVisible()
+  } finally {
+    await close()
+  }
+})
+
 test('pins a session to the top of the sidebar and the history page', async () => {
   const { page, configDir, close } = await launchApp(mock)
   try {
@@ -115,7 +199,8 @@ test('pins a session to the top of the sidebar and the history page', async () =
     await expect(list.getByText('置顶', { exact: true })).toHaveCount(0)
 
     await list.getByRole('link', { name: '给兑换接口加幂等校验' }).hover()
-    await list.getByRole('button', { name: '置顶“给兑换接口加幂等校验”' }).click()
+    await list.getByRole('button', { name: '“给兑换接口加幂等校验”的更多操作' }).click()
+    await page.getByRole('menuitem', { name: '置顶' }).click()
     await expect(list.getByText('置顶', { exact: true })).toBeVisible()
     await expect(titles()).toHaveText(['给兑换接口加幂等校验', '排查订单退款超时'])
     await page.screenshot({ path: 'test-results/session-pinned.png' })
