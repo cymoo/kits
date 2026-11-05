@@ -177,3 +177,31 @@ phase1-implementation PR9（6.4 节的右侧面板和总结卡片）：会话页
 - 大于 20 MB 的文件不预览。
 - PDF 预览在 macOS 打包后的应用里实测过，Windows 打包后没有实测。
 
+## 2026-11-06　修 Windows 上的文件面板单测
+
+> PR：分支 `fix/files-browse-windows-test`　作者：Claude Code
+
+### 原始需求
+
+#66 合并后 `main` 的 Windows CI 失败：`follows a link that stays inside` 把异步 `realpath` 的结果和同步 `realpathSync` 算的路径比，CI 的临时目录是 8.3 短路径（`RUNNER~1`），同步版不展开。只是用例的问题，产品代码两端都用异步 `realpath`，不受影响。
+
+### 怎么验收
+
+CI 的 `pnpm test` 通过，后面的 Windows E2E 能跑到。
+
+### 主要改动
+
+- `files/browse.test.ts`：期望值也用异步 `realpath`。
+
+### 测试
+
+`pnpm test` 本地通过。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+无。
+
