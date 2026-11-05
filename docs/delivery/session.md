@@ -740,3 +740,36 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 ### 已知问题
 
 无。
+
+## 2026-11-06　权限说明一行，新会话聚焦输入框
+
+> PR：分支 `fix/shell-composer-focus`　作者：Claude Code
+
+### 原始需求
+
+用的时候发现：权限菜单的说明折成两行；点“新会话”后要再点一下输入框才能打字。
+
+### 怎么验收
+
+1. 点权限：三项的说明都是一行，首页和会话页一样。
+2. 点“新会话”、按 ⌘N、点工作区的 `+`：光标都在输入框里。已经在首页时再点也一样。
+
+### 主要改动
+
+- `Composer.tsx`：权限菜单不限宽度、说明不换行；首页输入框每次导航聚焦一次（看 `location.key`，同一页再点也会变）。
+- 原型 `shell.js` 同步。
+
+配置项、数据库 schema 没有变化。
+
+### 测试
+
+- E2E：`shell.spec.ts` 的 `puts the cursor in the composer when starting a new session`、`keeps each permission note on one line`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+无。
+

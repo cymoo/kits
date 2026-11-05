@@ -269,3 +269,39 @@ test('switches the kernel in the composer model menu with the keyboard', async (
     await close()
   }
 })
+
+test('puts the cursor in the composer when starting a new session', async () => {
+  const { page, close } = await launchApp()
+  try {
+    const box = page.getByLabel('给 Agent 发消息')
+    await expect(box).toBeFocused()
+
+    // 从别的页面回来
+    await page.getByRole('link', { name: '全部会话' }).click()
+    await expect(box).toHaveCount(0)
+    await page.getByRole('link', { name: '新会话' }).click()
+    await expect(box).toBeFocused()
+
+    // 已经在首页，焦点跑到别处了
+    await page.getByRole('button', { name: /搜索/ }).focus()
+    await page.getByRole('link', { name: '新会话' }).click()
+    await expect(box).toBeFocused()
+  } finally {
+    await close()
+  }
+})
+
+test('keeps each permission note on one line', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await page.getByTitle('权限').click()
+    const note = page.getByRole('menuitemradio', { name: /执行前确认/ }).locator('small')
+    const { height, lineHeight } = await note.evaluate((el) => ({
+      height: el.getBoundingClientRect().height,
+      lineHeight: Number.parseFloat(getComputedStyle(el).lineHeight),
+    }))
+    expect(height).toBeLessThan(lineHeight * 1.5)
+  } finally {
+    await close()
+  }
+})
