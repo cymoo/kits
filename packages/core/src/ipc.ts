@@ -64,7 +64,8 @@ export interface AppInfo {
 }
 
 export type GatewayTestResult =
-  | { ok: true; latencyMs: number; models: string[] }
+  // contextWindows：网关报了上下文窗口的模型，没报的不在里面
+  | { ok: true; latencyMs: number; models: string[]; contextWindows: Record<string, number> }
   | { ok: false; latencyMs: number; error: string }
 
 export interface GatewayTestInput {

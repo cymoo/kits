@@ -15,6 +15,7 @@ export type MockStep =
       delay?: number
       tool: string
       callId: string
+      parentCallId?: string
       input: unknown
       output: unknown
       error?: string
@@ -64,7 +65,9 @@ export const mockScenarioNames = [
   'context',
   'output-structured',
   'command-failed',
+  'plan',
   'subagent',
+  'plan',
 ] as const
 export type MockScenarioName = (typeof mockScenarioNames)[number]
 
@@ -79,6 +82,11 @@ const usage = (input: number, output: number): MockStep => ({
     cost: 0,
   },
 })
+
+const planTodos = (first: string, second: string) => [
+  { content: '读兑换接口', status: first, priority: 'high' },
+  { content: '跑 tests/points', status: second, priority: 'medium' },
+]
 
 const readRedeem: MockStep = {
   delay: 300,
@@ -303,6 +311,48 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
       },
     ],
   },
+  // 带计划的一轮：写计划 → 做 → 等确认时计划还在 → 更新计划 → 收尾
+  plan: {
+    name: 'plan',
+    steps: [
+      busy,
+      {
+        tool: 'todowrite',
+        callId: 'call_plan_1',
+        input: { todos: planTodos('in_progress', 'pending') },
+        output: '[]',
+      },
+      readRedeem,
+      {
+        tool: 'todowrite',
+        callId: 'call_plan_2',
+        input: { todos: planTodos('completed', 'in_progress') },
+        output: '[]',
+      },
+      {
+        delay: 200,
+        permission: {
+          requestId: 'perm_plan',
+          tool: 'bash',
+          input: { command: 'uv run pytest tests/points -q' },
+          patterns: ['uv run pytest tests/points -q'],
+          always: ['uv run pytest *'],
+          callId: 'call_plan_test',
+        },
+        allow: [
+          {
+            tool: 'todowrite',
+            callId: 'call_plan_3',
+            input: { todos: planTodos('completed', 'completed') },
+            output: '[]',
+          },
+        ],
+        reject: [],
+      },
+      { delay: 200, text: '都做完了。', partId: 'prt_answer' },
+      usage(9_000, 120),
+    ],
+  },
   // 子任务里跑一条要确认的命令（真内核里这条请求来自子会话）
   subagent: {
     name: 'subagent',
@@ -313,7 +363,29 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
           type: 'tool-start',
           callId: 'call_task',
           name: 'task',
-          input: { description: '跑 points 的测试', subagent_type: 'general', prompt: '跑测试' },
+          input: {
+            description: '跑 points 的测试',
+            subagent_type: 'general',
+            prompt: '跑 tests/points，把失败的用例列出来。',
+          },
+        },
+      },
+      {
+        delay: 300,
+        tool: 'read',
+        callId: 'call_task/call_sub_read',
+        parentCallId: 'call_task',
+        input: { filePath: 'tests/points/conftest.py' },
+        output: 'import pytest',
+        count: 58,
+      },
+      {
+        event: {
+          type: 'tool-start',
+          callId: 'call_task/call_sub_bash',
+          parentCallId: 'call_task',
+          name: 'bash',
+          input: { command: 'touch tests/points/.ran', description: '标记跑过' },
         },
       },
       {
@@ -324,11 +396,30 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
           input: { command: 'touch tests/points/.ran' },
           patterns: ['touch tests/points/.ran'],
           always: ['touch *'],
-          callId: 'call_sub_bash',
+          callId: 'call_task/call_sub_bash',
           subagent: true,
         },
-        allow: [{ event: { type: 'tool-end', callId: 'call_task', output: '测试都过了' } }],
+        allow: [
+          { event: { type: 'tool-end', callId: 'call_task/call_sub_bash', output: '' } },
+          {
+            event: {
+              type: 'tool-end',
+              callId: 'call_task',
+              output:
+                '<task id="ses_child" state="completed">\n<task_result>\n测试都过了\n</task_result>\n</task>',
+              durationMs: 2_400,
+            },
+          },
+        ],
         reject: [
+          {
+            event: {
+              type: 'tool-end',
+              callId: 'call_task/call_sub_bash',
+              output: null,
+              error: '被拒绝了',
+            },
+          },
           { event: { type: 'tool-end', callId: 'call_task', output: null, error: '被拒绝了' } },
         ],
       },

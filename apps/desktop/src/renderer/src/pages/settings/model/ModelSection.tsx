@@ -72,7 +72,7 @@ function AddGatewayForm({ onDone }: { onDone(): void }) {
     }
     setResult(r)
     if (!r.ok) return
-    await add({ name, baseUrl, apiKey, models: r.models })
+    await add({ name, baseUrl, apiKey, models: r.models, contextWindows: r.contextWindows })
     onDone()
   }
   return (
@@ -280,7 +280,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                     })
                     return
                   }
-                  if (r.ok) await refreshModels(gateway.id, r.models, sent)
+                  if (r.ok) await refreshModels(gateway.id, r.models, r.contextWindows, sent)
                 }}
               >
                 {t('model.refresh')}

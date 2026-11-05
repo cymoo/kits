@@ -23,6 +23,7 @@ import { cx } from '../../ui/cx'
 import { Spinner } from '../../ui/Spinner'
 import { CopyIcon } from './CopyReply'
 import { clipOutput, type Step, type StepIcon } from './derive'
+import { TodoList } from './Plan'
 
 // 工作过程里的一步（原型 session.html）：图标 + 标题，点开就地看结果；改文件的步骤跳到“改动”。
 
@@ -118,7 +119,52 @@ function Section({
   )
 }
 
-function StepBody({ step }: { step: Step }) {
+// 子任务里默认放这么多步，留最后的：跑着的时候要看的是它现在在做什么
+const SUB_STEPS = 8
+
+function SubSteps({
+  steps,
+  onOpenFile,
+  onOpenOutput,
+}: {
+  steps: Step[]
+  onOpenFile(path: string): void
+  onOpenOutput(): void
+}) {
+  const [all, setAll] = useState(false)
+  const hidden = all ? 0 : Math.max(0, steps.length - SUB_STEPS)
+  return (
+    <div className="border-line-soft border-t" data-testid="sub-steps">
+      <div className="px-2.5 pt-1.5 text-[0.846rem] text-fg-muted">{t('step.process')}</div>
+      {hidden ? (
+        <button
+          type="button"
+          onClick={() => setAll(true)}
+          className="block h-[26px] w-full cursor-pointer px-2.5 text-left text-[0.885rem] text-fg-muted outline-none hover:bg-active hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
+        >
+          {t('step.moreSteps', { n: hidden })}
+        </button>
+      ) : null}
+      <div className="flex flex-col py-1">
+        {steps.slice(hidden).map((s) => (
+          <StepRow key={s.id} step={s} onOpenFile={onOpenFile} onOpenOutput={onOpenOutput} nested />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StepBody({
+  step,
+  nested,
+  onOpenFile,
+  onOpenOutput,
+}: {
+  step: Step
+  nested?: boolean
+  onOpenFile(path: string): void
+  onOpenOutput(): void
+}) {
   const [all, setAll] = useState(false)
   const output = step.output ?? ''
   const clip = all
@@ -127,15 +173,25 @@ function StepBody({ step }: { step: Step }) {
   return (
     <div
       data-testid="step-output"
-      className="mt-0.5 mr-3.5 mb-1.5 ml-[38px] overflow-hidden rounded-[8px] border border-line-soft bg-raised"
+      className={cx(
+        'mt-0.5 mb-1.5 overflow-hidden rounded-[8px] border border-line-soft bg-raised',
+        nested ? 'mr-2.5 ml-[34px]' : 'mr-3.5 ml-[38px]',
+      )}
     >
+      {step.prompt ? (
+        <Section text={step.prompt} copy={t('step.copyPrompt')} label={t('step.prompt')} first />
+      ) : null}
+      {step.subSteps?.length ? (
+        <SubSteps steps={step.subSteps} onOpenFile={onOpenFile} onOpenOutput={onOpenOutput} />
+      ) : null}
+      {step.todos ? <TodoList items={step.todos} /> : null}
       {step.command ? (
         <Section text={step.detail} copy={t('step.copyCommand')} command first />
       ) : null}
       {step.args ? (
         <Section text={step.args} copy={t('step.copyArgs')} label={t('step.args')} first />
       ) : null}
-      {output ? (
+      {step.todos ? null : output ? (
         <Section
           text={output}
           copy={t(
@@ -145,8 +201,9 @@ function StepBody({ step }: { step: Step }) {
                 ? 'step.copyResultOfCall'
                 : 'step.copyResult',
           )}
-          first={!step.command && !step.args}
+          first={!step.command && !step.args && !step.prompt}
           {...(step.args ? { label: t('step.result') } : {})}
+          {...(step.subSteps ? { label: t('step.taskResult') } : {})}
           clipped={{
             hidden: clip.hidden,
             shown: clip.text,
@@ -154,7 +211,7 @@ function StepBody({ step }: { step: Step }) {
             onShow: () => setAll(true),
           }}
         />
-      ) : (
+      ) : step.subSteps ? null : (
         <div className="border-line-soft border-t px-2.5 py-2 text-[0.923rem] text-fg-muted">
           {t(step.state === 'running' ? 'step.outputLater' : 'step.noOutput')}
         </div>
@@ -168,16 +225,31 @@ function StepBody({ step }: { step: Step }) {
   )
 }
 
-export function StepRow({ step, onOpenFile }: { step: Step; onOpenFile(path: string): void }) {
-  // 失败的默认展开；用户点过就听用户的
+export function StepRow({
+  step,
+  onOpenFile,
+  onOpenOutput,
+  nested,
+}: {
+  step: Step
+  onOpenFile(path: string): void
+  onOpenOutput(): void
+  // 子任务里的一步
+  nested?: boolean
+}) {
+  // 失败的、在跑的子任务默认展开；用户点过就听用户的
   const [userOpen, setUserOpen] = useState<boolean>()
-  const expandable = !step.file && (!!step.command || !!step.output || !!step.args)
-  const open = expandable && (userOpen ?? !!step.failed)
+  const expandable =
+    !step.file &&
+    (!!step.command || !!step.output || !!step.args || !!step.subSteps || !!step.todos)
+  const open =
+    expandable && (userOpen ?? (!!step.failed || (!!step.subSteps && step.state === 'running')))
   const now = useNow(1000, step.startedAt !== undefined)
-  const meta =
-    step.meta ?? (step.startedAt !== undefined ? formatDuration(now - step.startedAt) : '')
+  const elapsed = step.startedAt !== undefined ? formatDuration(now - step.startedAt) : ''
+  const counted = step.subSteps?.length ? t('step.subCount', { n: step.subSteps.length }) : ''
+  const meta = step.meta ?? [counted, elapsed].filter(Boolean).join(' · ')
   const Icon = ICONS[step.icon]
-  const { file } = step
+  const { file, toOutput } = step
   const content = (
     <>
       <span
@@ -220,7 +292,7 @@ export function StepRow({ step, onOpenFile }: { step: Step; onOpenFile(path: str
         </span>
       ) : null}
       {expandable ? <StepChevron open={open} /> : null}
-      {file ? (
+      {file || toOutput ? (
         <span className={HINT}>
           <ArrowUpRight size={12} />
         </span>
@@ -229,23 +301,30 @@ export function StepRow({ step, onOpenFile }: { step: Step; onOpenFile(path: str
   )
   return (
     <>
-      {expandable || file ? (
+      {expandable || file || toOutput ? (
         <button
           type="button"
           data-testid="step"
           title={step.command ? step.detail : undefined}
           {...(expandable ? { 'aria-expanded': open } : {})}
-          onClick={() => (file ? onOpenFile(file) : setUserOpen(!open))}
-          className={cx(STEP_ROW, STEP_ACTION)}
+          onClick={() => (file ? onOpenFile(file) : toOutput ? onOpenOutput() : setUserOpen(!open))}
+          className={cx(STEP_ROW, STEP_ACTION, nested && 'px-2.5')}
         >
           {content}
         </button>
       ) : (
-        <div data-testid="step" className={STEP_ROW}>
+        <div data-testid="step" className={cx(STEP_ROW, nested && 'px-2.5')}>
           {content}
         </div>
       )}
-      {open ? <StepBody step={step} /> : null}
+      {open ? (
+        <StepBody
+          step={step}
+          nested={!!nested}
+          onOpenFile={onOpenFile}
+          onOpenOutput={onOpenOutput}
+        />
+      ) : null}
     </>
   )
 }

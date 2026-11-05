@@ -230,8 +230,14 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       subagent: true,
     })
     expect(existsSync(path.join(workdir, 'kits-sub.txt'))).toBe(true)
-    const end = events.find((e) => e.type === 'tool-end')
-    expect(end).toMatchObject({ callId: expect.any(String) })
+    const task = events.find((e) => e.type === 'tool-start' && e.name === 'task')
+    const sub = events.find((e) => e.type === 'tool-start' && e.name === 'bash')
+    const taskId = task?.type === 'tool-start' ? task.callId : ''
+    expect(sub).toMatchObject({
+      parentCallId: taskId,
+      callId: expect.stringContaining(`${taskId}/`),
+    })
+    const end = events.find((e) => e.type === 'tool-end' && e.callId === taskId)
     expect(end && end.type === 'tool-end' && end.error).toBeUndefined()
     expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
   }, 60_000)

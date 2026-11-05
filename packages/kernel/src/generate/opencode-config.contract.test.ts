@@ -46,7 +46,11 @@ describe.skipIf(!binary)('generated opencode config', () => {
       // 两个网关：PoC 只配过一个，这里确认多个 provider 各自的 baseURL 都能配
       settings: parseSettings({
         gateways: [
-          { id: 'corp', baseUrl: 'http://127.0.0.1:9/v1', models: [{ id: 'm1' }] },
+          {
+            id: 'corp',
+            baseUrl: 'http://127.0.0.1:9/v1',
+            models: [{ id: 'm1', contextWindow: 1_048_576 }],
+          },
           { id: 'backup', baseUrl: 'http://127.0.0.1:10/v1', models: [{ id: 'm2' }] },
         ],
         defaultModel: 'corp/m1',
@@ -96,6 +100,12 @@ describe.skipIf(!binary)('generated opencode config', () => {
     })
     expect(config.model).toBe('corp/m1')
     expect(config.instructions).toHaveLength(1)
+  })
+
+  it('gives the kernel the context window of a model', async () => {
+    const { providers } = await get('/config/providers')
+    const corp = providers.find((p: { id: string }) => p.id === 'corp')
+    expect(corp.models.m1.limit).toMatchObject({ context: 1_048_576, output: 32_000 })
   })
 
   it('lists the kits agents with their permission rules', async () => {

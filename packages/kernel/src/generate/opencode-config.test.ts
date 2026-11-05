@@ -77,8 +77,16 @@ describe('generateOpencodeConfig', () => {
         name: '公司网关',
         options: { baseURL: 'https://gw.example.internal/v1', apiKey: '{env:KITS_GW_CORP_KEY}' },
         models: {
-          'deepseek-v4-pro': { name: 'deepseek-v4-pro', tool_call: true },
-          'reasoner-pro': { name: 'reasoner-pro', tool_call: false },
+          'deepseek-v4-pro': {
+            name: 'deepseek-v4-pro',
+            tool_call: true,
+            limit: { context: 128_000, output: 32_000 },
+          },
+          'reasoner-pro': {
+            name: 'reasoner-pro',
+            tool_call: false,
+            limit: { context: 128_000, output: 32_000 },
+          },
         },
       },
       backup: expect.objectContaining({
@@ -105,6 +113,22 @@ describe('generateOpencodeConfig', () => {
     const { files } = ok(generateOpencodeConfig(input())).files
     const plugin = files.find((f) => f.path === 'plugins/kits-describe-bash.js')
     expect(plugin?.content).toContain("'tool.definition'")
+  })
+
+  it('keeps the output limit below the context window of a small model', () => {
+    const c = config({
+      settings: parseSettings({
+        gateways: [
+          {
+            id: 'corp',
+            baseUrl: 'https://gw.example.internal/v1',
+            models: [{ id: 'm', contextWindow: 8_000 }],
+          },
+        ],
+        defaultModel: 'corp/m',
+      }),
+    })
+    expect(c.provider.corp.models.m.limit).toEqual({ context: 8_000, output: 2_000 })
   })
 
   it('writes the default model and turns off network features', () => {

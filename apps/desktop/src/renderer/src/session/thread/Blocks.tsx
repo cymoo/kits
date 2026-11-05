@@ -46,6 +46,7 @@ export function UserBlock({
 
 function turnSummary({ summary, filesChanged }: Extract<Block, { kind: 'turn' }>): string {
   const counts = [
+    ['turn.tasks', summary.tasks],
     ['turn.reads', summary.reads],
     ['turn.searches', summary.searches],
     ['turn.edits', filesChanged],
@@ -59,10 +60,13 @@ function turnSummary({ summary, filesChanged }: Extract<Block, { kind: 'turn' }>
 export function TurnBlock({
   block,
   onOpenFile,
+  onOpenOutput,
 }: {
   block: Extract<Block, { kind: 'turn' }>
   // 点改文件的步骤：在“改动”里打开这一轮的这个文件
   onOpenFile(turn: number, path: string): void
+  // 点提交产出的步骤：打开“产出”
+  onOpenOutput(): void
 }) {
   const running = block.state === 'running'
   // 运行中默认展开，结束后默认收起；用户点过就听用户的
@@ -136,7 +140,12 @@ export function TurnBlock({
             </>
           ) : null}
           {block.steps.map((s) => (
-            <StepRow key={s.id} step={s} onOpenFile={(path) => onOpenFile(block.turn, path)} />
+            <StepRow
+              key={s.id}
+              step={s}
+              onOpenFile={(path) => onOpenFile(block.turn, path)}
+              onOpenOutput={onOpenOutput}
+            />
           ))}
         </div>
       ) : null}
@@ -168,8 +177,8 @@ export function StatusLine({ block }: { block: Extract<Block, { kind: 'status' }
       className="flex items-center gap-2.5 rounded-[8px] bg-active px-3 py-[7px] text-[0.962rem] text-fg-muted"
     >
       <Spinner tone="muted" />
-      <span className="flex-1">{block.text}</span>
-      <span className="text-fg-subtle">{formatDuration(now - block.since)}</span>
+      <span className="min-w-0 flex-1 truncate">{block.text}</span>
+      <span className="shrink-0 text-fg-subtle">{formatDuration(now - block.since)}</span>
     </div>
   )
 }

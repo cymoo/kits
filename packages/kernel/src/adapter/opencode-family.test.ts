@@ -19,6 +19,8 @@ interface Fake {
   hangStatus: boolean
   // GET /session/{id}/message 的内容，和回之前等多久
   messages: unknown[]
+  // 子会话的消息，按会话 id
+  subMessages: Record<string, unknown[]>
   messagesDelayMs: number
   messageRequests: number
   // GET /permission；failPermissions 时回 500
@@ -31,6 +33,7 @@ interface Fake {
   // 事件流连上后不发 server.connected
   silentStream: boolean
   promptCount: number
+  aborts: number
   promptBody: unknown
   summarizeBody: unknown
   close(): Promise<void>
@@ -43,6 +46,7 @@ async function startFake(): Promise<Fake> {
     status: {},
     hangStatus: false,
     messages: [],
+    subMessages: {},
     messagesDelayMs: 0,
     messageRequests: 0,
     permissions: [],
@@ -51,6 +55,7 @@ async function startFake(): Promise<Fake> {
     hangPrompt: false,
     silentStream: false,
     promptCount: 0,
+    aborts: 0,
     promptBody: undefined,
     summarizeBody: undefined,
   }
@@ -88,7 +93,8 @@ async function startFake(): Promise<Fake> {
     }
     if (url.pathname.endsWith('/message')) {
       fake.messageRequests += 1
-      const snapshot = fake.messages
+      const sub = url.pathname.split('/')[2] ?? ''
+      const snapshot = fake.subMessages[sub] ?? fake.messages
       if (fake.messagesDelayMs) await new Promise((r) => setTimeout(r, fake.messagesDelayMs))
       return json(snapshot)
     }
@@ -100,6 +106,7 @@ async function startFake(): Promise<Fake> {
       return json(fake.permissions)
     }
     if (url.pathname.endsWith('/abort')) {
+      fake.aborts += 1
       if (fake.hangAbort) return
       return json(true)
     }
@@ -356,6 +363,23 @@ describe('OpencodeFamilyKernel', () => {
           ],
         },
       ]
+      fake.subMessages = {
+        ses_child: [
+          {
+            info: { id: 'msg_c', sessionID: 'ses_child', role: 'assistant' },
+            parts: [
+              {
+                id: 'prt_c',
+                messageID: 'msg_c',
+                type: 'tool',
+                tool: 'read',
+                callID: 'call_c',
+                state: { status: 'completed', input: {}, output: 'x' },
+              },
+            ],
+          },
+        ],
+      }
       fake.permissions = [asked, { ...asked, id: 'per_other', sessionID: 'ses_2' }]
       await reconnect(seen, false)
       await until(() => seen.some((e) => e.type === 'permission-request'))
@@ -364,6 +388,50 @@ describe('OpencodeFamilyKernel', () => {
     expect(events.filter((e) => e.type === 'permission-request')).toEqual([
       expect.objectContaining({ requestId: 'per_c', subagent: true }),
     ])
+    // 子任务的步骤也补回来了
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'tool-end', callId: 'call_t/call_c', output: 'x' }),
+    )
+  })
+
+  it('stops a turn that keeps compacting without getting anywhere', async () => {
+    const s = await setup()
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+      await until(() => fake.promptCount === 1)
+      for (let i = 0; i < 3; i++) send(fake, 'session.compacted', { sessionID: 'ses_1' })
+    })
+    expect(events.filter((e) => e.type === 'compaction')).toHaveLength(3)
+    expect(events.at(-1)).toMatchObject({
+      type: 'done',
+      reason: 'error',
+      error: expect.stringContaining('上下文窗口太小'),
+    })
+    await until(() => fake.aborts === 1)
+  })
+
+  it('keeps going when the agent uses tools between compactions', async () => {
+    const s = await setup()
+    const tool = (callID: string) => ({
+      sessionID: 'ses_1',
+      part: {
+        id: `prt_${callID}`,
+        messageID: 'msg_a',
+        sessionID: 'ses_1',
+        type: 'tool',
+        tool: 'read',
+        callID,
+        state: { status: 'running', input: {} },
+      },
+    })
+    const events = await collect(kernel.prompt(s, { text: 'hi' }), async () => {
+      await until(() => fake.promptCount === 1)
+      for (let i = 0; i < 4; i++) {
+        send(fake, 'session.compacted', { sessionID: 'ses_1' })
+        send(fake, 'message.part.updated', tool(`call_${i}`))
+      }
+      send(fake, 'session.idle', { sessionID: 'ses_1' })
+    })
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
   })
 
   it('reports a stall when neither the event stream nor the status endpoint answers', async () => {
