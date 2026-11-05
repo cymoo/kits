@@ -427,48 +427,6 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
       usage(9_000, 120),
     ],
   },
-  // 带计划的一轮：写计划 → 做 → 等确认时计划还在 → 更新计划 → 收尾
-  plan: {
-    name: 'plan',
-    steps: [
-      busy,
-      {
-        tool: 'todowrite',
-        callId: 'call_plan_1',
-        input: { todos: planTodos('in_progress', 'pending') },
-        output: '[]',
-      },
-      readRedeem,
-      {
-        tool: 'todowrite',
-        callId: 'call_plan_2',
-        input: { todos: planTodos('completed', 'in_progress') },
-        output: '[]',
-      },
-      {
-        delay: 200,
-        permission: {
-          requestId: 'perm_plan',
-          tool: 'bash',
-          input: { command: 'uv run pytest tests/points -q' },
-          patterns: ['uv run pytest tests/points -q'],
-          always: ['uv run pytest *'],
-          callId: 'call_plan_test',
-        },
-        allow: [
-          {
-            tool: 'todowrite',
-            callId: 'call_plan_3',
-            input: { todos: planTodos('completed', 'completed') },
-            output: '[]',
-          },
-        ],
-        reject: [],
-      },
-      { delay: 200, text: '都做完了。', partId: 'prt_answer' },
-      usage(9_000, 120),
-    ],
-  },
   context: {
     name: 'context',
     steps: [
