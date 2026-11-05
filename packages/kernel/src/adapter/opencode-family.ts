@@ -57,6 +57,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 // 一个工作目录一条事件流，有订阅时连着，没订阅就断开
+class KernelHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+  }
+}
+
 class EventHub {
   private listeners = new Set<Listener>()
   private controller: AbortController | undefined
@@ -301,7 +310,10 @@ export class OpencodeFamilyKernel implements AgentKernel {
     })
     if (!res.ok) {
       const text = await res.text().catch(() => '')
-      throw new Error(`${method} ${route} returned ${res.status}: ${text.slice(0, 500)}`)
+      throw new KernelHttpError(
+        `${method} ${route} returned ${res.status}: ${text.slice(0, 500)}`,
+        res.status,
+      )
     }
     if (res.status === 204) return undefined as T
     const text = await res.text()
@@ -525,13 +537,20 @@ export class OpencodeFamilyKernel implements AgentKernel {
     requestId: string,
     reply: PermissionReply,
     message?: string,
-  ): Promise<void> {
-    await this.request(
-      'POST',
-      this.dialect.permissionReplyPath(requestId, session.id),
-      session.workdir,
-      { reply, ...(message ? { message } : {}) },
-    )
+  ): Promise<boolean> {
+    try {
+      await this.request(
+        'POST',
+        this.dialect.permissionReplyPath(requestId, session.id),
+        session.workdir,
+        { reply, ...(message ? { message } : {}) },
+      )
+      return true
+    } catch (e) {
+      // 内核已经处理掉了这个请求：工具调用被打断时它会直接移除，不发 permission.replied
+      if (e instanceof KernelHttpError && e.status === 404) return false
+      throw e
+    }
   }
 
   async abort(session: KernelSession): Promise<void> {

@@ -368,10 +368,12 @@ export class SessionService {
     const run = this.running.get(input.id)
     if (!run?.kernel || !run.ks) throw new Error('这一轮已经结束了')
     const message = input.message?.trim() || undefined
-    await run.kernel.respondPermission(run.ks, input.requestId, input.reply, message)
-    const change = run.recorder.replyPermission(input.requestId, input.reply, message)
+    const live = await run.kernel.respondPermission(run.ks, input.requestId, input.reply, message)
+    const change = live
+      ? run.recorder.replyPermission(input.requestId, input.reply, message)
+      : run.recorder.expirePermission(input.requestId)
     const part = change.parts[0]
-    if (part?.payload.type === 'permission') {
+    if (live && part?.payload.type === 'permission') {
       this.deps.store.logPermission({
         id: this.id(),
         sessionId: input.id,
@@ -663,6 +665,13 @@ export class SessionService {
     return patterns.every((p) => effectiveLevel(rules, request.tool, p) === 'allow')
   }
 
+  // 用户在这个会话里点过“本会话允许”的。内核也记，但只记在内存里，重启就没了
+  private alwaysAllowed(sessionId: string, request: { tool: string; patterns: string[] }): boolean {
+    const rules = this.deps.store.alwaysRules(sessionId)
+    const patterns = request.patterns.length > 0 ? request.patterns : ['*']
+    return patterns.every((p) => effectiveLevel(rules, request.tool, p) === 'allow')
+  }
+
   private async runTurn(session: SessionSummary, text: string, run: Running): Promise<void> {
     const { store, kernels } = this.deps
     const { recorder } = run
@@ -729,11 +738,12 @@ export class SessionService {
           submitted = true
           await this.assignKernelTurn(session, run, kernel, ks)
         }
-        // 内核的子会话只继承主会话的拒绝规则：主会话放行的（比如“全部自动”）这里替用户答了，不弹卡片
+        // 内核的子会话只继承主会话的拒绝规则：主会话放行的（比如“全部自动”）这里替用户答了，不弹卡片。
+        // 用户允许过的也一样，内核重启后它自己不记得了
         if (
           event.type === 'permission-request' &&
-          event.subagent &&
-          this.allowedBySession(session, profile, event)
+          ((event.subagent && this.allowedBySession(session, profile, event)) ||
+            this.alwaysAllowed(session.id, event))
         ) {
           await kernel.respondPermission(ks, event.requestId, 'once')
           continue

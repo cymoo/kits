@@ -42,6 +42,7 @@ CodeAgent 方言（`packages/kernel/src/dialects/codeagent.ts`）按 [codeagent-
 | 27 | 上下文窗口 | `provider.<网关>.models.<模型>.limit = { context, output }`，内核按它判断什么时候自动压缩 | 字段认不认；用得快满时有没有自动压缩 | `generate/opencode-config.ts` 的 `modelLimit` |
 | 26 | 子任务 | 子任务在子会话里跑：`session.created` 带 `parentID`，task 工具运行时 `metadata.sessionId` 是子会话 id，子会话的 `permission.requested` 带子会话的 `sessionID` | 子任务里要确认的命令有没有弹卡片；CodeAgent 是不是改走 `task.started`（文档里有这个事件） | `events.ts` 的 `subsessions` |
 | 24 | 退出 | 关 kits 时内核和它拉起的 MCP 进程一起结束（Windows `taskkill /T`） | 任务管理器里还有没有残留 | `dialects/child.ts` 的 `stopChild` |
+| 28 | 权限回复事件 | 事件 `permission.replied`，带 `sessionID`、`requestID`、`reply`；回复一个请求时内核连带处理同一会话的其他请求 | 并行两个请求，点“本会话允许”后另一张卡片会不会收起；回复已经不在的请求是不是返回 404 | `events.ts` 的 `permission.replied`、`opencode-family.ts` 的 `respondPermission` |
 
 ## 跑完以后
 

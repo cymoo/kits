@@ -14,7 +14,7 @@ async function start(options: MockKernelOptions) {
 async function collect(
   kernel: MockKernel,
   session: KernelSession,
-  on?: (e: KernelEvent) => void | Promise<void>,
+  on?: (e: KernelEvent) => unknown,
 ): Promise<KernelEvent[]> {
   const events: KernelEvent[] = []
   for await (const e of kernel.prompt(session, { text: 'hi' })) {

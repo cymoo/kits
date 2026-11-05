@@ -147,6 +147,39 @@ describe('SessionService', () => {
     expect(perm?.status).toBe('once')
   })
 
+  it('closes the card without an error when the kernel no longer has the request', async () => {
+    const { service, waitFor, store, kernel } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    const requestId = pendingRequest(store, s.id)
+    const respond = vi.spyOn(kernel, 'respondPermission').mockResolvedValueOnce(false)
+    await service.respondPermission({ id: s.id, requestId, reply: 'once' })
+    await vi.waitFor(() =>
+      expect(store.detail(s.id)?.parts.find((p) => p.type === 'permission')?.status).toBe(
+        'expired',
+      ),
+    )
+    expect(store.session(s.id)?.status).toBe('running')
+    respond.mockRestore()
+    await service.abort(s.id)
+  })
+
+  it('answers a request the user already allowed for this session', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'always',
+    })
+    await waitFor(s.id, ['done'])
+    await service.prompt(s.id, '再跑一遍')
+    await vi.waitFor(() => expect(store.session(s.id)).toMatchObject({ turns: 2, status: 'done' }))
+    const cards = store.detail(s.id)?.parts.filter((p) => p.type === 'permission')
+    expect(cards?.map((p) => p.status)).toEqual(['always'])
+  })
+
   it('shows the permission card of a subagent when the session would ask too', async () => {
     const { service, waitFor, store } = setup('subagent')
     const s = await service.create(input)
@@ -205,6 +238,7 @@ describe('SessionService', () => {
       // 回复还在路上，这一轮被停掉了
       await service.abort(s.id)
       await waitFor(s.id, ['aborted'])
+      return true
     })
     await service.respondPermission({
       id: s.id,

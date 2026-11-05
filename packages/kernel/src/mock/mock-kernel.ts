@@ -272,13 +272,14 @@ export class MockKernel implements AgentKernel {
     session: KernelSession,
     requestId: string,
     reply: PermissionReply,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const key = `${session.id}:${requestId}`
     // 不是正在等的请求（已经结束、被取消的轮次里的）：丢掉
-    if (!this.issued.has(key)) return
+    if (!this.issued.has(key)) return false
     const waiter = this.permissionWaiters.get(key)
     if (waiter) waiter(reply)
     else this.earlyReplies.set(key, reply)
+    return true
   }
 
   async abort(session: KernelSession): Promise<void> {
