@@ -47,13 +47,13 @@ export function SessionList() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: today 变了要重算
   const groups = useMemo(() => groupSessions(list), [list, today])
   if (sessions.isSuccess && list.length === 0) {
-    return <p className="px-2 py-2 text-[0.885rem] text-fg-subtle">{t('nav.empty')}</p>
+    return <p className="px-2 py-2 text-[0.857rem] text-fg-subtle">{t('nav.empty')}</p>
   }
   return (
     <>
       {groups.map(([group, items]) => (
         <div key={group} className="flex flex-col gap-0.5">
-          <div className="px-2 pt-2 pb-1 font-medium text-[0.885rem] text-fg-label">
+          <div className="px-2 pt-2 pb-1 font-medium text-[0.857rem] text-fg-label">
             {t(GROUP_LABEL[group])}
           </div>
           {items.map((s) => (

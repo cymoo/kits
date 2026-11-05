@@ -37,7 +37,7 @@ export function MenuContent({
 
 export function MenuLabel({ children }: { children: ReactNode }) {
   return (
-    <M.Label className="px-2 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
+    <M.Label className="px-2 pt-1.5 pb-1 font-medium text-[0.857rem] text-fg-label">
       {children}
     </M.Label>
   )
@@ -93,7 +93,7 @@ export function MenuSwitchItem({
       <span
         aria-hidden="true"
         className={cx(
-          'relative h-[18px] w-8 shrink-0 rounded-[9px] transition-colors',
+          'relative h-[18px] w-8 shrink-0 rounded-[8px] transition-colors',
           checked ? 'bg-primary' : 'bg-line-strong',
         )}
       >
@@ -137,14 +137,14 @@ export function MenuSegmented<V extends string>({
       value={value}
       onValueChange={(v) => onChange(v as V)}
       aria-label={label}
-      className="mx-1.5 mt-0.5 mb-1.5 flex gap-0.5 rounded-[7px] bg-muted p-0.5"
+      className="mx-1.5 mt-0.5 mb-1.5 flex gap-0.5 rounded-[8px] bg-muted p-0.5"
     >
       {options.map((o) => (
         <M.RadioItem
           key={o.value}
           value={o.value}
           onSelect={(e) => e.preventDefault()}
-          className="h-6 flex-1 cursor-pointer rounded-[5px] px-2.5 text-center text-[0.923rem] text-fg-muted leading-6 outline-none data-[highlighted]:ring-2 data-[highlighted]:ring-accent/30 data-[state=checked]:bg-raised data-[state=checked]:font-semibold data-[state=checked]:text-fg data-[state=checked]:shadow-[0_1px_2px_rgba(0,0,0,.08)]"
+          className="h-6 flex-1 cursor-pointer rounded-[6px] px-2.5 text-center text-[0.929rem] text-fg-muted leading-6 outline-none data-[highlighted]:ring-2 data-[highlighted]:ring-accent/30 data-[state=checked]:bg-raised data-[state=checked]:font-semibold data-[state=checked]:text-fg data-[state=checked]:shadow-[0_1px_2px_rgba(0,0,0,.08)]"
         >
           {o.label}
         </M.RadioItem>

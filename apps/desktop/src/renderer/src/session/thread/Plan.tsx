@@ -29,7 +29,7 @@ export function TodoList({
   return (
     <ul
       className={cx(
-        'm-0 flex list-none flex-col gap-0.5 p-1.5 text-[0.962rem] leading-5',
+        'm-0 flex list-none flex-col gap-0.5 p-1.5 text-[0.929rem] leading-5',
         className,
       )}
     >
@@ -40,7 +40,7 @@ export function TodoList({
           data-testid="todo"
           data-status={item.status}
           className={cx(
-            'flex items-start gap-2 rounded-[7px] px-1.5 py-[3px]',
+            'flex items-start gap-2 rounded-[8px] px-1.5 py-[3px]',
             item.status === 'in_progress'
               ? 'bg-accent-bg font-medium text-accent-fg'
               : 'text-fg-muted',
@@ -71,13 +71,13 @@ export function PlanCard({ items }: { items: TodoItem[] }) {
   return (
     <div
       data-testid="plan-card"
-      className="mb-2 overflow-hidden rounded-[10px] border border-accent/25 bg-raised shadow-[0_2px_8px_rgb(0_0_0/0.04)]"
+      className="mb-2 overflow-hidden rounded-[12px] border border-accent/25 bg-raised shadow-[0_2px_8px_rgb(0_0_0/0.04)]"
     >
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="flex min-h-[34px] w-full cursor-pointer items-center gap-2 px-2.5 py-[5px] text-left text-[0.962rem] text-fg-muted outline-none hover:bg-active focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
+        className="flex min-h-[34px] w-full cursor-pointer items-center gap-2 px-2.5 py-[5px] text-left text-[0.929rem] text-fg-muted outline-none hover:bg-active focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
       >
         <ListTodo size={14} strokeWidth={1.6} className="shrink-0 text-accent" />
         <span className="shrink-0 font-medium text-fg">{t('plan.title')}</span>

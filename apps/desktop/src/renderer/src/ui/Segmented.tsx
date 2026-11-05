@@ -21,14 +21,14 @@ export function Segmented<V extends string>({
       onValueChange={(v) => onChange(v as V)}
       aria-label={label}
       orientation="horizontal"
-      className={cx('flex shrink-0 gap-0.5 rounded-[7px] bg-muted p-0.5', className)}
+      className={cx('flex shrink-0 gap-0.5 rounded-[8px] bg-muted p-0.5', className)}
     >
       {options.map((o) => (
         <R.Item
           key={o.value}
           value={o.value}
           className={cx(
-            'h-6 cursor-pointer rounded-[5px] px-2.5 text-[0.923rem] text-fg-muted data-[state=checked]:bg-raised data-[state=checked]:font-semibold data-[state=checked]:text-fg data-[state=checked]:shadow-[0_1px_2px_rgba(0,0,0,.08)]',
+            'h-6 cursor-pointer rounded-[6px] px-2.5 text-[0.929rem] text-fg-muted data-[state=checked]:bg-raised data-[state=checked]:font-semibold data-[state=checked]:text-fg data-[state=checked]:shadow-[0_1px_2px_rgba(0,0,0,.08)]',
             o.className,
           )}
         >

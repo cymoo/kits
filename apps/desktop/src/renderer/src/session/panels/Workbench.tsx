@@ -42,7 +42,7 @@ function Count({ n, on }: { n: number; on: boolean }) {
   return (
     <span
       className={cx(
-        'rounded-[8px] bg-hover px-1.5 font-medium text-[0.846rem]',
+        'rounded-[8px] bg-hover px-1.5 font-medium text-[0.857rem]',
         on ? 'text-fg' : 'text-fg-label',
       )}
     >
@@ -55,7 +55,7 @@ function Empty({ title, note }: { title: string; note: string }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-fg-muted">
       <span className="font-medium text-fg">{title}</span>
-      <span className="max-w-[240px] text-[0.923rem]">{note}</span>
+      <span className="max-w-[240px] text-[0.929rem]">{note}</span>
     </div>
   )
 }
@@ -82,7 +82,7 @@ export function Workbench(props: WorkbenchProps) {
             <T.Trigger
               key={value}
               value={value}
-              className="-mb-px inline-flex h-[34px] cursor-pointer items-center gap-1.5 border-transparent border-b-2 px-2.5 text-[0.962rem] text-fg-muted hover:text-fg data-[state=active]:border-fg data-[state=active]:font-semibold data-[state=active]:text-fg"
+              className="-mb-px inline-flex h-[34px] cursor-pointer items-center gap-1.5 border-transparent border-b-2 px-2.5 text-[0.929rem] text-fg-muted hover:text-fg data-[state=active]:border-fg data-[state=active]:font-semibold data-[state=active]:text-fg"
             >
               {label}
               <Count n={n} on={tab === value} />
@@ -186,7 +186,7 @@ function ChangesPanel({
       >
         {rounds.map((r) => (
           <div key={r.turn} className="flex flex-col gap-0.5 pb-1.5">
-            <div className="flex items-center gap-1.5 px-1.5 pt-1.5 pb-0.5 font-medium text-[0.885rem] text-fg-label">
+            <div className="flex items-center gap-1.5 px-1.5 pt-1.5 pb-0.5 font-medium text-[0.857rem] text-fg-label">
               <span className="min-w-0 flex-1">
                 {t('changes.round', { n: r.turn })}
                 {r.pending ? ` · ${t('changes.running')}` : ''}
@@ -203,31 +203,31 @@ function ChangesPanel({
                   aria-pressed={on}
                   onClick={() => onPick({ turn: r.turn, path: f.path })}
                   className={cx(
-                    'flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-[7px] px-1.5 text-left',
+                    'flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-[8px] px-1.5 text-left',
                     on ? 'bg-hover' : 'hover:bg-active',
                   )}
                 >
                   <span
                     className={cx(
-                      'shrink-0 rounded-[4px] px-[5px] font-semibold text-[0.808rem]',
+                      'shrink-0 rounded-[4px] px-[5px] font-semibold text-[0.857rem]',
                       BADGE_TONE[f.badge],
                     )}
                   >
                     {f.badge}
                   </span>
                   <span
-                    className="min-w-0 flex-1 truncate font-mono text-[0.923rem]"
+                    className="min-w-0 flex-1 truncate font-mono text-[0.929rem]"
                     title={f.path}
                   >
                     {f.path}
                   </span>
-                  <span className="shrink-0 text-[0.885rem]">{stat(f.additions, f.deletions)}</span>
+                  <span className="shrink-0 text-[0.857rem]">{stat(f.additions, f.deletions)}</span>
                 </button>
               )
             })}
           </div>
         ))}
-        <p className="mx-1.5 mt-1.5 mb-0 text-[0.923rem] text-fg-label leading-[1.6]">
+        <p className="mx-1.5 mt-1.5 mb-0 text-[0.929rem] text-fg-label leading-[1.6]">
           {t('changes.note')}
         </p>
       </div>
@@ -278,7 +278,7 @@ function DiffView({
   const full = absolute ? file.path : `${workdir.replace(/[\\/]+$/, '')}${sep}${file.path}`
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="diff">
-      <div className="sticky top-0 z-[1] flex items-center gap-2 border-line-soft border-b bg-muted px-3 py-2 text-[0.923rem] text-fg-muted">
+      <div className="sticky top-0 z-[1] flex items-center gap-2 border-line-soft border-b bg-muted px-3 py-2 text-[0.929rem] text-fg-muted">
         <span className="min-w-0 flex-1 truncate font-medium font-mono text-fg">{file.path}</span>
         <span>{stat(file.additions, file.deletions)}</span>
         {/* 只在文件夹里选中，不交给系统默认程序打开：Agent 改的可能是 .bat / .exe，打开就执行了 */}
@@ -287,12 +287,12 @@ function DiffView({
         </Button>
       </div>
       {pending || !lines.length ? (
-        <p className="m-0 px-3 py-4 text-[0.923rem] text-fg-muted">
+        <p className="m-0 px-3 py-4 text-[0.929rem] text-fg-muted">
           {pending ? t('changes.pendingDiff') : t('changes.binary')}
         </p>
       ) : view === 'unified' ? (
         // 行比面板宽时横向滚动，底色要铺满整行
-        <div className="w-max min-w-full pb-4 font-mono text-[0.885rem] leading-[1.75]">
+        <div className="w-max min-w-full pb-4 font-mono text-[0.857rem] leading-[1.75]">
           {lines.map((l, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: diff 行没有稳定 id，按位置
             <div key={i} className={cx('flex whitespace-pre px-3', lineTone(l.kind))}>
@@ -305,7 +305,7 @@ function DiffView({
           ))}
         </div>
       ) : (
-        <div className="pb-4 font-mono text-[0.885rem] leading-[1.75]">
+        <div className="pb-4 font-mono text-[0.857rem] leading-[1.75]">
           {splitRows(lines).map((row, i) =>
             row.hunk ? (
               // biome-ignore lint/suspicious/noArrayIndexKey: 按位置
@@ -418,7 +418,7 @@ function ContextPanel({ detail, usage, contextWindow, rules }: WorkbenchProps) {
       data-testid="context"
     >
       <div className="flex flex-col gap-2 border-line-soft border-b py-3">
-        <div className="flex items-baseline text-[0.923rem]">
+        <div className="flex items-baseline text-[0.929rem]">
           <span className="flex-1 text-fg-muted">{t('context.usage')}</span>
           <span className="font-medium font-mono" data-testid="context-usage">
             {usage.context
@@ -440,10 +440,10 @@ function ContextPanel({ detail, usage, contextWindow, rules }: WorkbenchProps) {
             style={{ width: `${pct}%` }}
           />
         </div>
-        <div className="text-[0.923rem] text-fg-muted leading-[1.6]">{t('context.note')}</div>
+        <div className="text-[0.929rem] text-fg-muted leading-[1.6]">{t('context.note')}</div>
         {session.turns > 0 ? (
           <div className="flex items-start gap-2.5 pt-1">
-            <span className="min-w-0 flex-1 text-[0.885rem] text-fg-label leading-[1.6]">
+            <span className="min-w-0 flex-1 text-[0.857rem] text-fg-label leading-[1.6]">
               {compactError ? (
                 <span role="alert" className="text-danger">
                   {compactError}
@@ -460,18 +460,18 @@ function ContextPanel({ detail, usage, contextWindow, rules }: WorkbenchProps) {
       </div>
       {rows.map(([k, v]) => (
         <div key={k} className="flex gap-3 border-line-soft border-b py-2.5">
-          <span className="shrink-0 basis-[60px] text-[0.923rem] text-fg-muted">{k}</span>
-          <span className="min-w-0 flex-1 whitespace-pre-line break-all font-mono text-[0.923rem]">
+          <span className="shrink-0 basis-[60px] text-[0.929rem] text-fg-muted">{k}</span>
+          <span className="min-w-0 flex-1 whitespace-pre-line break-all font-mono text-[0.929rem]">
             {v}
           </span>
         </div>
       ))}
       <div className="flex gap-3 border-line-soft border-b py-2.5" data-testid="allow-rules">
-        <span className="shrink-0 basis-[60px] text-[0.923rem] text-fg-muted">
+        <span className="shrink-0 basis-[60px] text-[0.929rem] text-fg-muted">
           {t('context.rules')}
         </span>
         {rules.length ? (
-          <span className="flex min-w-0 flex-1 flex-wrap gap-1.5 text-[0.923rem]">
+          <span className="flex min-w-0 flex-1 flex-wrap gap-1.5 text-[0.929rem]">
             {rules.map((r) => (
               <span key={r} className="rounded-[4px] bg-hover px-[5px] font-mono">
                 {r}
@@ -479,7 +479,7 @@ function ContextPanel({ detail, usage, contextWindow, rules }: WorkbenchProps) {
             ))}
           </span>
         ) : (
-          <span className="min-w-0 flex-1 text-[0.923rem] text-fg-label">
+          <span className="min-w-0 flex-1 text-[0.929rem] text-fg-label">
             {t('context.noRules')}
           </span>
         )}

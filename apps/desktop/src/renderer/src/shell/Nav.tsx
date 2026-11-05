@@ -85,7 +85,7 @@ export function Nav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () 
           k
         </span>
         {collapsed ? null : (
-          <span className="font-semibold text-[1.077rem] tracking-[-0.01em]">{t('app.name')}</span>
+          <span className="font-semibold text-[1.143rem] tracking-[-0.01em]">{t('app.name')}</span>
         )}
         <span className="flex-1" />
         <button

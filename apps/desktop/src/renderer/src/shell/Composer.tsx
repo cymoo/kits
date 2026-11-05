@@ -74,10 +74,10 @@ export interface ComposerSubmit {
 }
 
 const chip =
-  'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[8px] px-2 text-[0.962rem] text-fg-muted outline-none hover:bg-active hover:text-fg data-[state=open]:bg-active data-[state=open]:text-fg'
+  'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[8px] px-2 text-[0.929rem] text-fg-muted outline-none hover:bg-active hover:text-fg data-[state=open]:bg-active data-[state=open]:text-fg'
 
 const sendButton =
-  'ml-auto flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-primary text-primary-fg transition-opacity disabled:cursor-default disabled:opacity-25'
+  'ml-auto flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-fg transition-opacity disabled:cursor-default disabled:opacity-25'
 
 export interface ComposerHandle {
   // 排队的消息退回来：接在已有的草稿后面，不覆盖
@@ -420,7 +420,7 @@ export function Composer({
       }}
       className={cx(
         'relative border border-line bg-raised shadow-[0_1px_2px_rgba(0,0,0,.03),0_6px_20px_rgba(0,0,0,.05)] transition-[border-color,box-shadow] focus-within:border-line-strong focus-within:shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_28px_rgba(0,0,0,.08)]',
-        big ? 'rounded-[16px]' : 'rounded-[14px]',
+        'rounded-[20px]',
         dragging && 'border-accent',
       )}
     >
@@ -438,7 +438,7 @@ export function Composer({
           className={menuClass}
           style={{ maxHeight: place.maxHeight }}
         >
-          <div className="shrink-0 px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
+          <div className="shrink-0 px-2.5 pt-1.5 pb-1 font-medium text-[0.857rem] text-fg-label">
             {t('composer.skillsTitle')}
           </div>
           {skills.isFetched && skillItems.length === 0 ? (
@@ -463,7 +463,7 @@ export function Composer({
                 )}
               >
                 <span
-                  className="truncate font-medium font-mono text-[0.962rem]"
+                  className="truncate font-medium font-mono text-[0.929rem]"
                   title={`/${s.name}`}
                 >
                   /{s.name}
@@ -472,7 +472,7 @@ export function Composer({
               </button>
             ))}
           </div>
-          <div className="mt-1 flex shrink-0 items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.885rem] text-fg-label">
+          <div className="mt-1 flex shrink-0 items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.857rem] text-fg-label">
             <span>{t('composer.atHint.pick')}</span>
             <span>{t('composer.slashHint')}</span>
             <span>{t('composer.atHint.close')}</span>
@@ -496,7 +496,7 @@ export function Composer({
           className={menuClass}
           style={{ maxHeight: place.maxHeight }}
         >
-          <div className="shrink-0 px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
+          <div className="shrink-0 px-2.5 pt-1.5 pb-1 font-medium text-[0.857rem] text-fg-label">
             {t('composer.atTitle')}
           </div>
           {!workdir ? (
@@ -523,11 +523,11 @@ export function Composer({
                 )}
               >
                 <FileText size={13} className="shrink-0 text-fg-muted" />
-                <span className="min-w-0 flex-1 truncate font-mono text-[0.923rem]">{f}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-[0.929rem]">{f}</span>
               </button>
             ))}
           </div>
-          <div className="mt-1 flex shrink-0 items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.885rem] text-fg-label">
+          <div className="mt-1 flex shrink-0 items-center gap-3 border-line-soft border-t px-2.5 pt-2 pb-1 text-[0.857rem] text-fg-label">
             <span>{t('composer.atHint.pick')}</span>
             <span>{t('composer.atHint.insert')}</span>
             <span>{t('composer.atHint.close')}</span>
@@ -543,7 +543,7 @@ export function Composer({
             <span
               // biome-ignore lint/suspicious/noArrayIndexKey: 同名文件可以加两次，按位置
               key={`${f.name}:${i}`}
-              className="inline-flex h-7 max-w-[260px] items-center gap-1.5 rounded-[8px] border border-line bg-bg pr-1 pl-2 text-[0.923rem]"
+              className="inline-flex h-7 max-w-[260px] items-center gap-1.5 rounded-[8px] border border-line bg-bg pr-1 pl-2 text-[0.929rem]"
             >
               <Paperclip size={12} className="shrink-0 text-fg-muted" />
               <span className="min-w-0 truncate" title={f.name}>
@@ -554,7 +554,7 @@ export function Composer({
                 type="button"
                 aria-label={t('composer.removeFile', { name: f.name })}
                 onClick={() => setFiles((cur) => cur.filter((_, j) => j !== i))}
-                className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-[5px] text-fg-subtle hover:bg-active hover:text-fg"
+                className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-[6px] text-fg-subtle hover:bg-active hover:text-fg"
               >
                 <X size={12} />
               </button>
@@ -606,14 +606,14 @@ export function Composer({
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         className={cx(
-          'block max-h-[220px] w-full resize-none border-0 bg-transparent text-fg leading-[1.6] outline-none placeholder:text-fg-subtle',
-          big ? 'px-[18px] pt-4 pb-2 text-[1.154rem]' : 'px-3.5 pt-3 pb-1 text-[1.077rem]',
+          'block max-h-[220px] w-full resize-none border-0 bg-transparent text-[1rem] text-fg leading-[1.571] outline-none placeholder:text-fg-subtle',
+          big ? 'px-[18px] pt-4 pb-2' : 'px-4 pt-3.5 pb-1',
         )}
       />
       {error ? (
         <p
           role="alert"
-          className={cx('m-0 text-[0.923rem] text-danger', big ? 'px-[18px]' : 'px-3.5')}
+          className={cx('m-0 text-[0.929rem] text-danger', big ? 'px-[18px]' : 'px-3.5')}
         >
           {error}
         </p>
@@ -621,7 +621,7 @@ export function Composer({
       <div
         className={cx(
           'flex flex-wrap items-center gap-0.5',
-          big ? 'px-2.5 pt-1.5 pb-2.5' : 'px-2 pt-1 pb-2',
+          big ? 'px-2.5 pt-1.5 pb-2.5' : 'px-2.5 pt-1 pb-2.5',
         )}
       >
         <Menu>
@@ -636,12 +636,12 @@ export function Composer({
             <MenuItem onSelect={() => picker.current?.click()}>
               <Paperclip size={14} className="text-fg-muted" />
               <span className="flex-1">{t('composer.upload')}</span>
-              <small className="text-[0.885rem] text-fg-label">{t('composer.uploadNote')}</small>
+              <small className="text-[0.857rem] text-fg-label">{t('composer.uploadNote')}</small>
             </MenuItem>
             <MenuItem onSelect={() => setTimeout(startReference, 0)}>
               <AtSign size={14} className="text-fg-muted" />
               <span className="flex-1">{t('composer.reference')}</span>
-              <small className="text-[0.885rem] text-fg-label">@</small>
+              <small className="text-[0.857rem] text-fg-label">@</small>
             </MenuItem>
             {/* 会话开始后权限已经定了，只有新会话能选这次用哪些平台 */}
             {!locked && platforms.length ? (
@@ -660,7 +660,7 @@ export function Composer({
                       })
                     }
                   >
-                    <span className="font-mono text-[0.923rem]">{p.name}</span>
+                    <span className="font-mono text-[0.929rem]">{p.name}</span>
                   </MenuSwitchItem>
                 ))}
                 <MenuItem onSelect={() => navigate('/settings/mcp')}>
@@ -679,7 +679,7 @@ export function Composer({
               title={lockedAs.workdir}
             >
               <Folder size={13} />
-              <span className="font-mono text-[0.923rem]">{basename(lockedAs.workdir)}</span>
+              <span className="font-mono text-[0.929rem]">{basename(lockedAs.workdir)}</span>
             </span>
             <span className={cx(chip, 'cursor-default hover:bg-transparent hover:text-fg-muted')}>
               <Bot size={13} />
@@ -695,7 +695,7 @@ export function Composer({
                 title={t('composer.workdir')}
               >
                 {resolved.workdir ? <Folder size={13} /> : <FolderOpen size={13} />}
-                <span className="font-mono text-[0.923rem]">
+                <span className="font-mono text-[0.929rem]">
                   {resolved.workdir ? basename(resolved.workdir) : t('composer.pickWorkdir')}
                 </span>
               </MenuTrigger>
@@ -707,8 +707,8 @@ export function Composer({
                 >
                   {(settings.data?.workdirs ?? []).map((w) => (
                     <MenuRadioItem key={w.path} value={w.path}>
-                      <span className="block font-mono text-[0.923rem]">{basename(w.path)}</span>
-                      <small className="block truncate text-[0.923rem] text-fg-muted">
+                      <span className="block font-mono text-[0.929rem]">{basename(w.path)}</span>
+                      <small className="block truncate text-[0.929rem] text-fg-muted">
                         {w.path}
                       </small>
                     </MenuRadioItem>
@@ -738,8 +738,8 @@ export function Composer({
                     ]
                   ).map((a) => (
                     <MenuRadioItem key={a.name} value={a.name}>
-                      <span className="block font-mono text-[0.923rem]">{a.name}</span>
-                      <small className="block text-[0.923rem] text-fg-muted">
+                      <span className="block font-mono text-[0.929rem]">{a.name}</span>
+                      <small className="block text-[0.929rem] text-fg-muted">
                         {[a.description, t(`source.${a.source}`)].filter(Boolean).join(' · ')}
                       </small>
                     </MenuRadioItem>
@@ -775,7 +775,7 @@ export function Composer({
               {PERMS.map((p) => (
                 <MenuRadioItem key={p} value={p}>
                   <span className="block">{t(`perm.${p}`)}</span>
-                  <small className="block text-[0.923rem] text-fg-muted">
+                  <small className="block text-[0.929rem] text-fg-muted">
                     {t(`perm.${p}.note`)}
                   </small>
                 </MenuRadioItem>
@@ -785,7 +785,7 @@ export function Composer({
         </Menu>
         {locked && lockedAs ? (
           <span className={cx(chip, 'cursor-default hover:bg-transparent hover:text-fg-muted')}>
-            <span className="font-mono text-[0.923rem]">
+            <span className="font-mono text-[0.929rem]">
               {lockedAs.model.slice(lockedAs.model.indexOf('/') + 1)}
             </span>
           </span>
@@ -796,7 +796,7 @@ export function Composer({
               className={cx(chip, missing === 'model' && 'text-accent')}
               title={t('composer.model')}
             >
-              <span className="font-mono text-[0.923rem]">{modelLabel}</span>
+              <span className="font-mono text-[0.929rem]">{modelLabel}</span>
               <ChevronDown size={12} />
             </MenuTrigger>
             <MenuContent align="end">
@@ -821,7 +821,7 @@ export function Composer({
                   <MenuLabel>{g.name || g.id}</MenuLabel>
                   {g.models.map((m) => (
                     <MenuRadioItem key={m.id} value={`${g.id}/${m.id}`}>
-                      <span className="font-mono text-[0.923rem]">{m.id}</span>
+                      <span className="font-mono text-[0.929rem]">{m.id}</span>
                     </MenuRadioItem>
                   ))}
                 </MenuRadioGroup>

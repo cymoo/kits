@@ -55,8 +55,8 @@ function errorText(e: unknown): string {
   return m.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
 
-const card = 'flex flex-col gap-2 rounded-[14px] border border-line bg-raised px-4 py-3.5'
-const chip = 'inline-flex h-[26px] items-center rounded-[13px] px-2.5 font-mono text-[0.923rem]'
+const card = 'flex flex-col gap-2 rounded-[16px] border border-line bg-raised px-4 py-3.5'
+const chip = 'inline-flex h-[26px] items-center rounded-[13px] px-2.5 font-mono text-[0.929rem]'
 
 export function AgentSection() {
   const client = useQueryClient()
@@ -222,14 +222,14 @@ export function AgentSection() {
         <MenuItem onSelect={() => create('personal', from)}>
           <span className="flex flex-col">
             <span>{t('agents.personal')}</span>
-            <small className="text-[0.885rem] text-fg-muted">~/.kits/agents/</small>
+            <small className="text-[0.857rem] text-fg-muted">~/.kits/agents/</small>
           </span>
         </MenuItem>
         {workdir ? (
           <MenuItem onSelect={() => create('project', from)}>
             <span className="flex flex-col">
               <span>{t('agents.projectOf', { dir: basename(workdir) })}</span>
-              <small className="text-[0.885rem] text-fg-muted">.agents/agents/</small>
+              <small className="text-[0.857rem] text-fg-muted">.agents/agents/</small>
             </span>
           </MenuItem>
         ) : null}
@@ -246,14 +246,14 @@ export function AgentSection() {
         </div>
         {workdirs.length > 1 ? (
           <Menu>
-            <MenuTrigger className="mx-1 inline-flex h-6 w-fit cursor-pointer items-center gap-1 rounded-[6px] px-1.5 text-[0.885rem] text-fg-muted hover:bg-active">
+            <MenuTrigger className="mx-1 inline-flex h-6 w-fit cursor-pointer items-center gap-1 rounded-[6px] px-1.5 text-[0.857rem] text-fg-muted hover:bg-active">
               {t('agents.projectOf', { dir: workdir ? basename(workdir) : '' })}
               <ChevronDown size={12} />
             </MenuTrigger>
             <MenuContent>
               {workdirs.map((w) => (
                 <MenuItem key={w.path} onSelect={() => setPickedDir(w.path)}>
-                  <span className="font-mono text-[0.923rem]">{homeLabel(w.path)}</span>
+                  <span className="font-mono text-[0.929rem]">{homeLabel(w.path)}</span>
                 </MenuItem>
               ))}
             </MenuContent>
@@ -280,7 +280,7 @@ export function AgentSection() {
                   )}
                 >
                   <span className="flex min-w-0 flex-1 flex-col gap-px">
-                    <span className="flex items-center gap-1.5 font-medium font-mono text-[0.962rem]">
+                    <span className="flex items-center gap-1.5 font-medium font-mono text-[0.929rem]">
                       <span className="truncate">{e.draft.name}</span>
                       {unsaved && e.source !== 'builtin' ? (
                         <span
@@ -290,11 +290,11 @@ export function AgentSection() {
                         />
                       ) : null}
                     </span>
-                    <span className="truncate text-[0.923rem] text-fg-muted">
+                    <span className="truncate text-[0.929rem] text-fg-muted">
                       {e.draft.description || t('agents.noDescription')}
                     </span>
                   </span>
-                  <span className="shrink-0 rounded-[8px] bg-hover px-[7px] py-px text-[0.846rem] text-fg-muted">
+                  <span className="shrink-0 rounded-[8px] bg-hover px-[7px] py-px text-[0.857rem] text-fg-muted">
                     {t(`source.${e.source}` as MessageKey)}
                   </span>
                 </button>
@@ -306,12 +306,12 @@ export function AgentSection() {
           <p
             key={e.path}
             role="alert"
-            className="m-0 rounded-[10px] bg-danger-bg px-3 py-2 text-[0.885rem] text-danger"
+            className="m-0 rounded-[12px] bg-danger-bg px-3 py-2 text-[0.857rem] text-danger"
           >
             {t('agents.loadError', { path: homeLabel(e.path), message: e.message })}
           </p>
         ))}
-        <p className="mx-1 mt-2 mb-0 text-[0.885rem] text-fg-label leading-[1.6]">
+        <p className="mx-1 mt-2 mb-0 text-[0.857rem] text-fg-label leading-[1.6]">
           {t('agents.footnote')}
         </p>
       </div>
@@ -320,7 +320,7 @@ export function AgentSection() {
         <div className="flex min-w-0 max-w-[720px] flex-1 flex-col gap-[22px]">
           <div className="flex items-center gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <h2 className="m-0 truncate font-mono font-semibold text-[1.538rem]">{draft.name}</h2>
+              <h2 className="m-0 truncate font-mono font-semibold text-[1.429rem]">{draft.name}</h2>
               <span className="truncate font-mono text-fg-muted" title={view?.path}>
                 {readonly
                   ? t('agents.builtinFile')
@@ -365,7 +365,7 @@ export function AgentSection() {
           <section className="flex flex-col gap-2">
             <div className="flex items-baseline gap-2">
               <span className="font-semibold">{t('agents.prompt')}</span>
-              <small className="text-[0.923rem] text-fg-muted">{t('agents.promptHint')}</small>
+              <small className="text-[0.929rem] text-fg-muted">{t('agents.promptHint')}</small>
             </div>
             <textarea
               aria-label={t('agents.prompt')}
@@ -374,7 +374,7 @@ export function AgentSection() {
               value={draft.prompt}
               placeholder={t('agents.promptEmpty')}
               onChange={(e) => edit((d) => ({ ...d, prompt: e.target.value }))}
-              className="resize-y rounded-[10px] border border-line bg-raised px-3.5 py-3 font-mono text-[0.923rem] text-fg leading-[1.65] outline-none placeholder:text-fg-subtle focus:border-accent focus:shadow-[0_0_0_3px_rgb(54_89_227/0.15)] read-only:bg-bg"
+              className="resize-y rounded-[12px] border border-line bg-raised px-3.5 py-3 font-mono text-[0.929rem] text-fg leading-[1.65] outline-none placeholder:text-fg-subtle focus:border-accent focus:shadow-[0_0_0_3px_rgb(54_89_227/0.15)] read-only:bg-bg"
             />
           </section>
 
@@ -386,7 +386,7 @@ export function AgentSection() {
                   disabled={readonly}
                   className="flex h-[34px] cursor-pointer items-center gap-2 rounded-[8px] border border-line bg-raised px-3 text-left disabled:cursor-default disabled:bg-bg"
                 >
-                  <span className="min-w-0 flex-1 truncate font-mono text-[0.962rem]">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[0.929rem]">
                     {draft.model || t('agents.defaultModel')}
                   </span>
                   <ChevronDown size={12} className="text-fg-muted" />
@@ -404,7 +404,7 @@ export function AgentSection() {
                         <MenuLabel>{g.name || g.id}</MenuLabel>
                         {g.models.map((m) => (
                           <MenuRadioItem key={m.id} value={`${g.id}/${m.id}`}>
-                            <span className="font-mono text-[0.923rem]">{m.id}</span>
+                            <span className="font-mono text-[0.929rem]">{m.id}</span>
                           </MenuRadioItem>
                         ))}
                       </div>
@@ -412,19 +412,19 @@ export function AgentSection() {
                   </MenuRadioGroup>
                 </MenuContent>
               </Menu>
-              <span className="text-[0.923rem] text-fg-muted">
+              <span className="text-[0.929rem] text-fg-muted">
                 {draft.model ? t('agents.modelOwn') : t('agents.modelFollow')}
               </span>
             </div>
             <div className={card}>
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{t('agents.output')}</span>
-                <small className="text-[0.923rem] text-fg-muted">{t('agents.outputHint')}</small>
+                <small className="text-[0.929rem] text-fg-muted">{t('agents.outputHint')}</small>
               </div>
               {draft.output ? (
                 <>
                   <div className="flex h-[34px] items-center gap-2 rounded-[8px] border border-line bg-bg px-3">
-                    <span className="min-w-0 flex-1 truncate font-mono text-[0.962rem]">
+                    <span className="min-w-0 flex-1 truncate font-mono text-[0.929rem]">
                       {draft.output}
                     </span>
                     {view?.path && !readonly ? (
@@ -440,7 +440,7 @@ export function AgentSection() {
                       </Button>
                     ) : null}
                   </div>
-                  <span className="text-[0.923rem] text-fg-muted">
+                  <span className="text-[0.929rem] text-fg-muted">
                     {view && !view.hasOutputSchema && view.output === draft.output
                       ? t('agents.outputBroken')
                       : t('agents.outputOn')}
@@ -456,7 +456,7 @@ export function AgentSection() {
                   >
                     {t('agents.outputNone')}
                   </button>
-                  <span className="text-[0.923rem] text-fg-muted">
+                  <span className="text-[0.929rem] text-fg-muted">
                     {readonly ? t('agents.outputNoneHint') : t('agents.outputAdd')}
                   </span>
                 </>
@@ -464,10 +464,10 @@ export function AgentSection() {
             </div>
           </section>
 
-          <section className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised">
+          <section className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised">
             <div className="flex items-baseline gap-2.5 border-line-soft border-b px-4 py-3">
               <b className="font-semibold">{t('agents.tools')}</b>
-              <small className="text-[0.923rem] text-fg-muted">{t('agents.toolsHint')}</small>
+              <small className="text-[0.929rem] text-fg-muted">{t('agents.toolsHint')}</small>
             </div>
             {Object.keys(defaults).map((tool) => (
               <div
@@ -475,12 +475,12 @@ export function AgentSection() {
                 data-testid={`agent-tool-${tool}`}
                 className="flex min-h-10 items-center gap-3 border-line-soft border-b px-4 py-1.5 last:border-b-0"
               >
-                <span className="w-[156px] shrink-0 font-mono text-[0.962rem]">{tool}</span>
-                <span className="min-w-0 flex-1 truncate text-[0.923rem] text-fg-muted">
+                <span className="w-[156px] shrink-0 font-mono text-[0.929rem]">{tool}</span>
+                <span className="min-w-0 flex-1 truncate text-[0.929rem] text-fg-muted">
                   {t(`agents.tool.${tool}` as MessageKey)}
                 </span>
                 {readonly ? (
-                  <span className="text-[0.923rem] text-fg-muted">
+                  <span className="text-[0.929rem] text-fg-muted">
                     {t(`mcp.${toolLevel(draft, tool, defaults)}` as MessageKey)}
                   </span>
                 ) : (
@@ -539,13 +539,13 @@ export function AgentSection() {
           {error ? (
             <p
               role="alert"
-              className="m-0 rounded-[10px] bg-danger-bg px-3.5 py-2 text-[0.962rem] text-danger"
+              className="m-0 rounded-[12px] bg-danger-bg px-3.5 py-2 text-[0.929rem] text-danger"
             >
               {error}
             </p>
           ) : null}
 
-          <div className="flex items-center gap-2.5 rounded-[10px] bg-bg px-3.5 py-3 text-[0.962rem] text-fg-muted">
+          <div className="flex items-center gap-2.5 rounded-[12px] bg-bg px-3.5 py-3 text-[0.929rem] text-fg-muted">
             <span className="flex-1">
               {readonly ? t('agents.builtinNote') : t('agents.saveNote')}
             </span>
@@ -588,13 +588,13 @@ export function AgentSection() {
       <Dialog open={preview !== undefined} onOpenChange={(o) => !o && setPreview(undefined)}>
         <DialogContent className="w-[720px]">
           <div className="flex flex-col gap-3 p-5">
-            <DialogTitle className="m-0 font-semibold text-[1.154rem]">
+            <DialogTitle className="m-0 font-semibold text-[1.143rem]">
               {t('agents.previewTitle')}
             </DialogTitle>
             <p className="m-0 text-fg-muted">{t('agents.previewHint')}</p>
             <pre
               data-testid="agent-preview"
-              className="m-0 max-h-[60vh] overflow-auto rounded-[10px] bg-bg p-3.5 font-mono text-[0.885rem] leading-[1.6]"
+              className="m-0 max-h-[60vh] overflow-auto rounded-[12px] bg-bg p-3.5 font-mono text-[0.857rem] leading-[1.6]"
             >
               {preview}
             </pre>
@@ -631,11 +631,11 @@ function AllowCard({
     <div className={card} data-testid={testId}>
       <div className="flex items-center gap-2">
         <span className="font-semibold">{title}</span>
-        <small className="text-[0.923rem] text-fg-muted">{note}</small>
+        <small className="text-[0.929rem] text-fg-muted">{note}</small>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {all.length === 0 ? (
-          <span className="text-[0.923rem] text-fg-muted">{t('agents.noneAvailable')}</span>
+          <span className="text-[0.929rem] text-fg-muted">{t('agents.noneAvailable')}</span>
         ) : null}
         {all.map((name) => (
           <span
@@ -653,7 +653,7 @@ function AllowCard({
         ))}
         {readonly || all.length === 0 ? null : (
           <Menu>
-            <MenuTrigger className="inline-flex h-[26px] cursor-pointer items-center rounded-[13px] border border-line-strong border-dashed px-2.5 text-[0.923rem] text-fg-muted hover:bg-active">
+            <MenuTrigger className="inline-flex h-[26px] cursor-pointer items-center rounded-[13px] border border-line-strong border-dashed px-2.5 text-[0.929rem] text-fg-muted hover:bg-active">
               {t('agents.adjust')}
             </MenuTrigger>
             <MenuContent>
@@ -670,7 +670,7 @@ function AllowCard({
                   checked={isAllowed(list, name)}
                   onCheckedChange={() => onChange(toggleAllowed(list, all, name))}
                 >
-                  <span className="font-mono text-[0.923rem]">
+                  <span className="font-mono text-[0.929rem]">
                     {prefix}
                     {name}
                   </span>

@@ -34,16 +34,16 @@ function SkillRow({ skill, onToggle }: { skill: SkillView; onToggle(on: boolean)
     >
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className="flex items-center gap-2">
-          <span className="font-medium font-mono text-[0.962rem]">/{skill.name}</span>
+          <span className="font-medium font-mono text-[0.929rem]">/{skill.name}</span>
           {skill.shadows.length ? (
-            <span className="rounded-[8px] bg-warn-bg px-[7px] py-px text-[0.846rem] text-warn-strong">
+            <span className="rounded-[8px] bg-warn-bg px-[7px] py-px text-[0.857rem] text-warn-strong">
               {t('skills.overrides', {
                 what: skill.shadows.map((s) => t(SOURCE_LABEL[s])).join('、'),
               })}
             </span>
           ) : null}
         </span>
-        <span className="truncate text-[0.923rem] text-fg-muted" title={skill.description}>
+        <span className="truncate text-[0.929rem] text-fg-muted" title={skill.description}>
           {skill.description}
         </span>
       </span>
@@ -74,7 +74,7 @@ export function SkillsSection() {
   return (
     <div className="flex w-full max-w-[820px] flex-col gap-7">
       <div className="flex flex-col gap-1">
-        <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
+        <h2 className="m-0 font-semibold text-[1.429rem] tracking-[-0.01em]">
           {t('settings.skills')}
         </h2>
         <p className="m-0 text-fg-muted">{t('skills.intro')}</p>
@@ -84,7 +84,7 @@ export function SkillsSection() {
           <p
             key={e.path}
             role="alert"
-            className="m-0 rounded-[10px] bg-danger-bg px-3.5 py-2 text-[0.962rem] text-danger"
+            className="m-0 rounded-[12px] bg-danger-bg px-3.5 py-2 text-[0.929rem] text-danger"
           >
             {t('skills.error', { path: e.path, message: e.message })}
           </p>
@@ -102,31 +102,31 @@ export function SkillsSection() {
             <div
               key={source}
               data-testid={`skills-${source}`}
-              className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised"
+              className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised"
             >
               <div className="flex items-center gap-2.5 border-line-soft border-b px-4 py-3">
                 <b className="font-semibold">{t(SOURCE_LABEL[source])}</b>
                 {source === 'project' && workdirs.length > 1 ? (
                   <Menu>
-                    <MenuTrigger className="inline-flex h-6 cursor-pointer items-center rounded-[6px] px-1.5 font-mono text-[0.885rem] text-fg-muted hover:bg-active">
+                    <MenuTrigger className="inline-flex h-6 cursor-pointer items-center rounded-[6px] px-1.5 font-mono text-[0.857rem] text-fg-muted hover:bg-active">
                       {workdir ? basename(workdir) : ''} ▾
                     </MenuTrigger>
                     <MenuContent>
                       {workdirs.map((w) => (
                         <MenuItem key={w.path} onSelect={() => setPicked(w.path)}>
-                          <span className="font-mono text-[0.923rem]">{homeLabel(w.path)}</span>
+                          <span className="font-mono text-[0.929rem]">{homeLabel(w.path)}</span>
                         </MenuItem>
                       ))}
                     </MenuContent>
                   </Menu>
                 ) : null}
                 <span
-                  className="min-w-0 flex-1 truncate font-mono text-[0.885rem] text-fg-label"
+                  className="min-w-0 flex-1 truncate font-mono text-[0.857rem] text-fg-label"
                   title={path}
                 >
                   {source === 'builtin' ? t('skills.builtinPath') : path ? homeLabel(path) : ''}
                 </span>
-                <small className="text-[0.923rem] text-fg-muted">{note}</small>
+                <small className="text-[0.929rem] text-fg-muted">{note}</small>
                 {source !== 'project' || workdir ? (
                   <Button
                     className="h-[26px] px-2"
@@ -151,21 +151,21 @@ export function SkillsSection() {
                     key={`shadow-${s.name}`}
                     className="flex min-h-10 items-center gap-2 border-line-soft border-b px-4 py-2 text-fg-subtle last:border-b-0"
                   >
-                    <span className="font-mono text-[0.962rem]">/{s.name}</span>
-                    <span className="rounded-[8px] bg-hover px-[7px] py-px text-[0.846rem]">
+                    <span className="font-mono text-[0.929rem]">/{s.name}</span>
+                    <span className="rounded-[8px] bg-hover px-[7px] py-px text-[0.857rem]">
                       {t('skills.shadowed', { by: t(SOURCE_LABEL[s.source]) })}
                     </span>
                   </div>
                 ))}
               {items.length === 0 && !list.some((s) => s.shadows.includes(source)) ? (
-                <p className="m-0 px-4 py-3 text-[0.923rem] text-fg-muted">
+                <p className="m-0 px-4 py-3 text-[0.929rem] text-fg-muted">
                   {source === 'project' && !workdir ? t('skills.noWorkdir') : t('skills.none')}
                 </p>
               ) : null}
             </div>
           )
         })}
-        <p className="mx-1 my-0 text-[0.923rem] text-fg-label">{t('skills.footnote')}</p>
+        <p className="mx-1 my-0 text-[0.929rem] text-fg-label">{t('skills.footnote')}</p>
       </section>
       <MemorySection workdir={workdir} />
     </div>

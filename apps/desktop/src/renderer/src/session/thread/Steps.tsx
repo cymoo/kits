@@ -49,7 +49,7 @@ const HINT =
   'flex h-5 w-3.5 shrink-0 items-center justify-center text-fg-muted opacity-0 group-hover/step:opacity-100 group-focus-visible/step:opacity-100'
 
 export const STEP_ROW =
-  'group/step flex w-full items-start gap-2 rounded-[6px] px-3.5 py-1 text-left text-[0.962rem] outline-none'
+  'group/step flex w-full items-start gap-2 rounded-[8px] px-2 py-[3px] text-left text-[0.929rem] outline-none'
 export const STEP_ACTION =
   'cursor-pointer hover:bg-active focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset'
 
@@ -80,7 +80,7 @@ function Section({
     <button
       type="button"
       onClick={clipped.onShow}
-      className="block h-[26px] w-full cursor-pointer px-2.5 text-left text-[0.885rem] text-fg-muted outline-none hover:bg-active hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
+      className="block h-[26px] w-full cursor-pointer px-2.5 text-left text-[0.857rem] text-fg-muted outline-none hover:bg-active hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
     >
       {t(clipped.before ? 'step.moreBefore' : 'step.moreAfter', { n: clipped.hidden })}
     </button>
@@ -93,11 +93,11 @@ function Section({
         command && 'bg-panel',
       )}
     >
-      {label ? <div className="px-2.5 pt-1.5 text-[0.846rem] text-fg-muted">{label}</div> : null}
+      {label ? <div className="px-2.5 pt-1.5 text-[0.857rem] text-fg-muted">{label}</div> : null}
       {clipped?.before ? more : null}
       <pre
         className={cx(
-          'm-0 overflow-y-auto whitespace-pre-wrap px-2.5 py-2 font-mono text-[0.885rem] leading-[1.6] [overflow-wrap:anywhere]',
+          'm-0 overflow-y-auto whitespace-pre-wrap px-2.5 py-2 font-mono text-[0.857rem] leading-[1.6] [overflow-wrap:anywhere]',
           clipped?.hidden ? 'max-h-none' : 'max-h-[480px]',
           command
             ? "text-fg before:select-none before:text-fg-subtle before:content-['$_']"
@@ -135,12 +135,12 @@ function SubSteps({
   const hidden = all ? 0 : Math.max(0, steps.length - SUB_STEPS)
   return (
     <div className="border-line-soft border-t" data-testid="sub-steps">
-      <div className="px-2.5 pt-1.5 text-[0.846rem] text-fg-muted">{t('step.process')}</div>
+      <div className="px-2.5 pt-1.5 text-[0.857rem] text-fg-muted">{t('step.process')}</div>
       {hidden ? (
         <button
           type="button"
           onClick={() => setAll(true)}
-          className="block h-[26px] w-full cursor-pointer px-2.5 text-left text-[0.885rem] text-fg-muted outline-none hover:bg-active hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
+          className="block h-[26px] w-full cursor-pointer px-2.5 text-left text-[0.857rem] text-fg-muted outline-none hover:bg-active hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
         >
           {t('step.moreSteps', { n: hidden })}
         </button>
@@ -175,7 +175,7 @@ function StepBody({
       data-testid="step-output"
       className={cx(
         'mt-0.5 mb-1.5 overflow-hidden rounded-[8px] border border-line-soft bg-raised',
-        nested ? 'mr-2.5 ml-[34px]' : 'mr-3.5 ml-[38px]',
+        nested ? 'mr-2.5 ml-[34px]' : 'mr-2 ml-8',
       )}
     >
       {step.prompt ? (
@@ -212,12 +212,12 @@ function StepBody({
           }}
         />
       ) : step.subSteps ? null : (
-        <div className="border-line-soft border-t px-2.5 py-2 text-[0.923rem] text-fg-muted">
+        <div className="border-line-soft border-t px-2.5 py-2 text-[0.929rem] text-fg-muted">
           {t(step.state === 'running' ? 'step.outputLater' : 'step.noOutput')}
         </div>
       )}
       {step.foot ? (
-        <div className="border-line-soft border-t px-2.5 py-[5px] text-[0.885rem] text-fg-muted tabular-nums">
+        <div className="border-line-soft border-t px-2.5 py-[5px] text-[0.857rem] text-fg-muted tabular-nums">
           {step.foot}
         </div>
       ) : null}
@@ -269,7 +269,7 @@ export function StepRow({
           <>
             <span className="truncate">{step.desc}</span>
             {step.detail && !open ? (
-              <span className="truncate font-mono text-[0.846rem] text-fg-muted leading-[18px]">
+              <span className="truncate font-mono text-[0.857rem] text-fg-muted leading-[18px]">
                 {step.detail}
               </span>
             ) : null}
@@ -277,14 +277,14 @@ export function StepRow({
         ) : (
           <span className="truncate">
             <span className="text-fg-muted">{step.verb}</span>{' '}
-            <span className="font-mono text-[0.923rem]">{step.detail}</span>
+            <span className="font-mono text-[0.929rem]">{step.detail}</span>
           </span>
         )}
       </span>
       {meta ? (
         <span
           className={cx(
-            'shrink-0 text-[0.923rem] tabular-nums leading-5',
+            'shrink-0 text-[0.929rem] tabular-nums leading-5',
             step.state === 'error' ? 'text-danger' : step.isStat ? 'text-ok' : 'text-fg-muted',
           )}
         >

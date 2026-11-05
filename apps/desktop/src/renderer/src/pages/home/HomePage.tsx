@@ -29,13 +29,13 @@ export function HomePage() {
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-8">
       <div className="my-auto flex w-full max-w-[760px] flex-col gap-7 pt-12 pb-[12vh]">
         <div className="flex flex-col items-center gap-1.5">
-          <h1 className="m-0 font-semibold text-[2.154rem] tracking-[-0.015em]">
+          <h1 className="m-0 font-semibold text-[2.143rem] tracking-[-0.015em]">
             {t('home.title')}
           </h1>
           <p className="m-0 text-fg-muted">
             {workdir ? (
               <>
-                在 <span className="font-mono text-[0.923rem] text-fg">{basename(workdir)}</span>{' '}
+                在 <span className="font-mono text-[0.929rem] text-fg">{basename(workdir)}</span>{' '}
                 里干活。
               </>
             ) : null}
@@ -57,7 +57,7 @@ export function HomePage() {
               type="button"
               onClick={() => fillHome(text)}
               title={text}
-              className="inline-flex h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-2xl border border-line bg-transparent px-3 text-[0.962rem] text-fg-muted hover:border-line-strong hover:bg-raised hover:text-fg"
+              className="inline-flex h-8 max-w-full cursor-pointer items-center gap-1.5 rounded-2xl border border-line bg-transparent px-3 text-[0.929rem] text-fg-muted hover:border-line-strong hover:bg-raised hover:text-fg"
             >
               <span className="text-fg-subtle">{kind}</span>
               <span className="truncate">{label}</span>

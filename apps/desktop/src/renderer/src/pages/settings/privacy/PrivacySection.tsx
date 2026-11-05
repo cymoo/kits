@@ -29,15 +29,15 @@ export function PrivacySection() {
   return (
     <div className="flex w-full max-w-[720px] flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
+        <h2 className="m-0 font-semibold text-[1.429rem] tracking-[-0.01em]">
           {t('settings.privacy')}
         </h2>
         <p className="m-0 text-fg-muted">{t('privacy.intro')}</p>
       </div>
-      <section className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised">
+      <section className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised">
         <div className="flex items-baseline gap-2.5 border-line-soft border-b px-[18px] py-3">
           <b className="font-semibold">{t('privacy.where')}</b>
-          <small className="text-[0.923rem] text-fg-muted">{t('privacy.whereHint')}</small>
+          <small className="text-[0.929rem] text-fg-muted">{t('privacy.whereHint')}</small>
         </div>
         {rows.map(([label, path, note]) => (
           <div
@@ -46,10 +46,10 @@ export function PrivacySection() {
           >
             <span className="flex min-w-0 flex-1 flex-col gap-px">
               <span className="font-medium">{label}</span>
-              <span className="truncate font-mono text-[0.885rem] text-fg-muted" title={path}>
+              <span className="truncate font-mono text-[0.857rem] text-fg-muted" title={path}>
                 {homeLabel(path)}
               </span>
-              <span className="text-[0.885rem] text-fg-label">{note}</span>
+              <span className="text-[0.857rem] text-fg-label">{note}</span>
             </span>
             <Button className="h-[26px] px-2" onClick={() => void kits.app.revealPath(path)}>
               {t('privacy.reveal')}
@@ -57,7 +57,7 @@ export function PrivacySection() {
           </div>
         ))}
       </section>
-      <section className="flex flex-col gap-2 rounded-[14px] border border-line bg-raised px-[18px] py-3.5">
+      <section className="flex flex-col gap-2 rounded-[16px] border border-line bg-raised px-[18px] py-3.5">
         <b className="font-semibold">{t('privacy.recorded')}</b>
         <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5 text-fg-muted leading-[1.6]">
           <li>{t('privacy.recorded.sessions')}</li>
@@ -66,7 +66,7 @@ export function PrivacySection() {
           <li>{t('privacy.recorded.permissions')}</li>
         </ul>
       </section>
-      <section className="flex flex-col gap-2 rounded-[14px] border border-line bg-raised px-[18px] py-3.5">
+      <section className="flex flex-col gap-2 rounded-[16px] border border-line bg-raised px-[18px] py-3.5">
         <b className="font-semibold">{t('privacy.network')}</b>
         <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5 text-fg-muted leading-[1.6]">
           <li>{t('privacy.network.gateway')}</li>

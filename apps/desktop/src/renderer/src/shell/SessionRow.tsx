@@ -73,7 +73,7 @@ function RenameInput({
       onKeyDown={onKeyDown}
       onBlur={() => void save()}
       className={cx(
-        'block h-[30px] w-full rounded-[8px] border bg-raised px-2 text-fg outline-none shadow-[0_0_0_3px_rgb(54_89_227/0.15)]',
+        'block h-8 w-full rounded-[8px] border bg-raised px-2 text-fg outline-none shadow-[0_0_0_3px_rgb(53_99_224/0.15)]',
         failed ? 'border-danger' : 'border-accent',
       )}
     />
@@ -112,13 +112,13 @@ function RemoveDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[420px]! p-5" role="alertdialog">
-        <DialogTitle className="m-0 mb-1.5 font-semibold text-[1.154rem]">
+        <DialogTitle className="m-0 mb-1.5 font-semibold text-[1.143rem]">
           {t('nav.removeTitle')}
         </DialogTitle>
         <DialogDescription className="m-0 text-fg-muted leading-[1.6] [overflow-wrap:anywhere]">
           {t('nav.removeBody', { title: session.title })}
         </DialogDescription>
-        {error ? <p className="m-0 mt-2 text-[0.923rem] text-danger">{error}</p> : null}
+        {error ? <p className="m-0 mt-2 text-[0.929rem] text-danger">{error}</p> : null}
         <div className="mt-[18px] flex justify-end gap-2">
           <Button className="h-[30px] px-3" onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
@@ -159,7 +159,7 @@ export function SessionRow({ session: s }: { session: SessionSummary }) {
             className={({ isActive }) =>
               cx(
                 // 按钮出现时给它让位，标题和状态字不被盖住
-                'flex h-[30px] items-center gap-2 rounded-[8px] px-2 text-fg no-underline group-hover:bg-hover group-hover:pr-8 group-has-[button:focus-visible]:pr-8 group-has-[button[data-state=open]]:bg-hover group-has-[button[data-state=open]]:pr-8',
+                'flex h-8 items-center gap-2 rounded-[8px] px-2 text-fg no-underline group-hover:bg-hover group-hover:pr-8 group-has-[button:focus-visible]:pr-8 group-has-[button[data-state=open]]:bg-hover group-has-[button[data-state=open]]:pr-8',
                 isActive && 'bg-hover font-medium',
               )
             }
@@ -173,7 +173,7 @@ export function SessionRow({ session: s }: { session: SessionSummary }) {
             {s.status === 'waiting' || s.status === 'error' ? (
               <span
                 className={cx(
-                  'shrink-0 text-[0.846rem]',
+                  'shrink-0 text-[0.857rem]',
                   s.status === 'error' ? 'text-danger' : 'text-warn',
                 )}
               >
@@ -215,7 +215,7 @@ export function SessionRow({ session: s }: { session: SessionSummary }) {
               <Trash2 size={14} />
               <span className="min-w-0 flex-1">{t('nav.remove')}</span>
               {busy ? (
-                <span className="text-[0.885rem] text-fg-subtle">{t('nav.removeRunning')}</span>
+                <span className="text-[0.857rem] text-fg-subtle">{t('nav.removeRunning')}</span>
               ) : null}
             </MenuItem>
           </MenuContent>

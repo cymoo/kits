@@ -64,10 +64,10 @@ export function McpPaste({
           placeholder={
             '{\n  "mcpServers": {\n    "case-platform": { "url": "https://cases.corp.example/mcp", "headers": { "Authorization": "Bearer ${CASE_TOKEN}" } }\n  }\n}'
           }
-          className="resize-y rounded-[8px] border border-line bg-raised px-3 py-2.5 font-mono text-[0.923rem] text-fg leading-[1.6] outline-none placeholder:text-fg-subtle focus:border-accent"
+          className="resize-y rounded-[8px] border border-line bg-raised px-3 py-2.5 font-mono text-[0.929rem] text-fg leading-[1.6] outline-none placeholder:text-fg-subtle focus:border-accent"
         />
       </label>
-      <div className="flex flex-wrap items-center gap-2.5 text-[0.962rem]" role="status">
+      <div className="flex flex-wrap items-center gap-2.5 text-[0.929rem]" role="status">
         {result?.ok ? (
           <>
             <Check size={14} strokeWidth={1.8} className="shrink-0 text-ok" />
@@ -157,7 +157,7 @@ function ServerCard({
     <section
       data-testid={`mcp-${server.name}`}
       className={cx(
-        'flex flex-col overflow-hidden rounded-[14px] border bg-raised',
+        'flex flex-col overflow-hidden rounded-[16px] border bg-raised',
         failed ? 'border-danger-line' : 'border-line',
       )}
     >
@@ -181,12 +181,12 @@ function ServerCard({
           />
           <span className="font-medium font-mono text-[1rem]">{server.name}</span>
           <span
-            className={cx('text-[0.923rem]', failed ? 'font-medium text-danger' : 'text-fg-label')}
+            className={cx('text-[0.929rem]', failed ? 'font-medium text-danger' : 'text-fg-label')}
           >
             {status}
           </span>
         </button>
-        <span className="text-[0.923rem] text-fg-label">
+        <span className="text-[0.929rem] text-fg-label">
           {server.type === 'http' ? 'HTTP' : 'stdio'}
         </span>
         <Switch
@@ -199,7 +199,7 @@ function ServerCard({
       </div>
       {open ? (
         <div className="flex flex-col gap-3.5 border-line-soft border-t px-4 pt-3 pb-4 pl-[42px]">
-          <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[0.962rem]">
+          <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[0.929rem]">
             <span className="text-fg-label">
               {server.type === 'http' ? t('mcp.address') : t('mcp.command')}
             </span>
@@ -222,7 +222,7 @@ function ServerCard({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') void saveVar(v.name)
                     }}
-                    className="h-7 min-w-[200px] flex-1 rounded-[7px] border border-line bg-raised px-2 font-mono text-[0.923rem] outline-none focus:border-accent"
+                    className="h-7 min-w-[200px] flex-1 rounded-[8px] border border-line bg-raised px-2 font-mono text-[0.929rem] outline-none focus:border-accent"
                   />
                   <Button
                     className="h-7"
@@ -239,7 +239,7 @@ function ServerCard({
                 <span className="text-fg-label">{t('mcp.lastError')}</span>
                 <pre
                   role="alert"
-                  className="m-0 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-[7px] border border-danger-line bg-danger-soft px-2.5 py-2 font-mono text-[0.885rem] text-danger-strong leading-[1.6]"
+                  className="m-0 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-[8px] border border-danger-line bg-danger-soft px-2.5 py-2 font-mono text-[0.857rem] text-danger-strong leading-[1.6]"
                 >
                   {test.result.error}
                 </pre>
@@ -247,12 +247,12 @@ function ServerCard({
             ) : null}
           </div>
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-2 text-[0.923rem] text-fg-label">
+            <div className="flex items-center gap-2 text-[0.929rem] text-fg-label">
               <span className="flex-1">{t('mcp.tools')}</span>
               <span>{t('mcp.before')}</span>
             </div>
             {server.tools.length === 0 ? (
-              <p className="m-0 text-[0.923rem] text-fg-muted">{t('mcp.noTools')}</p>
+              <p className="m-0 text-[0.929rem] text-fg-muted">{t('mcp.noTools')}</p>
             ) : null}
             {server.tools.map((tool) => (
               <div
@@ -260,10 +260,10 @@ function ServerCard({
                 data-testid={`tool-${tool.name}`}
                 className="flex min-h-9 items-center gap-2.5 rounded-[8px] border border-line-soft px-2.5 py-1"
               >
-                <span className="basis-[180px] shrink-0 truncate font-mono text-[0.962rem]">
+                <span className="basis-[180px] shrink-0 truncate font-mono text-[0.929rem]">
                   {tool.name}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[0.923rem] text-fg-muted">
+                <span className="min-w-0 flex-1 truncate text-[0.929rem] text-fg-muted">
                   {tool.description}
                 </span>
                 <Segmented
@@ -289,7 +289,7 @@ function ServerCard({
               {test.pending ? t('mcp.testing') : t('mcp.test')}
             </Button>
             {test.result?.ok ? (
-              <span role="status" className="text-[0.923rem] text-ok">
+              <span role="status" className="text-[0.929rem] text-ok">
                 {t('mcp.ok', { n: test.result.tools, ms: test.result.latencyMs })}
               </span>
             ) : null}
@@ -332,7 +332,7 @@ export function McpSection() {
     <div className="flex w-full max-w-[820px] flex-col gap-5">
       <div className="flex items-start gap-4">
         <div className="flex flex-1 flex-col gap-1">
-          <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
+          <h2 className="m-0 font-semibold text-[1.429rem] tracking-[-0.01em]">
             {t('settings.mcp')}
           </h2>
           <p className="m-0 text-fg-muted">{t('mcp.intro')}</p>
@@ -347,15 +347,15 @@ export function McpSection() {
         </Button>
       </div>
       {overview.data?.error ? (
-        <p role="alert" className="m-0 rounded-[10px] bg-danger-bg px-3.5 py-2.5 text-danger">
+        <p role="alert" className="m-0 rounded-[12px] bg-danger-bg px-3.5 py-2.5 text-danger">
           {overview.data.error}
         </p>
       ) : null}
       {adding ? (
-        <section className="flex flex-col gap-3 rounded-[14px] border border-accent bg-raised p-[18px] shadow-[0_0_0_4px_rgba(54,89,227,.08)]">
+        <section className="flex flex-col gap-3 rounded-[16px] border border-accent bg-raised p-[18px] shadow-[0_0_0_4px_rgba(54,89,227,.08)]">
           <div className="flex items-center gap-2.5">
             <b className="font-semibold">{t('mcp.addTitle')}</b>
-            <small className="text-[0.923rem] text-fg-muted">{t('mcp.addHint')}</small>
+            <small className="text-[0.929rem] text-fg-muted">{t('mcp.addHint')}</small>
           </div>
           <McpPaste
             onCancel={() => setAdding(false)}
@@ -369,7 +369,7 @@ export function McpSection() {
       ) : null}
       <div className="flex flex-col gap-2.5">
         {overview.isSuccess && servers.length === 0 && !overview.data?.error ? (
-          <p className="m-0 rounded-[14px] border border-line border-dashed px-4 py-6 text-center text-fg-muted">
+          <p className="m-0 rounded-[16px] border border-line border-dashed px-4 py-6 text-center text-fg-muted">
             {t('mcp.empty')}
           </p>
         ) : null}
@@ -384,12 +384,12 @@ export function McpSection() {
           />
         ))}
       </div>
-      <section className="flex flex-col gap-2 rounded-[14px] border border-line bg-raised px-4 py-3.5">
+      <section className="flex flex-col gap-2 rounded-[16px] border border-line bg-raised px-4 py-3.5">
         <div className="flex items-center gap-2.5">
           <b className="font-semibold">{t('mcp.builtin')}</b>
-          <small className="text-[0.923rem] text-fg-muted">{t('mcp.builtinNote')}</small>
+          <small className="text-[0.929rem] text-fg-muted">{t('mcp.builtinNote')}</small>
         </div>
-        <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[0.962rem]">
+        <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[0.929rem]">
           {(['ask_user', 'submit_output', 'remember'] as const).map((name) => (
             <span key={name} className="contents">
               <span className="font-mono">{name}</span>

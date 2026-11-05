@@ -41,8 +41,8 @@ function Section({
   return (
     <div className="flex flex-col gap-3.5">
       <div className="flex flex-col gap-0.5">
-        <h2 className="m-0 font-semibold text-[1.077rem]">{title}</h2>
-        <p className="m-0 text-[0.923rem] text-fg-muted">{intro}</p>
+        <h2 className="m-0 font-semibold text-[1rem]">{title}</h2>
+        <p className="m-0 text-[0.929rem] text-fg-muted">{intro}</p>
       </div>
       {children}
     </div>
@@ -108,7 +108,7 @@ function GatewaySection() {
       )}
       <div className="flex flex-wrap items-center gap-3">
         {added ? (
-          <span className="min-w-0 truncate font-mono text-[0.962rem]" title={added.baseUrl}>
+          <span className="min-w-0 truncate font-mono text-[0.929rem]" title={added.baseUrl}>
             {added.baseUrl}
           </span>
         ) : (
@@ -124,7 +124,7 @@ function GatewaySection() {
         {result ? (
           <TestResult result={result} />
         ) : added ? null : (
-          <span className="text-[0.923rem] text-fg-muted">{t('onboarding.testHint')}</span>
+          <span className="text-[0.929rem] text-fg-muted">{t('onboarding.testHint')}</span>
         )}
       </div>
       {added ? (
@@ -144,11 +144,11 @@ function GatewaySection() {
                   key={m.id}
                   value={ref}
                   className={cx(
-                    'flex h-10 cursor-pointer items-center gap-2 rounded-[10px] border px-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+                    'flex h-10 cursor-pointer items-center gap-2 rounded-[12px] border px-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
                     on ? 'border-accent bg-accent-bg/60' : 'border-line hover:border-line-strong',
                   )}
                 >
-                  <span className="min-w-0 flex-1 truncate font-mono font-medium text-[0.962rem]">
+                  <span className="min-w-0 flex-1 truncate font-mono font-medium text-[0.929rem]">
                     {m.id}
                   </span>
                   {on ? <Check size={14} className="text-accent" /> : null}
@@ -189,7 +189,7 @@ function WorkdirSection({ dir }: { dir?: string }) {
           <span className="truncate font-medium font-mono" title={shown}>
             {homeLabel(shown)}
           </span>
-          <span className="text-[0.923rem] text-fg-muted">
+          <span className="text-[0.929rem] text-fg-muted">
             {!dir
               ? t('onboarding.workdirDefault')
               : inspection.isPending
@@ -244,7 +244,7 @@ export function OnboardingPage() {
         >
           k
         </span>
-        <span className="font-semibold text-[1.154rem]">kits</span>
+        <span className="font-semibold text-[1.143rem]">kits</span>
       </header>
       <main className="flex flex-1 justify-center px-6 pt-6 pb-12">
         <section
@@ -253,7 +253,7 @@ export function OnboardingPage() {
         >
           <div className="flex flex-col gap-6 px-8 pt-7 pb-6">
             <div className="flex flex-col gap-1">
-              <h1 className="m-0 font-semibold text-[1.692rem] tracking-[-0.01em]">
+              <h1 className="m-0 font-semibold text-[1.571rem] tracking-[-0.01em]">
                 {t('onboarding.title')}
               </h1>
               <p className="m-0 text-fg-muted">{t('onboarding.intro')}</p>
@@ -261,7 +261,7 @@ export function OnboardingPage() {
             <GatewaySection />
             <WorkdirSection {...(dir ? { dir } : {})} />
             {error ? (
-              <p role="alert" className="m-0 break-all text-[0.923rem] text-danger">
+              <p role="alert" className="m-0 break-all text-[0.929rem] text-danger">
                 {error}
               </p>
             ) : null}
