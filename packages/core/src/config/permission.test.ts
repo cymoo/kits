@@ -203,12 +203,35 @@ describe('resolvePermissions', () => {
   })
 })
 
+describe('Windows read-only commands', () => {
+  const bash = (command: string) => levelFor(defaultPermissions.bash, command)
+
+  it('does not ask for reading and searching', () => {
+    expect(bash('Get-Content src\\a.ts')).toBe('allow')
+    expect(bash('Select-String -Path *.ts -Pattern foo')).toBe('allow')
+    expect(bash('dir /s /b')).toBe('allow')
+    expect(bash('Select-Object -First 20')).toBe('allow')
+  })
+
+  it('asks when a command writes or runs a script block', () => {
+    expect(bash('Get-Content a.txt > b.txt')).toBe('ask')
+    expect(bash('Where-Object { [IO.File]::Delete("a") }')).toBe('ask')
+    expect(bash('Remove-Item a.txt')).toBe('ask')
+  })
+})
+
 describe('matchPattern', () => {
   it('treats * as any run of characters and everything else literally', () => {
     expect(matchPattern('git status *', 'git status -s')).toBe(true)
     expect(matchPattern('*$(*', 'echo $(rm -rf x)')).toBe(true)
     expect(matchPattern('ls *', 'lsof')).toBe(false)
     expect(matchPattern('a.b', 'axb')).toBe(false)
+  })
+
+  it('matches like the kernel: optional trailing argument and either slash', () => {
+    expect(matchPattern('wc *', 'wc')).toBe(true)
+    expect(matchPattern('D:\\logs\\*', 'D:/logs/a.txt')).toBe(true)
+    expect(matchPattern('D:/logs/*', 'D:\\logs\\a.txt')).toBe(true)
   })
 })
 

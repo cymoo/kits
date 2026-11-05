@@ -126,6 +126,20 @@ export class TurnRecorder {
     return { parts: [part], status: this.waitingOn() ? 'waiting' : 'running' }
   }
 
+  // 用户回复时内核里已经没有这个请求了：收起卡片，不算用户的决定
+  expirePermission(requestId: string): TurnChange {
+    return this.settlePermission(requestId, 'expired')
+  }
+
+  // 还没回复的请求改成新状态；已经回复过的不动（用户自己回复时内核也会发事件，和这边谁先到都行）
+  private settlePermission(requestId: string, status: string): TurnChange {
+    const key = `perm:${requestId}`
+    const prev = this.parts.get(`${this.message.id}:${key}`)
+    if (prev?.status !== 'pending') return { parts: [] }
+    const part = this.upsert(key, 'permission', (p) => p as PartPayload, status)
+    return { parts: [part], status: this.waitingOn() ? 'waiting' : 'running' }
+  }
+
   apply(event: KernelEvent): TurnChange {
     switch (event.type) {
       case 'text-delta':
@@ -201,6 +215,8 @@ export class TurnRecorder {
           ],
           status: 'waiting',
         }
+      case 'permission-replied':
+        return this.settlePermission(event.requestId, event.reply)
       case 'retry':
         return {
           parts: [

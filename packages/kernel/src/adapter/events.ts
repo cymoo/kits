@@ -1,4 +1,4 @@
-import type { DoneReason, KernelEvent } from '@kits/core'
+import type { DoneReason, KernelEvent, PermissionReply } from '@kits/core'
 
 // OpenCode 系 SSE 事件 → KernelEvent（映射表见 docs/references/model-poc.md“对 KernelEvent 映射和适配器的启示”）。
 // 一轮 prompt 一个映射器，按 sessionID 过滤。有状态：
@@ -261,7 +261,8 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
       return onSubPart((p.part ?? {}) as RawPart, p.sessionID as string)
     }
     const asked = type === 'permission.asked' && sub
-    if (p.sessionID !== undefined && p.sessionID !== sessionId && !asked) return []
+    const replied = type === 'permission.replied' && sub
+    if (p.sessionID !== undefined && p.sessionID !== sessionId && !asked && !replied) return []
     switch (type) {
       case 'message.updated':
         return onMessage((p.info ?? {}) as RawMessageInfo)
@@ -297,6 +298,14 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
           },
         ]
       }
+      case 'permission.replied':
+        return [
+          {
+            type: 'permission-replied',
+            requestId: String(p.requestID),
+            reply: p.reply as PermissionReply,
+          },
+        ]
       case 'session.status': {
         if (p.sessionID !== sessionId) return []
         const status = (p.status ?? {}) as {

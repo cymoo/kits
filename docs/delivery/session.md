@@ -556,3 +556,53 @@ Agent 调 `todowrite` 时界面上只有一行“更新计划”，看不到清�
 
 - 命令运行时看不到实时输出，要等结束：内核在 `metadata.output` 里有，要新加一种事件。
 - `websearch` 的结果格式没有实测（内网用不上，默认拒绝），按原文显示。
+
+## 2026-11-05　权限确认：修 404，减少重复确认
+
+> 日期：2026-11-05　PR：见本分支 `fix/session-permission-replies`　作者：Claude Code
+
+### 原始需求
+
+内网用户反馈两个问题：
+
+- 确认 `external_directory` 时报错：`POST /permission/per_…/reply returned 404`，`Permission request not found`。
+- 会话中反复确认执行权限，影响体验。
+
+404 的原因：回复一个请求时，内核会连带处理同一会话里的其他请求（拒绝一个就全拒绝，“本会话允许”覆盖到的一起放行），并发 `permission.replied`。kits 没接这个事件，第二张卡片留在界面上，再点就是 404。Agent 并行读同一个目录下的文件时很容易碰到。工具调用被打断时，内核还会直接移除请求，什么事件都不发。
+
+反复确认的原因：只读白名单只有 Unix 命令，Windows 上的 `dir`、`Get-Content`、`Select-String` 都要确认；“本会话允许”只存在内核内存里，内核重启后失效。
+
+做到什么程度算完：同一批请求回复一次，其余卡片自己收起，不报错；Windows 上只读命令不用确认；点过“本会话允许”的规则在内核重启后还有效。“全部自动”下访问工作目录以外的路径仍然询问，这条安全边界不动。
+
+### 怎么验收
+
+1. 真实模型，工作目录外放一个有几个文件的目录，发“同时读这个目录下的 a.txt 和 b.txt”。出现两张确认卡片时点第一张的“本会话允许”。预期：两张卡片都收起，没有报错，两个读取都完成。
+2. 同样的操作，点第一张的“拒绝”。预期：两张都收起，两个步骤都标“已拒绝”。
+3. Windows 上发“列出当前目录，看一下 package.json 的前 20 行”。预期：`dir`、`Get-Content`、`Get-ChildItem`、`Select-Object -First 20` 这类命令不弹确认；`Remove-Item`、带重定向的命令、带 `{ }` 脚本块的 `Where-Object` 仍然确认。
+4. 让 Agent 跑一条不在白名单里的命令，点“本会话允许”。退出重开 kits，在同一个会话里让它再跑同类命令。预期：不再弹确认。
+5. 开一个新会话跑同类命令。预期：要确认，kits 记住的规则只跟着点过它的会话走。
+
+### 主要改动
+
+- `packages/core`：新增事件 `permission-replied`；`readonlyCommandPatterns` 加 Windows 命令，不收 `gc`、`sls` 这类别名（在别的平台是别的程序）；`Select-Object`、`Where-Object`、`Sort-Object` 带 `{` 时回到询问，脚本块里的 .NET 调用内核拆不出来；`matchPattern` 和内核对齐：`?` 匹配一个字符、结尾的 ` *` 可以没有、反斜杠当斜杠。
+- `packages/kernel`：`permission.replied` 映射成新事件（含子会话）；`respondPermission` 改成返回 `boolean`，内核回 404 时返回 `false`，不再抛错。
+- `apps/desktop/src/main/sessions`：`thread.ts` 按内核的回复更新卡片，请求已经不在时标成 `expired`；`session-store.ts` 的 `alwaysRules` 读出这个会话点过的“本会话允许”；`session-service.ts` 碰到匹配的请求直接替用户回复，不弹卡片。
+
+配置项、数据库 schema 没有变化。`docs/references/codeagent-checklist.md` 加了第 28 项。
+
+### 测试
+
+- 单元测试：`adapter/events.test.ts`、`thread.test.ts`、`session-service.test.ts`（请求已不在时不报错、记住本会话允许）、`config/permission.test.ts`（Windows 命令、通配和内核一致）。
+- 契约测试：`opencode-family.contract.test.ts` 用真内核跑并行两个请求，点“本会话允许”后第二个由内核处理，再回复返回 `false`，这是 404 的复现。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- Windows 上的验收步骤还没有实跑，开发机是 macOS，CI 也停着。
+- 反馈没有说明是哪个工具在反复弹，这里按代码分析修。修完还频繁的话，看 `permission_log` 表里的 `tool` 和 `input`。
+- 模型写的 `powershell -Command "…"` 是一整条命令，白名单放行不了，仍然询问。放行整条命令不安全。
+- 内核连带处理的请求不写 `permission_log`，这张表只记用户亲手回复的。
+- 内核把“本会话允许”记在工作目录级别，同目录的其他会话在内核重启前也生效，这是内核的行为。

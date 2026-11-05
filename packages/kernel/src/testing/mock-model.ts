@@ -11,6 +11,8 @@ export interface MockModelOptions {
   toolCall?: { name: string; arguments: Record<string, unknown> }
   // 按请求选工具，优先于 toolCall：子任务要主会话和子会话调不同的工具
   pickTool?: (body: ChatRequest) => { name: string; arguments: Record<string, unknown> }
+  // 一次回复里并行调的多个工具，优先于上面两个
+  toolCalls?: { name: string; arguments: Record<string, unknown> }[]
   // 前 N 个带 tools 的请求直接回 503，触发内核重试
   failFirst?: number
   // 每个请求先等这么久再吐第一个字节（模拟网关首字延迟，测 abort 用）
@@ -122,18 +124,16 @@ export async function startMockModel(options: MockModelOptions = {}): Promise<Mo
       res.write(chunk({ content: textOf(last.content).trim() }))
       res.write(chunk({}, 'stop'))
     } else {
-      const picked = options.pickTool?.(body) ?? toolCall
+      const picked = options.toolCalls ?? [options.pickTool?.(body) ?? toolCall]
       res.write(
         chunk({
           role: 'assistant',
-          tool_calls: [
-            {
-              index: 0,
-              id: 'call_mock_1',
-              type: 'function',
-              function: { name: picked.name, arguments: JSON.stringify(picked.arguments) },
-            },
-          ],
+          tool_calls: picked.map((call, index) => ({
+            index,
+            id: `call_mock_${index + 1}`,
+            type: 'function',
+            function: { name: call.name, arguments: JSON.stringify(call.arguments) },
+          })),
         }),
       )
       res.write(chunk({}, 'tool_calls'))

@@ -52,6 +52,12 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       },
     })
     // 主会话派子任务，子任务跑一条要确认的命令
+    mocks.parallel = await startMockModel({
+      toolCalls: ['kits-p1', 'kits-p2'].map((name) => ({
+        name: 'bash',
+        arguments: { command: `touch ${name}.txt`, description: 'Touch a file' },
+      })),
+    })
     mocks.subagent = await startMockModel({
       pickTool: (body) =>
         JSON.stringify(body.messages).includes(SUBAGENT_PROMPT)
@@ -78,7 +84,15 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       mcp,
       skills: [],
       instructions: [],
-      gatewayKeys: { ok: 'k', flaky: 'k', slow: 'k', chain: 'k', writer: 'k', subagent: 'k' },
+      gatewayKeys: {
+        ok: 'k',
+        flaky: 'k',
+        slow: 'k',
+        chain: 'k',
+        writer: 'k',
+        subagent: 'k',
+        parallel: 'k',
+      },
       lookupVar: () => undefined,
     })
     if (!result.ok) throw new Error(JSON.stringify(result.problems))
@@ -117,7 +131,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
   async function run(
     s: KernelSession,
     text: string,
-    onPermission: (e: Extract<KernelEvent, { type: 'permission-request' }>) => Promise<void>,
+    onPermission: (e: Extract<KernelEvent, { type: 'permission-request' }>) => Promise<unknown>,
     onEvent?: (e: KernelEvent) => void,
   ): Promise<KernelEvent[]> {
     const events: KernelEvent[] = []
@@ -239,6 +253,33 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     })
     const end = events.find((e) => e.type === 'tool-end' && e.callId === taskId)
     expect(end && end.type === 'tool-end' && end.error).toBeUndefined()
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+  }, 60_000)
+
+  it('reports the requests the kernel settled along with an always reply', async () => {
+    const s = await session('parallel')
+    const asked: string[] = []
+    let late: boolean | undefined
+    const events = await run(
+      s,
+      '并行建两个文件',
+      async (e) => {
+        asked.push(e.requestId)
+        // 两个请求都到了再回复第一个，“本会话允许”覆盖到第二个
+        if (asked.length === 2) await kernel.respondPermission(s, asked[0] as string, 'always')
+      },
+      (e) => {
+        if (e.type === 'permission-replied' && e.requestId === asked[1]) {
+          void kernel.respondPermission(s, e.requestId, 'once').then((live) => {
+            late = live
+          })
+        }
+      },
+    )
+    expect(events.filter((e) => e.type === 'permission-replied')).toEqual(
+      asked.map((requestId) => ({ type: 'permission-replied', requestId, reply: 'always' })),
+    )
+    expect(late).toBe(false)
     expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
   }, 60_000)
 

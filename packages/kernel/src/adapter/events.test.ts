@@ -177,6 +177,14 @@ describe('createOpencodeEventMapper', () => {
     expect(out[1]).toMatchObject({ type: 'tool-end', error: 'rejected' })
   })
 
+  it('maps permission.replied so requests settled by the kernel do not stay pending', () => {
+    const { out } = feed([
+      ev('permission.replied', { sessionID: S, requestID: 'per_1', reply: 'always' }),
+      ev('permission.replied', { sessionID: 'ses_other', requestID: 'per_2', reply: 'once' }),
+    ])
+    expect(out).toEqual([{ type: 'permission-replied', requestId: 'per_1', reply: 'always' }])
+  })
+
   it('maps permission.asked with patterns, always and the call id', () => {
     const { out } = feed([
       ev('permission.asked', {
@@ -216,6 +224,17 @@ describe('createOpencodeEventMapper', () => {
       metadata: { command: 'touch x' },
       always: ['touch *'],
       tool: { messageID: 'msg_c', callID: 'call_c' },
+    })
+
+    it('maps the reply to a permission request of a subagent session', () => {
+      const replied = ev('permission.replied', {
+        sessionID: CHILD,
+        requestID: 'per_c',
+        reply: 'reject',
+      })
+      expect(feed([created, replied]).out).toEqual([
+        { type: 'permission-replied', requestId: 'per_c', reply: 'reject' },
+      ])
     })
 
     it('surfaces a permission request of a subagent session', () => {

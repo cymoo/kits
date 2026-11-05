@@ -41,8 +41,26 @@ const READONLY_WITH_ARGS = [
   'tree',
   'echo',
 ]
+// Windows 上模型常用的只读命令：cmd 的内置命令和 PowerShell cmdlet。内核按大小写精确匹配，这里写规范写法。
+// 不收别名：gc、sls 这些短名字在别的平台是别的程序
+const READONLY_WINDOWS = [
+  'dir',
+  'type',
+  'findstr',
+  'Get-ChildItem',
+  'Get-Content',
+  'Get-Item',
+  'Get-Location',
+  'Test-Path',
+  'Resolve-Path',
+  'Select-String',
+  'Select-Object',
+  'Where-Object',
+  'Sort-Object',
+  'Measure-Object',
+]
 export const readonlyCommandPatterns: string[] = [
-  ...READONLY_WITH_ARGS.flatMap((cmd) => [cmd, `${cmd} *`]),
+  ...[...READONLY_WITH_ARGS, ...READONLY_WINDOWS].flatMap((cmd) => [cmd, `${cmd} *`]),
   'git branch',
   'git branch --list*',
   'git branch -a',
@@ -53,7 +71,8 @@ export const readonlyCommandPatterns: string[] = [
 ]
 
 // 白名单命令也能写文件或执行别的程序，这些写法回到 bash 的兜底档位（排在白名单后面，后写的优先）：
-// 重定向、命令替换、git 的 --output 和外部 diff、find 的执行和写文件选项、rg 的预处理程序、tree 的输出文件
+// 重定向、命令替换、git 的 --output 和外部 diff、find 的执行和写文件选项、rg 的预处理程序、tree 的输出文件、
+// PowerShell 管道命令的脚本块（块里的 .NET 调用不算命令，内核拆不出来）
 const unsafeCommandPatterns = [
   '*>*',
   '*$(*',
@@ -68,6 +87,9 @@ const unsafeCommandPatterns = [
   'find *-fls*',
   'rg *--pre*',
   'tree *-o *',
+  'Select-Object *{*',
+  'Where-Object *{*',
+  'Sort-Object *{*',
 ]
 
 // MCP 工具名像写入操作的，默认询问
@@ -78,10 +100,15 @@ export function isWriteTool(tool: string): boolean {
   return WRITE_TOOL.test(tool)
 }
 
-// 和内核一样的通配：`*` 匹配任意字符（含空），其余按字面
+// 和内核一样的通配：`*` 匹配任意字符（含空），`?` 匹配一个字符，结尾的 ` *` 可以没有，反斜杠当斜杠
 export function matchPattern(pattern: string, input: string): boolean {
-  const re = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
-  return new RegExp(`^${re}$`, 's').test(input)
+  const re = pattern
+    .replaceAll('\\', '/')
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.')
+    .replace(/ \.\*$/, '( .*)?')
+  return new RegExp(`^${re}$`, 's').test(input.replaceAll('\\', '/'))
 }
 
 // 一个工具对某个输入的最终档位：按模式顺序找最后一条匹配的

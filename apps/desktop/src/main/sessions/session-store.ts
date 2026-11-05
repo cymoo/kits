@@ -6,6 +6,7 @@ import type {
   PartPayload,
   PartView,
   PermissionMode,
+  PermissionRule,
   SessionDetail,
   SessionStatus,
   SessionSummary,
@@ -380,6 +381,31 @@ export class SessionStore {
       .all()
       .map(toPart)
       .find((p) => p.payload.type === 'question' && p.payload.questionId === questionId)
+  }
+
+  // 这个会话里用户点过“本会话允许”的规则
+  alwaysRules(sessionId: string): PermissionRule[] {
+    return this.db
+      .select()
+      .from(parts)
+      .where(
+        and(
+          eq(parts.sessionId, sessionId),
+          eq(parts.type, 'permission'),
+          eq(parts.status, 'always'),
+        ),
+      )
+      .all()
+      .map(toPart)
+      .flatMap(({ payload }) =>
+        payload.type === 'permission'
+          ? payload.always.map((pattern) => ({
+              tool: payload.tool,
+              pattern,
+              level: 'allow' as const,
+            }))
+          : [],
+      )
   }
 
   logPermission(entry: {

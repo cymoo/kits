@@ -39,6 +39,13 @@ export type KernelEvent =
       subagent?: boolean
     }
   | {
+      // 内核回复了权限请求。用户回复别的请求时，内核会连带处理同一会话里的其他请求：
+      // 拒绝一个就全拒绝，“本会话允许”覆盖到的也一起放行
+      type: 'permission-replied'
+      requestId: string
+      reply: PermissionReply
+    }
+  | {
       type: 'usage'
       inputTokens: number
       outputTokens: number

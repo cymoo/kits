@@ -87,13 +87,13 @@ export interface AgentKernel {
   createSession(opts: CreateSessionOptions): Promise<KernelSession>
   // 一轮对话：事件流以一条 done 结束
   prompt(session: KernelSession, input: UserInput): AsyncIterable<KernelEvent>
-  // 拒绝时 message 作为反馈交给模型
+  // 拒绝时 message 作为反馈交给模型。内核里已经没有这个请求时返回 false
   respondPermission(
     session: KernelSession,
     requestId: string,
     reply: PermissionReply,
     message?: string,
-  ): Promise<void>
+  ): Promise<boolean>
   abort(session: KernelSession): Promise<void>
   diff(session: KernelSession): Promise<FileDiff[]>
   // 上下文压缩：等内核把前面的对话压成摘要，返回摘要正文和它占多少 token

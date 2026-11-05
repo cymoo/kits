@@ -112,6 +112,47 @@ describe('TurnRecorder', () => {
     expect(replied.parts[0]?.status).toBe('once')
   })
 
+  describe('a request the kernel settled by itself', () => {
+    const asked = {
+      type: 'permission-request' as const,
+      tool: 'bash',
+      input: {},
+      patterns: ['ls'],
+      always: ['ls *'],
+    }
+
+    it('takes the reply from the kernel and stops waiting', () => {
+      const r = recorder()
+      r.apply({ ...asked, requestId: 'per_1' })
+      const change = r.apply({ type: 'permission-replied', requestId: 'per_1', reply: 'always' })
+      expect(change.status).toBe('running')
+      expect(change.parts[0]?.status).toBe('always')
+    })
+
+    it('keeps waiting while another request is pending', () => {
+      const r = recorder()
+      r.apply({ ...asked, requestId: 'per_1' })
+      r.apply({ ...asked, requestId: 'per_2' })
+      const change = r.apply({ type: 'permission-replied', requestId: 'per_1', reply: 'reject' })
+      expect(change.status).toBe('waiting')
+    })
+
+    it('leaves a request the user already replied to alone', () => {
+      const r = recorder()
+      r.apply({ ...asked, requestId: 'per_1' })
+      r.replyPermission('per_1', 'once')
+      expect(r.expirePermission('per_1').parts).toEqual([])
+    })
+
+    it('expires a request that is gone from the kernel', () => {
+      const r = recorder()
+      r.apply({ ...asked, requestId: 'per_1' })
+      const change = r.expirePermission('per_1')
+      expect(change.status).toBe('running')
+      expect(change.parts[0]?.status).toBe('expired')
+    })
+  })
+
   it('waits on a blocking question until it is answered', () => {
     const r = recorder()
     const asked = r.question('q1', { question: '哪个环境？', options: ['测试'], blocking: true })
