@@ -43,7 +43,13 @@ export function useGateways() {
     defaultModel,
     loading: settings.isLoading,
     test,
-    async add(input: { name: string; baseUrl: string; apiKey: string; models: string[] }) {
+    async add(input: {
+      name: string
+      baseUrl: string
+      apiKey: string
+      models: string[]
+      contextWindows: Record<string, number>
+    }) {
       const latest = await kits.settings.get()
       const id = suggestGatewayId(
         input.baseUrl,
@@ -55,6 +61,7 @@ export function useGateways() {
         name: input.name || id,
         baseUrl: input.baseUrl,
         models: input.models,
+        contextWindows: input.contextWindows,
       })
       return save((list) => [...list, gw])
     },
@@ -65,9 +72,14 @@ export function useGateways() {
       await setSecret(gatewaySecretKey(id), apiKey)
     },
     // 刷新结果只对发请求时的那个地址有效：期间网关被删、地址被改了就丢掉
-    refreshModels(id: string, listed: string[], baseUrl: string) {
+    refreshModels(
+      id: string,
+      listed: string[],
+      contextWindows: Record<string, number>,
+      baseUrl: string,
+    ) {
       return patchOne(id, (g) =>
-        g.baseUrl === baseUrl ? { ...g, models: mergeModels(g.models, listed) } : g,
+        g.baseUrl === baseUrl ? { ...g, models: mergeModels(g.models, listed, contextWindows) } : g,
       )
     },
     // 先把网关从设置里删掉，成功了再删密钥：设置写失败时网关还在，密钥也还能用

@@ -1,5 +1,6 @@
 // 网关连接测试（phase1-implementation 3.1 节）：GET {baseUrl}/models 拿模型列表并量延迟。
 // 不发对话请求、不计入用量。地址只认 http(s)，超时 10 s。
+// OpenAI 的 /models 没有上下文窗口，但不少网关带了，字段名各家不同，有就记下来。
 
 export interface GatewayTestInput {
   baseUrl: string
@@ -7,10 +8,19 @@ export interface GatewayTestInput {
 }
 
 export type GatewayTestResult =
-  | { ok: true; latencyMs: number; models: string[] }
+  | { ok: true; latencyMs: number; models: string[]; contextWindows: Record<string, number> }
   | { ok: false; latencyMs: number; error: string }
 
 const TIMEOUT_MS = 10_000
+
+// DeepSeek 等是 context_window，OpenRouter 是 context_length，vLLM 是 max_model_len
+const CONTEXT_FIELDS = ['context_window', 'context_length', 'max_context_length', 'max_model_len']
+
+function contextWindowOf(model: Record<string, unknown>): number | undefined {
+  return CONTEXT_FIELDS.map((f) => model[f]).find(
+    (n): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0,
+  )
+}
 
 export async function testGateway(
   input: GatewayTestInput,
@@ -52,10 +62,17 @@ export async function testGateway(
     if (!body || !Array.isArray(body.data)) {
       return { ok: false, latencyMs: elapsed(), error: '网关返回的不是模型列表（缺少 data 数组）' }
     }
-    const models = (body.data as { id?: unknown }[])
-      .map((m) => m.id)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
-    return { ok: true, latencyMs: elapsed(), models: [...new Set(models)].sort() }
+    const listed = (body.data as Record<string, unknown>[]).filter(
+      (m): m is Record<string, unknown> & { id: string } =>
+        typeof m?.id === 'string' && m.id.length > 0,
+    )
+    const contextWindows: Record<string, number> = {}
+    for (const m of listed) {
+      const window = contextWindowOf(m)
+      if (window) contextWindows[m.id] = window
+    }
+    const models = [...new Set(listed.map((m) => m.id))].sort()
+    return { ok: true, latencyMs: elapsed(), models, contextWindows }
   } catch (e) {
     const err = e as Error & { cause?: { code?: string } }
     if (err.name === 'TimeoutError')
