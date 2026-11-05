@@ -260,6 +260,8 @@ export function Composer({
         ? 'model'
         : undefined
   const canSend = !!text.trim() && !missing && !disabled && !sending
+  // 运行中发的消息排到这一轮结束
+  const sendLabel = t(onStop ? 'composer.queue' : 'composer.send')
 
   const submit = async () => {
     if (!canSend) return
@@ -804,8 +806,8 @@ export function Composer({
         ) : (
           <button
             type="button"
-            aria-label={t('composer.send')}
-            title={missing ? t(`composer.missing.${missing}`) : `${t('composer.send')} ↵`}
+            aria-label={sendLabel}
+            title={missing ? t(`composer.missing.${missing}`) : `${sendLabel} ↵`}
             disabled={!canSend}
             onClick={() => void submit()}
             className={sendButton}

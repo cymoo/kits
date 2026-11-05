@@ -42,7 +42,7 @@ test('streams a turn from the home page to done', async () => {
   }
 })
 
-test('stops a running turn with the composer button, which turns into send with a draft', async () => {
+test('stops a running turn with the composer button, which turns into queue with a draft', async () => {
   const { page, configDir, close } = await launchApp({
     KITS_KERNEL: 'mock',
     KITS_MOCK_SCENARIO: 'streaming',
@@ -59,7 +59,7 @@ test('stops a running turn with the composer button, which turns into send with 
     await expect(stop).toBeVisible()
     await box.fill('顺便看下日志')
     await expect(stop).toBeHidden()
-    await expect(page.getByRole('button', { name: '发送', exact: true })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '排队发送', exact: true })).toBeEnabled()
     await box.fill('')
     await stop.click()
     await expect(page.getByTestId('session-status')).toHaveText('已停止')
