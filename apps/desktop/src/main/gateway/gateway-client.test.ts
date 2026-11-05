@@ -49,6 +49,42 @@ describe('testGateway', () => {
     expect(r.ok && Object.keys(r.contextWindows)).toHaveLength(3)
   })
 
+  it('reads string values and the anthropic max_input_tokens field', async () => {
+    const baseUrl = await serve((_req, res) => {
+      res.end(
+        JSON.stringify({
+          data: [
+            { id: 'anthropic', max_input_tokens: 200_000 },
+            { id: 'string', context_length: '65536' },
+            { id: 'fraction', context_window: 128.5, max_model_len: 32_000 },
+            { id: 'huge', context_window: 1_000_000_000, max_model_len: 16_000 },
+          ],
+        }),
+      )
+    })
+    const r = await testGateway({ baseUrl })
+    expect(r).toMatchObject({
+      ok: true,
+      contextWindows: { anthropic: 200_000, string: 65_536, fraction: 32_000, huge: 16_000 },
+    })
+  })
+
+  it('probes the model detail endpoint when the list has no context window', async () => {
+    const baseUrl = await serve((req, res) => {
+      if (req.url === '/v1/models') {
+        res.end(JSON.stringify({ data: [{ id: 'a' }, { id: 'b' }] }))
+        return
+      }
+      if (req.url === '/v1/models/a') {
+        res.end(JSON.stringify({ id: 'a', max_model_len: 65_536 }))
+        return
+      }
+      res.end(JSON.stringify({ id: 'b', max_model_len: 32_000 }))
+    })
+    const r = await testGateway({ baseUrl })
+    expect(r).toMatchObject({ ok: true, contextWindows: { a: 65_536, b: 32_000 } })
+  })
+
   it('fails on a 200 reply that is not a model list', async () => {
     const baseUrl = await serve((_req, res) => {
       res.end(JSON.stringify({ error: { message: 'quota exceeded' } }))

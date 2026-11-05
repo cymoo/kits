@@ -17,10 +17,13 @@ export function updateUrl(settingsUrl: string, env: NodeJS.ProcessEnv = process.
 }
 
 export function createUpdater(deps: { isPackaged: boolean; url(): string; version: string }) {
-  const { autoUpdater } = electronUpdater
   let feed = ''
   const check = async (): Promise<UpdateCheck> => {
     if (!deps.isPackaged) return { status: 'disabled', reason: 'dev' }
+    // 取 autoUpdater 会构造 electron-updater 的实例，它在构造时校验 app.getVersion() 是不是合法 semver。
+    // 未打包启动（开发、E2E）时这个值可能是 "0.0"，构造会直接抛 ERR_UPDATER_INVALID_VERSION；
+    // 而本函数是在主进程启动链上同步调用的，一抛后面的窗口就建不起来。所以推迟到真要检查更新时再取。
+    const { autoUpdater } = electronUpdater
     const url = deps.url()
     if (!url) return { status: 'disabled', reason: 'no-url' }
     if (url !== feed) {
