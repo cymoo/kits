@@ -368,6 +368,20 @@ export function SessionPage() {
               ref={composer}
               locked
               lockedAs={session}
+              onPermission={(mode) => kits.session.setPermissionMode({ id: session.id, mode })}
+              onModel={(next) => kits.session.setModel({ id: session.id, model: next })}
+              context={
+                contextWindow
+                  ? {
+                      used: usage.context,
+                      window: contextWindow,
+                      onOpen: () => {
+                        setTab('context')
+                        if (panel === 'hidden') setPanel('side')
+                      },
+                    }
+                  : undefined
+              }
               placeholder={t('composer.followUp')}
               onSubmit={({ text, attachments }) =>
                 kits.session.prompt({ id: session.id, text, attachments })

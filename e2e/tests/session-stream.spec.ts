@@ -320,3 +320,59 @@ test('copies any reply from the icon under it', async () => {
     await close()
   }
 })
+
+test('changes the permission and model of an open session from the composer', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'done',
+    KITS_MOCK_SPEED: '0.2',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    await page.evaluate(async () => {
+      const s = await window.kits.settings.get()
+      const gateway = s.gateways[0]
+      if (!gateway) return
+      await window.kits.settings.update({
+        gateways: [
+          {
+            ...gateway,
+            models: [
+              ...gateway.models,
+              { id: 'coder-fast', note: '', contextWindow: 64000, toolCall: true },
+            ],
+          },
+        ],
+      })
+    })
+    await page.getByLabel('给 Agent 发消息').fill('开始')
+    await page.getByLabel('给 Agent 发消息').press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+
+    // 工作区和 Agent 改不了，输入框里不再显示
+    const composer = page.getByTestId('composer')
+    await expect(composer).not.toContainText('member-svc')
+    await expect(composer).not.toContainText('assistant')
+    await expect(composer.getByTestId('context-ring')).toBeVisible()
+
+    await composer.getByRole('button', { name: '执行前确认' }).click()
+    await page.getByRole('menuitemradio', { name: /全部自动/ }).click()
+    await expect(composer.getByRole('button', { name: '全部自动' })).toBeVisible()
+    await expect(page.getByTestId('notice')).toHaveText('权限改为“全部自动”，立即生效')
+
+    await composer.getByRole('button', { name: 'coder-main' }).click()
+    await expect(page.getByRole('menu')).not.toContainText('CodeAgent')
+    await page.getByRole('menuitemradio', { name: 'coder-fast' }).click()
+    await expect(composer.getByRole('button', { name: 'coder-fast' })).toBeVisible()
+    await expect(page.getByTestId('notice').last()).toHaveText(
+      '模型切换到 coder-fast，下一条消息起生效',
+    )
+
+    // 用量环打开上下文
+    await composer.getByTestId('context-ring').click()
+    await expect(page.getByRole('tab', { name: '上下文' })).toHaveAttribute('aria-selected', 'true')
+  } finally {
+    await close()
+  }
+})
