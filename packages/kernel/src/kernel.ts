@@ -96,6 +96,8 @@ export interface AgentKernel {
     reply: PermissionReply,
     message?: string,
   ): Promise<boolean>
+  // 改这个内核会话的权限：rules 是新的完整规则串，下一次工具调用起生效，这一轮还在跑也一样
+  setPermission(session: KernelSession, rules: PermissionRule[]): Promise<void>
   // 插话：这一轮还在跑时再发一条，模型下一步看到，还算同一轮。这一轮已经不在了、内核不支持时返回 false
   interject(session: KernelSession, input: UserInput): Promise<boolean>
   abort(session: KernelSession): Promise<void>

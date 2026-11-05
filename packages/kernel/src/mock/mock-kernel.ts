@@ -4,6 +4,7 @@ import {
   type KernelEvent,
   type KitsToolContext,
   type PermissionReply,
+  type PermissionRule,
   submitOutput,
 } from '@kits/core'
 import type {
@@ -57,6 +58,8 @@ export class MockKernel implements AgentKernel {
   private issued = new Set<string>()
   // 每个会话发过几轮（内核里的用户消息条数）
   private prompts = new Map<string, number>()
+  // 测试看改权限发了什么
+  readonly permissionUpdates: { sessionId: string; rules: PermissionRule[] }[] = []
   private aborted = new Set<string>()
   // 插了话还没到下一步的会话
   private interjected = new Set<string>()
@@ -115,6 +118,10 @@ export class MockKernel implements AgentKernel {
     // 叫醒别的会话里还在等的轮次，让它们也结束
     for (const waiter of this.abortWaiters.values()) waiter()
     this.abortWaiters.clear()
+  }
+
+  async setPermission(session: KernelSession, rules: PermissionRule[]): Promise<void> {
+    this.permissionUpdates.push({ sessionId: session.id, rules })
   }
 
   async interject(session: KernelSession, _input: UserInput): Promise<boolean> {

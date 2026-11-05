@@ -74,7 +74,7 @@
 - `session.setPermissionMode`、`session.setModel` 两个 IPC，写库后推送会话。`sessionRules()` 本来就按 `session.permissionMode` 算，子会话的自动答复跟着新值走。
 - 模型：`runTurn` 每轮从 `session.model` 取，改库即可。正在跑的这一轮用的是开始时的值。
 - 换到窗口更小的模型时，已有的上下文接近上限提示（八成）照常出现，不额外拦截。
-- 对话里的留痕用新的 part 类型 `notice`。`parts.type` 是文本列，不用迁移。
+- 对话里的留痕是一种新的消息，`role` 为 `notice`。`messages.role` 是文本列，不用迁移。
 
 ### 侧栏
 
@@ -91,7 +91,7 @@
 
 顶栏只留：工作区 / 标题、状态胶囊、`…`、面板按钮。Agent 不是默认的 assistant 时跟在工作区后面。内核和模型挪到上下文对话框里（模型在输入框也能看到）。
 
-`…` 菜单：查看上下文、压缩上下文、导出 Markdown、导出 JSON、在访达中显示、重命名、置顶、删除。导出用现有的 `session.export`。原来顶栏的“导出”按钮去掉。
+`…` 菜单：查看上下文、压缩上下文、导出 Markdown、导出 JSON、在访达中显示、重命名、置顶、删除。现有的 `output.export` 只导出产出，导出整个会话要新加一个 IPC。原来顶栏的“导出”按钮去掉。
 
 ### 产出
 
@@ -130,7 +130,7 @@
 | 0 | `docs/ui-refresh` | 本文档 + 原型 | `shell.md` | |
 | 1 | `feat/shell-visual-refresh` | 令牌、字体、字号、圆角、步骤组样式、深色核对。不改行为 | `shell.md` | 0 |
 | 2 | `feat/session-drop-rounds` | 去掉轮次 | `session.md` | 1 |
-| 3 | `feat/kernel-session-settings` | `setPermission`、两个 IPC、`notice` part、契约测试 | `kernel.md` | 0 |
+| 3 | `feat/kernel-session-settings` | `setPermission`、两个 IPC、留痕、契约测试 | `kernel.md` | 0 |
 | 4 | `feat/session-composer-chips` | 输入框：去工作区和 Agent，权限、模型可改，用量环 | `session.md` | 1、3 |
 | 5 | `feat/shell-workspace-sidebar` | 侧栏分组、工作区菜单、`workdir.remove` | `shell.md` | 1 |
 | 6 | `feat/session-menu-and-output-card` | 顶栏、`…` 菜单、上下文对话框、产出卡片和可关闭页签 | `workbench.md` | 2、4 |

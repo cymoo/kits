@@ -987,6 +987,94 @@ describe('SessionService compact', () => {
   })
 })
 
+describe('SessionService session settings', () => {
+  it('saves the permission of a session that has not reached the kernel yet', async () => {
+    const { service, store, kernel, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    store.updateSession(s.id, { kernelSessionId: '' })
+    await service.setPermissionMode(s.id, 'auto')
+    expect(store.session(s.id)?.permissionMode).toBe('auto')
+    expect(kernel.permissionUpdates).toEqual([])
+  })
+
+  it('hands the whole new rule list to the kernel and leaves a notice', async () => {
+    const { service, store, kernel, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const before = store.session(s.id)?.updatedAt
+    await service.setPermissionMode(s.id, 'auto')
+    expect(kernel.permissionUpdates).toHaveLength(1)
+    expect(kernel.permissionUpdates[0]?.rules).toContainEqual({
+      tool: 'bash',
+      pattern: '*',
+      level: 'allow',
+    })
+    expect(store.session(s.id)?.updatedAt).toBe(before)
+    expect(store.detail(s.id)?.messages.at(-1)).toMatchObject({
+      role: 'notice',
+      text: 'permission:auto',
+    })
+  })
+
+  it('does nothing when the permission does not change', async () => {
+    const { service, store, kernel, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    await service.setPermissionMode(s.id, 'ask')
+    expect(kernel.permissionUpdates).toEqual([])
+    expect(store.detail(s.id)?.messages.map((m) => m.role)).toEqual(['user', 'assistant'])
+  })
+
+  it('keeps the old permission when the kernel refuses the change', async () => {
+    const { service, store, kernel, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    vi.spyOn(kernel, 'setPermission').mockRejectedValue(new Error('boom'))
+    await expect(service.setPermissionMode(s.id, 'auto')).rejects.toThrow('boom')
+    expect(store.session(s.id)?.permissionMode).toBe('ask')
+  })
+
+  it('answers a request the kernel raised after the session was switched to auto', async () => {
+    const { service, store, kernel, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const reply = vi.spyOn(kernel, 'respondPermission')
+    vi.spyOn(kernel, 'prompt').mockImplementation(async function* () {
+      await service.setPermissionMode(s.id, 'auto')
+      yield {
+        type: 'permission-request',
+        requestId: 'r1',
+        tool: 'bash',
+        input: {},
+        patterns: ['ls'],
+        always: [],
+      }
+      yield { type: 'done', reason: 'completed' }
+    })
+    await service.prompt(s.id, '再来')
+    await vi.waitFor(() => expect(reply).toHaveBeenCalledWith(expect.anything(), 'r1', 'once'))
+    await waitFor(s.id, ['done'])
+    expect(store.detail(s.id)?.parts.some((p) => p.type === 'permission')).toBe(false)
+  })
+
+  it('sends the next message with the new model and keeps the running turn as it was', async () => {
+    const { service, store, kernel, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    service.setModel(s.id, 'corp/fast')
+    expect(store.detail(s.id)?.messages.at(-1)).toMatchObject({
+      role: 'notice',
+      text: 'model:corp/fast',
+    })
+    const prompt = vi.spyOn(kernel, 'prompt')
+    await service.prompt(s.id, '再来')
+    await vi.waitFor(() => expect(prompt).toHaveBeenCalled())
+    expect(prompt.mock.calls[0]?.[0]).toMatchObject({ model: 'corp/fast' })
+    await waitFor(s.id, ['done'])
+  })
+})
+
 describe('exportName', () => {
   it('drops characters that cannot go into a file name', () => {
     const at = new Date(2026, 10, 4).getTime()

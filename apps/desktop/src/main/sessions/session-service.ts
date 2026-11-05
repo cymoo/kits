@@ -12,6 +12,7 @@ import type {
   MessageView,
   OutputView,
   PartView,
+  PermissionMode,
   PushEvents,
   QueuedDraft,
   SessionSearchHit,
@@ -758,6 +759,70 @@ export class SessionService {
     if (s) this.deps.push('session.changed', this.view(s))
   }
 
+  // 内核会话已经建好时先改内核，内核拒绝就抛错，权限不变；还没建的话建的时候带上。
+  // 不走 update()：和改名一样不算有新内容
+  async setPermissionMode(id: string, mode: PermissionMode): Promise<void> {
+    const { kernels, store } = this.deps
+    const session = store.session(id)
+    if (!session) throw new Error(`没有这个会话：${id}`)
+    if (session.permissionMode === mode) return
+    const ksId = store.kernelSessionId(id)
+    if (ksId) {
+      const profile = this.deps.resolveAgent(session.agent, session.workdir)
+      const kernel = await kernels.acquire(session.kernel)
+      try {
+        await kernel.setPermission(
+          {
+            id: ksId,
+            workdir: session.workdir,
+            agent: profile ? kernelAgentOf(profile) : session.agent,
+            ...(session.model ? { model: session.model } : {}),
+          },
+          this.sessionRules({ ...session, permissionMode: mode }, profile),
+        )
+      } finally {
+        kernels.release(session.kernel)
+      }
+    }
+    this.saveSetting(id, { permissionMode: mode }, `permission:${mode}`)
+  }
+
+  // 模型随每条消息发给内核：这里只改库。正在跑的这一轮用的是开始时的值
+  setModel(id: string, model: string): void {
+    const session = this.deps.store.session(id)
+    if (!session) throw new Error(`没有这个会话：${id}`)
+    if (session.model === model) return
+    this.saveSetting(id, { model }, `model:${model}`)
+  }
+
+  // 写库、推送，并在对话里留一行
+  private saveSetting(
+    id: string,
+    patch: Pick<Partial<SessionSummary>, 'model' | 'permissionMode'>,
+    notice: string,
+  ): void {
+    const { store, push } = this.deps
+    const s = store.updateSession(id, patch)
+    if (!s) return
+    const at = this.now()
+    const message: MessageView = {
+      id: this.id(),
+      sessionId: id,
+      role: 'notice',
+      turn: s.turns,
+      text: notice,
+      createdAt: at,
+      completedAt: at,
+      finishReason: null,
+      tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      cost: 0,
+      contextTokens: 0,
+    }
+    store.saveMessage(message)
+    push('session.message', message)
+    push('session.changed', this.view(s))
+  }
+
   private startTurn(
     session: SessionSummary,
     text: string,
@@ -911,13 +976,17 @@ export class SessionService {
         }
         // 内核的子会话只继承主会话的拒绝规则：主会话放行的（比如“全部自动”）这里替用户答了，不弹卡片。
         // 用户允许过的也一样，内核重启后它自己不记得了
-        if (
-          event.type === 'permission-request' &&
-          ((event.subagent && this.allowedBySession(session, profile, event)) ||
-            this.alwaysAllowed(session.id, event))
-        ) {
-          await kernel.respondPermission(ks, event.requestId, 'once')
-          continue
+        // 这一轮里改了权限时内核可能已经在问了，同样替用户答
+        if (event.type === 'permission-request') {
+          const now = store.session(session.id) ?? session
+          const changed = now.permissionMode !== session.permissionMode
+          if (
+            ((event.subagent || changed) && this.allowedBySession(now, profile, event)) ||
+            this.alwaysAllowed(session.id, event)
+          ) {
+            await kernel.respondPermission(ks, event.requestId, 'once')
+            continue
+          }
         }
         // kits 工具的调用登记到关联表，工具服务收到调用时按参数对到这个会话
         if (event.type === 'tool-start' && event.name.startsWith('kits_')) {

@@ -36,7 +36,8 @@ export interface QueuedMessage {
 export interface MessageView {
   id: string
   sessionId: string
-  role: 'user' | 'assistant'
+  // notice 是对话里的留痕（改了权限、模型），不是谁说的话，text 是 `permission:<模式>` 或 `model:<模型>`
+  role: 'user' | 'assistant' | 'notice'
   turn: number
   // 用户消息的正文；助手消息为空，内容在 parts
   text: string

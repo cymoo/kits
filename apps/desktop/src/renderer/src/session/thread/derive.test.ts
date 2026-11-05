@@ -28,7 +28,7 @@ const session = {
 }
 const msg = (
   id: string,
-  role: 'user' | 'assistant',
+  role: MessageView['role'],
   extra: Partial<MessageView> = {},
 ): MessageView => ({
   id,
@@ -91,6 +91,14 @@ describe('deriveBlocks', () => {
     expect(blocks[2]).toMatchObject({ text: '先别改测试' })
     expect(blocks[2]).not.toHaveProperty('pending')
     expect(blocks[3]).toMatchObject({ kind: 'turn', turn: 1, startedAt: 7, endedAt: 9 })
+  })
+
+  it('shows a settings notice where it happened and leaves the last turn running', () => {
+    const base = detail([tool('read', { filePath: '/w/a.ts' }, 'running')])
+    const notice = msg('n1', 'notice', { text: 'model:corp/fast', createdAt: 9, completedAt: 9 })
+    const blocks = deriveBlocks({ ...base, messages: [...base.messages, notice] })
+    expect(blocks.at(-1)).toMatchObject({ kind: 'notice', setting: 'model', value: 'corp/fast' })
+    expect(blocks.find((b) => b.kind === 'turn')).toMatchObject({ state: 'running' })
   })
 
   it('keeps an interjection the model has not seen below the running work', () => {

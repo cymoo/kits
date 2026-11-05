@@ -1,5 +1,5 @@
 import type { AgentDraft, AgentOverview, AgentRef, AgentSaveInput, AgentView } from './agent-view'
-import type { PermissionLevel } from './config/permission'
+import type { PermissionLevel, PermissionMode } from './config/permission'
 import type { GeneralSettings, Settings } from './config/settings'
 import type { McpOverview, McpParseResult, McpTestResult } from './mcp-view'
 import type { MemoryOverview, MemoryScopeView } from './memory-view'
@@ -147,6 +147,10 @@ export const ipcContract = {
     rename: method<{ id: string; title: string }, void>(),
     // 置顶或取消置顶，不算会话有更新；改完经 session.changed 推回来
     setPinned: method<{ id: string; pinned: boolean }, void>(),
+    // 改权限：立即生效，这一轮里下一次工具调用起按新权限；内核拒绝时抛错，权限不变
+    setPermissionMode: method<{ id: string; mode: PermissionMode }, void>(),
+    // 改模型：这一轮不变，下一条消息起生效
+    setModel: method<{ id: string; model: string }, void>(),
     // 手动压缩上下文：等内核压完；失败抛错
     compact: method<string, void>(),
     prompt: method<{ id: string; text: string; attachments?: AttachmentInput[] }, void>(),

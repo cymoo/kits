@@ -25,6 +25,8 @@ describe('contractEntries', () => {
       ['session', 'remove'],
       ['session', 'rename'],
       ['session', 'setPinned'],
+      ['session', 'setPermissionMode'],
+      ['session', 'setModel'],
       ['session', 'compact'],
       ['session', 'prompt'],
       ['session', 'abort'],
