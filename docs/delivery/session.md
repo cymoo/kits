@@ -468,3 +468,43 @@ Agent 调 `todowrite` 时界面上只有一行“更新计划”，看不到清�
 
 - 子任务里的 `todowrite` 不进卡片（内核默认不给子任务这个工具）。
 - CodeAgent 的工具名没有真机核对，不是 `todowrite` 的话走不到这里。
+
+## 2026-11-05　子任务运行时看得到它在做什么
+
+> PR：#47　作者：Claude Code
+
+### 原始需求
+
+子任务运行时只有一个 spinner 和“正在子任务……”，看不到它派了什么、走到哪一步（第 1、5 张截图）。原型见 `designs/app/session.html?s=subagent`。依赖 #44（子会话的识别）。
+
+### 怎么验收
+
+1. Mock：`KITS_KERNEL=mock KITS_MOCK_SCENARIO=subagent pnpm dev`，发一句话。预期：工作过程标题是“子任务 1 个”；“子任务 跑 points 的测试”这一行自动展开，里面有“任务”（派给它的话）和“过程”（它的每一步，可以点开看结果）；行右边是步数和耗时。
+2. 确认卡片标题旁写着“来自子任务：跑 points 的测试”。“允许一次”后这一轮结束。
+3. 展开“第 1 轮”，点子任务：多了“结果”，是子任务的结论，没有 `<task>` 这类包装；行右边是“2 步 · 2 秒”。
+4. 真实模型：发“用 task 工具派一个子任务看看这个仓库”。超过 8 步时只放最后 8 步，上面有“显示前面 N 步”；状态行写到它当前那一步，比如“正在子任务：探索仓库结构 · 运行 看目录”。
+
+### 主要改动
+
+- `packages/kernel/src/adapter/events.ts`：子会话的工具 part 映射成 `tool-start` / `tool-end`，带 `parentCallId`（派它的 task 的 callId）。callId 写成 `<task>/<callID>`，不同会话的 callID 可能撞。权限请求的 callId 同样改写，确认结果标得到子任务的那一步上。
+- `packages/kernel/src/adapter/opencode-family.ts`：断线补齐时逐个拉子会话的消息。
+- `packages/core`：`tool-start`、工具 part 多 `parentCallId`；权限 part 多 `subagent`。都在 part 的 JSON 里，数据库 schema 没有变。
+- `session/thread/derive.ts`：子任务里的工具挂到 task 步骤下面；`<task_result>` 去包装；工作过程标题数子任务；状态行带当前一步；确认卡片带子任务名。
+- `session/thread/Steps.tsx`：子任务的步骤有“任务 / 过程 / 结果”三段，在跑时默认展开。`Cards.tsx`、`Blocks.tsx` 跟着改。
+- `designs/app/session.html`：新场景 `subagent`。`mock/scenarios.ts` 的 `subagent` 场景补了子任务的步骤。
+
+### 测试
+
+- 单元测试：`events.test.ts`（工具挂到 task 下、权限指到子任务的步骤、正文和用量不算进这一轮）、`opencode-family.test.ts`（断线补齐子任务步骤）、`thread/derive.test.ts` 的 `subagents`。
+- 契约测试：`opencode-family.contract.test.ts`，真实 opencode 里子任务的 bash 带 `parentCallId`。
+- E2E：`session-cards.spec.ts` 的 `shows what a subagent is doing and asks for its commands`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 子任务的正文和思考不显示，只显示工具步骤和最后的结果。
+- 子任务用的 token 和费用不算进会话的统计。
+- 子任务里模型网关在重试时，界面没有重试条。

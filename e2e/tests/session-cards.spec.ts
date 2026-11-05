@@ -42,6 +42,30 @@ test('allows a command once with the shortcut', async () => {
   }
 })
 
+test('shows what a subagent is doing and asks for its commands', async () => {
+  const { page, configDir, close } = await launchApp(mock('subagent'))
+  try {
+    await send(page, configDir, '派个子任务跑测试')
+    const card = page.getByTestId('permission-card')
+    await expect(card).toContainText('来自子任务：跑 points 的测试')
+    const turn = page.getByTestId('turn')
+    await expect(turn).toContainText('子任务 1 个')
+    await expect(turn).toContainText('跑 tests/points，把失败的用例列出来。')
+    await expect(turn.getByTestId('sub-steps')).toContainText('tests/points/conftest.py')
+    await expect(turn.getByTestId('sub-steps')).toContainText('标记跑过')
+    await page.screenshot({ path: 'test-results/subagent.png' })
+    await page.keyboard.press(`${mod}+Enter`)
+    await expect(page.getByTestId('answer')).toContainText('子任务跑完了')
+    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    const step = turn.getByTestId('step').filter({ hasText: '跑 points 的测试' })
+    await expect(step).toContainText('2 步')
+    await step.click()
+    await expect(turn.getByTestId('step-output').first()).toContainText('测试都过了')
+  } finally {
+    await close()
+  }
+})
+
 test('follows the plan above the composer and keeps each update in the steps', async () => {
   const { page, configDir, close } = await launchApp(mock('plan'))
   try {

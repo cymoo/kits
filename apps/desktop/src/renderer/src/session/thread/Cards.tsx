@@ -145,6 +145,11 @@ export function PermissionCard({
           <SquareTerminal size={13} strokeWidth={1.8} />
         </CardIcon>
         <span className="font-semibold">{permissionHead(block.tool)}</span>
+        {block.subtask ? (
+          <span className="text-[0.923rem] text-fg-muted">
+            {t('perm.fromTask', { task: block.subtask })}
+          </span>
+        ) : null}
         <span className="flex-1" />
         <span className="text-[0.923rem] text-warn">{t('perm.waiting')}</span>
       </div>

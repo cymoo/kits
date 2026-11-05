@@ -22,6 +22,31 @@ const recorder = () => {
 }
 
 describe('TurnRecorder', () => {
+  it('keeps which task a subagent tool belongs to', () => {
+    const r = recorder()
+    const { parts } = r.apply({
+      type: 'tool-start',
+      callId: 't/c',
+      parentCallId: 't',
+      name: 'read',
+      input: {},
+    })
+    expect(parts[0]?.payload).toMatchObject({ callId: 't/c', parentCallId: 't' })
+  })
+
+  it('marks a permission that came from a subagent', () => {
+    const { parts } = recorder().apply({
+      type: 'permission-request',
+      requestId: 'r',
+      tool: 'bash',
+      input: {},
+      patterns: [],
+      always: [],
+      subagent: true,
+    })
+    expect(parts[0]?.payload).toMatchObject({ subagent: true })
+  })
+
   it('merges text deltas of one kernel part into one part', () => {
     const r = recorder()
     r.apply({ type: 'text-delta', partId: 'p1', text: '你' })

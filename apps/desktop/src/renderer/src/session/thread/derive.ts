@@ -45,6 +45,9 @@ export interface Step {
   args?: string
   // 点开看的结果：命令的输出、文件内容、搜索结果、报错
   output?: string
+  // 子任务：派给它的话和它走过的步骤
+  prompt?: string
+  subSteps?: Step[]
   // 更新计划：这一步写下的清单，点开看
   todos?: TodoItem[]
   // 命令框底部的一行：行上没写的耗时和允许方式
@@ -72,7 +75,7 @@ export type Block =
       endedAt: number | null
       filesChanged: number
       // 收起时标题上的摘要
-      summary: { reads: number; searches: number; commands: number; calls: number }
+      summary: { tasks: number; reads: number; searches: number; commands: number; calls: number }
       failed: number
     }
   | { kind: 'text'; id: string; text: string; streaming: boolean }
@@ -84,6 +87,8 @@ export type Block =
       tool: string
       // 卡片上要确认的东西：命令、文件路径或参数
       subject: string
+      // 哪个子任务要确认的
+      subtask?: string
       // “本会话允许”的规则，空表示内核不支持
       always: string[]
     }
@@ -310,6 +315,9 @@ function cleanOutput(name: string, output: unknown, workdir: string): string {
   if (name === 'bash') {
     return text.replace(/\n*<shell_metadata>[\s\S]*?<\/shell_metadata>\s*$/, '').trimEnd()
   }
+  if (name === 'task') {
+    return (text.match(/<task_result>\n?([\s\S]*?)\n?<\/task_result>/)?.[1] ?? text).trimEnd()
+  }
   if (name === 'read') {
     const body = text.match(/<content>\n([\s\S]*?)\n*(?:\(End of file[^\n]*\n)?<\/content>/)?.[1]
     return (body ?? text).trimEnd()
@@ -404,6 +412,7 @@ function toolStep(
   const output = cleanOutput(payload.name, payload.output, workdir) || (payload.error ?? '')
   const edit = EDIT_TOOLS.has(payload.name) && p.status === 'completed'
   const file = edit ? editedFiles(payload, workdir)[0] : undefined
+  const task = payload.name === 'task'
   // 计划的结果就是清单本身，内核回的 JSON 不显示；写失败了还是看报错
   const todos = payload.name === 'todowrite' && !errored ? todosOf(payload.input) : []
   return {
@@ -425,10 +434,26 @@ function toolStep(
           ...(p.status === 'running' && running && !asking ? { startedAt: p.createdAt } : {}),
         }
       : {}),
+    ...(task
+      ? {
+          subSteps: [],
+          ...(str(input.prompt) ? { prompt: str(input.prompt) } : {}),
+          ...(p.status === 'running' && running ? { startedAt: p.createdAt } : {}),
+        }
+      : {}),
     ...(look.icon === 'platform' && Object.keys(input).length
       ? { args: JSON.stringify(input, null, 2) }
       : {}),
   }
+}
+
+// 子任务行右边：走了几步、用了多久。在跑时耗时由界面算（Steps.tsx）
+function finishTask(step: Step, durationMs: number | undefined): void {
+  if (step.state !== 'done' || step.meta) return
+  const n = step.subSteps?.length ?? 0
+  const time = durationMs !== undefined ? formatDuration(durationMs) : ''
+  const meta = [n ? `${n} 步` : '', time].filter(Boolean).join(' · ')
+  if (meta) step.meta = meta
 }
 
 export function deriveBlocks(
@@ -484,10 +509,13 @@ export function deriveBlocks(
     if (parts.length > 0 && parts.every((p) => p.payload.type === 'compaction')) continue
     const lastTool = parts.map((p) => p.type).lastIndexOf('tool')
     const steps: Step[] = []
+    // 这条消息里的子任务：callId → 步骤
+    const tasks = new Map<string, Step>()
     const reasoning: string[] = []
     const answer: string[] = []
     const files = new Set<string>()
     const cards: Block[] = []
+    const finishes: (() => void)[] = []
     let error: string | undefined
     // 回复过的权限请求标在对应的工具步骤上
     const replies = new Map<string, string>()
@@ -522,16 +550,21 @@ export function deriveBlocks(
         }
         // 提问在对话里有自己的卡片
         if (payload.name === 'kits_ask_user') return
-        steps.push(
-          toolStep(
-            p,
-            payload,
-            session.workdir,
-            running,
-            replies.get(payload.callId),
-            running && asking.has(payload.callId),
-          ),
+        const step = toolStep(
+          p,
+          payload,
+          session.workdir,
+          running,
+          replies.get(payload.callId),
+          running && asking.has(payload.callId),
         )
+        const task = payload.parentCallId ? tasks.get(payload.parentCallId) : undefined
+        if (task) task.subSteps?.push(step)
+        else steps.push(step)
+        if (payload.name === 'task' && !payload.parentCallId) {
+          tasks.set(payload.callId, step)
+          finishes.push(() => finishTask(step, payload.durationMs))
+        }
       } else if (payload.type === 'permission') {
         const subject = permissionSubject(
           payload.tool,
@@ -540,6 +573,9 @@ export function deriveBlocks(
           payload.patterns,
         )
         if (p.status === 'pending' && running) {
+          const subtask = payload.subagent
+            ? tasks.get(payload.callId?.split('/')[0] ?? '')?.detail
+            : undefined
           cards.push({
             kind: 'permission',
             id: p.id,
@@ -547,6 +583,7 @@ export function deriveBlocks(
             tool: payload.tool,
             subject,
             always: payload.always,
+            ...(subtask ? { subtask } : {}),
           })
         } else if (
           !payload.callId ||
@@ -584,6 +621,7 @@ export function deriveBlocks(
         })
       } else if (payload.type === 'error') error = payload.message
     })
+    for (const finish of finishes) finish()
     const hasWork = steps.length > 0 || reasoning.length > 0
     if (hasWork) {
       blocks.push({
@@ -597,6 +635,7 @@ export function deriveBlocks(
         endedAt: m.completedAt,
         filesChanged: files.size,
         summary: {
+          tasks: tasks.size,
           reads: new Set(steps.filter((s) => s.icon === 'read').map((s) => s.detail)).size,
           searches: steps.filter((s) => s.icon === 'search').length,
           commands: steps.filter((s) => s.command).length,
@@ -641,12 +680,15 @@ export function deriveBlocks(
       const last = Math.max(m.createdAt, ...parts.map((p) => p.updatedAt))
       const runningStep = steps.find((s) => s.state === 'running')
       const stepTitle = runningStep?.desc || runningStep?.detail
+      // 子任务在跑时写到它正在做的那一步
+      const inner = runningStep?.subSteps?.findLast((s) => s.state === 'running')
+      const innerTitle = inner ? ` · ${inner.verb} ${inner.desc || inner.detail}` : ''
       if (now - last > 2_000 || parts.length === 0) {
         const text =
           activity?.state === 'retry'
             ? '模型网关断开，正在重试'
             : runningStep
-              ? `正在${runningStep.kind}${stepTitle ? `：${stepTitle}` : ''}`
+              ? `正在${runningStep.kind}${stepTitle ? `：${stepTitle}` : ''}${innerTitle}`
               : '等待模型回复'
         blocks.push({ kind: 'status', id: `${m.id}:status`, text, since: last })
       }

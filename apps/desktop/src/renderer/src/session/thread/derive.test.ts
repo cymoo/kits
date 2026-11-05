@@ -690,3 +690,83 @@ describe('todos', () => {
     expect(deriveTodos(detail([tool('todowrite', plan('pending'))], ended))).toEqual([])
   })
 })
+
+describe('subagents', () => {
+  const detail = (parts: PartView[], messages = [msg('u1', 'user'), msg('a1', 'assistant')]) => ({
+    session,
+    messages,
+    parts,
+    attachments: [],
+  })
+  const task = (extra: object = {}, status = 'running') =>
+    part(
+      {
+        type: 'tool',
+        callId: 'call_t',
+        name: 'task',
+        input: { description: '探索仓库', prompt: '看看仓库', subagent_type: 'explore' },
+        ...extra,
+      },
+      status,
+    )
+  const sub = (name: string, input: unknown, status = 'completed') =>
+    part({ type: 'tool', callId: `call_t/${seq}`, parentCallId: 'call_t', name, input }, status)
+  const turnOf = (d: ReturnType<typeof detail>, now = 10) => {
+    const t = deriveBlocks(d, undefined, now).find((b) => b.kind === 'turn')
+    if (t?.kind !== 'turn') throw new Error('no turn')
+    return t
+  }
+
+  it('nests the tools of a subagent under its task step', () => {
+    const t = turnOf(detail([task(), sub('read', { filePath: '/repo/member-svc/a.py' })]))
+    expect(t.steps).toHaveLength(1)
+    expect(t.steps[0]).toMatchObject({ kind: '子任务', detail: '探索仓库', prompt: '看看仓库' })
+    expect(t.steps[0]?.subSteps?.map((s) => s.detail)).toEqual(['a.py'])
+    expect(t.summary.tasks).toBe(1)
+  })
+
+  it('shows the task result without the kernel wrapper and counts the steps', () => {
+    const output =
+      '<task id="ses_1" state="completed">\n<task_result>\n结论\n</task_result>\n</task>'
+    const t = turnOf(
+      detail(
+        [task({ output, durationMs: 65_000 }, 'completed'), sub('read', { filePath: 'a.py' })],
+        [msg('u1', 'user'), msg('a1', 'assistant', { completedAt: 9, finishReason: 'completed' })],
+      ),
+    )
+    expect(t.steps[0]).toMatchObject({ output: '结论', meta: '1 步 · 1:05' })
+  })
+
+  it('writes what the subagent is doing into the status line', () => {
+    const blocks = deriveBlocks(
+      detail([task(), sub('bash', { command: 'ls', description: '看目录' }, 'running')]),
+      undefined,
+      10_000,
+    )
+    expect(blocks.find((b) => b.kind === 'status')).toMatchObject({
+      text: '正在子任务：探索仓库 · 运行 看目录',
+    })
+  })
+
+  it('names the subtask on its permission card', () => {
+    const blocks = deriveBlocks(
+      detail([
+        task(),
+        part(
+          {
+            type: 'permission',
+            requestId: 'r',
+            tool: 'bash',
+            input: { command: 'touch x' },
+            patterns: ['touch x'],
+            always: [],
+            callId: 'call_t/call_c',
+            subagent: true,
+          },
+          'pending',
+        ),
+      ]),
+    )
+    expect(blocks.find((b) => b.kind === 'permission')).toMatchObject({ subtask: '探索仓库' })
+  })
+})

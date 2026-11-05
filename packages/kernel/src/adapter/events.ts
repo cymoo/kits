@@ -6,8 +6,10 @@ import type { DoneReason, KernelEvent } from '@kits/core'
 // - partID → 已发出的文本长度：增量（message.part.delta）和整段（message.part.updated 带 text）都能来，
 //   只发没发过的那一截，断线补齐时把整段消息重放一遍也不会重复；
 // - callID → 工具阶段：pending 时 input 还是空的，到 running 才发 tool-start，completed / error 发 tool-end；
-// - 子会话 id：task 工具在内核里开子会话跑，子会话的事件带自己的 sessionID。权限请求要接住，不然子任务一直等下去；
+// - 子会话 id → 派它的 task 工具的 callID：task 工具在内核里开子会话跑，子会话的事件带自己的 sessionID。
+//   权限请求要接住，不然子任务一直等下去；工具步骤带上 parentCallId 显示在子任务下面；
 //   其余事件不算这一轮的（子会话的 session.idle 不代表这一轮结束）。
+//   子任务里工具的 callId 写成 <task 的 callID>/<callID>：不同会话的 callID 可能撞。
 
 interface RawEvent {
   type?: string
@@ -83,7 +85,10 @@ function toolStats(metadata: Record<string, unknown> | undefined): {
 export interface OpencodeEventMapper {
   map(event: unknown): KernelEvent[]
   // 断线重连后用 GET /session/{id}/message 的结果补齐（调用方先去掉这一轮之前就有的消息）
-  backfill(messages: RawMessage[]): KernelEvent[]
+  // from：这些消息属于哪个子会话，不传是主会话
+  backfill(messages: RawMessage[], from?: string): KernelEvent[]
+  // 这一轮到现在知道的子会话，断线补齐时逐个拉消息
+  readonly subsessions: string[]
   // 断线重连后用 GET /permission 的结果补上漏掉的权限请求，按 requestId 去重
   permissions(pending: unknown[]): KernelEvent[]
   // 调了 abort 之后收到的结束事件都算 aborted
@@ -110,7 +115,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
   const toolPhase = new Map<string, 'started' | 'ended'>()
   const usageSent = new Set<string>()
   const permissionsSent = new Set<string>()
-  const subsessions = new Set<string>()
+  const subsessions = new Map<string, string | undefined>()
   let lastRetry = ''
   // 助手消息上带的错误：轮询收尾时按出错结束，不当成功
   let messageError: string | undefined
@@ -141,7 +146,52 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
   // task 工具运行时 metadata 里有子会话 id：session.created 丢在断线里时靠消息快照里的它补回来
   function noteSubsession(part: RawPart) {
     const id = part.state?.metadata?.sessionId
-    if (part.tool === 'task' && typeof id === 'string') subsessions.add(id)
+    if (part.tool !== 'task' || typeof id !== 'string') return
+    // 子任务再派子任务时算在最外面那个 task 下面
+    subsessions.set(id, subsessions.get(part.sessionID ?? '') ?? part.callID)
+  }
+
+  function toolEvents(part: RawPart, callId: string, parentCallId?: string): KernelEvent[] {
+    const status = part.state?.status
+    if (status !== 'running' && status !== 'completed' && status !== 'error') return []
+    const out: KernelEvent[] = []
+    const phase = toolPhase.get(callId)
+    if (!phase) {
+      toolPhase.set(callId, 'started')
+      out.push({
+        type: 'tool-start',
+        callId,
+        name: part.tool ?? 'unknown',
+        input: part.state?.input ?? {},
+        ...(parentCallId ? { parentCallId } : {}),
+      })
+    }
+    if ((status === 'completed' || status === 'error') && phase !== 'ended') {
+      toolPhase.set(callId, 'ended')
+      out.push({
+        type: 'tool-end',
+        callId,
+        output: part.state?.output ?? null,
+        ...(status === 'error' ? { error: part.state?.error ?? 'tool failed' } : {}),
+        ...(part.state?.title ? { title: part.state.title } : {}),
+        ...(typeof part.state?.metadata?.exit === 'number'
+          ? { exitCode: part.state.metadata.exit }
+          : {}),
+        ...(part.state?.time?.start && part.state.time.end
+          ? { durationMs: part.state.time.end - part.state.time.start }
+          : {}),
+        ...toolStats(part.state?.metadata),
+      })
+    }
+    return out
+  }
+
+  // 子会话的 part：只要工具步骤，它的正文、思考汇总在 task 工具的结果里
+  function onSubPart(part: RawPart, from: string): KernelEvent[] {
+    noteSubsession({ ...part, sessionID: from })
+    const parent = subsessions.get(from)
+    if (part.type !== 'tool' || !part.callID || !parent) return []
+    return toolEvents(part, `${parent}/${part.callID}`, parent)
   }
 
   function onPart(part: RawPart): KernelEvent[] {
@@ -152,39 +202,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
     if (part.type === 'text' || part.type === 'reasoning') {
       return text(part.id, part.type, part.text)
     }
-    if (part.type === 'tool' && part.callID) {
-      const status = part.state?.status
-      if (status !== 'running' && status !== 'completed' && status !== 'error') return []
-      const out: KernelEvent[] = []
-      const phase = toolPhase.get(part.callID)
-      if (!phase) {
-        toolPhase.set(part.callID, 'started')
-        out.push({
-          type: 'tool-start',
-          callId: part.callID,
-          name: part.tool ?? 'unknown',
-          input: part.state?.input ?? {},
-        })
-      }
-      if ((status === 'completed' || status === 'error') && phase !== 'ended') {
-        toolPhase.set(part.callID, 'ended')
-        out.push({
-          type: 'tool-end',
-          callId: part.callID,
-          output: part.state?.output ?? null,
-          ...(status === 'error' ? { error: part.state?.error ?? 'tool failed' } : {}),
-          ...(part.state?.title ? { title: part.state.title } : {}),
-          ...(typeof part.state?.metadata?.exit === 'number'
-            ? { exitCode: part.state.metadata.exit }
-            : {}),
-          ...(part.state?.time?.start && part.state.time.end
-            ? { durationMs: part.state.time.end - part.state.time.start }
-            : {}),
-          ...toolStats(part.state?.metadata),
-        })
-      }
-      return out
-    }
+    if (part.type === 'tool' && part.callID) return toolEvents(part, part.callID)
     return []
   }
 
@@ -233,15 +251,16 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
     const p = raw.properties ?? {}
     if (type === 'session.created' || type === 'session.updated') {
       const info = (p.info ?? {}) as RawSessionInfo
-      if (
-        info.id &&
-        info.parentID &&
-        (info.parentID === sessionId || subsessions.has(info.parentID))
-      )
-        subsessions.add(info.id)
+      const parent = info.parentID ?? ''
+      if (info.id && (parent === sessionId || subsessions.has(parent)) && !subsessions.has(info.id))
+        subsessions.set(info.id, subsessions.get(parent))
       return []
     }
-    const asked = type === 'permission.asked' && subsessions.has(p.sessionID as string)
+    const sub = subsessions.has(p.sessionID as string)
+    if (type === 'message.part.updated' && sub) {
+      return onSubPart((p.part ?? {}) as RawPart, p.sessionID as string)
+    }
+    const asked = type === 'permission.asked' && sub
     if (p.sessionID !== undefined && p.sessionID !== sessionId && !asked) return []
     switch (type) {
       case 'message.updated':
@@ -263,6 +282,8 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
         if ((p.sessionID !== sessionId && !asked) || permissionsSent.has(String(p.id))) return []
         permissionsSent.add(String(p.id))
         const tool = p.tool as { callID?: string } | undefined
+        const parent = subsessions.get(p.sessionID as string)
+        const callId = parent && tool?.callID ? `${parent}/${tool.callID}` : tool?.callID
         return [
           {
             type: 'permission-request',
@@ -271,7 +292,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
             input: p.metadata ?? {},
             patterns: (p.patterns as string[] | undefined) ?? [],
             always: (p.always as string[] | undefined) ?? [],
-            ...(tool?.callID ? { callId: tool.callID } : {}),
+            ...(callId ? { callId } : {}),
             ...(asked ? { subagent: true } : {}),
           },
         ]
@@ -344,19 +365,18 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
         map({ type: 'permission.asked', properties: p as Record<string, unknown> }),
       )
     },
-    backfill(messages) {
+    backfill(messages, from = sessionId) {
       const out: KernelEvent[] = []
       for (const m of messages) {
-        out.push(
-          ...map({ type: 'message.updated', properties: { sessionID: sessionId, info: m.info } }),
-        )
+        out.push(...map({ type: 'message.updated', properties: { sessionID: from, info: m.info } }))
         for (const part of m.parts) {
-          out.push(
-            ...map({ type: 'message.part.updated', properties: { sessionID: sessionId, part } }),
-          )
+          out.push(...map({ type: 'message.part.updated', properties: { sessionID: from, part } }))
         }
       }
       return out
+    },
+    get subsessions() {
+      return [...subsessions.keys()]
     },
     markAborted() {
       aborted = true

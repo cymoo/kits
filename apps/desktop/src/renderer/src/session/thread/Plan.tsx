@@ -88,7 +88,6 @@ export function PlanCard({ items }: { items: TodoItem[] }) {
           className={cx('shrink-0 text-fg-subtle transition-transform', open && 'rotate-180')}
         />
       </button>
-      {/* biome-ignore lint/a11y/useSemanticElements: 原生 progress 的样式各平台不一样，按原型自绘 */}
       <div
         role="progressbar"
         aria-label={t('plan.title')}

@@ -48,6 +48,8 @@ export type PartPayload =
   | {
       type: 'tool'
       callId: string
+      // 子任务里的工具：派它的 task 工具的 callId
+      parentCallId?: string
       name: string
       input: unknown
       output?: unknown
@@ -67,6 +69,7 @@ export type PartPayload =
       patterns: string[]
       always: string[]
       callId?: string
+      subagent?: boolean
       reply?: PermissionReply
       message?: string
     }
