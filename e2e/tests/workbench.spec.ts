@@ -24,7 +24,7 @@ test('shows the changed files, commands and usage of a finished turn', async () 
   try {
     await send(page, configDir, '给兑换接口加幂等校验')
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
-    const panel = page.getByRole('complementary', { name: '工作区面板' })
+    const panel = page.getByRole('complementary', { name: '会话面板' })
 
     // 改动：一轮结束后内核算出 diff，按轮列出
     const files = panel.getByTestId('changed-files')
@@ -58,7 +58,7 @@ test('shows the changed files, commands and usage of a finished turn', async () 
     await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
 
     // 面板收起时也能跳过去
-    await page.getByRole('button', { name: '收起工作区面板' }).click()
+    await page.getByRole('button', { name: '收起面板' }).click()
     await expect(panel).toBeHidden()
     await turn.getByTestId('step').filter({ hasText: '修改' }).click()
     await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
@@ -80,7 +80,7 @@ test('widens the panel with the shortcut and shows the diff side by side', async
     await send(page, configDir, '给兑换接口加幂等校验')
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     await page.keyboard.press(`${mod}+Backslash`)
-    const panel = page.getByRole('complementary', { name: '工作区面板' })
+    const panel = page.getByRole('complementary', { name: '会话面板' })
     await panel.getByRole('radio', { name: '并排' }).click()
     await expect(panel.getByRole('radio', { name: '并排' })).toHaveAttribute('aria-checked', 'true')
     await expect(panel.getByTestId('diff')).toContainText(
@@ -88,10 +88,10 @@ test('widens the panel with the shortcut and shows the diff side by side', async
     )
     await page.screenshot({ path: 'test-results/workbench-wide.png' })
     // 缩回、收起、再打开
-    await page.getByRole('button', { name: '缩回工作区面板' }).click()
-    await page.getByRole('button', { name: '收起工作区面板' }).click()
+    await page.getByRole('button', { name: '缩回面板' }).click()
+    await page.getByRole('button', { name: '收起面板' }).click()
     await expect(panel).toBeHidden()
-    await page.getByRole('button', { name: '显示工作区面板' }).click()
+    await page.getByRole('button', { name: '显示面板' }).click()
     await expect(panel).toBeVisible()
   } finally {
     await close()
@@ -137,8 +137,8 @@ test('resizes the workspace panel and the chat column of the wide layout', async
   try {
     await send(page, configDir, '给兑换接口加幂等校验')
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
-    const panel = page.getByRole('complementary', { name: '工作区面板' })
-    const handle = page.getByRole('separator', { name: '调整工作区面板宽度' })
+    const panel = page.getByRole('complementary', { name: '会话面板' })
+    const handle = page.getByRole('separator', { name: '调整面板宽度' })
     const before = (await panel.boundingBox())?.width ?? 0
     await handle.focus()
     await page.keyboard.press('ArrowLeft')
@@ -199,7 +199,7 @@ test('shows a command waiting for confirmation on its step', async () => {
     await expect(step).toContainText('3.4 秒')
     await step.click()
     await expect(turn.getByTestId('step-output')).toContainText('本会话允许')
-    const panel = page.getByRole('complementary', { name: '工作区面板' })
+    const panel = page.getByRole('complementary', { name: '会话面板' })
     await panel.getByRole('tab', { name: '上下文' }).click()
     await expect(panel.getByTestId('allow-rules')).toContainText('uv run pytest *')
   } finally {

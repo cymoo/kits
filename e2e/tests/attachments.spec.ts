@@ -113,7 +113,7 @@ test('references a file of the workdir with @', async () => {
 
     // + 菜单里的“引用文件”也能打开它
     await page.getByRole('button', { name: '添加文件和引用' }).click()
-    await page.getByRole('menuitem', { name: /引用工作目录里的文件/ }).click()
+    await page.getByRole('menuitem', { name: /引用工作区里的文件/ }).click()
     await expect(menu).toBeVisible()
     await expect(menu.getByRole('option')).toHaveCount(2)
     await box.press('Escape')

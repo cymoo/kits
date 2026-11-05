@@ -1,84 +1,23 @@
 import type { SessionSummary } from '@kits/core/ipc'
 import { useQueryClient } from '@tanstack/react-query'
 import { Ellipsis, Pencil, Pin, PinOff, Trash2 } from 'lucide-react'
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { NavLink, useMatch, useNavigate } from 'react-router'
 import { t } from '../app/i18n'
 import { errorText } from '../lib/errors'
 import { kits } from '../lib/kits'
+import { relativeTime } from '../lib/relative-time'
 import { sessionKeys } from '../lib/sessions'
 import { Button } from '../ui/Button'
 import { cx } from '../ui/cx'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../ui/Dialog'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../ui/Menu'
+import { InlineRename } from './InlineRename'
 import { StatusDot } from './StatusDot'
 
 // 侧栏的一行会话（原型 shell.js）：… 或右键打开菜单，就地改名，删除前确认。
 
 const MAX_TITLE = 120
-
-function RenameInput({
-  session,
-  input,
-  onDone,
-}: {
-  session: SessionSummary
-  input: React.RefObject<HTMLInputElement | null>
-  onDone(): void
-}) {
-  const [value, setValue] = useState(session.title)
-  const [failed, setFailed] = useState(false)
-  // Esc 收起时输入框失焦，不能再当保存
-  const settled = useRef(false)
-  useEffect(() => {
-    input.current?.focus()
-    input.current?.select()
-  }, [input])
-  const save = async () => {
-    if (settled.current) return
-    const title = value.trim()
-    settled.current = true
-    if (!title || title === session.title) return onDone()
-    try {
-      await kits.session.rename({ id: session.id, title })
-      onDone()
-    } catch {
-      settled.current = false
-      setFailed(true)
-    }
-  }
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.nativeEvent.isComposing) return
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      void save()
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      e.stopPropagation()
-      settled.current = true
-      onDone()
-    }
-  }
-  return (
-    <input
-      ref={input}
-      aria-label={t('nav.renameLabel')}
-      aria-invalid={failed}
-      maxLength={MAX_TITLE}
-      value={value}
-      onChange={(e) => {
-        setValue(e.target.value)
-        setFailed(false)
-      }}
-      onKeyDown={onKeyDown}
-      onBlur={() => void save()}
-      className={cx(
-        'block h-8 w-full rounded-[8px] border bg-raised px-2 text-fg outline-none shadow-[0_0_0_3px_rgb(53_99_224/0.15)]',
-        failed ? 'border-danger' : 'border-accent',
-      )}
-    />
-  )
-}
 
 function RemoveDialog({
   session,
@@ -132,7 +71,16 @@ function RemoveDialog({
   )
 }
 
-export function SessionRow({ session: s }: { session: SessionSummary }) {
+export function SessionRow({
+  session: s,
+  now,
+  indent = false,
+}: {
+  session: SessionSummary
+  now: number
+  // 工作区组里的行：标题和组名错开一级
+  indent?: boolean
+}) {
   const [menu, setMenu] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [removing, setRemoving] = useState(false)
@@ -151,7 +99,14 @@ export function SessionRow({ session: s }: { session: SessionSummary }) {
         }}
       >
         {renaming ? (
-          <RenameInput session={s} input={input} onDone={() => setRenaming(false)} />
+          <InlineRename
+            value={s.title}
+            label={t('nav.renameLabel')}
+            maxLength={MAX_TITLE}
+            input={input}
+            save={(title) => kits.session.rename({ id: s.id, title })}
+            onDone={() => setRenaming(false)}
+          />
         ) : (
           <NavLink
             to={`/s/${s.id}`}
@@ -159,13 +114,16 @@ export function SessionRow({ session: s }: { session: SessionSummary }) {
             className={({ isActive }) =>
               cx(
                 // 按钮出现时给它让位，标题和状态字不被盖住
-                'flex h-8 items-center gap-2 rounded-[8px] px-2 text-fg no-underline group-hover:bg-hover group-hover:pr-8 group-has-[button:focus-visible]:pr-8 group-has-[button[data-state=open]]:bg-hover group-has-[button[data-state=open]]:pr-8',
+                'flex h-8 items-center gap-2 rounded-[8px] pr-2 text-fg no-underline group-hover:bg-hover group-hover:pr-8 group-has-[button:focus-visible]:pr-8 group-has-[button[data-state=open]]:bg-hover group-has-[button[data-state=open]]:pr-8',
+                indent ? 'pl-[26px]' : 'pl-2',
                 isActive && 'bg-hover font-medium',
               )
             }
           >
             <StatusDot status={s.status} />
-            <span className="min-w-0 flex-1 truncate">{s.title}</span>
+            <span data-testid="session-title" className="min-w-0 flex-1 truncate">
+              {s.title}
+            </span>
             {/* 运行中只有一个圆点，给读屏补上状态 */}
             {s.status === 'running' ? (
               <span className="sr-only">{t('nav.tag.running')}</span>
@@ -179,7 +137,12 @@ export function SessionRow({ session: s }: { session: SessionSummary }) {
               >
                 {t(s.status === 'error' ? 'nav.tag.error' : 'nav.tag.waiting')}
               </span>
-            ) : null}
+            ) : (
+              // 移到行上时位置让给 … 按钮
+              <span className="shrink-0 text-[0.857rem] text-fg-subtle tabular-nums group-hover:hidden group-has-[button:focus-visible]:hidden group-has-[button[data-state=open]]:hidden">
+                {relativeTime(s.updatedAt, now)}
+              </span>
+            )}
           </NavLink>
         )}
         {/* 不用模态：选“重命名”后焦点要落到输入框。改名时菜单不卸载，关菜单时还要拦住焦点回到按钮 */}

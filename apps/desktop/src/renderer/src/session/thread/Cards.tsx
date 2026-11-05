@@ -388,7 +388,7 @@ export function ErrorCard({
       `kits ${info.version} · ${info.os} · Electron ${info.electron}`,
       `内核 ${kernel} · 模型 ${session.model} · Agent ${session.agent}`,
       `会话 ${session.id}`,
-      `工作目录 ${session.workdir}`,
+      `工作区 ${session.workdir}`,
       '',
       block.message,
     ].join('\n')

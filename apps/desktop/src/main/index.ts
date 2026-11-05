@@ -2,7 +2,12 @@ import { existsSync, mkdirSync, realpathSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { defaultPermissions, gatewaySecretKey, readonlyCommandPatterns } from '@kits/core'
+import {
+  defaultPermissions,
+  gatewaySecretKey,
+  readonlyCommandPatterns,
+  workdirKey,
+} from '@kits/core'
 import type { KernelName } from '@kits/core/ipc'
 import { app, BrowserWindow, Notification, shell } from 'electron'
 import { AgentService } from './agents/agent-service'
@@ -265,11 +270,17 @@ app.whenReady().then(() => {
       memory.add(input.scope, input.text, `session:${session.id}`, session.workdir)
     },
   })
-  // 最近用过的工作目录放在最前面，最多记 10 个
+  // 最近用过的工作目录放在最前面，最多记 20 个；改过的显示名跟着留下
   const rememberWorkdir = (dir: string) => {
-    const rest = config.getSettings().workdirs.filter((w) => w.path !== dir)
+    const key = workdirKey(dir)
+    const all = config.getSettings().workdirs
+    const rest = all.filter((w) => workdirKey(w.path) !== key)
+    const label = all.find((w) => workdirKey(w.path) === key)?.label
     config.updateSettings({
-      workdirs: [{ path: dir, lastUsedAt: Date.now() }, ...rest].slice(0, 10),
+      workdirs: [{ path: dir, ...(label ? { label } : {}), lastUsedAt: Date.now() }, ...rest].slice(
+        0,
+        20,
+      ),
     })
   }
 
@@ -384,7 +395,7 @@ app.whenReady().then(() => {
                 : workdir
                   ? path.join(realpathSync(workdir), '.agents', 'skills')
                   : undefined
-          if (!dir) throw new Error('没有工作目录')
+          if (!dir) throw new Error('没有工作区')
           if (source !== 'builtin') mkdirSync(dir, { recursive: true })
           await platform.openPath(dir)
         },
@@ -400,6 +411,24 @@ app.whenReady().then(() => {
         search: ({ workdir, query }) => files.search(workdir, query),
       },
       workdir: {
+        rename: ({ path: dir, label }) => {
+          const key = workdirKey(dir)
+          const all = config.getSettings().workdirs
+          const known = all.some((w) => workdirKey(w.path) === key)
+          config.updateSettings({
+            workdirs: known
+              ? all.map((w) => (workdirKey(w.path) === key ? { ...w, label } : w))
+              : // 只有会话用过、设置里没记的目录
+                [...all, { path: dir, label, lastUsedAt: 0 }],
+          })
+        },
+        remove: ({ path: dir }) => {
+          sessions.removeWorkdir(dir)
+          const key = workdirKey(dir)
+          config.updateSettings({
+            workdirs: config.getSettings().workdirs.filter((w) => workdirKey(w.path) !== key),
+          })
+        },
         inspect: (dir) => inspectWorkdir(realpathSync(dir)),
         createDefault: () => {
           const dir = resolveWorkspaceDir()
@@ -409,8 +438,11 @@ app.whenReady().then(() => {
           return real
         },
         pick: async () => {
-          const dir = await platform.pickDirectory()
-          if (dir) rememberWorkdir(dir)
+          const picked = await platform.pickDirectory()
+          if (!picked) return null
+          // 会话记的是真实路径：这里也用它，软链接不会在侧栏分出两个工作区
+          const dir = realpathSync(picked)
+          rememberWorkdir(dir)
           return dir
         },
       },

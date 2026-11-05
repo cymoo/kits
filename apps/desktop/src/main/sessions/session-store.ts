@@ -512,6 +512,16 @@ export class SessionStore {
     this.db.delete(sessions).where(eq(sessions.id, id)).run()
   }
 
+  // 一起删：中途失败时一个也不删
+  removeAll(ids: string[]): void {
+    this.db.transaction((tx) => {
+      for (const id of ids) {
+        tx.run(sql`DELETE FROM sessions_fts WHERE session_id = ${id}`)
+        tx.delete(sessions).where(eq(sessions.id, id)).run()
+      }
+    })
+  }
+
   // 应用退出时还在跑的会话：下次打开时标成中断，不然一直显示“运行中”。
   // 没结束的助手消息一起收尾，留一个出错块；没回复的确认标成过期，对话流和会话状态一致
   markInterrupted(now: number): number {

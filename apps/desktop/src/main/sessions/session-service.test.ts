@@ -987,6 +987,38 @@ describe('SessionService compact', () => {
   })
 })
 
+describe('SessionService removeWorkdir', () => {
+  it('removes every session of the directory and leaves the others', async () => {
+    const { service, store, waitFor } = setup('done')
+    const a = await service.create(input)
+    const b = await service.create({ ...input, workdir: '/w/' })
+    const other = await service.create({ ...input, workdir: '/other' })
+    await waitFor(a.id, ['done'])
+    await waitFor(b.id, ['done'])
+    await waitFor(other.id, ['done'])
+    service.removeWorkdir('/w')
+    expect(store.list().map((s) => s.id)).toEqual([other.id])
+    expect(store.detail(a.id)).toBeNull()
+  })
+
+  it('refuses while a session of the directory is running and removes nothing', async () => {
+    const { service, store, waitFor } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    expect(() => service.removeWorkdir('/w')).toThrow('有会话在运行')
+    expect(store.session(s.id)).toBeTruthy()
+    await service.abort(s.id)
+  })
+
+  it('keeps all sessions when a delete fails halfway', async () => {
+    const { service, store, waitFor } = setup('done')
+    const a = await service.create(input)
+    await waitFor(a.id, ['done'])
+    expect(() => store.removeAll([a.id, Symbol('bad') as unknown as string])).toThrow()
+    expect(store.session(a.id)).toBeTruthy()
+  })
+})
+
 describe('SessionService session settings', () => {
   it('saves the permission of a session that has not reached the kernel yet', async () => {
     const { service, store, kernel, waitFor } = setup('done')

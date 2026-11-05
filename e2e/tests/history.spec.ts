@@ -170,7 +170,7 @@ test('deletes a session after confirming and leaves its page', async () => {
     await list.getByRole('link', { name: '给兑换接口加幂等校验' }).click({ button: 'right' })
     await page.getByRole('menuitem', { name: '删除' }).click()
     await dialog.getByRole('button', { name: '删除' }).click()
-    await expect(list.getByRole('link')).toHaveText(['排查订单退款超时'])
+    await expect(list.getByTestId('session-title')).toHaveText(['排查订单退款超时'])
     await expect(page).toHaveURL(/#\/s\//)
 
     // 删正在看的会话回到首页
@@ -194,7 +194,7 @@ test('pins a session to the top of the sidebar and the history page', async () =
     await runTask(page, '排查订单退款超时')
 
     const list = page.getByTestId('session-list')
-    const titles = () => list.getByRole('link')
+    const titles = () => list.getByTestId('session-title')
     await expect(titles()).toHaveText(['排查订单退款超时', '给兑换接口加幂等校验'])
     await expect(list.getByText('置顶', { exact: true })).toHaveCount(0)
 
@@ -216,6 +216,86 @@ test('pins a session to the top of the sidebar and the history page', async () =
     await history.getByRole('button', { name: '取消置顶“给兑换接口加幂等校验”' }).click()
     await expect(history.getByRole('heading', { name: '置顶' })).toHaveCount(0)
     await expect(titles()).toHaveText(['排查订单退款超时', '给兑换接口加幂等校验'])
+  } finally {
+    await close()
+  }
+})
+
+test('groups the sidebar by workspace and folds a group', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'done',
+    KITS_MOCK_SPEED: '0.2',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const workdir = await prepare(page, configDir)
+    await page.getByLabel('给 Agent 发消息').fill('第一个会话')
+    await page.getByLabel('给 Agent 发消息').press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+
+    const group = page.getByTestId('workspace').filter({ hasText: 'member-svc' })
+    await expect(group.getByRole('link', { name: '第一个会话' })).toBeVisible()
+    await expect(group.getByRole('link', { name: '第一个会话' })).toContainText('刚刚')
+
+    // 当前会话所在的组不折；回到首页后才折得起来，刷新也不丢
+    await page.getByRole('link', { name: '新会话' }).click()
+    await group.getByRole('button', { name: 'member-svc', exact: true }).click()
+    await expect(group.getByRole('link', { name: '第一个会话' })).toHaveCount(0)
+    await page.reload()
+    // 重开时可能回到上次的会话，组又被它撑开，回首页再看
+    await page.getByRole('link', { name: '新会话' }).click()
+    await expect(group.getByRole('button', { name: 'member-svc', exact: true })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    await group.getByRole('button', { name: 'member-svc', exact: true }).click()
+
+    // 重命名只改显示名
+    await group.getByRole('button', { name: '工作区“member-svc”的更多操作' }).click()
+    await page.getByRole('menuitem', { name: '重命名' }).click()
+    await page.getByLabel('工作区名称').fill('会员服务')
+    await page.getByLabel('工作区名称').press('Enter')
+    const renamed = page.getByTestId('workspace').filter({ hasText: '会员服务' })
+    await expect(renamed).toBeVisible()
+    await expect(renamed.getByRole('button', { name: '会员服务', exact: true })).toHaveAttribute(
+      'title',
+      workdir,
+    )
+
+    // 组标题的 + 带着这个工作区去首页
+    await renamed.getByRole('button', { name: '在“会员服务”里新建会话' }).click()
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+  } finally {
+    await close()
+  }
+})
+
+test('removes a workspace together with its sessions after confirming', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'done',
+    KITS_MOCK_SPEED: '0.2',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    await page.getByLabel('给 Agent 发消息').fill('要删的会话')
+    await page.getByLabel('给 Agent 发消息').press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+
+    const group = page.getByTestId('workspace').filter({ hasText: 'member-svc' })
+    await group.getByRole('button', { name: '工作区“member-svc”的更多操作' }).click()
+    await page.getByRole('menuitem', { name: '移除工作区' }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('1 个会话')
+    await expect(dialog).toContainText('member-svc')
+    await dialog.getByRole('button', { name: '移除并删除 1 个会话' }).click()
+
+    // 正看着的会话没了，回到首页
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await expect(page.getByTestId('workspace')).toHaveCount(0)
+    await expect(page.getByTestId('session-list')).not.toContainText('要删的会话')
   } finally {
     await close()
   }

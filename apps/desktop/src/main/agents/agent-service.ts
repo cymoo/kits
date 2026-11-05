@@ -109,7 +109,7 @@ export class AgentService {
   private dirOf(source: AgentSource, workdir?: string): string {
     if (source === 'personal') return this.deps.config.paths.agents
     if (source === 'project') {
-      if (!workdir) throw new Error('项目 Agent 要先选工作目录')
+      if (!workdir) throw new Error('项目 Agent 要先选工作区')
       return path.join(realpathSync(workdir), '.agents', 'agents')
     }
     throw new Error('内置的 Agent 不能改，复制一份再改')

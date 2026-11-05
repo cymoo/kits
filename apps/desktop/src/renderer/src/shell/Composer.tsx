@@ -436,6 +436,9 @@ export function Composer({
     if (dir) prefs.set({ workdir: dir })
   }
 
+  // 侧栏改过名字的工作区这里也用改过的
+  const workdirName = (dir: string) =>
+    settings.data?.workdirs.find((w) => w.path === dir)?.label ?? basename(dir)
   const gateways = (settings.data?.gateways ?? []).filter((g) => g.enabled && g.models.length > 0)
   const model = lockedAs?.model ?? resolved.model
   const modelLabel = model ? model.slice(model.indexOf('/') + 1) : t('composer.noModel')
@@ -755,7 +758,7 @@ export function Composer({
               >
                 {resolved.workdir ? <Folder size={13} /> : <FolderOpen size={13} />}
                 <span className="font-mono text-[0.929rem]">
-                  {resolved.workdir ? basename(resolved.workdir) : t('composer.pickWorkdir')}
+                  {resolved.workdir ? workdirName(resolved.workdir) : t('composer.pickWorkdir')}
                 </span>
               </MenuTrigger>
               <MenuContent>
@@ -766,7 +769,7 @@ export function Composer({
                 >
                   {(settings.data?.workdirs ?? []).map((w) => (
                     <MenuRadioItem key={w.path} value={w.path}>
-                      <span className="block font-mono text-[0.929rem]">{basename(w.path)}</span>
+                      <span className="block font-mono text-[0.929rem]">{workdirName(w.path)}</span>
                       <small className="block truncate text-[0.929rem] text-fg-muted">
                         {w.path}
                       </small>
