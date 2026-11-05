@@ -27,9 +27,11 @@ import {
 import { useNavigate } from 'react-router'
 import { t } from '../app/i18n'
 import { basename, resolvePrefs, usePrefs } from '../lib/composer-prefs'
+import { errorText } from '../lib/errors'
 import { kits, useSettings } from '../lib/kits'
 import { isMac, shortcuts } from '../lib/shortcuts'
 import { useUi } from '../lib/ui-store'
+import { formatTokens } from '../session/panels/derive'
 import { cx } from '../ui/cx'
 import {
   Menu,
@@ -79,6 +81,38 @@ const chip =
 const sendButton =
   'ml-auto flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-fg transition-opacity disabled:cursor-default disabled:opacity-25'
 
+// 上下文用量环：八成以上变色，和输入框上方的提示同一个阈值；输入框窄时只留环
+function ContextRing({ used, window, onOpen }: { used: number; window: number; onOpen(): void }) {
+  const pct = Math.min(100, (used / window) * 100)
+  const near = pct >= 80
+  const circle = 2 * Math.PI * 6
+  return (
+    <button
+      type="button"
+      data-testid="context-ring"
+      aria-label={t('composer.context', { used: formatTokens(used), window: formatTokens(window) })}
+      title={t('composer.context', { used: formatTokens(used), window: formatTokens(window) })}
+      onClick={onOpen}
+      className={cx(chip, 'tabular-nums', near && 'text-warn hover:text-warn')}
+    >
+      <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" className="-rotate-90">
+        <circle cx="8" cy="8" r="6" fill="none" strokeWidth="2.4" className="stroke-line" />
+        <circle
+          cx="8"
+          cy="8"
+          r="6"
+          fill="none"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeDasharray={`${(pct / 100) * circle} ${circle}`}
+          className={near ? 'stroke-warn' : 'stroke-fg-muted'}
+        />
+      </svg>
+      <span className="@max-[420px]:hidden">{Math.round(pct)}%</span>
+    </button>
+  )
+}
+
 export interface ComposerHandle {
   // 排队的消息退回来：接在已有的草稿后面，不覆盖
   restore(draft: QueuedDraft): void
@@ -88,9 +122,12 @@ export function Composer({
   big = false,
   placeholder,
   disabled = false,
-  // 会话页：目录、Agent、内核和模型跟着会话走，不能改
+  // 会话页：目录、Agent、内核跟着会话走，不显示也不能改；权限和模型能改，走 onPermission、onModel
   locked = false,
   lockedAs,
+  onPermission,
+  onModel,
+  context,
   onSubmit,
   onStop,
   onInterject,
@@ -102,6 +139,10 @@ export function Composer({
     model: string
     permissionMode: (typeof PERMS)[number]
   }
+  onPermission?: (mode: (typeof PERMS)[number]) => Promise<void> | void
+  onModel?: (model: string) => Promise<void> | void
+  // 上下文用量：不知道窗口多大时不传
+  context?: { used: number; window: number; onOpen(): void } | undefined
   big?: boolean
   placeholder: string
   disabled?: boolean
@@ -396,14 +437,45 @@ export function Composer({
   }
 
   const gateways = (settings.data?.gateways ?? []).filter((g) => g.enabled && g.models.length > 0)
-  const modelLabel = resolved.model
-    ? resolved.model.slice(resolved.model.indexOf('/') + 1)
-    : t('composer.noModel')
+  const model = lockedAs?.model ?? resolved.model
+  const modelLabel = model ? model.slice(model.indexOf('/') + 1) : t('composer.noModel')
+  const permission = lockedAs?.permissionMode ?? resolved.permissionMode
+  const change = (task: Promise<void> | void) => {
+    void Promise.resolve(task).catch((e) => setError(errorText(e)))
+  }
+  const permissionMenu = (
+    <Menu>
+      <MenuTrigger className={chip} title={t('composer.permission')}>
+        <Shield size={13} />
+        <span>{t(`perm.${permission}`)}</span>
+        {locked ? <ChevronDown size={12} className="@max-[420px]:hidden" /> : null}
+      </MenuTrigger>
+      <MenuContent align={locked ? 'start' : 'end'}>
+        <MenuLabel>{t(locked ? 'composer.permissionNow' : 'composer.permissionTitle')}</MenuLabel>
+        <MenuRadioGroup
+          value={permission}
+          onValueChange={(v) => {
+            const mode = v as (typeof PERMS)[number]
+            if (locked) change(onPermission?.(mode))
+            else prefs.set({ permissionMode: mode })
+          }}
+        >
+          {PERMS.map((p) => (
+            <MenuRadioItem key={p} value={p}>
+              <span className="block">{t(`perm.${p}`)}</span>
+              <small className="block text-[0.929rem] text-fg-muted">{t(`perm.${p}.note`)}</small>
+            </MenuRadioItem>
+          ))}
+        </MenuRadioGroup>
+      </MenuContent>
+    </Menu>
+  )
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: 拖文件进来的落点，键盘用户走 + 菜单
     <div
       ref={box}
+      data-testid="composer"
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes('Files')) return
         e.preventDefault()
@@ -419,7 +491,7 @@ export function Composer({
         addFiles(e.dataTransfer.files)
       }}
       className={cx(
-        'relative border border-line bg-raised shadow-[0_1px_2px_rgba(0,0,0,.03),0_6px_20px_rgba(0,0,0,.05)] transition-[border-color,box-shadow] focus-within:border-line-strong focus-within:shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_28px_rgba(0,0,0,.08)]',
+        '@container relative border border-line bg-raised shadow-[0_1px_2px_rgba(0,0,0,.03),0_6px_20px_rgba(0,0,0,.05)] transition-[border-color,box-shadow] focus-within:border-line-strong focus-within:shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_28px_rgba(0,0,0,.08)]',
         'rounded-[20px]',
         dragging && 'border-accent',
       )}
@@ -620,7 +692,8 @@ export function Composer({
       ) : null}
       <div
         className={cx(
-          'flex flex-wrap items-center gap-0.5',
+          'flex items-center gap-0.5',
+          !locked && 'flex-wrap',
           big ? 'px-2.5 pt-1.5 pb-2.5' : 'px-2.5 pt-1 pb-2.5',
         )}
       >
@@ -671,23 +744,9 @@ export function Composer({
             ) : null}
           </MenuContent>
         </Menu>
-        {locked && lockedAs ? (
-          // 会话页：目录、Agent、模型跟着会话走，只显示不能改
-          <>
-            <span
-              className={cx(chip, 'cursor-default hover:bg-transparent hover:text-fg-muted')}
-              title={lockedAs.workdir}
-            >
-              <Folder size={13} />
-              <span className="font-mono text-[0.929rem]">{basename(lockedAs.workdir)}</span>
-            </span>
-            <span className={cx(chip, 'cursor-default hover:bg-transparent hover:text-fg-muted')}>
-              <Bot size={13} />
-              <span>{lockedAs.agent}</span>
-            </span>
-          </>
-        ) : null}
-        {locked ? null : (
+        {locked ? (
+          permissionMenu
+        ) : (
           <>
             <Menu>
               <MenuTrigger
@@ -755,51 +814,20 @@ export function Composer({
           </>
         )}
         <span className="flex-1" />
+        {locked ? null : permissionMenu}
+        {context ? <ContextRing {...context} /> : null}
         <Menu>
           <MenuTrigger
-            className={
-              locked ? cx(chip, 'cursor-default hover:bg-transparent hover:text-fg-muted') : chip
-            }
-            title={t('composer.permission')}
-            disabled={locked}
+            className={cx(chip, 'min-w-0 shrink!', missing === 'model' && 'text-accent')}
+            title={locked ? t('composer.modelNext') : t('composer.model')}
           >
-            <Shield size={13} />
-            <span>{t(`perm.${lockedAs?.permissionMode ?? resolved.permissionMode}`)}</span>
+            <span className="min-w-0 truncate font-mono text-[0.929rem]">{modelLabel}</span>
+            <ChevronDown size={12} className="shrink-0" />
           </MenuTrigger>
           <MenuContent align="end">
-            <MenuLabel>{t('composer.permissionTitle')}</MenuLabel>
-            <MenuRadioGroup
-              value={resolved.permissionMode}
-              onValueChange={(v) => prefs.set({ permissionMode: v as (typeof PERMS)[number] })}
-            >
-              {PERMS.map((p) => (
-                <MenuRadioItem key={p} value={p}>
-                  <span className="block">{t(`perm.${p}`)}</span>
-                  <small className="block text-[0.929rem] text-fg-muted">
-                    {t(`perm.${p}.note`)}
-                  </small>
-                </MenuRadioItem>
-              ))}
-            </MenuRadioGroup>
-          </MenuContent>
-        </Menu>
-        {locked && lockedAs ? (
-          <span className={cx(chip, 'cursor-default hover:bg-transparent hover:text-fg-muted')}>
-            <span className="font-mono text-[0.929rem]">
-              {lockedAs.model.slice(lockedAs.model.indexOf('/') + 1)}
-            </span>
-          </span>
-        ) : null}
-        {locked ? null : (
-          <Menu>
-            <MenuTrigger
-              className={cx(chip, missing === 'model' && 'text-accent')}
-              title={t('composer.model')}
-            >
-              <span className="font-mono text-[0.929rem]">{modelLabel}</span>
-              <ChevronDown size={12} />
-            </MenuTrigger>
-            <MenuContent align="end">
+            {locked ? (
+              <MenuLabel>{t('composer.modelNext')}</MenuLabel>
+            ) : (
               <MenuSegmented
                 label={t('composer.kernel')}
                 value={resolved.kernel}
@@ -809,31 +837,34 @@ export function Composer({
                   { value: 'codeagent', label: 'CodeAgent' },
                 ]}
               />
-              {gateways.length === 0 ? (
-                <p className="m-0 px-2 py-2 text-fg-muted">{t('composer.noGateway')}</p>
-              ) : null}
-              {gateways.map((g) => (
-                <MenuRadioGroup
-                  key={g.id}
-                  value={resolved.model}
-                  onValueChange={(v) => prefs.set({ model: v })}
-                >
-                  <MenuLabel>{g.name || g.id}</MenuLabel>
-                  {g.models.map((m) => (
-                    <MenuRadioItem key={m.id} value={`${g.id}/${m.id}`}>
-                      <span className="font-mono text-[0.929rem]">{m.id}</span>
-                    </MenuRadioItem>
-                  ))}
-                </MenuRadioGroup>
-              ))}
-              <MenuSeparator />
-              <MenuItem onSelect={() => navigate('/settings/model')}>
-                <SlidersHorizontal size={14} className="text-fg-muted" />
-                {t('composer.modelSettings')}
-              </MenuItem>
-            </MenuContent>
-          </Menu>
-        )}
+            )}
+            {gateways.length === 0 ? (
+              <p className="m-0 px-2 py-2 text-fg-muted">{t('composer.noGateway')}</p>
+            ) : null}
+            {gateways.map((g) => (
+              <MenuRadioGroup
+                key={g.id}
+                value={model}
+                onValueChange={(v) => {
+                  if (locked) change(onModel?.(v))
+                  else prefs.set({ model: v })
+                }}
+              >
+                <MenuLabel>{g.name || g.id}</MenuLabel>
+                {g.models.map((m) => (
+                  <MenuRadioItem key={m.id} value={`${g.id}/${m.id}`}>
+                    <span className="font-mono text-[0.929rem]">{m.id}</span>
+                  </MenuRadioItem>
+                ))}
+              </MenuRadioGroup>
+            ))}
+            <MenuSeparator />
+            <MenuItem onSelect={() => navigate('/settings/model')}>
+              <SlidersHorizontal size={14} className="text-fg-muted" />
+              {t('composer.modelSettings')}
+            </MenuItem>
+          </MenuContent>
+        </Menu>
         {onStop && !text.trim() && files.length === 0 ? (
           <button
             type="button"
