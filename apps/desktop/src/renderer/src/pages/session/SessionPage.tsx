@@ -9,7 +9,6 @@ import {
   Minimize2,
   PanelRightClose,
   PanelRightOpen,
-  Square,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
@@ -233,18 +232,6 @@ export function SessionPage() {
             .filter(Boolean)
             .join(' · ')}
         </span>
-        {running ? (
-          <button
-            type="button"
-            onClick={() => void kits.session.abort(session.id)}
-            // macOS 顶部有一条全宽的拖动窗口层，按钮要浮在它上面、不参与拖动
-            className="relative z-20 inline-flex h-[30px] shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[8px] border border-line bg-raised px-2.5 text-[0.923rem] text-fg [-webkit-app-region:no-drag] hover:bg-active"
-          >
-            <Square size={10} fill="currentColor" />
-            {t('session.stop')}
-            <span className="text-[0.846rem] text-fg-subtle">{shortcuts.stop.label}</span>
-          </button>
-        ) : null}
         <PanelButton />
       </header>
       <div className="flex min-h-0 flex-1">
@@ -253,7 +240,8 @@ export function SessionPage() {
           aria-label={t('session.thread')}
           onScroll={thread.onScroll}
           className={cx(
-            'flex min-h-0 min-w-0 flex-col overflow-y-auto',
+            // 滚动条的位置一直留着：内容刚超出一屏时宽度不变，文字不用重排
+            'flex min-h-0 min-w-0 flex-col overflow-y-auto [scrollbar-gutter:stable]',
             panel === 'wide'
               ? // 窗口窄时给右边的面板留够地方
                 'max-w-[calc(100%-360px)] shrink-0 border-line-soft border-r bg-panel px-5 pt-5'
@@ -351,6 +339,7 @@ export function SessionPage() {
               onSubmit={({ text, attachments }) =>
                 kits.session.prompt({ id: session.id, text, attachments })
               }
+              {...(running ? { onStop: () => void kits.session.abort(session.id) } : {})}
             />
           </div>
         </section>

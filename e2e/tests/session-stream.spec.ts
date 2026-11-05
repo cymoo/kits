@@ -42,7 +42,77 @@ test('streams a turn from the home page to done', async () => {
   }
 })
 
-test('stops a running turn from the header and with the shortcut', async () => {
+test('stops a running turn with the composer button, which turns into send with a draft', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'streaming',
+    KITS_MOCK_SPEED: '3',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('慢慢做')
+    await box.press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/运行中/)
+    const stop = page.getByRole('button', { name: '停止', exact: true })
+    await expect(stop).toBeVisible()
+    await box.fill('顺便看下日志')
+    await expect(stop).toBeHidden()
+    await expect(page.getByRole('button', { name: '发送', exact: true })).toBeEnabled()
+    await box.fill('')
+    await stop.click()
+    await expect(page.getByTestId('session-status')).toHaveText('已停止')
+    await expect(stop).toBeHidden()
+  } finally {
+    await close()
+  }
+})
+
+test('wraps a long unbroken user message inside the thread', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'done',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill(`D:/logs/${'very-long-path-segment-'.repeat(30)}app.log`)
+    await box.press('Enter')
+    const message = page.getByTestId('user-message')
+    await expect(message).toBeVisible()
+    const thread = page.getByRole('region', { name: '对话' })
+    const [m, t] = [await message.boundingBox(), await thread.boundingBox()]
+    expect((m?.x ?? 0) + (m?.width ?? 0)).toBeLessThanOrEqual((t?.x ?? 0) + (t?.width ?? 0))
+    expect(await thread.evaluate((el) => el.scrollWidth - el.clientWidth)).toBe(0)
+  } finally {
+    await close()
+  }
+})
+
+test('shows running text inside the work process and moves the answer out at the end', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'streaming',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('慢慢做')
+    await box.press('Enter')
+    await expect(page.getByTestId('turn').getByTestId('live-text').first()).toBeVisible()
+    await expect(page.getByTestId('answer')).toBeHidden()
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    await expect(page.getByTestId('answer')).toBeVisible()
+    await expect(page.getByTestId('live-text')).toBeHidden()
+  } finally {
+    await close()
+  }
+})
+
+test('stops a running turn with the shortcut', async () => {
   const { page, configDir, close } = await launchApp({
     KITS_KERNEL: 'mock',
     KITS_MOCK_SCENARIO: 'streaming',

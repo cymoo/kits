@@ -62,6 +62,8 @@ export interface Step {
   startedAt?: number
   // meta 是改了多少行
   isStat?: boolean
+  // 这一轮还在跑时模型说的话：整段放在工作过程里，caret 表示还在输出。结束后才分出最终回复，运行中不搬动
+  live?: { text: string; caret: boolean }
 }
 
 export type Block =
@@ -80,7 +82,7 @@ export type Block =
       summary: { tasks: number; reads: number; searches: number; commands: number; calls: number }
       failed: number
     }
-  | { kind: 'text'; id: string; text: string; streaming: boolean }
+  | { kind: 'text'; id: string; text: string }
   | { kind: 'status'; id: string; text: string; since: number }
   | {
       kind: 'permission'
@@ -554,8 +556,18 @@ export function deriveBlocks(
       const payload = p.payload
       if (payload.type === 'reasoning') reasoning.push(payload.text)
       else if (payload.type === 'text') {
-        if (i > lastTool) answer.push(payload.text)
-        else if (payload.text.trim()) {
+        if (!running && i > lastTool) answer.push(payload.text)
+        else if (payload.text.trim() && running) {
+          steps.push({
+            id: p.id,
+            kind: '说明',
+            verb: '',
+            icon: 'note',
+            detail: '',
+            state: 'done',
+            live: { text: payload.text.trim(), caret: i > lastTool },
+          })
+        } else if (payload.text.trim()) {
           const said = payload.text.trim()
           const line = said.split('\n')[0] ?? ''
           steps.push({
@@ -685,7 +697,7 @@ export function deriveBlocks(
       blocks.push({ kind: 'retry', id: lastPart.id, attempt, message, nextAt })
     }
     const text = answer.join('')
-    if (text) blocks.push({ kind: 'text', id: `${m.id}:text`, text, streaming: running })
+    if (text) blocks.push({ kind: 'text', id: `${m.id}:text`, text })
     if (error) {
       blocks.push({
         kind: 'error',
@@ -695,7 +707,7 @@ export function deriveBlocks(
         ...(parts.every((p) => p.type === 'error') ? { resend: lastUserText } : {}),
       })
     }
-    // 状态行：这一轮还在跑，而且最近 2 秒没有新内容（等模型首字、工具在跑）；
+    // 状态行：这一轮跑着就一直在，只换文字，不然每隔 2 秒没新内容就多一行、来了内容又少一行，对话会跳；
     // 在等你确认 / 回答、在重试时不显示
     const waiting = cards.some(
       (c) =>
@@ -708,15 +720,16 @@ export function deriveBlocks(
       // 子任务在跑时写到它正在做的那一步
       const inner = runningStep?.subSteps?.findLast((s) => s.state === 'running')
       const innerTitle = inner ? ` · ${inner.verb} ${inner.desc || inner.detail}` : ''
-      if (now - last > 2_000 || parts.length === 0) {
-        const text =
-          activity?.state === 'retry'
-            ? '模型网关断开，正在重试'
-            : runningStep
-              ? `正在${runningStep.kind}${stepTitle ? `：${stepTitle}` : ''}${innerTitle}`
-              : '等待模型回复'
-        blocks.push({ kind: 'status', id: `${m.id}:status`, text, since: last })
-      }
+      const idle = now - last > 2_000 || parts.length === 0
+      const text =
+        idle && activity?.state === 'retry'
+          ? '模型网关断开，正在重试'
+          : runningStep
+            ? `正在${runningStep.kind}${stepTitle ? `：${stepTitle}` : ''}${innerTitle}`
+            : idle
+              ? '等待模型回复'
+              : '正在回复'
+      blocks.push({ kind: 'status', id: `${m.id}:status`, text, since: last })
     }
   }
   return blocks

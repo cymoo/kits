@@ -93,7 +93,7 @@ describe('deriveBlocks', () => {
       ['修改文件', 'src/points/redeem.py'],
     ])
     expect(turn).toMatchObject({ state: 'done', reasoning: '先看接口', filesChanged: 1 })
-    expect(blocks[2]).toMatchObject({ text: '改好了。', streaming: false })
+    expect(blocks[2]).toMatchObject({ text: '改好了。' })
   })
 
   it('shows a waiting status line before the first part arrives', () => {
@@ -116,15 +116,38 @@ describe('deriveBlocks', () => {
     expect(blocks.at(-1)).toMatchObject({ text: '模型网关断开，正在重试' })
   })
 
-  it('streams the answer without a status line while text keeps coming', () => {
+  it('keeps running text in the work process so nothing moves when a tool starts', () => {
+    seq = 0
+    const said = part({ type: 'text', text: '先看一下接口\n再改' }, null, 9)
+    const before = deriveBlocks(detail([said]), undefined, 10)
+    expect(before.map((b) => b.kind)).toEqual(['user', 'turn', 'status'])
+    const turn = before[1]
+    expect(turn?.kind === 'turn' && turn.steps[0]?.live).toEqual({
+      text: '先看一下接口\n再改',
+      caret: true,
+    })
+    const tool = part(
+      { type: 'tool', name: 'read', callId: 'c1', input: { filePath: '/w/a.py' } },
+      'running',
+      9,
+    )
+    const after = deriveBlocks(detail([said, tool]), undefined, 10)
+    expect(after.map((b) => b.kind)).toEqual(['user', 'turn', 'status'])
+    const next = after[1]
+    expect(next?.kind === 'turn' && next.steps[0]?.live).toEqual({
+      text: '先看一下接口\n再改',
+      caret: false,
+    })
+  })
+
+  it('keeps the status line while text keeps coming and only changes its words', () => {
     seq = 0
     const blocks = deriveBlocks(
       detail([part({ type: 'text', text: '正在' }, null, 9)]),
       undefined,
       10,
     )
-    expect(blocks.map((b) => b.kind)).toEqual(['user', 'text'])
-    expect(blocks[1]).toMatchObject({ streaming: true })
+    expect(blocks.at(-1)).toMatchObject({ kind: 'status', text: '正在回复' })
   })
 
   it('adds an error block for a failed turn and marks the work process failed', () => {
@@ -594,10 +617,13 @@ describe('tool steps', () => {
   it('keeps the whole text of a multi-line note and titles it with the first line', () => {
     seq = 0
     const blocks = deriveBlocks(
-      detail([
-        part({ type: 'text', text: '先看代码。\n再改。' }),
-        tool('read', { filePath: '/repo/member-svc/a.py' }),
-      ]),
+      detail(
+        [
+          part({ type: 'text', text: '先看代码。\n再改。' }),
+          tool('read', { filePath: '/repo/member-svc/a.py' }),
+        ],
+        { completedAt: 9, finishReason: 'completed' },
+      ),
     )
     const turn = blocks.find((b) => b.kind === 'turn')
     expect(turn?.kind === 'turn' && turn.steps[0]).toMatchObject({

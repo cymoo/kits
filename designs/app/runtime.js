@@ -81,7 +81,7 @@
       const tag = node.localName
       if (window.kitsTags && window.kitsTags[tag]) {
         // 共用组件（shell.js 里的侧栏、输入框），每次渲染放回同一个节点，里面的状态不会丢
-        out.appendChild(window.kitsTags[tag](node))
+        out.appendChild(window.kitsTags[tag](node, (expr) => hole(expr, scope)))
       } else if (tag === 'sc-if') {
         if (hole(node.getAttribute('value'), scope)) render(node, scope, out)
       } else if (tag === 'sc-for') {
