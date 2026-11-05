@@ -15,6 +15,7 @@ packages/kernel/          AgentKernel 接口、OpenCode 系适配器（公共接
 e2e/                      Playwright 端到端测试，直接启动 Electron
 evals/                    评测集（JSONL）和脚本
 scripts/                  构建辅助脚本（vendor-kernel：把内核二进制拷到 vendor/ 供打包）
+third_party/              随应用带的三方二进制（ripgrep），来源和校验值见各目录的 README
 .github/workflows/        CI：在 Windows 上跑 lint、typecheck、单测、构建、E2E
 .agents/skills/           开发用的技能（所有工具共用，改动走 PR）
 .agents/agents/           Agent 定义：feature-dev（做功能）、acceptance（验收）

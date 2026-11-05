@@ -11,7 +11,7 @@ import type {
   KernelExit,
   SpawnedKernel,
 } from '../kernel'
-import { openLog, stopChild, tail } from './child'
+import { openLog, prependPath, stopChild, tail } from './child'
 
 // OpenCode 方言：指定空闲端口启动 `opencode serve`，轮询 /global/health 等待就绪。
 // 每次启动生成随机密码，服务端走 Basic Auth（用户名固定为 opencode），同机其他进程调不了内核接口。
@@ -72,12 +72,13 @@ async function waitForHealth(
 // 外部技能不关：它会从会话目录往上找到仓库根，读项目的 .agents/skills（kits 的项目技能）；
 // “全局”那一份在 {OPENCODE_TEST_HOME}/.agents/skills，也就是 kits 的数据目录，不会读到用户家目录里的技能。
 // cfg.env（网关 key 等）最后叠上，配置文件里用 `{env:…}` 引用。
+// toolsDir 里是随应用带的 ripgrep：内核的 grep、glob 要用它，放到 PATH 上内核就不去 GitHub 下载（内网连不上）。
 // 只给子进程设，别 export 到当前 shell：XDG_DATA_HOME 会影响 fnm 之类的工具。
 export function spawnEnv(
   cfg: KernelConfig,
   base: NodeJS.ProcessEnv = process.env,
 ): Record<string, string | undefined> {
-  return {
+  const env = {
     ...base,
     OPENCODE_CONFIG_DIR: cfg.configDir,
     XDG_DATA_HOME: cfg.dataDir,
@@ -91,6 +92,7 @@ export function spawnEnv(
     OPENCODE_DISABLE_LSP_DOWNLOAD: '1',
     ...cfg.env,
   }
+  return prependPath(env, cfg.toolsDir)
 }
 
 // 内核启动时会往每个配置目录 npm install @opencode-ai/plugin，有插件时（kits 的 describe-bash）加载前还要等它结束：

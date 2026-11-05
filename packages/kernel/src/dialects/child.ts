@@ -4,6 +4,18 @@ import path from 'node:path'
 
 // 两个方言共用的子进程小工具：日志文件、输出尾巴、结束进程树。
 
+// 把目录加到 PATH 最前面。Windows 上变量名不分大小写，展开成普通对象后可能叫 Path，要沿用原来的键，不然会有两份
+export function prependPath(
+  env: Record<string, string | undefined>,
+  dir: string | undefined,
+  delimiter: string = path.delimiter,
+): Record<string, string | undefined> {
+  if (!dir) return env
+  const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH'
+  const current = env[key]
+  return { ...env, [key]: current ? `${dir}${delimiter}${current}` : dir }
+}
+
 // 日志写不了（目录没权限、磁盘满）不能变成主进程的未捕获异常：出错后就不再写文件，输出照样留在内存里
 export function openLog(file: string, title: string) {
   let stream: WriteStream | undefined

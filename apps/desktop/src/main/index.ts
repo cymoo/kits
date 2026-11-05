@@ -79,6 +79,19 @@ function resourcesFolder(): string {
     : path.resolve(import.meta.dirname, '../../resources')
 }
 
+// 随应用带的 ripgrep（打包后在 resources/bin/ripgrep，开发时在 third_party/ripgrep/<os>-<arch>，
+// 目录名和 electron-builder 的 ${os}-${arch} 一样；这个平台没有时目录不存在，放到 PATH 上也没影响）
+function toolsFolder(): string {
+  const osName = { darwin: 'mac', win32: 'win' }[process.platform as string] ?? process.platform
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'bin', 'ripgrep')
+    : path.resolve(
+        import.meta.dirname,
+        '../../../../third_party/ripgrep',
+        `${osName}-${process.arch}`,
+      )
+}
+
 function migrationsFolder(): string {
   return app.isPackaged
     ? path.join(process.resourcesPath, 'drizzle')
@@ -154,6 +167,7 @@ app.whenReady().then(() => {
     tools,
     onStatus: (status) => push('kernel.status', status),
     builtinDir: builtinFolder(),
+    toolsDir: toolsFolder(),
   })
   onConfigChanged = () => kernels.configChanged()
 

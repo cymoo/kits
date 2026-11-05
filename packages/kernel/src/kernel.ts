@@ -17,6 +17,8 @@ export interface KernelConfig {
   env: Record<string, string>
   // 子进程的 stdout / stderr 追加写到这个文件；不传就只留在内存里（最后 64 KB）
   logFile?: string
+  // 随应用带的工具目录（ripgrep），加到子进程 PATH 最前面
+  toolsDir?: string
 }
 
 // 内核进程意外退出（不是 close 关掉的）

@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { resolveEnvRefs, toCodeagentFiles } from '../generate/codeagent-config'
 import { DESCRIBE_BASH_PLUGIN_PATH } from '../generate/describe-bash-plugin'
@@ -32,6 +33,16 @@ describe('codeagentEnv', () => {
       { PATH: '/bin' },
     )
     expect(env).toMatchObject({ PATH: '/bin', XDG_DATA_HOME: '/d', KITS_GW_CORP_KEY: 'k' })
+  })
+})
+
+describe('codeagentEnv toolsDir', () => {
+  it('goes first on PATH', () => {
+    const cfg = { binary: '', configDir: '/c', dataDir: '/d', env: {}, toolsDir: '/kits/rg' }
+    expect(codeagentEnv(cfg, { PATH: '/bin' }).PATH?.split(path.delimiter)).toEqual([
+      '/kits/rg',
+      '/bin',
+    ])
   })
 })
 

@@ -29,6 +29,8 @@ export interface KernelRuntimeDeps {
   env?: NodeJS.ProcessEnv
   // resources/builtin：内置技能
   builtinDir?: string
+  // 随应用带的工具目录（ripgrep）
+  toolsDir?: string
 }
 
 function mockScenario(env: NodeJS.ProcessEnv): MockScenarioName {
@@ -90,6 +92,7 @@ export function createKernelManager(deps: KernelRuntimeDeps): KernelManager {
         dataDir: dirs.data,
         env: files.env,
         logFile: logFileFor(dirs),
+        ...(deps.toolsDir ? { toolsDir: deps.toolsDir } : {}),
       },
     }
   }
