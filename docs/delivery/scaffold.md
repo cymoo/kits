@@ -77,3 +77,39 @@
 - `opencodeDialect.writeConfig` 未实现，`permissionReplyPath` 的接口路径待按锁定版本实测（phase1 方案 4.3 节标了“待实测”）。
 - 渲染进程的生产包 567 kB，没查是什么占的，做会话页时顺手看一下。
 - 没有手改 AI 代码的地方。
+
+## 2026-11-05　E2E 跑的时候不占屏幕
+
+> 日期：2026-11-05　PR：见本分支 `chore/e2e-hidden-window`　作者：Claude Code
+
+### 原始需求
+
+E2E 跑的时候窗口一个接一个弹出来抢焦点，这段时间没法干活。希望能以 headless 方式运行。
+
+### 怎么验收
+
+1. 运行 `pnpm build && pnpm test:e2e`，同时在别的应用里打字。预期：看不到 kits 窗口，程序坞没有图标跳动，打字基本不受影响。
+2. 运行 `E2E_HEADED=1 pnpm test:e2e`。预期：窗口和以前一样弹出来，方便看测试过程。
+
+### 主要改动
+
+- `apps/desktop/src/main/index.ts`：新增环境变量 `KITS_HIDDEN_WINDOW=1`，窗口全透明、鼠标穿透、不抢焦点，不做后台降频；mac 上用 accessory 模式，不进程序坞。
+- `e2e/tests/app.ts`：默认打开这个开关，设了 `E2E_HEADED` 时关掉。
+- README 和 `e2e-test` 技能写明了用法。
+
+用户配置项、数据库 schema 没有变化。
+
+### 测试
+
+本机 macOS 跑全量 75 条 E2E 全部通过，窗口透明度读出来是 0，Playwright 截图内容正常。跑的时候每 0.25 秒记录一次前台应用：1.8 分钟里只有 2 次采样落在测试窗口上。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- Electron 没有真正的 headless，这里是窗口看不见、点不到，进程和渲染都还在。
+- 关窗后再打开的两条用例（`desktop.spec.ts`）走的是正常的 `win.show()`，会短暂抢一下焦点，每次不到半秒。为这两条再加测试分支不划算，所以没改。
+- 不用屏幕外坐标：实测 macOS 会把窗口拉回屏幕内。
+- 只在 macOS 上跑过。Windows 的透明窗口和鼠标穿透没有实测，CI 恢复后要看一次。Linux 上 `setOpacity` 不生效，要用 xvfb。

@@ -32,6 +32,8 @@ pnpm check
 pnpm build && pnpm test:e2e
 ```
 
+E2E 的窗口默认全透明，跑测试时不影响用电脑。要看窗口就在命令前加 `E2E_HEADED=1`。
+
 ## 打包和发布
 
 安装包在本机架构上打（内核二进制按架构来）：先把内核拷到 `vendor/`，再打包，产物在 `apps/desktop/release/`。`vendor/` 里没有目标平台的内核时打包会直接失败，所以 Windows 包要在 Windows 上打，不能在 mac 上交叉打。

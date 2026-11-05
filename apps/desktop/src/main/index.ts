@@ -39,6 +39,11 @@ if (process.env.KITS_USER_DATA_DIR) {
   app.setPath('userData', process.env.KITS_USER_DATA_DIR)
 }
 
+// E2E 跑的时候不打扰正在用电脑的人：窗口全透明、鼠标穿透、不抢焦点，mac 上也不进程序坞。
+// 不用屏幕外坐标：macOS 会把窗口拉回屏幕内
+const hiddenWindow = process.env.KITS_HIDDEN_WINDOW === '1'
+if (hiddenWindow && process.platform === 'darwin') app.setActivationPolicy('accessory')
+
 // 把窗口叫回来。窗口开好之前是空的：启动完窗口自己会显示
 let reveal = () => {}
 
@@ -108,6 +113,7 @@ const isTrusted = trustedUrl(rendererEntry())
 
 function createWindow(onFocus: () => void): BrowserWindow {
   const win = new BrowserWindow({
+    show: !hiddenWindow,
     width: 1280,
     height: 820,
     minWidth: 900,
@@ -119,8 +125,14 @@ function createWindow(onFocus: () => void): BrowserWindow {
       preload: path.join(import.meta.dirname, '../preload/index.cjs'),
       sandbox: true,
       contextIsolation: true,
+      backgroundThrottling: !hiddenWindow,
     },
   })
+  if (hiddenWindow) {
+    win.setOpacity(0)
+    win.setIgnoreMouseEvents(true)
+    win.showInactive()
+  }
   // 窗口只显示应用自己的页面：站外链接交给系统浏览器，不在窗口里打开、不让页面跳走
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) void shell.openExternal(url)

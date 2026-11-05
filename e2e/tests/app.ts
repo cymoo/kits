@@ -38,6 +38,8 @@ export async function launchApp(
       KITS_USER_DATA_DIR: userDataDir,
       KITS_WORKSPACE_DIR: path.join(root, 'kits-workspace'),
       KITS_SKIP_ONBOARDING: '1',
+      // 窗口全透明，跑测试时还能干活；要看窗口就设 E2E_HEADED=1
+      KITS_HIDDEN_WINDOW: process.env.E2E_HEADED ? '0' : '1',
     },
     env,
   )
