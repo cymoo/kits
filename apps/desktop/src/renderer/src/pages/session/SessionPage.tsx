@@ -297,8 +297,6 @@ export function SessionPage() {
         <span className="flex-1" />
         <SessionMenu
           session={session}
-          contextPct={contextWindow ? (usage.context / contextWindow) * 100 : undefined}
-          onContext={() => setContextOpen(true)}
           onRename={() => setRenaming(true)}
           onExported={(path) => setNotice({ path })}
           onFailed={(error) => setNotice({ error })}
@@ -463,15 +461,11 @@ export function SessionPage() {
               lockedAs={session}
               onPermission={(mode) => kits.session.setPermissionMode({ id: session.id, mode })}
               onModel={(next) => kits.session.setModel({ id: session.id, model: next })}
-              context={
-                contextWindow
-                  ? {
-                      used: usage.context,
-                      window: contextWindow,
-                      onOpen: () => setContextOpen(true),
-                    }
-                  : undefined
-              }
+              context={{
+                used: usage.context,
+                window: contextWindow,
+                onOpen: () => setContextOpen(true),
+              }}
               placeholder={t('composer.followUp')}
               onSubmit={({ text, attachments }) =>
                 kits.session.prompt({ id: session.id, text, attachments })

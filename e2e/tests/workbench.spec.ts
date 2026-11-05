@@ -218,12 +218,13 @@ test('manages the session from the header menu', async () => {
     await expect(header).toContainText('member-svc')
     const more = header.getByRole('button', { name: '更多操作' })
 
-    await more.click()
-    await page.getByRole('menuitem', { name: /查看上下文/ }).click()
+    // 上下文从输入框的用量环进，菜单里不重复
+    await page.getByTestId('context-ring').click()
     await expect(page.getByRole('dialog', { name: '上下文' })).toContainText('coder-main')
     await page.keyboard.press('Escape')
 
     await more.click()
+    await expect(page.getByRole('menu')).not.toContainText('上下文')
     await page.getByRole('menuitem', { name: '导出 Markdown' }).click()
     await expect(page.getByRole('status').filter({ hasText: '已导出到' })).toContainText('.md')
     const dir = path.join(userDataDir, 'exports')

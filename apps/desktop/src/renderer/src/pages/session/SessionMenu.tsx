@@ -1,15 +1,5 @@
 import type { SessionSummary } from '@kits/core/ipc'
-import {
-  Download,
-  Ellipsis,
-  FolderOpen,
-  Gauge,
-  Minimize2,
-  Pencil,
-  Pin,
-  PinOff,
-  Trash2,
-} from 'lucide-react'
+import { Download, Ellipsis, FolderOpen, Pencil, Pin, PinOff, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { t } from '../../app/i18n'
 import { errorText } from '../../lib/errors'
@@ -19,26 +9,21 @@ import { isBusy } from '../../lib/workspaces'
 import { RemoveDialog } from '../../shell/SessionRow'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/Menu'
 
-// 顶栏的 … 菜单（原型 session.html）：上下文、导出、这个会话的管理。
+// 顶栏的 … 菜单（原型 session.html）：导出和这个会话的管理。上下文在输入框的用量环里。
 
 export function SessionMenu({
   session,
-  contextPct,
-  onContext,
   onRename,
   onExported,
   onFailed,
 }: {
   session: SessionSummary
-  // 上下文用了百分之几；不知道窗口时没有
-  contextPct: number | undefined
-  onContext(): void
   onRename(): void
   onExported(path: string): void
   onFailed(message: string): void
 }) {
   const [removing, setRemoving] = useState(false)
-  // 选了改名、上下文、删除：焦点交给输入框或对话框，不回到按钮
+  // 选了改名、删除：焦点交给输入框或对话框，不回到按钮
   const handedOff = useRef(false)
   const busy = isBusy(session)
   const pinned = session.pinnedAt !== null
@@ -48,13 +33,6 @@ export function SessionMenu({
       onExported(path)
     } catch (e) {
       onFailed(t('session.exportFailed', { error: errorText(e) }))
-    }
-  }
-  const compact = async () => {
-    try {
-      await kits.session.compact(session.id)
-    } catch (e) {
-      onFailed(errorText(e))
     }
   }
   return (
@@ -75,25 +53,6 @@ export function SessionMenu({
             handedOff.current = false
           }}
         >
-          <MenuItem
-            onSelect={() => {
-              handedOff.current = true
-              onContext()
-            }}
-          >
-            <Gauge size={14} />
-            <span className="min-w-0 flex-1">{t('session.viewContext')}</span>
-            {contextPct === undefined ? null : (
-              <span className="text-[0.857rem] text-fg-subtle tabular-nums">
-                {Math.round(contextPct)}%
-              </span>
-            )}
-          </MenuItem>
-          <MenuItem disabled={busy || session.turns === 0} onSelect={() => void compact()}>
-            <Minimize2 size={14} />
-            {t('context.compact')}
-          </MenuItem>
-          <MenuSeparator />
           <MenuItem onSelect={() => void exportAs('markdown')}>
             <Download size={14} />
             {t('session.exportMarkdown')}

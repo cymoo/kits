@@ -238,3 +238,37 @@ CI 的 `pnpm test` 通过，后面的 Windows E2E 能跑到。
 
 无。
 
+## 2026-11-06　顶栏菜单去掉上下文两项
+
+> PR：分支 `fix/session-menu-context`　作者：Claude Code
+
+### 原始需求
+
+顶栏 `…` 菜单里的“查看上下文”“压缩上下文”和输入框的用量环重复。
+
+### 怎么验收
+
+1. `…` 菜单只有导出 Markdown、导出 JSON、在访达中显示、重命名、置顶、删除。
+2. 点输入框的用量环：打开上下文对话框，压缩按钮在里面。
+3. 会话的模型从设置里删掉后（不知道窗口大小），用量环还在，只是没有百分比，也能点开。
+
+### 主要改动
+
+- `SessionMenu.tsx`：去掉两项。
+- `Composer.tsx`、`SessionPage.tsx`：用量环一直显示，否则不知道窗口大小时上下文就没有入口了。
+- 原型 `session.html`、`designs/README.md`、方案同步。
+
+配置项、数据库 schema 没有变化。
+
+### 测试
+
+- E2E：`workbench.spec.ts` 的 `manages the session from the header menu`，`session-stream.spec.ts` 的 `reaches the context from the ring when the model window is unknown`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+无。
+
