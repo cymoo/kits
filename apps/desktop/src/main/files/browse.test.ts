@@ -7,6 +7,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs'
+import { realpath } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -65,7 +66,8 @@ describe('resolveInside', () => {
 
   it('follows a link that stays inside', async () => {
     symlinkSync(path.join(work, 'README.md'), path.join(work, 'link.md'))
-    expect(await resolveInside(work, 'link.md')).toBe(path.join(work, 'README.md'))
+    // 用同一个 realpath 比：Windows 的临时目录是 8.3 短路径，同步版不展开
+    expect(await resolveInside(work, 'link.md')).toBe(await realpath(path.join(work, 'README.md')))
   })
 
   it('does not mistake a sibling with the same prefix for the workspace', async () => {
