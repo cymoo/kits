@@ -57,6 +57,7 @@ const zhCN = {
   'composer.atHint.insert': '↵ 引用',
   'composer.atHint.close': 'Esc 关闭',
   'composer.send': '发送',
+  'composer.queue': '排队发送',
   'composer.missing.workdir': '先选一个工作目录',
   'composer.missing.model': '先到设置里配一个模型网关',
   'composer.followUp': '接着说…',

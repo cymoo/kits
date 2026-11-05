@@ -557,14 +557,15 @@
     const ta = box.querySelector('textarea')
     const send = box.querySelector('.kc-send')
     const menu = box.querySelector('.kc-menu')
-    // 运行中输入框是空的：这个按钮是停止；有文字时是发送（这一轮结束后送出），停止走快捷键
+    // 运行中输入框是空的：这个按钮是停止；有文字时是排队发送（这一轮结束后送出），停止走快捷键
     let running = false
     const paint = () => {
       const stop = running && !ta.value.trim()
       send.disabled = !stop && !ta.value.trim()
       send.innerHTML = svg(stop ? 'stop' : 'up', 14, 1.8)
-      send.setAttribute('aria-label', stop ? '停止' : '发送')
-      send.title = stop ? '停止 ⌘.' : '发送 ↵'
+      const label = stop ? '停止' : running ? '排队发送' : '发送'
+      send.setAttribute('aria-label', label)
+      send.title = `${label} ${stop ? '⌘.' : '↵'}`
     }
     const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 220) + 'px'; paint() }
 
