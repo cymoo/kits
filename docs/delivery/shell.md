@@ -317,3 +317,45 @@
 ### 已知问题
 
 无。
+
+## 2026-11-06　界面改版 5：按工作区分组的侧栏
+
+> PR：分支 `feat/shell-workspace-sidebar`　作者：Claude Code
+
+### 原始需求
+
+侧栏的会话是平铺的，看不出属于哪个工作区。见[界面改版方案](../plans/2026-11-ui-refresh.md)的决策 3、3a。
+
+### 怎么验收
+
+1. 侧栏：置顶单独一组放最前；其余按工作区分组，行尾是相对时间（刚刚、12 分钟、昨天、3 天）。
+2. 点组标题折叠，重开应用还在；当前会话所在的组折不起来。折起来的组里有会话在运行或等处理时，组标题上有状态点。
+3. 一个工作区超过 5 个会话时有“显示其余 N 个”。
+4. 组标题的 `+`：进首页，输入框选好这个工作区。“工作区”标题右边的按钮添加新目录。
+5. 组标题的 `…` 或右键：重命名（只改显示名，鼠标移到组标题上看路径）、在访达中显示。
+6. 移除工作区：确认框写明要删几个会话，磁盘上的文件不动；确认后这些会话消失；正看着其中一个时回到首页。有会话在运行时这一项是灰的。
+7. 界面上不再出现“工作目录”，右侧面板叫“面板”。
+
+### 主要改动
+
+- `lib/workspaces.ts`：工作区 = 设置里的目录和会话目录的并集，旧数据不用迁移。组的顺序按最近开始的会话算，后台会话有新内容时组不跳。
+- `shell/WorkspaceGroup.tsx`、`SessionList.tsx`、`SessionRow.tsx`：分组、折叠、菜单、相对时间。就地改名抽成 `InlineRename.tsx`。
+- `workdir.rename`、`workdir.remove` 两个 IPC；`SessionService.removeWorkdir` 先挡运行中的会话，再在一个事务里删。
+- `settings.workdirs[].label`：新配置项，可选。最近使用的目录从 10 个放宽到 20 个，重新选中时保留改过的名字。
+- `workdirKey`：比较路径前去掉末尾分隔符，Windows 不分大小写。
+- 数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`workspaces.test.ts`、`relative-time.test.ts`、`workdir.test.ts`，`session-service.test.ts` 的 `SessionService removeWorkdir`（含删到一半失败时全部保留）。
+- E2E：`history.spec.ts` 的 `groups the sidebar by workspace and folds a group`、`removes a workspace together with its sessions after confirming`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 内核里的会话不删，和删单个会话一样。
+- 按时间看会话走“全部会话”，侧栏只有工作区一种分组。
+

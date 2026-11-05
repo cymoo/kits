@@ -6,6 +6,7 @@ import type { Page } from '@playwright/test'
 export async function prepare(page: Page, configDir: string) {
   const workdir = path.join(path.dirname(configDir), 'member-svc')
   mkdirSync(workdir, { recursive: true })
+  const real = realpathSync(workdir)
   await page.evaluate(
     (dir) =>
       window.kits.settings.update({
@@ -21,7 +22,7 @@ export async function prepare(page: Page, configDir: string) {
         defaultModel: 'corp/coder-main',
         workdirs: [{ path: dir, lastUsedAt: 0 }],
       }),
-    workdir,
+    real,
   )
-  return realpathSync(workdir)
+  return real
 }

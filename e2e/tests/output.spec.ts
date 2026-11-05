@@ -26,7 +26,7 @@ test('edits the reply, keeps the AI draft apart and exports the edited markdown'
   try {
     await send(page, configDir, '给兑换接口加幂等校验')
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
-    const panel = page.getByRole('complementary', { name: '工作区面板' })
+    const panel = page.getByRole('complementary', { name: '会话面板' })
     await panel.getByRole('tab', { name: /产出/ }).click()
     const editor = panel.getByLabel('产出内容')
     await expect(editor).toHaveValue(/改好了/)
@@ -102,7 +102,7 @@ test('shows the JSON submitted by an agent with an output format and exports it'
     )
     await page.goto(`${page.url().split('#')[0]}#/s/${id}`)
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
-    const panel = page.getByRole('complementary', { name: '工作区面板' })
+    const panel = page.getByRole('complementary', { name: '会话面板' })
     const turn = page.getByTestId('turn')
     await turn.getByRole('button').first().click()
     const submit = turn.getByTestId('step').filter({ hasText: '提交产出' })
@@ -127,7 +127,7 @@ test('exports and reverts right after typing without losing or resurrecting edit
   try {
     await send(page, configDir, '给兑换接口加幂等校验')
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
-    const panel = page.getByRole('complementary', { name: '工作区面板' })
+    const panel = page.getByRole('complementary', { name: '会话面板' })
     await panel.getByRole('tab', { name: '产出' }).click()
     const editor = panel.getByLabel('产出内容')
     const draft = await editor.inputValue()

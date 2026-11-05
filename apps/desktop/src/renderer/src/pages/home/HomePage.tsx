@@ -35,7 +35,11 @@ export function HomePage() {
           <p className="m-0 text-fg-muted">
             {workdir ? (
               <>
-                在 <span className="font-mono text-[0.929rem] text-fg">{basename(workdir)}</span>{' '}
+                在{' '}
+                <span className="font-mono text-[0.929rem] text-fg">
+                  {settings.data?.workdirs.find((w) => w.path === workdir)?.label ??
+                    basename(workdir)}
+                </span>{' '}
                 里干活。
               </>
             ) : null}

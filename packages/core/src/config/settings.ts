@@ -24,6 +24,8 @@ export const kernelIdSchema = z.enum(['opencode', 'codeagent'])
 
 export const workdirSchema = z.object({
   path: z.string().min(1),
+  // 侧栏显示的名字，没有时用目录名；只是显示名，和磁盘无关
+  label: z.string().optional(),
   lastUsedAt: z.number().default(0),
 })
 

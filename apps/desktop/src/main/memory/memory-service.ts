@@ -36,7 +36,7 @@ export class MemoryService {
 
   private file(scope: MemoryScope, workdir?: string): string {
     if (scope === 'personal') return this.deps.personalFile
-    if (!workdir) throw new Error('项目记忆要先选工作目录')
+    if (!workdir) throw new Error('项目记忆要先选工作区')
     return projectMemoryFile(existsSync(workdir) ? realpathSync(workdir) : workdir)
   }
 

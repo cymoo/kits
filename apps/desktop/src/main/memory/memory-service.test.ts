@@ -66,6 +66,6 @@ describe('MemoryService', () => {
 
   it('refuses project memory without a workdir', () => {
     const { memory } = setup()
-    expect(() => memory.add('project', 'x', 'manual')).toThrow(/工作目录/)
+    expect(() => memory.add('project', 'x', 'manual')).toThrow(/工作区/)
   })
 })

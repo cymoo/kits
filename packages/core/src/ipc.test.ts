@@ -55,6 +55,8 @@ describe('contractEntries', () => {
       ['memory', 'open'],
       ['files', 'search'],
       ['workdir', 'pick'],
+      ['workdir', 'rename'],
+      ['workdir', 'remove'],
       ['workdir', 'inspect'],
       ['workdir', 'createDefault'],
       ['agents', 'list'],

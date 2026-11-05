@@ -30,6 +30,7 @@ export type * from './mcp-view'
 export type * from './memory-view'
 export type * from './session'
 export type * from './skill-view'
+export { workdirKey } from './workdir'
 
 // IPC 契约（phase1-implementation 5.5 节）：一个对象字面量声明所有通道的入参和返回值。
 // preload 按它生成 window.kits.<域>.<方法>，主进程 ipc/register.ts 按它逐个 handle，类型不一致编译就报错。
@@ -217,6 +218,10 @@ export const ipcContract = {
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用
     pick: method<undefined, string | null>(),
+    // 改侧栏显示的名字，不碰磁盘
+    rename: method<{ path: string; label: string }, void>(),
+    // 从列表移除，连同这个工作区下所有会话的记录和附件；磁盘上的目录不动。有会话在运行时抛错
+    remove: method<{ path: string }, void>(),
     // 看一眼目录的 Git 状态（首次引导用）
     inspect: method<string, WorkdirInspection>(),
     // 创建默认工作目录并记进最近使用，返回它的路径

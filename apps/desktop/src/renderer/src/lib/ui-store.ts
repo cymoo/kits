@@ -6,6 +6,7 @@ import { clampWidth, parseWidths, type WidthId, type Widths } from './widths'
 const NAV_KEY = 'kits.nav.collapsed'
 const PANEL_KEY = 'kits.panel'
 const WIDTHS_KEY = 'kits.widths'
+const FOLDED_KEY = 'kits.nav.folded'
 
 // 会话页右侧的工作区面板：side 窄栏（默认）、wide 放大（对话缩到左边 400px）、hidden 收起
 export type PanelMode = 'side' | 'wide' | 'hidden'
@@ -27,6 +28,15 @@ function readCollapsed(): boolean {
   }
 }
 
+function readFolded(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]')
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
 function readWidths(): Widths {
   try {
     return parseWidths(localStorage.getItem(WIDTHS_KEY))
@@ -37,12 +47,15 @@ function readWidths(): Widths {
 
 interface UiState {
   navCollapsed: boolean
+  // 侧栏里折起来的工作区（workdirKey）
+  foldedWorkspaces: string[]
   paletteOpen: boolean
   panel: PanelMode
   widths: Widths
   // 要填进首页输入框的话（首页建议、⌘K 的“新会话：…”）；n 每次递增，同一句话点两次也会再填
   homeDraft: { text: string; n: number } | undefined
   toggleNav(): void
+  toggleWorkspace(key: string): void
   setNavCollapsed(collapsed: boolean): void
   setPaletteOpen(open: boolean): void
   setPanel(mode: PanelMode): void
@@ -52,6 +65,7 @@ interface UiState {
 
 export const useUi = create<UiState>((set, get) => ({
   navCollapsed: readCollapsed(),
+  foldedWorkspaces: readFolded(),
   paletteOpen: false,
   panel: readPanel(),
   widths: readWidths(),
@@ -92,6 +106,16 @@ export const useUi = create<UiState>((set, get) => ({
       // 存不了就只在本次生效
     }
     set({ navCollapsed: next })
+  },
+  toggleWorkspace(key) {
+    const folded = get().foldedWorkspaces
+    const next = folded.includes(key) ? folded.filter((k) => k !== key) : [...folded, key]
+    try {
+      localStorage.setItem(FOLDED_KEY, JSON.stringify(next))
+    } catch {
+      // 存不了就只在本次生效
+    }
+    set({ foldedWorkspaces: next })
   },
   setPaletteOpen(open) {
     set({ paletteOpen: open })

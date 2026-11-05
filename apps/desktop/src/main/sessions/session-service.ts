@@ -19,7 +19,7 @@ import type {
   SessionSummary,
   ToolCallRegistry,
 } from '@kits/core'
-import { effectiveLevel, type PermissionRule, skillPrompt } from '@kits/core'
+import { effectiveLevel, type PermissionRule, skillPrompt, workdirKey } from '@kits/core'
 import {
   type AgentKernel,
   agentPermissions,
@@ -740,6 +740,27 @@ export class SessionService {
     this.deps.store.remove(id)
     this.mcpOff.delete(id)
     rmSync(path.join(this.deps.attachmentsDir, id), { recursive: true, force: true })
+  }
+
+  // 移除工作区：这个目录下的会话一起删。一个都没删之前先把运行中的挡回去
+  removeWorkdir(dir: string): void {
+    const { store, attachmentsDir } = this.deps
+    const key = workdirKey(dir)
+    const ids = store
+      .list()
+      .filter((s) => workdirKey(s.workdir) === key)
+      .map((s) => s.id)
+    if (
+      ids.some(
+        (id) => this.running.has(id) || this.compacting.has(id) || this.queues.get(id)?.length,
+      )
+    )
+      throw new Error('这个工作区有会话在运行，先停止再移除')
+    store.removeAll(ids)
+    for (const id of ids) {
+      this.mcpOff.delete(id)
+      rmSync(path.join(attachmentsDir, id), { recursive: true, force: true })
+    }
   }
 
   // 不走 update()：改名不是会话有新内容，updatedAt 变了它会跳到“今天”分组
