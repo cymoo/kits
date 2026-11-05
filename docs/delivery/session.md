@@ -638,7 +638,7 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 - `apps/desktop/src/main/sessions`：排队的消息有了 id；新增 `dequeue`、`interject`；停止时排队消息退回输入框，不再删掉。插话是助手消息里的 `interject` part，状态 `pending` / `sent`，模型看到时才定位置。
 - 改动面板：插话在内核里是单独一条用户消息，`kernelTurns` 把它算回所在的那一轮，同一轮同一文件的改动合成一份。
 - 界面：新增 `QueuePanel`；`deriveBlocks` 在插话处切开工作过程；输入框新增 `onInterject` 和退回草稿的 `restore`。
-- 停止：还在送的插话和排队的一起退回；停止请求失败也退回；等待期间切了会话，草稿放回原来的会话（`held-drafts.ts`）。
+- 停止：还在送的插话和排队的一起退回；停止请求失败也退回；等待期间切了会话，草稿放回原来的会话（`held-drafts.ts`）。输入框发送完成时只去掉发出去的文字，等待期间退回或新打的内容留着（`composer-draft.ts`）。
 - IPC：`session.abort` 返回退回的草稿；新增 `session.dequeue`、`session.interject`；`SessionSummary.queued` 从字符串数组改成对象数组，新增 `canInterject`。
 
 配置项、数据库 schema 没有变化（新的 part 类型存在原来的 JSON 列里）。
@@ -646,7 +646,7 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 ### 测试
 
 - 契约测试（真内核）：插话在下一步送达且仍是同一轮；模型写最后回复时插话，内核接着做，只结束一次；插话后停止，下一轮模型能看到。
-- 单元测试：`thread.test.ts`、`session-service.test.ts`、`derive.test.ts`、`events.test.ts`、`held-drafts.test.ts`。其中停止和插话的竞态、断线补齐误判送达、确认卡片被隐藏，都是先写复现用例再修的。
+- 单元测试：`thread.test.ts`、`session-service.test.ts`、`derive.test.ts`、`events.test.ts`、`held-drafts.test.ts`、`composer-draft.test.ts`。其中停止和插话的竞态、断线补齐误判送达、确认卡片被隐藏，都是先写复现用例再修的。
 - E2E：`session-cards.spec.ts` 新增插话、全部插话、编辑删除和停止退回。
 
 ### 新增依赖

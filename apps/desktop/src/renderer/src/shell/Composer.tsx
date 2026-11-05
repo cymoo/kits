@@ -44,6 +44,7 @@ import {
   MenuTrigger,
 } from '../ui/Menu'
 import { type AtQuery, atQuery, formatSize, insertAt } from './composer-at'
+import { draftAfterSend } from './composer-draft'
 import { MENU_MAX_HEIGHT, type MenuPlacement, placeMenu } from './composer-menu'
 
 // 菜单和输入框的间距；窗口顶部留的地方，macOS 上要避开隐藏标题栏后的拖动区
@@ -306,13 +307,14 @@ export function Composer({
           data: new Uint8Array(await f.arrayBuffer()),
         })),
       )
+      const sent = text.trim()
       await send({
         ...resolved,
         workdir: resolved.workdir ?? '',
-        text: text.trim(),
+        text: sent,
         attachments,
       })
-      setText('')
+      setText((cur) => draftAfterSend(cur, sent))
       setFiles((cur) => cur.filter((f) => !sending.includes(f)))
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
