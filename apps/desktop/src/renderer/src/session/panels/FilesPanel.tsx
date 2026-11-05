@@ -5,8 +5,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  FileCode,
+  FileCog,
   File as FileIcon,
+  FileImage,
+  FileSpreadsheet,
+  FileText,
   Folder,
+  type LucideIcon,
   RefreshCw,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -14,9 +20,9 @@ import type { ThemedToken } from 'shiki/core'
 import { t } from '../../app/i18n'
 import { CSV_ROWS, parseTable } from '../../lib/csv'
 import { errorText } from '../../lib/errors'
+import { type FileKind, fileKind } from '../../lib/file-kind'
 import { languageOf, tokenize } from '../../lib/highlight'
 import { kits } from '../../lib/kits'
-import { formatSize } from '../../shell/composer-at'
 import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { Segmented } from '../../ui/Segmented'
@@ -46,7 +52,21 @@ export type Changes = ReadonlyMap<string, ChangedFile['badge']>
 const treeKey = (workdir: string) => ['files', 'tree', workdir]
 
 const row =
-  'flex h-7 w-full cursor-pointer items-center gap-1.5 rounded-[8px] pr-2 text-left text-[0.929rem] outline-none hover:bg-active focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset'
+  'flex h-[34px] w-full shrink-0 cursor-pointer items-center gap-2 rounded-[8px] pr-2 text-left outline-none hover:bg-active focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset'
+
+// 每层缩进 16px；文件比同层目录多留出箭头的位置
+const INDENT = 16
+const FILE_PAD = 26
+
+const ICONS: Record<FileKind, [LucideIcon, string]> = {
+  doc: [FileText, 'text-accent'],
+  pdf: [FileText, 'text-danger'],
+  code: [FileCode, 'text-warn'],
+  data: [FileCog, 'text-fg-muted'],
+  sheet: [FileSpreadsheet, 'text-ok'],
+  image: [FileImage, 'text-ok'],
+  other: [FileIcon, 'text-fg-subtle'],
+}
 
 function Badge({ badge }: { badge: ChangedFile['badge'] }) {
   return (
@@ -74,6 +94,7 @@ function FileRow({
   onFile(path: string): void
 }) {
   const badge = changes.get(entry.path)
+  const [Icon, tint] = ICONS[fileKind(entry.name)]
   return (
     <button
       type="button"
@@ -81,9 +102,9 @@ function FileRow({
       title={entry.path}
       onClick={() => onFile(entry.path)}
       className={cx(row, picked === entry.path && 'bg-hover')}
-      style={{ paddingLeft: depth * 14 + 22 }}
+      style={{ paddingLeft: depth * INDENT + FILE_PAD }}
     >
-      <FileIcon size={14} strokeWidth={1.5} className="shrink-0 text-fg-muted" />
+      <Icon size={16} strokeWidth={1.5} className={cx('shrink-0', tint)} />
       <span className="min-w-0 flex-1 truncate">{label ?? entry.name}</span>
       {badge ? <Badge badge={badge} /> : null}
     </button>
@@ -115,7 +136,10 @@ function Dir({
   })
   if (entries.isError) {
     return (
-      <p className="m-0 py-1 text-[0.929rem] text-danger" style={{ paddingLeft: depth * 14 + 22 }}>
+      <p
+        className="m-0 py-1 text-[0.929rem] text-danger"
+        style={{ paddingLeft: depth * INDENT + FILE_PAD }}
+      >
         {errorText(entries.error)}
       </p>
     )
@@ -124,7 +148,7 @@ function Dir({
     return (
       <p
         className="m-0 py-1 text-[0.929rem] text-fg-subtle"
-        style={{ paddingLeft: depth * 14 + 22 }}
+        style={{ paddingLeft: depth * INDENT + FILE_PAD }}
       >
         {t('files.empty')}
       </p>
@@ -149,14 +173,14 @@ function Dir({
         // 收起的目录里有改过的文件时，在目录上也标一下
         const touched = !expanded && [...changes.keys()].some((p) => p.startsWith(`${e.path}/`))
         return (
-          <div key={e.path} className="flex flex-col gap-px">
+          <div key={e.path} className="flex flex-col gap-0.5">
             <button
               type="button"
               aria-expanded={expanded}
               title={e.path}
               onClick={() => onOpen(e.path)}
               className={row}
-              style={{ paddingLeft: depth * 14 + 6 }}
+              style={{ paddingLeft: depth * INDENT + 6 }}
             >
               <ChevronRight
                 size={12}
@@ -165,7 +189,7 @@ function Dir({
                   expanded && 'rotate-90',
                 )}
               />
-              <Folder size={14} strokeWidth={1.5} className="shrink-0 text-fg-label" />
+              <Folder size={16} strokeWidth={1.5} className="shrink-0 text-fg-label" />
               <span className="min-w-0 flex-1 truncate">{e.name}</span>
               {touched ? (
                 <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-warn" />
@@ -228,21 +252,21 @@ function Tree({
           placeholder={t('files.filter')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="h-7 min-w-0 flex-1 rounded-[8px] border border-line bg-raised px-2 text-[0.929rem] text-fg outline-none placeholder:text-fg-subtle focus:border-accent"
+          className="h-8 min-w-0 flex-1 rounded-[8px] border border-line bg-raised px-2.5 text-fg outline-none placeholder:text-fg-subtle focus:border-accent"
         />
         <button
           type="button"
           aria-label={t('files.refresh')}
           title={t('files.refresh')}
           onClick={() => void client.invalidateQueries({ queryKey: ['files'] })}
-          className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-[6px] text-fg-muted hover:bg-active hover:text-fg"
+          className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] text-fg-muted hover:bg-active hover:text-fg"
         >
-          <RefreshCw size={13} />
+          <RefreshCw size={14} />
         </button>
       </div>
       <div
         data-testid="file-tree"
-        className="flex min-h-0 flex-1 flex-col gap-px overflow-auto px-2 pb-2"
+        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-auto px-2 pb-2"
       >
         {q ? (
           <>
@@ -430,13 +454,8 @@ function FileView({
             <ChevronLeft size={15} />
           </button>
         )}
-        <span className="flex min-w-0 flex-1 flex-col pl-1" title={path}>
-          <span className="truncate font-mono text-[0.857rem] leading-[1.5]">{path}</span>
-          {data ? (
-            <span className="text-[0.857rem] text-fg-label leading-[1.3]">
-              {formatSize(data.size)}
-            </span>
-          ) : null}
+        <span className="min-w-0 flex-1 truncate pl-1 font-mono text-[0.929rem]" title={path}>
+          {path}
         </span>
         {isMarkdown && data?.kind === 'text' ? (
           <Segmented

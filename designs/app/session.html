@@ -112,7 +112,7 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
 .k-dialog{position:fixed;z-index:41;top:50%;left:50%;transform:translate(-50%,-50%);width:520px;max-width:calc(100% - 48px);max-height:calc(100vh - 96px);box-sizing:border-box;display:flex;flex-direction:column;border-radius:16px;background:#FFFFFF;box-shadow:0 4px 8px rgba(0,0,0,.06),0 24px 64px rgba(0,0,0,.22)}
 .k-tabx{align-self:center;width:18px;height:18px;margin:0 4px 0 -8px;padding:0;border:0;border-radius:4px;background:transparent;color:#A0A3A9;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .k-tabx:hover{background:#EFEFEC;color:#16171A}
-.k-tree{display:flex;align-items:center;gap:6px;width:100%;height:28px;box-sizing:border-box;padding-right:8px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:13px;color:#16171A;text-align:left;cursor:pointer}
+.k-tree{display:flex;align-items:center;gap:8px;width:100%;height:34px;flex:0 0 auto;box-sizing:border-box;padding-right:8px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:14px;color:#16171A;text-align:left;cursor:pointer}
 .k-tree:hover{background:#F1F1EE}
 .k-tree[aria-pressed="true"]{background:#EFEFEC}
 .k-tree svg{flex:0 0 auto}
@@ -537,11 +537,11 @@ Error: upstream request failed after 5 retries: ECONNRESET
                   <label style="flex: 1; min-width: 0; display: flex"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">筛选文件</span><input class="k-filter" type="text" placeholder="筛选文件" value="{{fileQuery}}" onInput="{{onFileQuery}}"></label>
                   <button type="button" class="k-ico" aria-label="刷新" title="刷新" style="width: 28px; height: 28px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.7-4l1.7 1.6"></path><path d="M13.5 2.5v3.1h-3.1"></path></svg></button>
                 </div>
-                <div data-testid="file-tree" data-keep-scroll="tree" style="flex: 1; min-height: 0; overflow: auto; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 1px">
+                <div data-testid="file-tree" data-keep-scroll="tree" style="flex: 1; min-height: 0; overflow: auto; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 2px">
                   <sc-for list="{{tree}}" as="n">
                     <button type="button" onClick="{{n.act}}" aria-pressed="{{n.on}}" aria-expanded="{{n.expanded}}" title="{{n.path}}" class="k-tree" style="{{n.indent}}">
-                      <sc-if value="{{n.isDir}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#A0A3A9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="{{n.chev}}"><path d="m6 4 4 4-4 4"></path></svg><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#84878E" stroke-width="1.4" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg></sc-if>
-                      <sc-if value="{{n.isFile}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="{{n.tint}}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg></sc-if>
+                      <sc-if value="{{n.isDir}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#A0A3A9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="{{n.chev}}"><path d="m6 4 4 4-4 4"></path></svg><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#84878E" stroke-width="1.4" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg></sc-if>
+                      <sc-if value="{{n.isFile}}"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="{{n.tint}}" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg></sc-if>
                       <span class="n">{{n.name}}</span>
                       <sc-if value="{{n.badge}}"><span class="k-badge" style="{{n.badgeStyle}}">{{n.badge}}</span></sc-if>
                     </button>
@@ -554,7 +554,7 @@ Error: upstream request failed after 5 retries: ECONNRESET
               <div style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #FFFFFF">
                 <div style="display: flex; align-items: center; gap: 4px; min-height: 40px; padding: 4px 8px; border-bottom: 1px solid #EFEFEC; box-sizing: border-box; flex: 0 0 auto">
                   <sc-if value="{{narrow}}"><button type="button" onClick="{{backToTree}}" class="k-ico" aria-label="返回文件列表" title="返回文件列表" style="width: 28px; height: 28px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m10 3-5 5 5 5"></path></svg></button></sc-if>
-                  <span title="{{fileSel}}" style="flex: 1; min-width: 0; padding-left: 4px; display: flex; flex-direction: column"><span style="font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 12px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left">{{fileSel}}</span><span style="font-size: 12px; line-height: 16px; color: #84878E">{{fileMeta}}</span></span>
+                  <span title="{{fileSel}}" style="flex: 1; min-width: 0; padding-left: 4px; font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{fileSel}}</span>
                   <sc-if value="{{canSource}}"><div class="k-seg" role="radiogroup" aria-label="视图"><button type="button" role="radio" aria-checked="{{viewRendered}}" onClick="{{setRendered}}">预览</button><button type="button" role="radio" aria-checked="{{viewSource}}" onClick="{{setSource}}">源码</button></div></sc-if>
                   <button type="button" onClick="{{quoteFile}}" class="k-ico" aria-label="在对话里引用" title="在对话里引用" style="width: 28px; height: 28px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="2.5"></circle><path d="M10.5 8v1a1.8 1.8 0 0 0 3.5 0V8a6 6 0 1 0-2.4 4.8"></path></svg></button>
                   <button type="button" class="k-ico" aria-label="用系统应用打开" title="用系统应用打开" style="width: 28px; height: 28px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3H3v10h10V9.5M9 3h4v4M13 3 7.5 8.5"></path></svg></button>
@@ -834,7 +834,7 @@ class Component extends DCLogic {
     const badgeStyle = (b) => b === 'A' ? 'color: #1E7F43; background: #E3F3E9' : 'color: #8A5A00; background: #FBF0D9';
     const fileRow = ([path, size, badge], depth, name) => ({
       isFile: true, isDir: false, path, name: name || path.split('/').pop(), badge: badge || '', badgeStyle: badge ? badgeStyle(badge) : '', tint: tint[this.fileKind(path)],
-      on: s.fileSel === path, expanded: null, indent: 'padding-left: ' + (depth * 14 + 22) + 'px', act: () => this.setState({ fileSel: path, fileView: 'rendered' })
+      on: s.fileSel === path, expanded: null, indent: 'padding-left: ' + (depth * 16 + 26) + 'px', act: () => this.setState({ fileSel: path, fileView: 'rendered' })
     });
     const q = s.fileQuery.trim().toLowerCase();
     if (q) return data.filter(([p]) => p.toLowerCase().includes(q)).map((f) => fileRow(f, 0, f[0]));
@@ -848,7 +848,7 @@ class Component extends DCLogic {
         // 收起的目录里有改过的文件时，在目录上也标一下
         const touched = here.some(([p, , b]) => b && p.startsWith(path + '/'));
         rows.push({ isDir: true, isFile: false, path, name: d, badge: !open && touched ? '•' : '', badgeStyle: 'color: #8A5A00; padding: 0 2px', on: false, expanded: open,
-          indent: 'padding-left: ' + (depth * 14 + 6) + 'px', chev: 'transition: transform .12s; ' + (open ? 'transform: rotate(90deg)' : ''),
+          indent: 'padding-left: ' + (depth * 16 + 6) + 'px', chev: 'transition: transform .12s; ' + (open ? 'transform: rotate(90deg)' : ''),
           act: () => this.setState({ dirsOpen: open ? s.dirsOpen.filter((x) => x !== path) : s.dirsOpen.concat(path) }) });
         if (open) walk(path + '/', depth + 1);
       });
@@ -874,7 +874,7 @@ class Component extends DCLogic {
         requestAnimationFrame(() => { const n = document.querySelector('.k-filter'); if (n) { n.focus(); n.setSelectionRange(at, at); } });
       },
       showTree: wide || !sel, showPreview: !!sel, noPreview: wide && !sel, backToTree: () => this.setState({ fileSel: null }),
-      fileSel: sel || '', fileMeta: row ? row[1] : '', canSource: kind === 'md',
+      fileSel: sel || '', canSource: kind === 'md',
       viewRendered: rendered, viewSource: !rendered, setRendered: () => this.setState({ fileView: 'rendered' }), setSource: () => this.setState({ fileView: 'source' }),
       quoteFile: () => window.kitsFill('session', '@' + sel + ' '),
       previewBody: 'flex: 1; min-height: 0; overflow: auto; ' + (kind === 'pdf' ? 'padding: 16px; background: #F4F4F2' : kind === 'image' ? 'padding: 16px; display: flex; align-items: flex-start; justify-content: center' : ''),
