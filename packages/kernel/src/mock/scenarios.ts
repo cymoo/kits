@@ -65,6 +65,7 @@ export const mockScenarioNames = [
   'context',
   'output-structured',
   'command-failed',
+  'plan',
   'subagent',
   'plan',
 ] as const
@@ -310,6 +311,48 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
       },
     ],
   },
+  // 带计划的一轮：写计划 → 做 → 等确认时计划还在 → 更新计划 → 收尾
+  plan: {
+    name: 'plan',
+    steps: [
+      busy,
+      {
+        tool: 'todowrite',
+        callId: 'call_plan_1',
+        input: { todos: planTodos('in_progress', 'pending') },
+        output: '[]',
+      },
+      readRedeem,
+      {
+        tool: 'todowrite',
+        callId: 'call_plan_2',
+        input: { todos: planTodos('completed', 'in_progress') },
+        output: '[]',
+      },
+      {
+        delay: 200,
+        permission: {
+          requestId: 'perm_plan',
+          tool: 'bash',
+          input: { command: 'uv run pytest tests/points -q' },
+          patterns: ['uv run pytest tests/points -q'],
+          always: ['uv run pytest *'],
+          callId: 'call_plan_test',
+        },
+        allow: [
+          {
+            tool: 'todowrite',
+            callId: 'call_plan_3',
+            input: { todos: planTodos('completed', 'completed') },
+            output: '[]',
+          },
+        ],
+        reject: [],
+      },
+      { delay: 200, text: '都做完了。', partId: 'prt_answer' },
+      usage(9_000, 120),
+    ],
+  },
   // 子任务里跑一条要确认的命令（真内核里这条请求来自子会话）
   subagent: {
     name: 'subagent',
@@ -381,48 +424,6 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
         ],
       },
       { delay: 200, text: '子任务跑完了。', partId: 'prt_answer' },
-      usage(9_000, 120),
-    ],
-  },
-  // 带计划的一轮：写计划 → 做 → 等确认时计划还在 → 更新计划 → 收尾
-  plan: {
-    name: 'plan',
-    steps: [
-      busy,
-      {
-        tool: 'todowrite',
-        callId: 'call_plan_1',
-        input: { todos: planTodos('in_progress', 'pending') },
-        output: '[]',
-      },
-      readRedeem,
-      {
-        tool: 'todowrite',
-        callId: 'call_plan_2',
-        input: { todos: planTodos('completed', 'in_progress') },
-        output: '[]',
-      },
-      {
-        delay: 200,
-        permission: {
-          requestId: 'perm_plan',
-          tool: 'bash',
-          input: { command: 'uv run pytest tests/points -q' },
-          patterns: ['uv run pytest tests/points -q'],
-          always: ['uv run pytest *'],
-          callId: 'call_plan_test',
-        },
-        allow: [
-          {
-            tool: 'todowrite',
-            callId: 'call_plan_3',
-            input: { todos: planTodos('completed', 'completed') },
-            output: '[]',
-          },
-        ],
-        reject: [],
-      },
-      { delay: 200, text: '都做完了。', partId: 'prt_answer' },
       usage(9_000, 120),
     ],
   },

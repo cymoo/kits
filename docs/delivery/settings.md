@@ -125,6 +125,7 @@ phase1-implementation PR17（6.2 节主题、6.3 节 `#general` / `#perm` / `#pr
 - `apps/desktop/src/main/gateway/gateway-client.ts`：连接测试的结果多了 `contextWindows`，读 `context_window`、`context_length`、`max_context_length`、`max_model_len`。
 - `apps/desktop/src/renderer/src/lib/gateway.ts`：`mergeModels` 用网关报的窗口。已有模型只有还是默认值 128K 时才替换，手改过的不动；手改成正好 128K 的会被网关的值替换。
 - `packages/kernel/src/generate/opencode-config.ts`：模型写 `limit`。`output` 取 32K 和窗口四分之一里小的那个：内核拿“窗口减 output”当可用上下文，小窗口模型不能让它变成负数。
+- `packages/kernel/src/adapter/opencode-family.ts`：窗口放不下系统提示词和工具定义（约 7K，配 MCP 更多）时，内核压完马上又超，一直压下去、一直花 token（用真实模型把窗口设成 8K 复现过）。同一轮连续 3 次压缩、中间没调工具，就结束这一轮并提示窗口太小。
 - `docs/references/codeagent-checklist.md`：第 27 项。
 
 配置文件格式、数据库 schema 没有变化。界面没有变化，不改原型。
@@ -132,6 +133,7 @@ phase1-implementation PR17（6.2 节主题、6.3 节 `#general` / `#perm` / `#pr
 ### 测试
 
 - 单元测试：`gateway-client.test.ts`（各家字段名）、`lib/gateway.test.ts`（新模型、替换默认值、保留手改值）、`opencode-config.test.ts`（`limit`、小窗口）。
+- `opencode-family.test.ts`：连续压缩时结束这一轮，中间调过工具不算。
 - 契约测试：`opencode-config.contract.test.ts` 从真实 opencode 的 `/config/providers` 读回 `limit`。
 
 ### 新增依赖
