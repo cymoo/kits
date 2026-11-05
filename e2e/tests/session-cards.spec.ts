@@ -173,6 +173,80 @@ test('offers to continue after the kernel process exits', async () => {
   }
 })
 
+test('interjects a queued message into the running turn', async () => {
+  const { page, configDir, close } = await launchApp(mock('permission'))
+  try {
+    await send(page, configDir, '改完跑一下测试')
+    await expect(page.getByTestId('permission-card')).toBeVisible()
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('顺便看下日志')
+    await box.press('Enter')
+    await page.getByTestId('queued').getByRole('button', { name: '插话', exact: true }).click()
+
+    await expect(page.getByTestId('queued')).toBeHidden()
+    await expect(page.getByTestId('user-message').nth(1)).toHaveText('顺便看下日志')
+    await expect(page.getByTestId('interject-pending')).toHaveText('下一步送达')
+    await page
+      .getByTestId('permission-card')
+      .getByRole('button', { name: /允许一次/ })
+      .click()
+    await expect(page.getByTestId('interject-pending')).toBeHidden()
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    await expect(page.getByTestId('user-message')).toHaveCount(2)
+  } finally {
+    await close()
+  }
+})
+
+test('interjects everything queued with the shortcut', async () => {
+  const { page, configDir, close } = await launchApp(mock('permission'))
+  try {
+    await send(page, configDir, '改完跑一下测试')
+    await expect(page.getByTestId('permission-card')).toBeVisible()
+    const box = page.getByLabel('给 Agent 发消息')
+    for (const text of ['第一条', '第二条']) {
+      await box.fill(text)
+      await box.press('Enter')
+    }
+    await expect(page.getByTestId('queued-item')).toHaveCount(2)
+    await expect(box).toHaveValue('')
+    await box.press(`${mod}+Enter`)
+    await expect(page.getByTestId('queued')).toBeHidden()
+    await expect(page.getByTestId('interject-pending')).toHaveCount(2)
+    // 确认卡片的“允许一次”也是这个快捷键：在输入框里按不能批准命令
+    await expect(page.getByTestId('permission-card')).toBeVisible()
+  } finally {
+    await close()
+  }
+})
+
+test('edits and removes queued messages, and hands them back on stop', async () => {
+  const { page, configDir, close } = await launchApp(mock('permission'))
+  try {
+    await send(page, configDir, '改完跑一下测试')
+    await expect(page.getByTestId('permission-card')).toBeVisible()
+    const box = page.getByLabel('给 Agent 发消息')
+    for (const text of ['要删的', '要改的', '留到停止的']) {
+      await box.fill(text)
+      await box.press('Enter')
+    }
+    const rows = page.getByTestId('queued-item')
+    await rows.filter({ hasText: '要删的' }).hover()
+    await rows.filter({ hasText: '要删的' }).getByRole('button', { name: '删除' }).click()
+    await expect(rows).toHaveCount(2)
+    await rows.filter({ hasText: '要改的' }).hover()
+    await rows.filter({ hasText: '要改的' }).getByRole('button', { name: '编辑' }).click()
+    await expect(box).toHaveValue('要改的')
+
+    await box.fill('')
+    await page.getByRole('button', { name: '停止', exact: true }).click()
+    await expect(box).toHaveValue('留到停止的')
+    await expect(page.getByTestId('queued')).toBeHidden()
+  } finally {
+    await close()
+  }
+})
+
 test('queues a follow-up sent during a turn and sends it when the turn ends', async () => {
   const { page, configDir, close } = await launchApp(mock('permission'))
   try {

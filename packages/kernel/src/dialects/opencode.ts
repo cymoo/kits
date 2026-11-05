@@ -113,6 +113,7 @@ export const opencodeDialect: KernelDialect = {
   id: 'opencode',
   apiPrefix: '',
   permissionListPath: '/permission',
+  interject: true,
 
   async spawn(cfg: KernelConfig): Promise<SpawnedKernel> {
     skipPluginInstall(cfg)

@@ -177,6 +177,31 @@ describe('createOpencodeEventMapper', () => {
     expect(out[1]).toMatchObject({ type: 'tool-end', error: 'rejected' })
   })
 
+  it('reports an interjection once a step answers a newer user message', () => {
+    const assistant = (id: string, parentID: string) =>
+      ev('message.updated', { sessionID: S, info: { id, role: 'assistant', parentID } })
+    const { out } = feed([
+      assistant('msg_1', 'msg_u1'),
+      assistant('msg_2', 'msg_u1'),
+      assistant('msg_3', 'msg_u2'),
+      assistant('msg_3', 'msg_u2'),
+    ])
+    expect(out).toEqual([{ type: 'interject-delivered' }])
+  })
+
+  it('does not report an interjection when a reconnect replays earlier steps', () => {
+    const assistant = (id: string, parentID: string) => ({
+      info: { id, role: 'assistant', parentID },
+      parts: [],
+    })
+    const mapper = createOpencodeEventMapper(S)
+    mapper.backfill([assistant('msg_1', 'msg_u1'), assistant('msg_2', 'msg_u2')])
+
+    const out = mapper.backfill([assistant('msg_1', 'msg_u1'), assistant('msg_2', 'msg_u2')])
+
+    expect(out).toEqual([])
+  })
+
   it('maps permission.replied so requests settled by the kernel do not stay pending', () => {
     const { out } = feed([
       ev('permission.replied', { sessionID: S, requestID: 'per_1', reply: 'always' }),

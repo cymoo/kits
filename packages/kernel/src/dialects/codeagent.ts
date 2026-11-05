@@ -99,6 +99,8 @@ export const codeagentDialect: KernelDialect = {
   id: 'codeagent',
   apiPrefix: API_PREFIX,
   permissionListPath: '/permission',
+  // 文档只说 prompt_async 进执行队列，没说运行中的并不并进这一轮，真机核对前不开
+  interject: false,
 
   async spawn(cfg: KernelConfig): Promise<SpawnedKernel> {
     const token = randomBytes(24).toString('base64url')

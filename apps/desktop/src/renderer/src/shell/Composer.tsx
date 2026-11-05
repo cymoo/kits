@@ -1,4 +1,4 @@
-import type { AttachmentInput } from '@kits/core/ipc'
+import type { AttachmentInput, QueuedDraft } from '@kits/core/ipc'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowUp,
@@ -15,7 +15,15 @@ import {
   Square,
   X,
 } from 'lucide-react'
-import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  type KeyboardEvent,
+  type Ref,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useNavigate } from 'react-router'
 import { t } from '../app/i18n'
 import { basename, resolvePrefs, usePrefs } from '../lib/composer-prefs'
@@ -36,6 +44,7 @@ import {
   MenuTrigger,
 } from '../ui/Menu'
 import { type AtQuery, atQuery, formatSize, insertAt } from './composer-at'
+import { draftAfterSend } from './composer-draft'
 import { MENU_MAX_HEIGHT, type MenuPlacement, placeMenu } from './composer-menu'
 
 // 菜单和输入框的间距；窗口顶部留的地方，macOS 上要避开隐藏标题栏后的拖动区
@@ -70,6 +79,11 @@ const chip =
 const sendButton =
   'ml-auto flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-primary text-primary-fg transition-opacity disabled:cursor-default disabled:opacity-25'
 
+export interface ComposerHandle {
+  // 排队的消息退回来：接在已有的草稿后面，不覆盖
+  restore(draft: QueuedDraft): void
+}
+
 export function Composer({
   big = false,
   placeholder,
@@ -79,6 +93,8 @@ export function Composer({
   lockedAs,
   onSubmit,
   onStop,
+  onInterject,
+  ref,
 }: {
   lockedAs?: {
     workdir: string
@@ -93,6 +109,9 @@ export function Composer({
   onSubmit(input: ComposerSubmit): Promise<void> | void
   // Agent 在跑时传：输入框是空的，发送键就是停止键；有内容时还是发送（这一轮结束后送出）
   onStop?: () => void
+  // 内核支持插话时传：⌘↵ 有内容就插话这一条，没内容就把排队的全部插话
+  onInterject?: (input: ComposerSubmit) => Promise<void> | void
+  ref?: Ref<ComposerHandle>
 }) {
   const navigate = useNavigate()
   const settings = useSettings()
@@ -263,7 +282,18 @@ export function Composer({
   // 运行中发的消息排到这一轮结束
   const sendLabel = t(onStop ? 'composer.queue' : 'composer.send')
 
-  const submit = async () => {
+  useImperativeHandle(ref, () => ({
+    restore({ text: restored, attachments }) {
+      setText((cur) => (cur.trim() ? `${cur.trimEnd()}\n\n${restored}` : restored))
+      setFiles((cur) => [
+        ...cur,
+        ...attachments.map((a) => new File([new Uint8Array(a.data)], a.name, { type: a.mime })),
+      ])
+      area.current?.focus()
+    },
+  }))
+
+  const submit = async (send: typeof onSubmit = onSubmit) => {
     if (!canSend) return
     setSending(true)
     setError(undefined)
@@ -277,13 +307,14 @@ export function Composer({
           data: new Uint8Array(await f.arrayBuffer()),
         })),
       )
-      await onSubmit({
+      const sent = text.trim()
+      await send({
         ...resolved,
         workdir: resolved.workdir ?? '',
-        text: text.trim(),
+        text: sent,
         attachments,
       })
-      setText('')
+      setText((cur) => draftAfterSend(cur, sent))
       setFiles((cur) => cur.filter((f) => !sending.includes(f)))
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
@@ -343,7 +374,17 @@ export function Composer({
         return
       }
     }
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && onInterject) {
+      e.preventDefault()
+      if (text.trim()) void submit(onInterject)
+      else
+        void onInterject({
+          ...resolved,
+          workdir: resolved.workdir ?? '',
+          text: '',
+          attachments: [],
+        })
+    } else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       void submit()
     }

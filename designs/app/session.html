@@ -77,6 +77,15 @@ a{color:#3659E3}a:hover{color:#2744B8}
 .k-todo[data-s="doing"]{color:#2744B8;font-weight:500;background:#EEF2FF}
 .k-plan{margin-bottom:8px;border:1px solid #D5DCF7;border-radius:10px;background:#FFFFFF;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04)}
 .k-plan .k-todos{max-height:208px;overflow-y:auto}
+.k-queue{margin:0 14px -14px;padding-bottom:14px;border:1px solid #E5E4DF;border-bottom:0;border-radius:12px 12px 0 0;background:#FBFBF9;overflow:hidden}
+.k-qlist{max-height:152px;overflow-y:auto}
+.k-qrow{display:flex;align-items:center;gap:2px;min-height:38px;padding:0 8px 0 14px;border-top:1px solid #ECEBE7;font-size:14px}
+.k-qrow .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.k-qrow .k-ico{opacity:0;transition:opacity .12s}
+.k-qrow:hover .k-ico,.k-qrow:focus-within .k-ico{opacity:1}
+.k-qsend{height:26px;margin-left:4px;padding:0 10px;border:0;border-radius:7px;background:#EFEEEA;font:inherit;font-size:13px;color:#1B1B1F;cursor:pointer;flex:0 0 auto}
+.k-qsend:hover{background:#E5E4DF}
+.k-qsend:focus-visible{outline:2px solid #3659E3;outline-offset:1px}
 .k-bar{height:3px;margin:0 12px 6px;border-radius:2px;background:#ECEBE7;overflow:hidden}
 .k-bar span{display:block;height:100%;border-radius:2px;background:#3659E3;transition:width .25s}
 .k-tab{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:0;background:transparent;font:inherit;font-size:13.5px;cursor:pointer;margin-bottom:-1px;color:#6E6E76;border-bottom:2px solid transparent}
@@ -123,6 +132,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
             <sc-if value="{{b.isUser}}">
               <div class="k-msg" style="align-self: flex-end; max-width: 84%; display: flex; flex-direction: column; gap: 6px; align-items: flex-end">
                 <div style="max-width: 100%; box-sizing: border-box; background: #F4F3F0; border-radius: 14px 14px 4px 14px; padding: 10px 14px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere">{{b.text}}</div>
+                <sc-if value="{{b.note}}"><div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8A8A92"><sc-if value="{{b.notePending}}"><span aria-hidden="true" style="width: 10px; height: 10px; border: 2px solid #D9D8D2; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if>{{b.note}}</div></sc-if>
                 <sc-if value="{{b.attach}}"><div style="display: flex; gap: 6px; align-items: center"><span style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #E5E4DF; border-radius: 7px; padding: 2px 8px; font-size: 13px; color: #4A4A52"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg>{{b.attach}}</span><span class="k-act"><button type="button" class="k-small">编辑后重发</button></span></div></sc-if>
               </div>
             </sc-if>
@@ -350,7 +360,30 @@ Error: upstream request failed after 5 retries: ECONNRESET
           <sc-if value="{{ctxCompressing}}">
             <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid #E5E4DF; border-radius: 10px; background: #FBFBF9; font-size: 13.5px; color: #4A4A52"><span aria-hidden="true" style="width: 12px; height: 12px; border: 2px solid #D9D8D2; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span><span style="flex: 1">正在把前 8 轮压缩成摘要，大约 10 秒</span></div>
           </sc-if>
-          <k-composer key="session" running="{{running}}" placeholder="继续说。Agent 运行中发的消息会在这一轮结束后送出"></k-composer>
+          <sc-if value="{{hasQueue}}">
+            <div class="k-queue" data-testid="queued">
+              <div style="display: flex; align-items: center; padding-right: 8px">
+                <button type="button" onClick="{{toggleQueue}}" aria-expanded="{{queueOpen}}" class="k-head" style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border: 0; background: transparent; font: inherit; font-size: 13.5px; color: #6E6E76; text-align: left; cursor: pointer">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A9AA1" stroke-width="1.5" stroke-linecap="round" style="{{queueChev}}"><path d="m4 6 4 4 4-4"></path></svg>
+                  <span style="font-weight: 500; color: #1B1B1F">{{queueTitle}}</span><span>这一轮结束后发送</span>
+                </button>
+                <sc-if value="{{queueMany}}"><button type="button" onClick="{{sendAll}}" class="k-small" title="全部插话 ⌘↵">全部插话</button></sc-if>
+              </div>
+              <sc-if value="{{queueOpen}}">
+                <div class="k-qlist">
+                  <sc-for list="{{queue}}" as="q">
+                    <div class="k-qrow">
+                      <span class="t" title="{{q.text}}">{{q.text}}</span>
+                      <button type="button" onClick="{{q.edit}}" class="k-ico" aria-label="编辑" title="编辑"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 3 13 5.5 6 12.5l-3 .5.5-3zM9 4.5 11.5 7"></path></svg></button>
+                      <button type="button" onClick="{{q.remove}}" class="k-ico" aria-label="删除" title="删除"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 8.5h6l.5-8.5M6.8 7v3.5M9.2 7v3.5"></path></svg></button>
+                      <button type="button" onClick="{{q.send}}" class="k-qsend" title="下一步送达，不等这一轮结束">插话</button>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+          <k-composer key="session" running="{{running}}" placeholder="接着说…"></k-composer>
         </div>
       </section>
 
@@ -463,21 +496,36 @@ Error: upstream request failed after 5 retries: ECONNRESET
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
-// 演示状态由 ?s= 决定：streaming 运行中、plan 带计划的运行中、subagent 子任务、permission 命令确认、question Agent 提问、done 完成、
+// 演示状态由 ?s= 决定：streaming 运行中、queued 排队和插话、plan 带计划的运行中、subagent 子任务、permission 命令确认、question Agent 提问、done 完成、
 // error 重试与出错、context 上下文接近上限、changes 改动放大、output 产出放大（结构化产出）。
 const SUB_LIMIT = 8;
 class Component extends DCLogic {
   constructor(props) {
     super(props);
     const scene = new URLSearchParams(location.search).get('s') || 'streaming';
-    const tabDefault = { streaming: 'changes', plan: 'changes', subagent: 'changes', permission: 'changes', question: 'changes', done: 'output', error: 'changes', context: 'context', changes: 'changes', output: 'output' };
+    const tabDefault = { streaming: 'changes', queued: 'changes', plan: 'changes', subagent: 'changes', permission: 'changes', question: 'changes', done: 'output', error: 'changes', context: 'context', changes: 'changes', output: 'output' };
     this.scene = scene;
     this.state = {
       open: { think: true }, stepOpen: {}, stepAll: {}, copied: null, planOpen: true,
       perm: 'pending', answer: null, retry: 'retry', retryOpen: true, ctx: 'near', summaryOpen: true,
       tab: tabDefault[scene] || 'changes', sel: null, view: 'unified', vote: null, tags: [],
-      itemOpen: 1, filter: 'all', exportOpen: scene === 'output', removed: [6], edited: [2]
+      itemOpen: 1, filter: 'all', exportOpen: scene === 'output', removed: [6], edited: [2],
+      queue: scene === 'queued' ? ['退款的幂等 key 要带上商户号，别只用请求号', '顺便看下缓存过期时间是不是配置项'] : [], queueOpen: true, notes: []
     };
+    // 回车排队；⌘↵ 有文字就插话这一条，没有文字就把排队的全部插话
+    if (scene === 'queued') {
+      document.addEventListener('kits-send', (e) => this.setState({ queue: [...this.state.queue, e.detail.text] }));
+      // 停止时排队的消息不丢，回到输入框
+      document.addEventListener('kits-stop', () => {
+        const { queue, notes } = this.state;
+        this.setState({ stopped: true, queue: [], notes: notes.map((n) => ({ ...n, sent: true })) });
+        if (queue.length) window.kitsFill('session', queue.join('\n\n'));
+      });
+      document.addEventListener('kits-interject', (e) => {
+        if (e.detail.text) this.interject([e.detail.text]);
+        else { const all = this.state.queue; this.setState({ queue: [] }); this.interject(all); }
+      });
+    }
     // 读文件、搜索的结果，点开步骤时显示
     this.outs = {
       'src/points/redeem.py': '12  def redeem(user_id, coupon_id):\n13      points = get_points(user_id)\n14      coupon = get_coupon(coupon_id)\n…\n40      return result',
@@ -571,6 +619,14 @@ class Component extends DCLogic {
       act: toOutput ? () => this.setState({ tab: 'output' }) : jump ? () => this.setState({ tab: 'changes', sel: detail }) : () => this.setState({ stepOpen: { ...s.stepOpen, [key]: !open } })
     };
   }
+  // 插话先等这一步结束，模型下一步才看得到
+  interject(texts) {
+    if (!texts.length) return;
+    this.setState({ notes: [...this.state.notes, ...texts.map((text) => ({ text, sent: false }))] });
+    const el = document.querySelector('section[aria-label="对话"]');
+    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    setTimeout(() => this.setState({ notes: this.state.notes.map((n) => ({ ...n, sent: true })) }), 2500);
+  }
   turn(id, title, meta, status, steps, think) {
     const s = this.state;
     const open = s.open[id] !== undefined ? s.open[id] : status === 'running';
@@ -624,6 +680,9 @@ class Component extends DCLogic {
     const planNow = [['读兑换接口，确认请求号的字段', 'done'], ['写幂等检查和缓存', 'done'], ['补重复提交的测试', 'doing'], ['跑 tests/points', 'pending'], ['顺手改掉 redeem 里的旧日志', 'cancelled']];
     const taskSubs = [['读取', 'MISSION.md', '42 行'], ['读取', 'pyproject.toml', '31 行'], ['搜索', 'glob src/**/*.py', '14 个文件'], ['运行', 'ls -la src', '0.1 秒'], ['读取', 'src/points/api.py', '318 行'], ['读取', 'src/points/redeem.py', '86 行'], ['读取', 'src/points/refund.py', '112 行'], ['搜索', 'grep "request_id" src/', '7 处'], ['读取', 'src/order/create.py', '140 行'], ['运行', 'find src -name "*.py" | wc -l', '0.2 秒']];
 
+    const noteSent = s.notes.filter((n) => n.sent);
+    const notePending = s.notes.filter((n) => !n.sent);
+
     const scenes = {
       subagent: {
         title: '摸一下仓库结构', pill: s.perm === 'pending' || s.perm === 'denying' ? ['wait', '等你确认'] : ['run', '运行中 · 第 1 轮 · 1:08'], dir: 'member-svc',
@@ -644,6 +703,17 @@ class Component extends DCLogic {
             this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', { spin: true, time: '0:08', how: '本会话允许' })],
             { summary: '把幂等检查抽成装饰器，先确认退款的参数名', text: '退款和兑换都要按请求号去重，缓存逻辑一样，不该复制两份。把 idempotency 里的 get/put 抽成一个装饰器，两个接口都用它。退款的请求号字段叫 refund_request_id，先确认一下 refund.py 里的参数名再改。' }),
           { isText: true, paras: [this.p('退款接口和兑换共用同一套请求号规则，所以我把 `idempotency` 里的检查抽成了装饰器 `@idempotent("refund_request_id")`，两个接口各加一行就行。退款的测试补好了，正在跑一遍', true)] }],
+        changes: 'both', output: 'empty-running', ctx: { usage: ['71K / 200K', 35.5, '前 1 轮 50K', '9K', ''], rows: 'redeem' }
+      },
+      queued: {
+        title: '给兑换接口加幂等校验', pill: s.stopped ? ['idle', '已停止 · 第 2 轮'] : ['run', '运行中 · 第 2 轮 · 0:46'], dir: 'member-svc',
+        blocks: [redeemUser, redeemTurn1('38 秒'), redeemText1, refundUser,
+          this.turn('t2', '第 2 轮', s.stopped ? '已停止' : noteSent.length ? '0:52' : '进行中 · 0:46', s.stopped || noteSent.length ? 'done' : 'running', [
+            ['读取文件', 'src/points/refund.py', '112 行'], ['修改文件', 'src/points/idempotency.py', '+21 −9', true], ['修改文件', 'src/points/refund.py', '+3 −1', true],
+            this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', s.stopped ? { time: '已停止', how: '本会话允许' } : noteSent.length ? { time: '0.9 秒', how: '本会话允许', out: '................\n16 passed in 0.92s' } : { spin: true, time: '0:08', how: '本会话允许' })]),
+          ...noteSent.map((n) => ({ isUser: true, text: n.text })),
+          ...(noteSent.length && !s.stopped ? [this.turn('t3', '第 2 轮 · 继续', '进行中 · 0:06', 'running', [['读取文件', 'src/points/idempotency.py', '63 行'], ['修改文件', 'src/points/idempotency.py', '+4 −2', true]])] : []),
+          ...notePending.map((n) => ({ isUser: true, text: n.text, note: '下一步送达', notePending: true }))],
         changes: 'both', output: 'empty-running', ctx: { usage: ['71K / 200K', 35.5, '前 1 轮 50K', '9K', ''], rows: 'redeem' }
       },
       plan: {
@@ -859,6 +929,14 @@ class Component extends DCLogic {
       voteUp: () => this.setState({ vote: s.vote === 'up' ? null : 'up' }), voteDown: () => this.setState({ vote: s.vote === 'down' ? null : 'down' }), tags,
       // 计划
       plan, planOpen: s.planOpen, planNow: s.planOpen || !planDoing ? '' : planDoing[0], planChev: s.planOpen ? 'transform: rotate(180deg)' : '', togglePlan: () => this.setState({ planOpen: !s.planOpen }),
+      // 排队和插话
+      hasQueue: s.queue.length > 0, queueTitle: s.queue.length + ' 条排队消息', queueOpen: s.queueOpen, queueChev: s.queueOpen ? '' : 'transform: rotate(-90deg)',
+      toggleQueue: () => this.setState({ queueOpen: !s.queueOpen }),
+      queueMany: s.queue.length > 1, sendAll: () => { this.setState({ queue: [] }); this.interject(s.queue); },
+      queue: s.queue.map((text, i) => {
+        const drop = () => this.setState({ queue: s.queue.filter((_, j) => j !== i) });
+        return { text, remove: drop, edit: () => { drop(); window.kitsFill('session', text); }, send: () => { drop(); this.interject([text]); } };
+      }),
       // 上下文压缩
       ctxNear: scene === 'context' && s.ctx === 'near', ctxCompressing: s.ctx === 'compressing',
       compress: () => { this.setState({ ctx: 'compressing' }); setTimeout(() => this.setState({ ctx: 'done' }), 1200); },

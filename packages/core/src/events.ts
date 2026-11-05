@@ -53,6 +53,8 @@ export type KernelEvent =
       cacheWriteTokens: number
       cost: number
     }
+  // 运行中插的话模型已经看到了（新的一步带上了它）
+  | { type: 'interject-delivered' }
   | { type: 'retry'; attempt: number; message: string; nextAt: number }
   | { type: 'status'; state: SessionState }
   | { type: 'compaction'; summary: string }

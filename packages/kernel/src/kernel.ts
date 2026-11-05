@@ -84,7 +84,7 @@ export interface CompactionResult {
 
 export interface AgentKernel {
   readonly id: KernelId
-  readonly capabilities: { subagents: boolean; revert: boolean }
+  readonly capabilities: { subagents: boolean; revert: boolean; interject: boolean }
   start(cfg: KernelConfig): Promise<void>
   createSession(opts: CreateSessionOptions): Promise<KernelSession>
   // 一轮对话：事件流以一条 done 结束
@@ -96,6 +96,8 @@ export interface AgentKernel {
     reply: PermissionReply,
     message?: string,
   ): Promise<boolean>
+  // 插话：这一轮还在跑时再发一条，模型下一步看到，还算同一轮。这一轮已经不在了、内核不支持时返回 false
+  interject(session: KernelSession, input: UserInput): Promise<boolean>
   abort(session: KernelSession): Promise<void>
   diff(session: KernelSession): Promise<FileDiff[]>
   // 上下文压缩：等内核把前面的对话压成摘要，返回摘要正文和它占多少 token
@@ -118,6 +120,8 @@ export interface KernelDialect {
   permissionReplyPath(requestId: string, sessionId: string): string
   // 列出待处理权限请求的接口（断线补齐用）
   readonly permissionListPath: string
+  // 运行中再发消息会并进这一轮。不支持的内核，排队的消息等这一轮结束再发
+  readonly interject: boolean
 }
 
 export interface SpawnedKernel {

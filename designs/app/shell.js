@@ -628,13 +628,22 @@
     ta.addEventListener('input', () => { grow(); renderMenu() })
     ta.addEventListener('keyup', (e) => { if (e.key.startsWith('Arrow')) renderMenu() })
     ta.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && running) {
+        e.preventDefault()
+        const text = ta.value.trim()
+        ta.value = ''
+        grow()
+        document.dispatchEvent(new CustomEvent('kits-interject', { detail: { key, text } }))
+      } else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault()
         const on = menu.hidden ? null : menu.querySelector('.kc-mi.on, .kc-mi')
         if (on) on.click(); else submit()
       }
     })
-    send.addEventListener('click', submit)
+    send.addEventListener('click', () => {
+      if (running && !ta.value.trim()) document.dispatchEvent(new CustomEvent('kits-stop', { detail: { key } }))
+      else submit()
+    })
     box.addEventListener('click', (e) => {
       const t = e.target.closest('[data-pop]')
       if (t) open(t.dataset.pop, t)

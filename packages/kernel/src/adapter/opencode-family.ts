@@ -216,7 +216,9 @@ function composeText(input: UserInput): { type: 'text'; text: string }[] {
 }
 
 export class OpencodeFamilyKernel implements AgentKernel {
-  readonly capabilities = { subagents: true, revert: true }
+  get capabilities() {
+    return { subagents: true, revert: true, interject: this.dialect.interject }
+  }
   private spawned: SpawnedKernel | undefined
   private hubs = new Map<string, EventHub>()
   private active = new Map<
@@ -433,21 +435,8 @@ export class OpencodeFamilyKernel implements AgentKernel {
           yield* queue
           return
         }
-        const model = session.model ? parseModelRef(session.model) : undefined
         // 有超时，停止时也能取消：内核收了请求却一直不回时，这一轮不会卡在这里
-        await this.request(
-          'POST',
-          `/session/${session.id}/prompt_async`,
-          session.workdir,
-          {
-            agent: opencodeAgentName(session.agent),
-            ...(model ? { model: { providerID: model.gateway, modelID: model.model } } : {}),
-            ...(input.system ? { system: input.system } : {}),
-            parts: composeText(input),
-          },
-          this.setupTimeout,
-          run.controller.signal,
-        )
+        await this.submit(session, input, run.controller.signal)
       } catch (e) {
         // 连不上内核或发消息失败：照样以 done 结束这一轮，界面显示出错卡片。
         // 进程退出时 handleExit 可能已经把 done 放进队列，所以统一从队列里取
@@ -518,6 +507,30 @@ export class OpencodeFamilyKernel implements AgentKernel {
       unsubscribe?.()
       this.active.delete(session.id)
     }
+  }
+
+  private submit(session: KernelSession, input: UserInput, signal?: AbortSignal): Promise<unknown> {
+    const model = session.model ? parseModelRef(session.model) : undefined
+    return this.request(
+      'POST',
+      `/session/${session.id}/prompt_async`,
+      session.workdir,
+      {
+        agent: opencodeAgentName(session.agent),
+        ...(model ? { model: { providerID: model.gateway, modelID: model.model } } : {}),
+        ...(input.system ? { system: input.system } : {}),
+        parts: composeText(input),
+      },
+      this.setupTimeout,
+      signal,
+    )
+  }
+
+  async interject(session: KernelSession, input: UserInput): Promise<boolean> {
+    const run = this.active.get(session.id)
+    if (!run || !this.dialect.interject) return false
+    await this.submit(session, input, run.controller.signal)
+    return true
   }
 
   // 还在等回复的权限请求（GET /permission，整个实例的）。映射器按会话过滤：它知道这一轮有哪些子会话

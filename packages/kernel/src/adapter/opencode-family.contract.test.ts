@@ -37,6 +37,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     execFileSync('git', ['init', '-q'], { cwd: workdir })
     mocks.ok = await startMockModel()
     mocks.flaky = await startMockModel({ failFirst: 1 })
+    mocks.lazy = await startMockModel({ firstByteDelayMs: 1_500 })
     mocks.slow = await startMockModel({ firstByteDelayMs: 30_000 })
     // 写一个新文件，用来看 diff 的映射
     mocks.writer = await startMockModel({
@@ -87,6 +88,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       gatewayKeys: {
         ok: 'k',
         flaky: 'k',
+        lazy: 'k',
         slow: 'k',
         chain: 'k',
         writer: 'k',
@@ -185,6 +187,67 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     expect(events.some((e) => e.type === 'usage' && e.inputTokens > 0)).toBe(true)
     expect(events.some((e) => e.type === 'status' && e.state === 'busy')).toBe(true)
     expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+  }, 60_000)
+
+  it('hands a message sent during a turn to the next step of that turn', async () => {
+    const s = await session('ok')
+    const before = mocks.ok?.requests.length ?? 0
+    let sent = false
+    const events = await run(s, '用 printf 打印 hi', async (e) => {
+      if (!sent) {
+        sent = true
+        expect(await kernel.interject(s, { text: '插一句：顺便看下日志' })).toBe(true)
+      }
+      await kernel.respondPermission(s, e.requestId, 'once')
+    })
+    const types = events.map((e) => e.type)
+
+    const seen = (mocks.ok?.requests ?? []).slice(before).filter((r) => r.tools?.length)
+    const roles = seen[1]?.messages?.map((m) => m.role).slice(-2)
+    expect(JSON.stringify(seen[1]?.messages)).toContain('插一句')
+    expect(roles).toEqual(['tool', 'user'])
+    expect(types.filter((t) => t === 'done')).toHaveLength(1)
+    expect(types.filter((t) => t === 'interject-delivered')).toHaveLength(1)
+    expect(types.indexOf('tool-end')).toBeLessThan(types.indexOf('interject-delivered'))
+    expect(joined(events, 'text-delta')).not.toContain('插一句')
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+  }, 60_000)
+
+  it('keeps one turn when a message arrives while the model writes its last reply', async () => {
+    const s = await session('lazy')
+    let sent = false
+    const events = await run(
+      s,
+      '用 printf 打印 hi',
+      (e) => kernel.respondPermission(s, e.requestId, 'once'),
+      (e) => {
+        if (e.type !== 'tool-end' || sent) return
+        sent = true
+        // 这时模型已经在写最后的回复（假网关首字等 1.5 秒）
+        setTimeout(() => void kernel.interject(s, { text: '最后再补一句' }), 700)
+      },
+    )
+    const types = events.map((e) => e.type)
+
+    const seen = (mocks.lazy?.requests ?? []).filter((r) => r.tools?.length)
+    expect(JSON.stringify(seen)).toContain('最后再补一句')
+    expect(types.filter((t) => t === 'done')).toHaveLength(1)
+    expect(types.indexOf('text-delta')).toBeLessThan(types.indexOf('interject-delivered'))
+    expect(types.at(-1)).toBe('done')
+  }, 60_000)
+
+  it('keeps a message sent before a stop for the next turn', async () => {
+    const s = await session('ok')
+    const stopped = await run(s, '用 printf 打印 hi', async () => {
+      await kernel.interject(s, { text: '插话后停止' })
+      await kernel.abort(s)
+    })
+    expect(stopped.at(-1)).toEqual({ type: 'done', reason: 'aborted' })
+
+    const before = mocks.ok?.requests.length ?? 0
+    const next = await run(s, '继续', (e) => kernel.respondPermission(s, e.requestId, 'once'))
+    expect(next.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+    expect(JSON.stringify((mocks.ok?.requests ?? []).slice(before))).toContain('插话后停止')
   }, 60_000)
 
   it('passes the reject reason to the model as tool feedback', async () => {

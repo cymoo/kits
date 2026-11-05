@@ -14,9 +14,11 @@ import { STEP_ACTION, STEP_ROW, StepChevron, StepRow } from './Steps'
 export function UserBlock({
   text,
   attachments = [],
+  pending = false,
 }: {
   text: string
   attachments?: { name: string; size: number }[]
+  pending?: boolean
 }) {
   return (
     <div className="flex min-w-0 max-w-[84%] flex-col items-end gap-1.5 self-end">
@@ -26,6 +28,15 @@ export function UserBlock({
       >
         {text}
       </div>
+      {pending ? (
+        <div
+          data-testid="interject-pending"
+          className="flex items-center gap-1.5 text-[0.923rem] text-fg-subtle"
+        >
+          <Spinner tone="accent" />
+          {t('interject.pending')}
+        </div>
+      ) : null}
       {attachments.length ? (
         <div className="flex flex-wrap justify-end gap-1.5" data-testid="message-attachments">
           {attachments.map((a, i) => (
@@ -93,7 +104,9 @@ export function TurnBlock({
         {block.state === 'done' ? <Check size={14} className="text-ok" strokeWidth={2} /> : null}
         {running ? <Spinner tone="accent" /> : null}
         {block.state === 'failed' ? <AlertCircle size={14} className="text-danger" /> : null}
-        <span className="shrink-0 font-medium text-fg">{t('turn.title', { n: block.turn })}</span>
+        <span className="shrink-0 font-medium text-fg">
+          {t(block.resumed ? 'turn.resumed' : 'turn.title', { n: block.turn })}
+        </span>
         <span className="min-w-0 flex-1 truncate" title={summary}>
           {summary}
         </span>

@@ -22,6 +22,33 @@ const recorder = () => {
 }
 
 describe('TurnRecorder', () => {
+  it('places an interjection where the model saw it, after the steps that came first', () => {
+    const r = recorder()
+    const [note] = r.interject('q1', '先别改测试', [], 2).parts
+    const [step] = r.apply({ type: 'tool-start', callId: 'c1', name: 'bash', input: {} }).parts
+    const [sent] = r.apply({ type: 'interject-delivered' }).parts
+
+    expect(note?.status).toBe('pending')
+    expect(sent).toMatchObject({ id: note?.id, status: 'sent' })
+    expect(sent?.seq).toBeGreaterThan(step?.seq ?? Number.POSITIVE_INFINITY)
+  })
+
+  it('keeps an interjection the model never saw when the turn ends', () => {
+    const r = recorder()
+    r.interject('q1', '先别改测试', [], 2)
+    const { parts } = r.apply({ type: 'done', reason: 'aborted' })
+    expect(parts.map((p) => p.status)).toEqual(['sent'])
+  })
+
+  it('takes the answer from the text after the last interjection', () => {
+    const r = recorder()
+    r.apply({ type: 'text-delta', partId: 't1', text: '先看看' })
+    r.interject('q1', '先别改测试', [], 2)
+    r.apply({ type: 'interject-delivered' })
+    r.apply({ type: 'text-delta', partId: 't2', text: '好的' })
+    expect(r.answerText()).toBe('好的')
+  })
+
   it('keeps which task a subagent tool belongs to', () => {
     const r = recorder()
     const { parts } = r.apply({
