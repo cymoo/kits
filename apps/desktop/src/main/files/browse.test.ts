@@ -1,8 +1,18 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { listDir, readPreview, resolveInside } from './browse'
+import { listDir, pdfAsset, readPreview, resolveInside } from './browse'
+
+const fixture = (name: string) => path.resolve(import.meta.dirname, '../attachments/fixtures', name)
 
 let root: string
 let work: string
@@ -66,6 +76,32 @@ describe('resolveInside', () => {
 })
 
 describe('readPreview', () => {
+  it('gives an image as a data url', async () => {
+    writeFileSync(path.join(work, 'a.PNG'), Buffer.from([1, 2, 3]))
+    expect(await readPreview(work, 'a.PNG')).toMatchObject({
+      kind: 'image',
+      dataUrl: 'data:image/png;base64,AQID',
+    })
+  })
+
+  it('gives a pdf as bytes', async () => {
+    writeFileSync(path.join(work, 'a.pdf'), Buffer.from([37, 80]))
+    const preview = await readPreview(work, 'a.pdf')
+    expect(preview.kind === 'pdf' && [...preview.data]).toEqual([37, 80])
+  })
+
+  it('turns a Word document into html', async () => {
+    copyFileSync(fixture('requirement.docx'), path.join(work, 'a.docx'))
+    const preview = await readPreview(work, 'a.docx')
+    expect(preview.kind).toBe('html')
+    expect(preview.kind === 'html' && preview.html).toContain('<p>')
+  })
+
+  it('falls back when a Word document cannot be read', async () => {
+    writeFileSync(path.join(work, 'bad.docx'), 'not a zip')
+    expect(await readPreview(work, 'bad.docx')).toMatchObject({ kind: 'unsupported' })
+  })
+
   it('reads a text file', async () => {
     expect(await readPreview(work, 'README.md')).toEqual({
       kind: 'text',
@@ -102,5 +138,16 @@ describe('readPreview', () => {
       kind: 'unsupported',
       reason: 'large',
     })
+  })
+})
+
+describe('pdfAsset', () => {
+  it('reads a font shipped with pdfjs', async () => {
+    const data = await pdfAsset('standardFontDataUrl', 'LiberationSans-Regular.ttf')
+    expect(data.byteLength).toBeGreaterThan(1000)
+  })
+
+  it('stays in its folder whatever the file name says', async () => {
+    await expect(pdfAsset('cMapUrl', '../package.json')).rejects.toThrow()
   })
 })

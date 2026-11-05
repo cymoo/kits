@@ -57,6 +57,7 @@ describe('contractEntries', () => {
       ['files', 'list'],
       ['files', 'read'],
       ['files', 'open'],
+      ['files', 'pdfAsset'],
       ['workdir', 'pick'],
       ['workdir', 'rename'],
       ['workdir', 'remove'],

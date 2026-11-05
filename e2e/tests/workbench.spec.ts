@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 import { launchApp, mod } from './app'
@@ -305,6 +305,63 @@ test('browses the workspace files and previews them', async () => {
     await tree.getByRole('button', { name: 'README.md' }).click()
     await expect(tree).toBeVisible()
     await expect(preview.getByRole('heading', { name: '积分模块' })).toBeVisible()
+  } finally {
+    await close()
+  }
+})
+
+test('previews images, pdf and word files', async () => {
+  const { page, configDir, close } = await launchApp(mock('done'))
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const workdir = await prepare(page, configDir)
+    const fixtures = path.resolve(
+      import.meta.dirname,
+      '../../apps/desktop/src/main/attachments/fixtures',
+    )
+    copyFileSync(path.join(fixtures, 'spec.pdf'), path.join(workdir, 'spec.pdf'))
+    copyFileSync(path.join(fixtures, 'requirement.docx'), path.join(workdir, 'requirement.docx'))
+    writeFileSync(
+      path.join(workdir, 'dot.png'),
+      Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        'base64',
+      ),
+    )
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('看看文件')
+    await box.press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+
+    const panel = page.getByRole('complementary', { name: '会话面板' })
+    await panel.getByRole('tab', { name: '文件' }).click()
+    await page.getByRole('button', { name: '放大面板' }).click()
+    const tree = panel.getByTestId('file-tree')
+    const preview = panel.getByTestId('file-preview')
+
+    await tree.getByRole('button', { name: 'dot.png' }).click()
+    await expect
+      .poll(() => preview.getByRole('img').evaluate((el: HTMLImageElement) => el.naturalWidth))
+      .toBe(1)
+
+    await tree.getByRole('button', { name: 'requirement.docx' }).click()
+    const frame = preview.frameLocator('iframe')
+    await expect(frame.locator('body')).not.toBeEmpty()
+
+    await tree.getByRole('button', { name: 'spec.pdf' }).click()
+    await expect(preview).toContainText('第 1 页，共')
+    // 画出来了：canvas 上不全是白的
+    await expect
+      .poll(() =>
+        preview.getByTestId('pdf-page').evaluate((el: HTMLCanvasElement) => {
+          const { data } = el.getContext('2d')?.getImageData(0, 0, el.width, el.height) ?? {
+            data: new Uint8ClampedArray(),
+          }
+          return data.some((v, i) => i % 4 !== 3 && v < 200)
+        }),
+      )
+      .toBe(true)
+    await page.screenshot({ path: 'test-results/files-pdf.png' })
   } finally {
     await close()
   }

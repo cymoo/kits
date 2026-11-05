@@ -1,10 +1,25 @@
-import { open, readdir, realpath, stat } from 'node:fs/promises'
+import { open, readdir, readFile, realpath, stat } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import type { FileEntry, FilePreview } from '@kits/core'
 import { SKIP } from './search'
 
 // 文件面板（界面改版方案“文件面板”一节）：一层层列目录、按类型读文件。
 // 只读工作区里的东西：根目录和目标都取真实路径再比，软链接逃出去的一律拒绝。
+
+const require = createRequire(import.meta.url)
+
+const IMAGES: Record<string, string> = {
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  gif: 'image/gif',
+  ico: 'image/x-icon',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  webp: 'image/webp',
+}
 
 // 再大的文本只显示开头
 const TEXT_LIMIT = 2 * 1024 * 1024
@@ -45,6 +60,23 @@ export async function readPreview(workdir: string, rel: string): Promise<FilePre
   const file = await resolveInside(workdir, rel)
   const { size } = await stat(file)
   if (size > FILE_LIMIT) return { kind: 'unsupported', reason: 'large', size }
+  const ext = path.extname(rel).slice(1).toLowerCase()
+  const image = IMAGES[ext]
+  if (image) {
+    const data = await readFile(file)
+    return { kind: 'image', dataUrl: `data:${image};base64,${data.toString('base64')}`, size }
+  }
+  if (ext === 'pdf') return { kind: 'pdf', data: new Uint8Array(await readFile(file)), size }
+  if (ext === 'docx') {
+    try {
+      const mammoth = await import('mammoth')
+      const { value } = await mammoth.convertToHtml({ buffer: await readFile(file) })
+      return { kind: 'html', html: value, size }
+    } catch {
+      // 坏文件、加密文件转不出来
+      return { kind: 'unsupported', reason: 'binary', size }
+    }
+  }
   const handle = await open(file, 'r')
   try {
     const length = Math.min(size, TEXT_LIMIT)
@@ -62,4 +94,12 @@ export async function readPreview(workdir: string, rel: string): Promise<FilePre
   } finally {
     await handle.close()
   }
+}
+
+const PDF_DIRS = { cMapUrl: 'cmaps', standardFontDataUrl: 'standard_fonts', wasmUrl: 'wasm' }
+
+export async function pdfAsset(kind: keyof typeof PDF_DIRS, filename: string): Promise<Uint8Array> {
+  const root = path.dirname(require.resolve('pdfjs-dist/package.json'))
+  // 文件名来自 PDF 里写的编码名，不让它走出这个目录
+  return new Uint8Array(await readFile(path.join(root, PDF_DIRS[kind], path.basename(filename))))
 }

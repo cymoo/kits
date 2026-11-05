@@ -222,6 +222,11 @@ export const ipcContract = {
     read: method<{ workdir: string; path: string }, FilePreview>(),
     // 用系统应用打开
     open: method<{ workdir: string; path: string }, void>(),
+    // PDF 预览要的 CMap、标准字体和解码器，随 pdfjs-dist 发在主进程这边
+    pdfAsset: method<
+      { kind: 'cMapUrl' | 'standardFontDataUrl' | 'wasmUrl'; filename: string },
+      Uint8Array
+    >(),
   },
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用

@@ -22,6 +22,7 @@ import { cx } from '../../ui/cx'
 import { Segmented } from '../../ui/Segmented'
 import { Markdown } from '../thread/Markdown'
 import type { ChangedFile } from './derive'
+import { PdfView } from './PdfView'
 
 // 文件页签（原型 session.html 的 isFiles）：目录树一层层懒加载，这个会话改过的文件标 A / M；
 // 窄栏点文件进预览，放大后左树右预览。只读。
@@ -36,6 +37,9 @@ const BADGE = {
   M: 'bg-warn-bg text-warn-strong',
   D: 'bg-danger-bg text-danger',
 } as const
+
+const DOC_STYLE =
+  'body{margin:0 auto;max-width:720px;padding:20px 24px 32px;color:#16171a;font:14px/24px -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}table{border-collapse:collapse}td,th{border:1px solid #e8e8e5;padding:5px 10px}img{max-width:100%}'
 
 export type Changes = ReadonlyMap<string, ChangedFile['badge']>
 
@@ -481,6 +485,21 @@ function FileView({
           </p>
         ) : null}
         {data?.kind === 'unsupported' ? <Blocked preview={data} onOpen={open} /> : null}
+        {data?.kind === 'image' ? (
+          <div className="flex justify-center p-4">
+            <img src={data.dataUrl} alt={path} className="max-w-full" />
+          </div>
+        ) : null}
+        {data?.kind === 'pdf' ? <PdfView data={data.data} /> : null}
+        {data?.kind === 'html' ? (
+          // 文档内容不可信：空的 sandbox 不让脚本跑、不让跳转
+          <iframe
+            title={path}
+            sandbox=""
+            srcDoc={`<!doctype html><meta charset="utf-8"><style>${DOC_STYLE}</style>${data.html}`}
+            className="block h-full w-full border-0 bg-white"
+          />
+        ) : null}
         {data?.kind === 'text' ? (
           isMarkdown && !source ? (
             <div className="mx-auto max-w-[720px] px-6 pt-5 pb-8">
