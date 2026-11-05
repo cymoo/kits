@@ -371,7 +371,7 @@ test('changes the permission and model of an open session from the composer', as
 
     // 用量环打开上下文
     await composer.getByTestId('context-ring').click()
-    await expect(page.getByRole('tab', { name: '上下文' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('dialog', { name: '上下文' })).toBeVisible()
   } finally {
     await close()
   }

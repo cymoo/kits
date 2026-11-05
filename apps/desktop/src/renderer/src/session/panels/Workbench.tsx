@@ -1,20 +1,20 @@
 import type { OutputView, SessionDetail } from '@kits/core/ipc'
-import { useQuery } from '@tanstack/react-query'
+import { X } from 'lucide-react'
 import { Tabs as T } from 'radix-ui'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { t } from '../../app/i18n'
-import { kits, useHomeLabel } from '../../lib/kits'
+import { kits } from '../../lib/kits'
 import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { Segmented } from '../../ui/Segmented'
-import { type ChangedFile, formatTokens, type Round, type Usage } from './derive'
+import type { ChangedFile, Round } from './derive'
 import { OutputPanel } from './OutputPanel'
 import { type DiffLine, parsePatch, splitRows } from './patch'
 
-// 会话页右侧的工作区面板（原型 session.html 的 aside）：改动、产出、上下文三个页签。工具结果在对话里点开步骤看。
+// 会话页右侧的面板（原型 session.html 的 aside）：改动是常驻页签；对话里打开产出时多一个可关闭的页签。工具结果在对话里点开步骤看。
 // 放大模式下改动是左右两栏（文件列表 + diff），diff 可以切并排。
 
-export type PanelTab = 'changes' | 'output' | 'context'
+export type PanelTab = 'changes' | 'output'
 
 // 改动里选中的文件：对话里点改文件的步骤时带这一轮，点文件列表时也一样
 export interface PickedFile {
@@ -27,15 +27,20 @@ export interface WorkbenchProps {
   rounds: Round[]
   picked: PickedFile | undefined
   onPick(file: PickedFile): void
-  rules: string[]
   outputs: OutputView[]
-  usage: Usage
-  // 当前模型的上下文窗口；不知道时为 0
-  contextWindow: number
+  // 产出页签打开着
+  outputOpen: boolean
+  onCloseOutput(): void
+  pickedOutput: string | undefined
+  onPickOutput(id: string): void
+  onExported(path: string): void
   wide: boolean
   tab: PanelTab
   onTab(tab: PanelTab): void
 }
+
+const TAB =
+  '-mb-px inline-flex h-[34px] cursor-pointer items-center gap-1.5 border-transparent border-b-2 px-2.5 text-[0.929rem] text-fg-muted hover:text-fg data-[state=active]:border-fg data-[state=active]:font-semibold data-[state=active]:text-fg'
 
 function Count({ n, on }: { n: number; on: boolean }) {
   if (!n) return null
@@ -71,23 +76,27 @@ export function Workbench(props: WorkbenchProps) {
       className="flex min-h-0 flex-1 flex-col"
     >
       <div className="flex shrink-0 items-center gap-0.5 border-line-soft border-b px-2.5 pt-2">
-        <T.List aria-label={t('panel.tabs')} className="flex gap-0.5">
-          {(
-            [
-              ['changes', t('panel.changes'), files],
-              ['output', t('panel.output'), 0],
-              ['context', t('panel.context'), 0],
-            ] as const
-          ).map(([value, label, n]) => (
-            <T.Trigger
-              key={value}
-              value={value}
-              className="-mb-px inline-flex h-[34px] cursor-pointer items-center gap-1.5 border-transparent border-b-2 px-2.5 text-[0.929rem] text-fg-muted hover:text-fg data-[state=active]:border-fg data-[state=active]:font-semibold data-[state=active]:text-fg"
-            >
-              {label}
-              <Count n={n} on={tab === value} />
-            </T.Trigger>
-          ))}
+        <T.List aria-label={t('panel.tabs')} className="flex items-center gap-0.5">
+          <T.Trigger value="changes" className={TAB}>
+            {t('panel.changes')}
+            <Count n={files} on={tab === 'changes'} />
+          </T.Trigger>
+          {props.outputOpen ? (
+            <>
+              <T.Trigger value="output" className={TAB}>
+                {t('panel.output')}
+              </T.Trigger>
+              <button
+                type="button"
+                aria-label={t('panel.closeOutput')}
+                title={t('panel.closeOutput')}
+                onClick={props.onCloseOutput}
+                className="-ml-2 flex h-[18px] w-[18px] cursor-pointer items-center justify-center rounded-[4px] text-fg-subtle hover:bg-active hover:text-fg"
+              >
+                <X size={11} strokeWidth={2} />
+              </button>
+            </>
+          ) : null}
         </T.List>
         <span className="flex-1" />
         {wide && tab === 'changes' && files > 0 ? (
@@ -109,14 +118,10 @@ export function Workbench(props: WorkbenchProps) {
       <T.Content value="output" className="flex min-h-0 flex-1 flex-col outline-none">
         <OutputPanel
           outputs={props.outputs}
-          running={
-            props.detail.session.status === 'running' || props.detail.session.status === 'waiting'
-          }
-          agent={props.detail.session.agent}
+          picked={props.pickedOutput}
+          onPick={props.onPickOutput}
+          onExported={props.onExported}
         />
-      </T.Content>
-      <T.Content value="context" className="flex min-h-0 flex-1 flex-col outline-none">
-        <ContextPanel {...props} />
       </T.Content>
     </T.Root>
   )
@@ -337,153 +342,6 @@ function DiffView({
           )}
         </div>
       )}
-    </div>
-  )
-}
-
-// ---------- 上下文 ----------
-
-function ContextPanel({ detail, usage, contextWindow, rules }: WorkbenchProps) {
-  const homeLabel = useHomeLabel()
-  const { session } = detail
-  const [compactError, setCompactError] = useState<string>()
-  const [compacting, setCompacting] = useState(false)
-  const busy = compacting || session.status === 'running' || session.status === 'waiting'
-  // 这个会话会读到的记忆条数（项目 + 个人）
-  const memory = useQuery({
-    queryKey: ['memory', 'count', session.workdir],
-    queryFn: async () => {
-      const [project, personal] = await Promise.all([
-        kits.memory.list({ scope: 'project', workdir: session.workdir }),
-        kits.memory.list({ scope: 'personal' }),
-      ])
-      return { project: project.entries.length, personal: personal.entries.length }
-    },
-  })
-  const compact = async () => {
-    setCompacting(true)
-    setCompactError(undefined)
-    try {
-      await kits.session.compact(session.id)
-    } catch (e) {
-      const m = e instanceof Error ? e.message : String(e)
-      setCompactError(m.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
-    } finally {
-      setCompacting(false)
-    }
-  }
-  const pct = contextWindow ? Math.min(100, (usage.context / contextWindow) * 100) : 0
-  const near = pct >= 85
-  // input 已经含缓存读写
-  const cachePct = usage.input ? Math.round((usage.cacheRead / usage.input) * 100) : 0
-  const model = session.model.slice(session.model.indexOf('/') + 1)
-  const rows: [string, string][] = [
-    [t('context.agent'), session.agent],
-    [
-      t('context.kernel'),
-      [
-        session.kernel === 'opencode' ? 'OpenCode' : 'CodeAgent',
-        model,
-        contextWindow ? t('context.window', { n: formatTokens(contextWindow) }) : null,
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    ],
-    [t('context.workdir'), homeLabel(session.workdir)],
-  ]
-  if (memory.data) {
-    rows.push([
-      t('context.memory'),
-      t('context.memoryValue', { project: memory.data.project, personal: memory.data.personal }),
-    ])
-  }
-  if (usage.input || usage.output) {
-    rows.push([
-      t('context.tokens'),
-      [
-        t('context.tokensValue', {
-          input: formatTokens(usage.input),
-          output: formatTokens(usage.output),
-        }),
-        usage.cacheRead ? t('context.cache', { pct: cachePct }) : null,
-        usage.cost ? `约 ¥${usage.cost.toFixed(2)}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    ])
-  }
-  return (
-    <div
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-1.5 pb-4"
-      data-testid="context"
-    >
-      <div className="flex flex-col gap-2 border-line-soft border-b py-3">
-        <div className="flex items-baseline text-[0.929rem]">
-          <span className="flex-1 text-fg-muted">{t('context.usage')}</span>
-          <span className="font-medium font-mono" data-testid="context-usage">
-            {usage.context
-              ? `${formatTokens(usage.context)}${contextWindow ? ` / ${formatTokens(contextWindow)}` : ''}`
-              : t('context.unknown')}
-          </span>
-        </div>
-        {/* biome-ignore lint/a11y/useSemanticElements: 原生 meter 的样式各平台不一样，按原型自绘 */}
-        <div
-          role="meter"
-          aria-label={t('context.usage')}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(pct)}
-          className="flex h-2 overflow-hidden rounded-[4px] bg-hover"
-        >
-          <div
-            className={cx('h-full transition-[width]', near ? 'bg-warn' : 'bg-accent')}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <div className="text-[0.929rem] text-fg-muted leading-[1.6]">{t('context.note')}</div>
-        {session.turns > 0 ? (
-          <div className="flex items-start gap-2.5 pt-1">
-            <span className="min-w-0 flex-1 text-[0.857rem] text-fg-label leading-[1.6]">
-              {compactError ? (
-                <span role="alert" className="text-danger">
-                  {compactError}
-                </span>
-              ) : (
-                t('context.compactHint')
-              )}
-            </span>
-            <Button className="h-[26px] px-2" disabled={busy} onClick={() => void compact()}>
-              {t('context.compact')}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-      {rows.map(([k, v]) => (
-        <div key={k} className="flex gap-3 border-line-soft border-b py-2.5">
-          <span className="shrink-0 basis-[60px] text-[0.929rem] text-fg-muted">{k}</span>
-          <span className="min-w-0 flex-1 whitespace-pre-line break-all font-mono text-[0.929rem]">
-            {v}
-          </span>
-        </div>
-      ))}
-      <div className="flex gap-3 border-line-soft border-b py-2.5" data-testid="allow-rules">
-        <span className="shrink-0 basis-[60px] text-[0.929rem] text-fg-muted">
-          {t('context.rules')}
-        </span>
-        {rules.length ? (
-          <span className="flex min-w-0 flex-1 flex-wrap gap-1.5 text-[0.929rem]">
-            {rules.map((r) => (
-              <span key={r} className="rounded-[4px] bg-hover px-[5px] font-mono">
-                {r}
-              </span>
-            ))}
-          </span>
-        ) : (
-          <span className="min-w-0 flex-1 text-[0.929rem] text-fg-label">
-            {t('context.noRules')}
-          </span>
-        )}
-      </div>
     </div>
   )
 }

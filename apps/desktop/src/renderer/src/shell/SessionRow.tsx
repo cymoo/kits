@@ -19,7 +19,7 @@ import { StatusDot } from './StatusDot'
 
 const MAX_TITLE = 120
 
-function RemoveDialog({
+export function RemoveDialog({
   session,
   open,
   onOpenChange,

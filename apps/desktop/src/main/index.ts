@@ -334,6 +334,7 @@ app.whenReady().then(() => {
         remove: (id) => sessions.remove(id),
         rename: ({ id, title }) => sessions.rename(id, title),
         setPinned: ({ id, pinned }) => sessions.setPinned(id, pinned),
+        export: (input) => sessions.exportSession(input),
         setPermissionMode: ({ id, mode }) => sessions.setPermissionMode(id, mode),
         setModel: ({ id, model }) => sessions.setModel(id, model),
         compact: (id) => sessions.compact(id),
@@ -347,7 +348,6 @@ app.whenReady().then(() => {
       },
       output: {
         list: (id) => sessions.outputs(id),
-        save: (input) => sessions.saveOutput(input),
         export: (input) => sessions.exportOutput(input),
       },
       mcp: {

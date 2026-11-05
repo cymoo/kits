@@ -53,3 +53,45 @@ phase1-implementation PR9（6.4 节的右侧面板和总结卡片）：会话页
 - 这个版本之前建的会话没有 `kernel_turn`，改动按内核的编号直接当本地轮次。
 - 本会话允许的规则只能看，不能撤销（OpenCode 没有撤销会话规则的接口）。
 - diff 没有语法高亮，也没有“只看这一轮 / 合并所有轮”的切换。
+
+## 2026-11-06　界面改版 6：顶栏菜单、上下文对话框、产出卡片
+
+> PR：分支 `feat/session-menu-and-output-card`　作者：Claude Code
+
+### 原始需求
+
+右侧三个页签里产出用得少，上下文不值得占一个页签；顶栏的信息太杂。见[界面改版方案](../plans/2026-11-ui-refresh.md)的决策 5、5a。
+
+### 怎么验收
+
+1. 顶栏只有 工作区 / 标题、状态、`…`、面板按钮；Agent 不是 assistant 时跟在工作区后面。
+2. `…` 菜单：查看上下文（带百分比）、压缩上下文、导出 Markdown、导出 JSON、在访达中显示、重命名、置顶、删除。运行中压缩和删除是灰的。
+3. 查看上下文或点输入框的用量环：弹出上下文对话框，内容和原来的页签一样，内核和模型在这里看。
+4. 导出：顶栏下面出现“已导出到 xxx”，能在文件夹中显示，能关掉。文件在 `{userData}/exports/`。
+5. 右侧只有“改动”。用配了产出格式的 Agent（比如 api-reviewer）跑一轮：回复后面有产出卡片；点“查看”多一个可关闭的“产出”页签；点“导出”直接写 JSON 文件；点提交产出的步骤也能打开。
+6. 用 assistant 跑一轮：没有卡片，也没有产出页签。
+
+### 主要改动
+
+- `pages/session/SessionMenu.tsx`：顶栏菜单。`SessionPage.tsx`：顶栏、导出提示、就地改名、产出页签的开关。
+- `session/panels/ContextPanel.tsx`：从 `Workbench.tsx` 拆出来，换成对话框；接近上限的阈值统一成八成。
+- `session/thread/outputs.ts`、`OutputCard.tsx`：卡片放在这一轮的回复后面。
+- `OutputPanel.tsx`：只留结构化产出。
+- 主进程：不再把回复正文记成产出；旧数据里的文本产出不再列出，表里的数据不动。新增 `session.export` 和 `sessions/export.ts`，方案里以为已有的 `session.export` 其实只有导出产出。去掉 `output.save`。
+- 配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`sessions/export.test.ts`、`thread/outputs.test.ts`，`session-service.test.ts` 的 `SessionService outputs`。
+- E2E：`workbench.spec.ts` 的 `manages the session from the header menu`，`output.spec.ts` 改走卡片。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 回复正文不再能在产出里编辑后导出，要留存用“导出会话”。
+- 结构化产出还是 JSON 视图，原型里逐条审核的样子这次没做。
+- 手动压缩失败的错误显示在顶栏下面。
+

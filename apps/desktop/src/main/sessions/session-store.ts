@@ -365,16 +365,6 @@ export class SessionStore {
     return this.output(values.id) as OutputView
   }
 
-  // 人工修改；null 表示还原为 AI 原稿
-  saveEdited(id: string, edited: unknown | null, at: number): OutputView | undefined {
-    this.db
-      .update(outputs)
-      .set({ edited, editedAt: edited === null ? null : new Date(at) })
-      .where(eq(outputs.id, id))
-      .run()
-    return this.output(id)
-  }
-
   markExported(id: string, format: 'markdown' | 'json', at: number): OutputView | undefined {
     this.db
       .update(outputs)

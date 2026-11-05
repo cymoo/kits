@@ -128,7 +128,6 @@ describe('SessionService', () => {
       'session.activity',
       'session.changed',
       'session.message',
-      'session.output',
       'session.part',
     ])
   })
@@ -688,51 +687,39 @@ describe('SessionService diffs across turns', () => {
 })
 
 describe('SessionService outputs', () => {
-  it('keeps the reply of a finished turn as the text output', async () => {
-    const { service, waitFor, pushed } = setup('done')
-    const s = await service.create(input)
-    await waitFor(s.id, ['done'])
-    const [output] = service.outputs(s.id)
-    expect(output).toMatchObject({ kind: 'text', turn: 1, edited: null })
-    expect(output?.kind === 'text' && output.aiDraft).toContain('改好了')
-    expect(pushed.some((p) => p.channel === 'session.output')).toBe(true)
-  })
-
-  it('stores edits apart from the AI draft and reverts when edited back', async () => {
+  it('has no output when the agent has no output format', async () => {
     const { service, waitFor } = setup('done')
     const s = await service.create(input)
     await waitFor(s.id, ['done'])
-    const id = service.outputs(s.id)[0]?.id ?? ''
-    const draft = service.outputs(s.id)[0]?.aiDraft
-    const edited = service.saveOutput({ id, edited: '改过的正文' })
-    expect(edited).toMatchObject({ edited: '改过的正文', aiDraft: draft })
-    expect(edited.editedAt).not.toBeNull()
-    expect(service.saveOutput({ id, edited: draft })).toMatchObject({
-      edited: null,
-      editedAt: null,
-    })
+    expect(service.outputs(s.id)).toEqual([])
   })
 
-  it('exports the edited text as markdown into the exports folder', async () => {
+  it('hides a reply an older version stored as an output', async () => {
+    const { service, store, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    store.saveDraft({ sessionId: s.id, turn: 1, kind: 'text', aiDraft: '回复' })
+    expect(service.outputs(s.id)).toEqual([])
+  })
+
+  it('exports a session as markdown and as the full record', async () => {
     const { service, waitFor } = setup('done')
     const s = await service.create(input)
     await waitFor(s.id, ['done'])
-    const id = service.outputs(s.id)[0]?.id ?? ''
-    service.saveOutput({ id, edited: '## 改过的\n' })
-    const { path: file } = service.exportOutput({ id, format: 'markdown' })
-    expect(path.dirname(file)).toBe(exportsDir)
-    expect(file).toMatch(/\d{8}-给兑换接口加幂等校验.*\.md$/)
-    expect(readFileSync(file, 'utf8')).toBe('## 改过的\n')
-    expect(service.outputs(s.id)[0]).toMatchObject({ exportFormat: 'markdown' })
+    const { path: md } = service.exportSession({ id: s.id, format: 'markdown' })
+    expect(path.dirname(md)).toBe(exportsDir)
+    expect(md).toMatch(/\d{8}-给兑换接口加幂等校验.*\.md$/)
+    expect(readFileSync(md, 'utf8')).toContain('改好了')
+    const { path: json } = service.exportSession({ id: s.id, format: 'json' })
+    expect(JSON.parse(readFileSync(json, 'utf8')).session.id).toBe(s.id)
   })
 
   it('does not overwrite an earlier export with the same name', async () => {
     const { service, waitFor } = setup('done')
     const s = await service.create(input)
     await waitFor(s.id, ['done'])
-    const id = service.outputs(s.id)[0]?.id ?? ''
-    const first = service.exportOutput({ id, format: 'markdown' }).path
-    const second = service.exportOutput({ id, format: 'markdown' }).path
+    const first = service.exportSession({ id: s.id, format: 'markdown' }).path
+    const second = service.exportSession({ id: s.id, format: 'markdown' }).path
     expect(second).not.toBe(first)
     expect(second).toMatch(/-2\.md$/)
   })
