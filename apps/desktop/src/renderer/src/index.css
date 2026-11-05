@@ -319,6 +319,49 @@ html[data-resizing] * {
   padding-left: 12px;
   color: var(--k-fg-muted);
 }
+/* 文件预览的代码：一行一个块，行号不进选区；颜色在 token 上，深色取 --shiki-dark */
+.k-src {
+  font-family: var(--k-mono);
+  font-size: var(--k-code-size);
+  line-height: 1.6;
+  color: var(--k-fg);
+  white-space: pre;
+}
+.k-src-line {
+  display: block;
+  padding-right: 16px;
+}
+.k-src-no {
+  display: inline-block;
+  width: 40px;
+  margin-right: 16px;
+  text-align: right;
+  color: var(--k-fg-subtle);
+  user-select: none;
+}
+:root[data-theme="dark"] .k-src span[style] {
+  color: var(--shiki-dark) !important;
+}
+/* CSV 预览 */
+.k-sheet {
+  border-collapse: collapse;
+  font-size: 0.929rem;
+  white-space: nowrap;
+}
+.k-sheet th,
+.k-sheet td {
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--k-border-soft);
+  border-right: 1px solid var(--k-border-soft);
+  text-align: left;
+}
+.k-sheet th {
+  position: sticky;
+  top: 0;
+  background: var(--k-bg-muted);
+  font-weight: 600;
+  color: var(--k-fg-muted);
+}
 /* 流式输出时末尾的光标 */
 .k-md-caret > :last-child::after {
   content: "";

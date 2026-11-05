@@ -9,6 +9,8 @@ import type {
   AttachmentView,
   CreateSessionInput,
   FileDiffView,
+  FileEntry,
+  FilePreview,
   MessageView,
   OutputView,
   PartView,
@@ -214,6 +216,12 @@ export const ipcContract = {
   files: {
     // 输入框 @ 菜单：工作目录里按路径匹配的文件（相对路径），最多 30 个
     search: method<{ workdir: string; query: string }, string[]>(),
+    // 文件面板：列一层目录，dir 是相对工作区的路径，空串是根目录
+    list: method<{ workdir: string; dir: string }, FileEntry[]>(),
+    // 文件面板：读文件，目标不在工作区里时抛错
+    read: method<{ workdir: string; path: string }, FilePreview>(),
+    // 用系统应用打开
+    open: method<{ workdir: string; path: string }, void>(),
   },
   workdir: {
     // 弹系统的目录选择框，取消时返回 null；选中的目录记进最近使用

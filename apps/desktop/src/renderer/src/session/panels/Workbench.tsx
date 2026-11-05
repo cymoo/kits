@@ -8,13 +8,14 @@ import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { Segmented } from '../../ui/Segmented'
 import type { ChangedFile, Round } from './derive'
+import { FilesPanel } from './FilesPanel'
 import { OutputPanel } from './OutputPanel'
 import { type DiffLine, parsePatch, splitRows } from './patch'
 
 // 会话页右侧的面板（原型 session.html 的 aside）：改动是常驻页签；对话里打开产出时多一个可关闭的页签。工具结果在对话里点开步骤看。
 // 放大模式下改动是左右两栏（文件列表 + diff），diff 可以切并排。
 
-export type PanelTab = 'changes' | 'output'
+export type PanelTab = 'changes' | 'files' | 'output'
 
 // 改动里选中的文件：对话里点改文件的步骤时带这一轮，点文件列表时也一样
 export interface PickedFile {
@@ -34,6 +35,8 @@ export interface WorkbenchProps {
   pickedOutput: string | undefined
   onPickOutput(id: string): void
   onExported(path: string): void
+  // 预览里的“引用”：把路径填进输入框
+  onQuote(path: string): void
   wide: boolean
   tab: PanelTab
   onTab(tab: PanelTab): void
@@ -69,6 +72,17 @@ export function Workbench(props: WorkbenchProps) {
   const { rounds, wide, tab, onTab } = props
   const [view, setView] = useState<'unified' | 'split'>('unified')
   const files = rounds.reduce((n, r) => n + r.files.length, 0)
+  // 切页签时文件页签会卸载，看到哪、展开了什么留在这里
+  const [file, setFile] = useState<string>()
+  const [openDirs, setOpenDirs] = useState<ReadonlySet<string>>(new Set())
+  // 同一个文件改过几轮时取最新一轮的状态
+  const changes = useMemo(() => {
+    const map = new Map<string, ChangedFile['badge']>()
+    for (const r of rounds) for (const f of r.files) if (!map.has(f.path)) map.set(f.path, f.badge)
+    return map
+  }, [rounds])
+  const { session, parts } = props.detail
+  const tick = `${session.status}:${parts.filter((p) => p.type === 'tool' && p.status === 'completed').length}`
   return (
     <T.Root
       value={tab}
@@ -80,6 +94,9 @@ export function Workbench(props: WorkbenchProps) {
           <T.Trigger value="changes" className={TAB}>
             {t('panel.changes')}
             <Count n={files} on={tab === 'changes'} />
+          </T.Trigger>
+          <T.Trigger value="files" className={TAB}>
+            {t('panel.files')}
           </T.Trigger>
           {props.outputOpen ? (
             <>
@@ -114,6 +131,25 @@ export function Workbench(props: WorkbenchProps) {
       </div>
       <T.Content value="changes" className="flex min-h-0 flex-1 flex-col outline-none">
         <ChangesPanel {...props} view={wide ? view : 'unified'} />
+      </T.Content>
+      <T.Content value="files" className="flex min-h-0 flex-1 flex-col outline-none">
+        <FilesPanel
+          workdir={props.detail.session.workdir}
+          wide={wide}
+          changes={changes}
+          file={file}
+          onFile={setFile}
+          open={openDirs}
+          onOpen={(dir) =>
+            setOpenDirs((set) => {
+              const next = new Set(set)
+              if (!next.delete(dir)) next.add(dir)
+              return next
+            })
+          }
+          onQuote={props.onQuote}
+          tick={tick}
+        />
       </T.Content>
       <T.Content value="output" className="flex min-h-0 flex-1 flex-col outline-none">
         <OutputPanel

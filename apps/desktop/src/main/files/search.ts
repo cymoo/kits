@@ -5,7 +5,7 @@ import path from 'node:path'
 // 列出工作目录里的文件（跳过 .git、node_modules 这类目录），按路径匹配，返回相对路径。
 // 列表缓存 30 秒，连着打字不用每次都走一遍目录。
 
-const SKIP = new Set([
+export const SKIP = new Set([
   '.git',
   '.hg',
   '.svn',

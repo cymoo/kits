@@ -3,7 +3,6 @@ import {
   AlertCircle,
   ArrowDown,
   Check,
-  Clock,
   Maximize2,
   Minimize2,
   PanelRightClose,
@@ -512,6 +511,8 @@ export function SessionPage() {
             style={panel === 'wide' ? undefined : { width: widths.panel }}
           >
             <Workbench
+              // 文件面板看到哪跟着会话走
+              key={session.id}
               detail={detail}
               rounds={rounds}
               picked={picked}
@@ -525,6 +526,7 @@ export function SessionPage() {
               pickedOutput={pickedOutput}
               onPickOutput={setPickedOutput}
               onExported={(path) => setNotice({ path })}
+              onQuote={(path) => composer.current?.restore({ text: `@${path} `, attachments: [] })}
               wide={panel === 'wide'}
               tab={tab}
               onTab={setTab}
