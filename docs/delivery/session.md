@@ -424,3 +424,47 @@ phase1-implementation PR16（3.5 节记忆、6.4 节会话页的上下文、原�
 - 输出要等工具结束才有，运行中的命令点开只有“运行中，结束后显示输出”。
 - 步骤多时没有把连续同类步骤合并成一组。
 - 这次动过的旧会话：`additions`、`count` 是新字段，旧会话的步骤右边没有数字，描述和输出不受影响。
+
+## 2026-11-05　看得到计划和它的进度
+
+> PR：#46　作者：Claude Code
+
+### 原始需求
+
+Agent 调 `todowrite` 时界面上只有一行“更新计划”，看不到清单，也看不到进度（第 2 张截图）。原型见 `designs/app/session.html?s=plan`。
+
+### 怎么验收
+
+1. Mock：`KITS_KERNEL=mock KITS_MOCK_SCENARIO=plan pnpm dev`，发一句话。预期：输入框上方出现“计划 1/2”卡片，标题下有进度条，已完成的项打勾划线，进行中的项转圈、整行高亮；对话里等你确认。
+2. 点卡片标题收起：一行显示进度和当前项。再点展开。
+3. 点“允许一次”：这一轮结束，卡片消失。
+4. 展开“第 1 轮”：三条“更新计划”，右边分别是 `0/2`、`1/2`、`2/2`，点开看到当时的清单，不再是 JSON。
+5. 真实模型：发“用 todowrite 列个计划，然后逐项做完”，卡片跟着 Agent 的更新变。
+
+### 主要改动
+
+- `session/thread/derive.ts`：`todosOf`、`todoProgress`、`deriveTodos`；“更新计划”步骤带清单和进度。
+- `session/thread/Plan.tsx`：`TodoList`、`PlanCard`。`Steps.tsx` 的步骤点开放清单。
+- `pages/session/SessionPage.tsx`：输入框上方放卡片。
+- `designs/app/session.html`：新场景 `plan`。
+- `packages/kernel/src/mock/scenarios.ts`：新场景 `plan`。
+
+样式参考 lovia：进度条和高亮当前项。位置没有学它浮在右上角，浮层会盖住对话；放在输入框上方，和 Codex 一样。
+
+几个取舍：清单直接从 `todowrite` 的参数取，不用内核的 `todo.updated` 事件，历史里每一步的快照也有了，不用改事件和数据库。卡片只跟着正在跑的这一轮，这一轮不写计划就不显示，免得上一轮没做完的计划一直挂着。取消的项不算进度。
+
+配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`derive.test.ts` 的 `todos`（解析、进度、步骤、取最后一份、结束后没有卡片）。
+- E2E：`session-cards.spec.ts` 的 `follows the plan above the composer and keeps each update in the steps`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 子任务里的 `todowrite` 不进卡片（内核默认不给子任务这个工具）。
+- CodeAgent 的工具名没有真机核对，不是 `todowrite` 的话走不到这里。

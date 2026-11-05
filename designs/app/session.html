@@ -60,6 +60,18 @@ a{color:#3659E3}a:hover{color:#2744B8}
 .k-out .s:hover .k-cp,.k-cp:focus-visible,.k-cp[data-done="true"]{opacity:1}
 .k-cp:focus-visible{outline:2px solid #3659E3;outline-offset:-2px}
 .k-cp[data-done="true"]{color:#1E7F43}
+.k-todos{display:flex;flex-direction:column;gap:2px;padding:6px;font-size:13.5px;line-height:20px}
+.k-todo{display:flex;align-items:flex-start;gap:8px;padding:3px 6px;border-radius:7px;color:#4A4A52}
+.k-todo .i{flex:0 0 14px;height:20px;display:flex;align-items:center;justify-content:center;color:#9A9AA1}
+.k-todo[data-s="done"]{color:#8A8A92}
+.k-todo[data-s="done"] .t,.k-todo[data-s="cancelled"] .t{text-decoration:line-through}
+.k-todo[data-s="done"] .i{color:#1E7F43}
+.k-todo[data-s="cancelled"]{color:#9A9AA1}
+.k-todo[data-s="doing"]{color:#2744B8;font-weight:500;background:#EEF2FF}
+.k-plan{margin-bottom:8px;border:1px solid #D5DCF7;border-radius:10px;background:#FFFFFF;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.k-plan .k-todos{max-height:208px;overflow-y:auto}
+.k-bar{height:3px;margin:0 12px 6px;border-radius:2px;background:#ECEBE7;overflow:hidden}
+.k-bar span{display:block;height:100%;border-radius:2px;background:#3659E3;transition:width .25s}
 .k-tab{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border:0;background:transparent;font:inherit;font-size:13.5px;cursor:pointer;margin-bottom:-1px;color:#6E6E76;border-bottom:2px solid transparent}
 .k-tab[aria-selected="true"]{color:#1B1B1F;font-weight:600;border-bottom-color:#1B1B1F}
 .k-cnt{font-size:12px;font-weight:500;color:#8A8A92;background:#ECEBE7;border-radius:8px;padding:0 6px}
@@ -80,7 +92,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
 </helmet>
 <div style="height: 100vh; display: flex; font-family: Inter, 'PingFang SC', 'Noto Sans SC', system-ui, sans-serif; color: #1B1B1F; font-size: 14px; line-height: 1.5; background: #F6F5F2; overflow: hidden">
 
-  <svg aria-hidden="true" width="0" height="0" style="position: absolute"><symbol id="k-i-read" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3"></path></symbol><symbol id="k-i-search" viewBox="0 0 16 16"><path d="M7 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM10.5 10.5 14 14"></path></symbol><symbol id="k-i-cmd" viewBox="0 0 16 16"><path d="m3 4.5 3.5 3.5L3 11.5M8 12h5"></path></symbol><symbol id="k-i-edit" viewBox="0 0 16 16"><path d="M10.5 3 13 5.5 6 12.5l-3 .5.5-3zM9 4.5 11.5 7"></path></symbol><symbol id="k-i-new" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3M8 7.5v4M6 9.5h4"></path></symbol><symbol id="k-i-mcp" viewBox="0 0 16 16"><path d="M6 2v3M10 2v3M4.5 5h7v2.5a3.5 3.5 0 0 1-7 0zM8 11v3"></path></symbol><symbol id="k-i-memory" viewBox="0 0 16 16"><path d="M4.5 2.5h7v11L8 11l-3.5 2.5z"></path></symbol><symbol id="k-i-submit" viewBox="0 0 16 16"><path d="M8 10V3M5 5.5 8 3l3 2.5M3 10v3h10v-3"></path></symbol></svg>
+  <svg aria-hidden="true" width="0" height="0" style="position: absolute"><symbol id="k-i-read" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3"></path></symbol><symbol id="k-i-search" viewBox="0 0 16 16"><path d="M7 2.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM10.5 10.5 14 14"></path></symbol><symbol id="k-i-cmd" viewBox="0 0 16 16"><path d="m3 4.5 3.5 3.5L3 11.5M8 12h5"></path></symbol><symbol id="k-i-edit" viewBox="0 0 16 16"><path d="M10.5 3 13 5.5 6 12.5l-3 .5.5-3zM9 4.5 11.5 7"></path></symbol><symbol id="k-i-new" viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4zM9 2v3h3M8 7.5v4M6 9.5h4"></path></symbol><symbol id="k-i-mcp" viewBox="0 0 16 16"><path d="M6 2v3M10 2v3M4.5 5h7v2.5a3.5 3.5 0 0 1-7 0zM8 11v3"></path></symbol><symbol id="k-i-plan" viewBox="0 0 16 16"><path d="m2.5 4 1.2 1.2L6 3M2.5 10.5l1.2 1.2L6 9.5M8.5 4.5H14M8.5 11H14"></path></symbol><symbol id="k-i-memory" viewBox="0 0 16 16"><path d="M4.5 2.5h7v11L8 11l-3.5 2.5z"></path></symbol><symbol id="k-i-submit" viewBox="0 0 16 16"><path d="M8 10V3M5 5.5 8 3l3 2.5M3 10v3h10v-3"></path></symbol></svg>
   <sc-if value="{{wide}}"><k-nav active="session" collapsed></k-nav></sc-if>
   <sc-if value="{{narrow}}"><k-nav active="session"></k-nav></sc-if>
 
@@ -129,7 +141,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
                     </sc-if>
                     <sc-for list="{{b.steps}}" as="s">
                       <button type="button" onClick="{{s.act}}" disabled="{{s.plain}}" aria-expanded="{{s.open}}" title="{{s.tip}}" class="k-row k-step">
-                        <span class="i" style="{{s.iconStyle}}"><sc-if value="{{s.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if><sc-if value="{{s.is.read}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-read"></use></svg></sc-if><sc-if value="{{s.is.search}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-search"></use></svg></sc-if><sc-if value="{{s.is.cmd}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-cmd"></use></svg></sc-if><sc-if value="{{s.is.edit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-edit"></use></svg></sc-if><sc-if value="{{s.is.new}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-new"></use></svg></sc-if><sc-if value="{{s.is.mcp}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-mcp"></use></svg></sc-if><sc-if value="{{s.is.memory}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-memory"></use></svg></sc-if><sc-if value="{{s.is.submit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-submit"></use></svg></sc-if></span>
+                        <span class="i" style="{{s.iconStyle}}"><sc-if value="{{s.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if><sc-if value="{{s.is.read}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-read"></use></svg></sc-if><sc-if value="{{s.is.search}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-search"></use></svg></sc-if><sc-if value="{{s.is.cmd}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-cmd"></use></svg></sc-if><sc-if value="{{s.is.edit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-edit"></use></svg></sc-if><sc-if value="{{s.is.new}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-new"></use></svg></sc-if><sc-if value="{{s.is.mcp}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-mcp"></use></svg></sc-if><sc-if value="{{s.is.plan}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-plan"></use></svg></sc-if><sc-if value="{{s.is.memory}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-memory"></use></svg></sc-if><sc-if value="{{s.is.submit}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-submit"></use></svg></sc-if></span>
                         <span class="b">
                           <sc-if value="{{s.desc}}"><span class="t">{{s.desc}}</span><sc-if value="{{s.sub}}"><span class="c">{{s.detail}}</span></sc-if></sc-if>
                           <sc-if value="{{s.noDesc}}"><span class="t"><span class="v">{{s.verb}}</span> <span class="p">{{s.detail}}</span></span></sc-if>
@@ -143,6 +155,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
                         <div class="k-out">
                           <sc-if value="{{s.isCmd}}"><div class="s c"><pre>{{s.detail}}</pre><button type="button" onClick="{{s.copyCmd}}" class="k-ico k-cp" data-done="{{s.cmdDone}}" aria-label="{{s.cmdLabel}}" title="{{s.cmdLabel}}"><sc-if value="{{s.cmdDone}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{s.cmdDoneNot}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></sc-if></button></div></sc-if>
                           <sc-if value="{{s.args}}"><div class="s"><div class="l">参数</div><pre>{{s.args}}</pre><button type="button" onClick="{{s.copyArgs}}" class="k-ico k-cp" data-done="{{s.argsDone}}" aria-label="{{s.argsLabel}}" title="{{s.argsLabel}}"><sc-if value="{{s.argsDone}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{s.argsDoneNot}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"></path></svg></sc-if></button></div></sc-if>
+                          <sc-if value="{{s.todos}}"><div class="k-todos"><sc-for list="{{s.todos}}" as="t"><div class="k-todo" data-s="{{t.s}}"><span class="i"><sc-if value="{{t.done}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{t.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if><sc-if value="{{t.doing}}"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: #3659E3"></span></sc-if><sc-if value="{{t.pending}}"><span aria-hidden="true" style="width: 10px; height: 10px; border: 1.5px solid #C9C8C1; border-radius: 50%; box-sizing: border-box"></span></sc-if><sc-if value="{{t.cancelled}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8h8"></path></svg></sc-if></span><span class="t">{{t.text}}</span></div></sc-for></div></sc-if>
                           <sc-if value="{{s.out}}"><div class="s">
                             <sc-if value="{{s.args}}"><div class="l">返回</div></sc-if>
                             <sc-if value="{{s.moreTop}}"><button type="button" onClick="{{s.showAll}}" class="k-more">{{s.moreLabel}}</button></sc-if>
@@ -304,6 +317,19 @@ Error: upstream request failed after 5 retries: ECONNRESET
 
         <div style="{{composerWrap}}">
           <button type="button" class="k-jump" aria-label="跳转至底部" title="跳转至底部" hidden><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v10M3.5 8.5 8 13l4.5-4.5"></path></svg></button>
+          <sc-if value="{{plan}}">
+            <div class="k-plan">
+              <button type="button" onClick="{{togglePlan}}" aria-expanded="{{planOpen}}" class="k-row k-head" style="width: 100%; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 5px 10px; border: 0; background: transparent; font: inherit; font-size: 13.5px; color: #4A4A52; cursor: pointer; text-align: left">
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#3659E3" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><use href="#k-i-plan"></use></svg>
+                <span style="flex: 0 0 auto; font-weight: 500; color: #1B1B1F">计划</span>
+                <span style="flex: 0 0 auto; color: #6E6E76; font-variant-numeric: tabular-nums">{{plan.progress}}</span>
+                <span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{planNow}}</span>
+                <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A9AA1" stroke-width="1.5" stroke-linecap="round" style="{{planChev}}"><path d="m4 6 4 4 4-4"></path></svg>
+              </button>
+              <div class="k-bar"><span style="{{plan.barStyle}}"></span></div>
+              <sc-if value="{{planOpen}}"><div class="k-todos"><sc-for list="{{plan.items}}" as="t"><div class="k-todo" data-s="{{t.s}}"><span class="i"><sc-if value="{{t.done}}"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 8.5 3 3 6-7"></path></svg></sc-if><sc-if value="{{t.spin}}"><span aria-hidden="true" style="width: 11px; height: 11px; border: 2px solid #E5E4DF; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if><sc-if value="{{t.doing}}"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: #3659E3"></span></sc-if><sc-if value="{{t.pending}}"><span aria-hidden="true" style="width: 10px; height: 10px; border: 1.5px solid #C9C8C1; border-radius: 50%; box-sizing: border-box"></span></sc-if><sc-if value="{{t.cancelled}}"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8h8"></path></svg></sc-if></span><span class="t">{{t.text}}</span></div></sc-for></div></sc-if>
+            </div>
+          </sc-if>
           <sc-if value="{{ctxNear}}">
             <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid #E9B949; border-radius: 10px; background: #FFFBF0; font-size: 13.5px"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#8A5A00" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 5v3.5M8 11v.1"></path></svg><span style="flex: 1"><span style="font-weight: 600">上下文已用 178K / 200K。</span><span style="color: #4A4A52"> 再聊一两轮会自动压缩前面的内容，现在压缩可以自己看一眼摘要。</span></span><a href="index.html" style="font-size: 13px; text-decoration: none; margin-right: 4px">带着结论新开会话</a><button type="button" onClick="{{compress}}" class="k-primary" style="height: 28px; font-size: 13px">现在压缩</button></div>
           </sc-if>
@@ -423,16 +449,16 @@ Error: upstream request failed after 5 retries: ECONNRESET
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
-// 演示状态由 ?s= 决定：streaming 运行中、permission 命令确认、question Agent 提问、done 完成、
+// 演示状态由 ?s= 决定：streaming 运行中、plan 带计划的运行中、permission 命令确认、question Agent 提问、done 完成、
 // error 重试与出错、context 上下文接近上限、changes 改动放大、output 产出放大（结构化产出）。
 class Component extends DCLogic {
   constructor(props) {
     super(props);
     const scene = new URLSearchParams(location.search).get('s') || 'streaming';
-    const tabDefault = { streaming: 'changes', permission: 'changes', question: 'changes', done: 'output', error: 'changes', context: 'context', changes: 'changes', output: 'output' };
+    const tabDefault = { streaming: 'changes', plan: 'changes', permission: 'changes', question: 'changes', done: 'output', error: 'changes', context: 'context', changes: 'changes', output: 'output' };
     this.scene = scene;
     this.state = {
-      open: { think: true }, stepOpen: {}, stepAll: {}, copied: null,
+      open: { think: true }, stepOpen: {}, stepAll: {}, copied: null, planOpen: true,
       perm: 'pending', answer: null, retry: 'retry', retryOpen: true, ctx: 'near', summaryOpen: true,
       tab: tabDefault[scene] || 'changes', sel: null, view: 'unified', vote: null, tags: [],
       itemOpen: 1, filter: 'all', exportOpen: scene === 'output', removed: [6], edited: [2]
@@ -467,16 +493,28 @@ class Component extends DCLogic {
   sh(desc, cmd, o = {}) {
     return ['执行命令', cmd, o.exit ? '退出 ' + o.exit : o.time || '', false, '', !!o.spin, { desc, ...o }];
   }
+  // 计划的一项。doing 用 spinner 只在这一轮还在跑时：快照里的“进行中”不转
+  todo([text, st], live) {
+    return { text, s: st, done: st === 'done', spin: st === 'doing' && live, doing: st === 'doing' && !live, pending: st === 'pending', cancelled: st === 'cancelled' };
+  }
+  // 取消的项不算进度
+  progress(list) {
+    return list.filter((x) => x[1] === 'done').length + '/' + list.filter((x) => x[1] !== 'cancelled').length;
+  }
+  // 更新计划的步骤：行上是进度，点开看这一步写下的清单
+  planStep(list, more = {}) {
+    return ['更新计划', '', this.progress(list), false, '', false, { todos: list, ...more }];
+  }
   stepOf([kind, detail, meta, diff, note, spin, more = {}], key) {
     const s = this.state;
-    const look = { 读取文件: ['读取', 'read'], 搜索: ['搜索', 'search'], 执行命令: ['运行', 'cmd'], 修改文件: ['修改', 'edit'], 新建文件: ['新建', 'new'], 调用平台: ['调用', 'mcp'], 记忆: ['记下', 'memory'], 提交产出: ['提交', 'submit'] }[kind];
+    const look = { 读取文件: ['读取', 'read'], 搜索: ['搜索', 'search'], 执行命令: ['运行', 'cmd'], 修改文件: ['修改', 'edit'], 新建文件: ['新建', 'new'], 调用平台: ['调用', 'mcp'], 记忆: ['记下', 'memory'], 提交产出: ['提交', 'submit'], 更新计划: ['更新计划', 'plan'] }[kind];
     const isCmd = kind === '执行命令';
     const out = more.out !== undefined ? more.out : this.outs[detail];
     const fail = !!more.exit || !!more.error;
     // 改文件的结果就是 diff，放在“改动”里，点了跳过去
     const edit = kind === '修改文件' || kind === '新建文件';
     const jump = edit && !spin;
-    const canOpen = !edit && (isCmd || out !== undefined);
+    const canOpen = !edit && (isCmd || out !== undefined || !!more.todos);
     const open = canOpen && (s.stepOpen[key] !== undefined ? s.stepOpen[key] : fail);
     // 只放前 12 行，不在对话里套一层滚动。命令留结尾（失败原因和测试汇总都在最后），文件和搜索留开头
     const LIMIT = 12;
@@ -493,11 +531,11 @@ class Component extends DCLogic {
       kind, detail, meta, note, spin: !!spin, fail, verb: look[0], is: spin ? {} : { [look[1]]: true }, desc: more.desc || '', noDesc: !more.desc,
       // 展开后命令在下面的框里，行内不重复
       sub: !open, tip: isCmd ? detail : '',
-      isCmd, canOpen, jump, open, plain: !canOpen && !jump, args: more.args || '', out: out || '',
+      isCmd, canOpen, jump, open, plain: !canOpen && !jump, args: more.args || '', out: out || '', todos: more.todos ? more.todos.map((x) => this.todo(x, false)) : null,
       shown: cut ? (isCmd ? lines.slice(-LIMIT) : lines.slice(0, LIMIT)).join('\n') : out || '',
       preStyle: cut ? 'max-height: none' : '', moreTop: cut && isCmd, moreEnd: cut && !isCmd, moreLabel: isCmd ? '显示前面 ' + hidden + ' 行' : '显示后面 ' + hidden + ' 行',
       showAll: () => this.setState({ stepAll: { ...s.stepAll, [key]: true } }),
-      empty: out ? '' : spin ? '运行中，结束后显示输出' : isCmd ? '没有输出' : '没有结果',
+      empty: out || more.todos ? '' : spin ? '运行中，结束后显示输出' : isCmd ? '没有输出' : '没有结果',
       // 行上已经有的不再写一遍：成功时行上是耗时，失败时行上是退出码
       foot: isCmd ? [fail ? more.time : '', more.how].filter(Boolean).join(' · ') : '',
       copyCmd: copy('cmd'), cmdDone: done('cmd'), cmdDoneNot: !done('cmd'), cmdLabel: done('cmd') ? '已复制' : '复制命令',
@@ -558,6 +596,8 @@ class Component extends DCLogic {
       this.p('还有一件事你可能要决定：缓存目前在进程内存里，多实例部署时各自独立。要跨实例去重的话得换成 Redis，我没动。')] };
     const doneSummary = { isSummary: true };
 
+    const planNow = [['读兑换接口，确认请求号的字段', 'done'], ['写幂等检查和缓存', 'done'], ['补重复提交的测试', 'doing'], ['跑 tests/points', 'pending'], ['顺手改掉 redeem 里的旧日志', 'cancelled']];
+
     const scenes = {
       streaming: {
         title: '给兑换接口加幂等校验', pill: ['run', '运行中 · 第 2 轮 · 0:46'], dir: 'member-svc',
@@ -569,6 +609,19 @@ class Component extends DCLogic {
             { summary: '把幂等检查抽成装饰器，先确认退款的参数名', text: '退款和兑换都要按请求号去重，缓存逻辑一样，不该复制两份。把 idempotency 里的 get/put 抽成一个装饰器，两个接口都用它。退款的请求号字段叫 refund_request_id，先确认一下 refund.py 里的参数名再改。' }),
           { isText: true, paras: [this.p('退款接口和兑换共用同一套请求号规则，所以我把 `idempotency` 里的检查抽成了装饰器 `@idempotent("refund_request_id")`，两个接口各加一行就行。退款的测试补好了，正在跑一遍', true)] }],
         changes: 'both', output: 'empty-running', ctx: { usage: ['71K / 200K', 35.5, '前 1 轮 50K', '9K', ''], rows: 'redeem' }
+      },
+      plan: {
+        title: '给兑换接口加幂等校验', pill: ['run', '运行中 · 第 1 轮 · 0:52'], dir: 'member-svc',
+        blocks: [redeemUser,
+          this.turn('t1', '第 1 轮', '进行中 · 0:52', 'running', [
+            this.planStep([['读兑换接口，确认请求号的字段', 'doing'], ['写幂等检查和缓存', 'pending'], ['补重复提交的测试', 'pending'], ['跑 tests/points', 'pending']]),
+            ['读取文件', 'src/points/redeem.py', '86 行'], ['搜索', 'grep "request_id" src/', '7 处'],
+            this.planStep([['读兑换接口，确认请求号的字段', 'done'], ['写幂等检查和缓存', 'doing'], ['补重复提交的测试', 'pending'], ['跑 tests/points', 'pending']]),
+            ['修改文件', 'src/points/redeem.py', '+18 −3', true], ['新建文件', 'src/points/idempotency.py', '+42', true],
+            this.planStep(planNow),
+            ['修改文件', 'tests/points/test_redeem.py', '', false, '', true]])],
+        plan: planNow,
+        changes: 'round1', output: 'empty-running', ctx: { usage: ['31K / 200K', 15.5, '前 0 轮 0K', '22K', ''], rows: 'redeem' }
       },
       permission: {
         title: '给兑换接口加幂等校验', pill: s.perm === 'pending' || s.perm === 'denying' ? ['wait', '等你确认'] : ['run', '运行中 · 第 1 轮 · 1:20'], dir: 'member-svc',
@@ -625,6 +678,14 @@ class Component extends DCLogic {
       }
     };
     const sc = scenes[scene] || scenes.streaming;
+
+    // ---------- 计划卡片：这一轮写过计划才有，这一轮结束就收掉 ----------
+    const plan = sc.plan ? {
+      progress: this.progress(sc.plan),
+      barStyle: 'width: ' + Math.round(sc.plan.filter((x) => x[1] === 'done').length / sc.plan.filter((x) => x[1] !== 'cancelled').length * 100) + '%',
+      items: sc.plan.map((x) => this.todo(x, true))
+    } : null;
+    const planDoing = sc.plan && sc.plan.find((x) => x[1] === 'doing');
 
     // ---------- 顶栏 ----------
     const pillDefs = {
@@ -760,6 +821,8 @@ class Component extends DCLogic {
       toCrash: () => this.setState({ retry: 'crash' }), toRetry: () => this.setState({ retry: 'retry', retryOpen: true }),
       isUp: s.vote === 'up', isDown: s.vote === 'down', upStyle: voteStyle(s.vote === 'up'), downStyle: voteStyle(s.vote === 'down'),
       voteUp: () => this.setState({ vote: s.vote === 'up' ? null : 'up' }), voteDown: () => this.setState({ vote: s.vote === 'down' ? null : 'down' }), tags,
+      // 计划
+      plan, planOpen: s.planOpen, planNow: s.planOpen || !planDoing ? '' : planDoing[0], planChev: s.planOpen ? 'transform: rotate(180deg)' : '', togglePlan: () => this.setState({ planOpen: !s.planOpen }),
       // 上下文压缩
       ctxNear: scene === 'context' && s.ctx === 'near', ctxCompressing: s.ctx === 'compressing',
       compress: () => { this.setState({ ctx: 'compressing' }); setTimeout(() => this.setState({ ctx: 'done' }), 1200); },
