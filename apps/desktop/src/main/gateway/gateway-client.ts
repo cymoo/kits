@@ -134,6 +134,8 @@ export async function testGateway(
       (m): m is Record<string, unknown> & { id: string } =>
         typeof m?.id === 'string' && m.id.length > 0,
     )
+    // 界面上显示的延迟只算列表请求，详情探测可能要好几秒，不计入
+    const latencyMs = elapsed()
     const contextWindows: Record<string, number> = {}
     for (const m of listed) {
       const window = contextWindowOf(m)
@@ -141,7 +143,7 @@ export async function testGateway(
     }
     const models = [...new Set(listed.map((m) => m.id))].sort()
     await fillContextsFromDetails(baseUrl, input.apiKey, models, contextWindows, fetchImpl)
-    return { ok: true, latencyMs: elapsed(), models, contextWindows }
+    return { ok: true, latencyMs, models, contextWindows }
   } catch (e) {
     const err = e as Error & { cause?: { code?: string } }
     if (err.name === 'TimeoutError')
