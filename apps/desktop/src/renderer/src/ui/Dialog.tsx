@@ -31,7 +31,7 @@ export function DialogContent({
       <D.Content
         {...(role ? { role } : { 'aria-describedby': undefined })}
         className={cx(
-          'fixed left-1/2 z-50 w-[640px] max-w-[calc(100%-48px)] -translate-x-1/2 overflow-hidden rounded-[14px] bg-raised text-fg shadow-dialog outline-none',
+          'fixed left-1/2 z-50 w-[640px] max-w-[calc(100%-48px)] -translate-x-1/2 overflow-hidden rounded-[16px] bg-raised text-fg shadow-dialog outline-none',
           align === 'top' ? 'top-[120px]' : 'top-1/2 -translate-y-1/2',
           className,
         )}

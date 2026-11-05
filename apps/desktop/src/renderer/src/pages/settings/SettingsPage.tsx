@@ -28,7 +28,7 @@ export function SettingsPage() {
           isMac ? 'pt-11' : 'pt-5',
         )}
       >
-        <h1 className="mt-0 mb-3 ml-2.5 font-semibold text-[1.154rem]">{t('settings.title')}</h1>
+        <h1 className="mt-0 mb-3 ml-2.5 font-semibold text-[1.143rem]">{t('settings.title')}</h1>
         {settingsSections.map((s) => (
           <NavLink
             key={s}
@@ -46,7 +46,7 @@ export function SettingsPage() {
         ))}
         <span className="flex-1" />
         <span
-          className="break-all px-2.5 pt-1 text-[0.885rem] text-fg-label"
+          className="break-all px-2.5 pt-1 text-[0.857rem] text-fg-label"
           data-testid="settings-footer"
         >
           {info.data
@@ -58,10 +58,10 @@ export function SettingsPage() {
         {loadError.data ? (
           <div
             role="alert"
-            className="mb-5 max-w-[720px] rounded-[10px] border border-danger/30 bg-danger-bg px-4 py-3 text-danger"
+            className="mb-5 max-w-[720px] rounded-[12px] border border-danger/30 bg-danger-bg px-4 py-3 text-danger"
           >
             <p className="m-0">{t('settings.loadError')}</p>
-            <p className="m-0 mt-1 break-all font-mono text-[0.923rem]">{loadError.data}</p>
+            <p className="m-0 mt-1 break-all font-mono text-[0.929rem]">{loadError.data}</p>
           </div>
         ) : null}
         {section === 'general' ? (
@@ -80,7 +80,7 @@ export function SettingsPage() {
           <AgentSection />
         ) : (
           <div className="flex max-w-[720px] flex-col gap-1">
-            <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
+            <h2 className="m-0 font-semibold text-[1.429rem] tracking-[-0.01em]">
               {t(`settings.${section}` as MessageKey)}
             </h2>
             <p className="m-0 text-fg-muted">{t('settings.pending')}</p>

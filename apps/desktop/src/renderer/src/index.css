@@ -6,22 +6,22 @@
  * html[data-theme] 由 app/theme.ts 按设置写入：light / dark。
  */
 :root {
-  --k-bg: #f6f5f2;
+  --k-bg: #f9f9f8;
   --k-bg-raised: #ffffff;
-  --k-bg-muted: #f1f0ec;
-  --k-bg-hover: #e9e8e3;
-  --k-bg-active: #efeeea;
+  --k-bg-muted: #f4f4f2;
+  --k-bg-hover: #ebebe8;
+  --k-bg-active: #f1f1ee;
   /* 会话页右侧面板、放大时左边的对话栏 */
-  --k-bg-panel: #fbfbf9;
-  --k-fg: #1b1b1f;
-  --k-fg-muted: #6e6e76;
-  --k-fg-subtle: #9a9aa1;
-  --k-fg-label: #8a8a92;
-  --k-border: #e5e4df;
-  --k-border-soft: #ecebe7;
-  --k-border-strong: #c9c8c1;
-  --k-accent: #3659e3;
-  --k-accent-fg: #2744b8;
+  --k-bg-panel: #fbfbfa;
+  --k-fg: #16171a;
+  --k-fg-muted: #60646b;
+  --k-fg-subtle: #a0a3a9;
+  --k-fg-label: #84878e;
+  --k-border: #e8e8e5;
+  --k-border-soft: #efefec;
+  --k-border-strong: #cfcfcb;
+  --k-accent: #3563e0;
+  --k-accent-fg: #2a4fbf;
   --k-accent-bg: #eef2ff;
   --k-ok: #1e7f43;
   --k-ok-bg: #e3f3e9;
@@ -29,10 +29,10 @@
   --k-warn-bg: #fbf0d9;
   --k-danger: #c8381f;
   --k-danger-bg: #fde8e4;
-  --k-primary: #1b1b1f;
+  --k-primary: #16171a;
   --k-primary-fg: #ffffff;
   --k-mark: #fbe7a1;
-  --k-overlay: rgb(27 27 31 / 0.28);
+  --k-overlay: rgb(22 23 26 / 0.28);
   /* 对话里的卡片：等你确认（warn）、Agent 提问（accent）、出错（danger），各有描边、底色、图标底和深色字 */
   --k-warn-line: #e9b949;
   --k-warn-soft: #fffbf0;
@@ -45,18 +45,18 @@
   --k-danger-soft: #fef4f2;
   --k-danger-icon: #f8d4cd;
   --k-danger-strong: #7a1e12;
-  --k-code-bg: #1b1b1f;
+  --k-code-bg: #16171a;
   --k-code-fg: #e8e8e6;
   --k-shadow-pop: 0 2px 4px rgb(0 0 0 / 0.04), 0 16px 40px rgb(0 0 0 / 0.12);
   --k-shadow-dialog: 0 4px 8px rgb(0 0 0 / 0.06), 0 24px 64px rgb(0 0 0 / 0.22);
   --k-radius-sm: 6px;
-  --k-radius-md: 10px;
-  --k-radius-lg: 14px;
+  --k-radius-md: 12px;
+  --k-radius-lg: 16px;
   /* 设置里填了字体时 theme.ts 改 --k-font / --k-mono，默认字体留在 -base 里兜底 */
   --k-font-base:
-    Inter, -apple-system, "PingFang SC", "Noto Sans SC", "Segoe UI", "Microsoft YaHei", system-ui,
-    sans-serif;
-  --k-mono-base: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+  --k-mono-base: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   --k-font: var(--k-font-base);
   --k-mono: var(--k-mono-base);
   --k-code-size: 13px;
@@ -187,7 +187,7 @@ html[data-scale="l"] {
     background: var(--k-bg);
     color: var(--k-fg);
     font-family: var(--k-font);
-    line-height: 1.5;
+    line-height: 1.571;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -233,10 +233,10 @@ html[data-resizing] * {
   }
 }
 
-/* 回复正文的排版（原型 session.html 的正文：15px、行高 1.7、行内代码浅灰底） */
+/* 回复正文的排版（原型 session.html 的正文：14px、行高 24px、行内代码浅灰底） */
 .k-md {
-  font-size: 1.077rem;
-  line-height: 1.7;
+  font-size: 1rem;
+  line-height: 1.714;
   overflow-wrap: anywhere;
 }
 .k-md > :first-child {
@@ -277,12 +277,12 @@ html[data-resizing] * {
 .k-md h2,
 .k-md h3 {
   margin: 1em 0 0.4em;
-  font-size: 1.154rem;
+  font-size: 1.143rem;
   font-weight: 600;
 }
 .k-md code {
   font-family: var(--k-mono);
-  font-size: 0.92em;
+  font-size: 0.929em;
   background: var(--k-bg-active);
   border-radius: 4px;
   padding: 0 4px;
@@ -302,7 +302,7 @@ html[data-resizing] * {
 }
 .k-md table {
   border-collapse: collapse;
-  font-size: 0.962rem;
+  font-size: 0.929rem;
 }
 .k-md th,
 .k-md td {

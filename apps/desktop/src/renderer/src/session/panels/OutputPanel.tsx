@@ -36,7 +36,7 @@ export function OutputPanel({
         <span className="font-medium text-fg">
           {running ? t('output.running') : t('output.empty')}
         </span>
-        <span className="max-w-[240px] text-[0.923rem]">
+        <span className="max-w-[240px] text-[0.929rem]">
           {running ? t('output.runningNote', { agent }) : t('output.emptyNote')}
         </span>
       </div>
@@ -72,13 +72,13 @@ export function OutputPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="output">
       <div className="flex shrink-0 items-center gap-1.5 border-line-soft border-b px-2.5 py-2">
-        <span className="min-w-0 flex-1 truncate text-[0.923rem] text-fg-muted">
+        <span className="min-w-0 flex-1 truncate text-[0.929rem] text-fg-muted">
           {current.kind === 'text' ? t('output.text') : t('output.structured')}
           {current.edited !== null ? ` · ${t('output.edited')}` : ''}
         </span>
         {outputs.length > 1 ? (
           <Menu>
-            <MenuTrigger className="inline-flex h-[26px] cursor-pointer items-center gap-1 rounded-[7px] px-2 text-[0.923rem] text-fg-muted hover:bg-active">
+            <MenuTrigger className="inline-flex h-[26px] cursor-pointer items-center gap-1 rounded-[8px] px-2 text-[0.929rem] text-fg-muted hover:bg-active">
               {t('output.turn', { n: current.turn })}
               <ChevronDown size={11} />
             </MenuTrigger>
@@ -92,12 +92,12 @@ export function OutputPanel({
           </Menu>
         ) : null}
         {current.kind === 'text' && current.edited !== null ? (
-          <Button className="h-[26px] px-2 text-[0.923rem]" onClick={() => void revert()}>
+          <Button className="h-[26px] px-2 text-[0.929rem]" onClick={() => void revert()}>
             {t('output.revert')}
           </Button>
         ) : null}
         <Menu>
-          <MenuTrigger className="inline-flex h-[26px] cursor-pointer items-center gap-1 rounded-[7px] bg-primary px-2.5 font-medium text-[0.923rem] text-primary-fg hover:opacity-90">
+          <MenuTrigger className="inline-flex h-[26px] cursor-pointer items-center gap-1 rounded-[8px] bg-primary px-2.5 font-medium text-[0.929rem] text-primary-fg hover:opacity-90">
             {t('output.export')}
             <ChevronDown size={11} />
           </MenuTrigger>
@@ -117,7 +117,7 @@ export function OutputPanel({
         <div
           role={'error' in notice ? 'alert' : 'status'}
           className={cx(
-            'flex shrink-0 items-center gap-2 border-line-soft border-b px-3 py-1.5 text-[0.923rem]',
+            'flex shrink-0 items-center gap-2 border-line-soft border-b px-3 py-1.5 text-[0.929rem]',
             'error' in notice ? 'bg-danger-bg/60 text-danger' : 'bg-ok-bg/50 text-ok',
           )}
         >
@@ -148,10 +148,10 @@ export function OutputPanel({
         />
       ) : (
         <>
-          <pre className="m-0 min-h-0 flex-1 overflow-auto bg-raised px-4 py-3.5 font-mono text-[0.923rem] text-fg leading-[1.7]">
+          <pre className="m-0 min-h-0 flex-1 overflow-auto bg-raised px-4 py-3.5 font-mono text-[0.929rem] text-fg leading-[1.7]">
             {JSON.stringify(content, null, 2)}
           </pre>
-          <div className="shrink-0 border-line-soft border-t px-3 py-2 text-[0.923rem] text-fg-label">
+          <div className="shrink-0 border-line-soft border-t px-3 py-2 text-[0.929rem] text-fg-label">
             {t('output.readOnly')}
           </div>
         </>
@@ -260,9 +260,9 @@ function TextEditor({
             void save(value)
           }, SAVE_DELAY)
         }}
-        className="min-h-0 w-full flex-1 resize-none border-0 bg-raised px-4 py-3.5 font-mono text-[0.923rem] text-fg leading-[1.7] outline-none"
+        className="min-h-0 w-full flex-1 resize-none border-0 bg-raised px-4 py-3.5 font-mono text-[0.929rem] text-fg leading-[1.7] outline-none"
       />
-      <div className="flex shrink-0 items-center gap-2 border-line-soft border-t px-3 py-2 text-[0.923rem] text-fg-label">
+      <div className="flex shrink-0 items-center gap-2 border-line-soft border-t px-3 py-2 text-[0.929rem] text-fg-label">
         <span className="min-w-0 flex-1 truncate">
           {edits === 0
             ? t('output.editHint')

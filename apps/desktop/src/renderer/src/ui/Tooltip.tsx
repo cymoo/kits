@@ -19,7 +19,7 @@ export function Tooltip({
         <T.Content
           side={side}
           sideOffset={6}
-          className="z-50 rounded-[6px] bg-primary px-2 py-1 text-[0.846rem] text-primary-fg"
+          className="z-50 rounded-[6px] bg-primary px-2 py-1 text-[0.857rem] text-primary-fg"
         >
           {content}
         </T.Content>

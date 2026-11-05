@@ -36,7 +36,7 @@ const GROUP_LABEL: Record<Group, MessageKey> = {
 const FILTERS: StatusFilter[] = ['all', 'active', 'attention', 'done']
 
 const pill =
-  'inline-flex h-[26px] cursor-pointer items-center gap-1.5 rounded-[13px] border px-2.5 text-[0.923rem]'
+  'inline-flex h-[26px] cursor-pointer items-center gap-1.5 rounded-[13px] border px-2.5 text-[0.929rem]'
 
 function subline(s: SessionSummary): string {
   if (s.status === 'error' && s.lastError) return s.lastError
@@ -90,10 +90,10 @@ export function HistoryPage() {
     <div className="flex flex-1 flex-col overflow-y-auto px-10 py-8">
       <div className="mx-auto flex w-full max-w-[920px] flex-col gap-4">
         <div className="flex items-center gap-3">
-          <h1 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
+          <h1 className="m-0 font-semibold text-[1.429rem] tracking-[-0.01em]">
             {t('history.heading')}
           </h1>
-          <span className="text-[0.923rem] text-fg-muted">
+          <span className="text-[0.929rem] text-fg-muted">
             {t('history.count', { n: all.length })}
           </span>
           <span className="flex-1" />
@@ -136,7 +136,7 @@ export function HistoryPage() {
                 <MenuRadioItem value="">{t('history.allDirs')}</MenuRadioItem>
                 {dirs.map((d) => (
                   <MenuRadioItem key={d} value={d}>
-                    <span className="font-mono text-[0.923rem]">{homeLabel(d)}</span>
+                    <span className="font-mono text-[0.929rem]">{homeLabel(d)}</span>
                   </MenuRadioItem>
                 ))}
               </MenuRadioGroup>
@@ -153,7 +153,7 @@ export function HistoryPage() {
                 <MenuRadioItem value="">{t('history.allAgents')}</MenuRadioItem>
                 {agents.map((a) => (
                   <MenuRadioItem key={a} value={a}>
-                    <span className="font-mono text-[0.923rem]">{a}</span>
+                    <span className="font-mono text-[0.929rem]">{a}</span>
                   </MenuRadioItem>
                 ))}
               </MenuRadioGroup>
@@ -162,7 +162,7 @@ export function HistoryPage() {
         </div>
 
         {error ? (
-          <p role="alert" className="m-0 rounded-[10px] bg-danger-bg px-3.5 py-2 text-danger">
+          <p role="alert" className="m-0 rounded-[12px] bg-danger-bg px-3.5 py-2 text-danger">
             {error}
           </p>
         ) : null}
@@ -170,7 +170,7 @@ export function HistoryPage() {
         <div className="flex flex-col gap-1.5" data-testid="history-list">
           {groups.map(([group, items]) => (
             <section key={group} className="flex flex-col gap-px">
-              <h2 className="m-0 px-1.5 pt-2.5 pb-0.5 font-medium text-[0.885rem] text-fg-label">
+              <h2 className="m-0 px-1.5 pt-2.5 pb-0.5 font-medium text-[0.857rem] text-fg-label">
                 {t(GROUP_LABEL[group])}
               </h2>
               {items.map((s) => {
@@ -181,33 +181,33 @@ export function HistoryPage() {
                   <div
                     key={s.id}
                     data-testid={`history-${s.id}`}
-                    className="group relative rounded-[10px] hover:bg-raised hover:shadow-[0_0_0_1px_var(--k-border)]"
+                    className="group relative rounded-[12px] hover:bg-raised hover:shadow-[0_0_0_1px_var(--k-border)]"
                   >
                     <Link
                       to={`/s/${s.id}`}
-                      className="grid min-h-12 grid-cols-[16px_minmax(0,1fr)_140px_80px_144px] items-center gap-3 rounded-[10px] px-3 py-2 text-fg no-underline"
+                      className="grid min-h-12 grid-cols-[16px_minmax(0,1fr)_140px_80px_144px] items-center gap-3 rounded-[12px] px-3 py-2 text-fg no-underline"
                     >
                       <span className="flex justify-center">
                         <StatusDot status={s.status} />
                       </span>
                       <span className="flex min-w-0 flex-col gap-px">
                         <span className="truncate font-medium">{s.title}</span>
-                        <span className="truncate text-[0.923rem] text-fg-muted">{subline(s)}</span>
+                        <span className="truncate text-[0.929rem] text-fg-muted">{subline(s)}</span>
                       </span>
                       <span
-                        className="truncate font-mono text-[0.923rem] text-fg-muted"
+                        className="truncate font-mono text-[0.929rem] text-fg-muted"
                         title={homeLabel(s.workdir)}
                       >
                         {basename(s.workdir)}
                       </span>
-                      <span className={cx('font-medium text-[0.923rem]', TONE[state.tone])}>
+                      <span className={cx('font-medium text-[0.929rem]', TONE[state.tone])}>
                         {state.label}
                       </span>
-                      <span className="pr-16 text-right text-[0.923rem] text-fg-label">
+                      <span className="pr-16 text-right text-[0.929rem] text-fg-label">
                         {whenLabel(s.updatedAt, now)}
                       </span>
                     </Link>
-                    <PinButton session={s} className="right-9 h-7 w-7 rounded-[7px]" />
+                    <PinButton session={s} className="right-9 h-7 w-7 rounded-[8px]" />
                     {busy ? null : (
                       <button
                         type="button"
@@ -220,13 +220,13 @@ export function HistoryPage() {
                         onClick={() => (asking ? void remove(s.id) : setConfirming(s.id))}
                         onBlur={() => setConfirming((c) => (c === s.id ? undefined : c))}
                         className={cx(
-                          'absolute top-1/2 right-2 flex h-7 -translate-y-1/2 cursor-pointer items-center gap-1 rounded-[7px] px-1.5 text-fg-muted opacity-0 hover:bg-danger-bg hover:text-danger focus-visible:opacity-100 group-hover:opacity-100',
+                          'absolute top-1/2 right-2 flex h-7 -translate-y-1/2 cursor-pointer items-center gap-1 rounded-[8px] px-1.5 text-fg-muted opacity-0 hover:bg-danger-bg hover:text-danger focus-visible:opacity-100 group-hover:opacity-100',
                           asking && 'bg-danger-bg text-danger opacity-100',
                         )}
                       >
                         <Trash2 size={14} />
                         {asking ? (
-                          <span className="text-[0.885rem]">{t('history.confirmRemove')}</span>
+                          <span className="text-[0.857rem]">{t('history.confirmRemove')}</span>
                         ) : null}
                       </button>
                     )}

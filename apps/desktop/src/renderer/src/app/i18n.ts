@@ -338,7 +338,7 @@ const zhCN = {
   'general.fontsHint': '只列本机装了的；留空用默认',
   'general.uiFont': '界面字体',
   'general.codeFont': '代码字体',
-  'general.uiFontDefault': '默认（Inter + PingFang SC）',
+  'general.uiFontDefault': '默认（系统字体）',
   'general.codeFontDefault': '默认（JetBrains Mono）',
   'general.uiSample': '给兑换接口加幂等校验 · Agent 运行中',
   'general.codeSize': '代码字号',

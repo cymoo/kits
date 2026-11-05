@@ -72,11 +72,11 @@ export function MemorySection({ workdir }: { workdir: string | undefined }) {
   return (
     <section
       data-testid="memory"
-      className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised"
+      className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised"
     >
       <div className="flex items-center gap-2.5 border-line-soft border-b px-4 py-3">
         <b className="font-semibold">{t('memory.title')}</b>
-        <small className="min-w-0 flex-1 truncate text-[0.923rem] text-fg-muted">
+        <small className="min-w-0 flex-1 truncate text-[0.929rem] text-fg-muted">
           {t('memory.hint')}
         </small>
         {workdir ? (
@@ -129,7 +129,7 @@ export function MemorySection({ workdir }: { workdir: string | undefined }) {
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="leading-[1.55]">{m.text}</span>
-              <span className="text-[0.885rem] text-fg-label">{meta(m)}</span>
+              <span className="text-[0.857rem] text-fg-label">{meta(m)}</span>
             </span>
             <Button
               variant="link"
@@ -154,7 +154,7 @@ export function MemorySection({ workdir }: { workdir: string | undefined }) {
         ),
       )}
       {list.isSuccess && entries.length === 0 && !adding ? (
-        <p className="m-0 border-line-soft border-b px-4 py-3 text-[0.923rem] text-fg-muted">
+        <p className="m-0 border-line-soft border-b px-4 py-3 text-[0.929rem] text-fg-muted">
           {t('memory.empty')}
         </p>
       ) : null}
@@ -188,7 +188,7 @@ export function MemorySection({ workdir }: { workdir: string | undefined }) {
           {error}
         </p>
       ) : null}
-      <div className="flex items-center gap-2.5 px-4 py-2.5 text-[0.923rem] text-fg-label">
+      <div className="flex items-center gap-2.5 px-4 py-2.5 text-[0.929rem] text-fg-label">
         <span className={cx('min-w-0 flex-1 truncate')} title={list.data?.path}>
           {list.data
             ? scope === 'project'

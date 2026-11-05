@@ -77,7 +77,7 @@ function AddGatewayForm({ onDone }: { onDone(): void }) {
   }
   return (
     <form
-      className="flex flex-col gap-3.5 rounded-[14px] border border-accent bg-raised p-[18px] shadow-[0_0_0_4px_rgb(54_89_227/0.08)]"
+      className="flex flex-col gap-3.5 rounded-[16px] border border-accent bg-raised p-[18px] shadow-[0_0_0_4px_rgb(54_89_227/0.08)]"
       onSubmit={(e) => {
         e.preventDefault()
         void submit()
@@ -178,7 +178,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
 
   return (
     <div
-      className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised"
+      className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised"
       data-testid={`gateway-${gateway.id}`}
     >
       <div
@@ -199,7 +199,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
             className={cx('h-[7px] w-[7px] shrink-0 rounded-full', statusDot)}
           />
           <b className="font-semibold">{gateway.name || gateway.id}</b>
-          <span className="truncate font-mono text-[0.923rem] text-fg-muted">
+          <span className="truncate font-mono text-[0.929rem] text-fg-muted">
             {gateway.baseUrl}
           </span>
         </button>
@@ -239,7 +239,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
               />
             </Field>
             <div className="col-span-2 flex items-center gap-2">
-              <span className="font-mono text-[0.885rem] text-fg-label">id: {gateway.id}</span>
+              <span className="font-mono text-[0.857rem] text-fg-label">id: {gateway.id}</span>
               <span className="flex-1" />
               <Button
                 variant="link"
@@ -264,7 +264,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
             aria-label={t('model.defaultModel')}
             className="flex flex-col pb-1.5"
           >
-            <div className="flex items-center gap-2 px-4 pt-2 pb-1 text-[0.923rem] text-fg-label">
+            <div className="flex items-center gap-2 px-4 pt-2 pb-1 text-[0.929rem] text-fg-label">
               <span className="flex-1">{t('model.modelsNote', { n: gateway.models.length })}</span>
               <Button
                 variant="link"
@@ -306,16 +306,16 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                     >
                       {on ? <span className="h-1.5 w-1.5 rounded-full bg-accent" /> : null}
                     </span>
-                    <span className="basis-[180px] truncate font-mono font-medium text-[0.962rem]">
+                    <span className="basis-[180px] truncate font-mono font-medium text-[0.929rem]">
                       {m.id}
                     </span>
                     {on ? (
-                      <span className="rounded-[8px] bg-accent-bg px-[7px] font-medium text-[0.846rem] text-accent-fg">
+                      <span className="rounded-[8px] bg-accent-bg px-[7px] font-medium text-[0.857rem] text-accent-fg">
                         {t('model.default')}
                       </span>
                     ) : null}
                   </RadioGroup.Item>
-                  <label className="flex items-center gap-1 text-[0.923rem] text-fg-label">
+                  <label className="flex items-center gap-1 text-[0.929rem] text-fg-label">
                     <span>{t('model.context')}</span>
                     <input
                       // 存下来的值变了（比如手改了 settings.json）就重建输入框，旧的显示值不会被当成编辑存回去
@@ -336,7 +336,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                           })
                         }
                       }}
-                      className="h-6 w-14 rounded-[5px] border border-line bg-raised px-1 text-right font-mono text-fg"
+                      className="h-6 w-14 rounded-[6px] border border-line bg-raised px-1 text-right font-mono text-fg"
                     />
                     <span>K</span>
                   </label>
@@ -353,7 +353,7 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
 function KernelState({ info }: { info: KernelInfo }) {
   if (!info.installed) {
     return (
-      <span className="rounded-[8px] bg-muted px-[7px] font-medium text-[0.846rem] text-fg-muted">
+      <span className="rounded-[8px] bg-muted px-[7px] font-medium text-[0.857rem] text-fg-muted">
         {t('model.notInstalled')}
       </span>
     )
@@ -367,7 +367,7 @@ function KernelState({ info }: { info: KernelInfo }) {
           ? 'bg-muted text-fg-muted'
           : 'bg-warn-bg text-warn'
   return (
-    <span className={cx('rounded-[8px] px-[7px] font-medium text-[0.846rem]', tone)}>
+    <span className={cx('rounded-[8px] px-[7px] font-medium text-[0.857rem]', tone)}>
       {t(`model.state.${info.state}` as MessageKey)}
     </span>
   )
@@ -400,10 +400,10 @@ function KernelCard() {
   const currentInfo = status.data?.find((k) => k.id === current)
   const logs = currentInfo?.logsDir
   return (
-    <section className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised">
+    <section className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised">
       <div className="flex items-center gap-2.5 border-line-soft border-b px-[18px] py-3">
         <b className="font-semibold">{t('model.kernel')}</b>
-        <small className="text-[0.923rem] text-fg-muted">{t('model.kernelNote')}</small>
+        <small className="text-[0.929rem] text-fg-muted">{t('model.kernelNote')}</small>
       </div>
       <RadioGroup.Root
         value={current}
@@ -424,12 +424,12 @@ function KernelCard() {
               )}
             >
               <span className="flex w-full items-center gap-2">
-                <span className="font-semibold text-[1.077rem]">{KERNEL_TEXT[k.id].name}</span>
-                <span className="font-mono text-[0.885rem] text-fg-muted">{k.version ?? ''}</span>
+                <span className="font-semibold text-[1rem]">{KERNEL_TEXT[k.id].name}</span>
+                <span className="font-mono text-[0.857rem] text-fg-muted">{k.version ?? ''}</span>
                 <span className="flex-1" />
                 <KernelState info={k} />
               </span>
-              <span className="text-[0.962rem] text-fg-muted leading-[1.55]">
+              <span className="text-[0.929rem] text-fg-muted leading-[1.55]">
                 {KERNEL_TEXT[k.id].note}
               </span>
             </RadioGroup.Item>
@@ -443,7 +443,7 @@ function KernelCard() {
           <p
             key={k.id}
             data-testid={`kernel-missing-${k.id}`}
-            className="mx-[18px] mt-0 mb-3 rounded-[10px] bg-bg px-3.5 py-2.5 text-[0.923rem] text-fg-muted leading-[1.6]"
+            className="mx-[18px] mt-0 mb-3 rounded-[12px] bg-bg px-3.5 py-2.5 text-[0.929rem] text-fg-muted leading-[1.6]"
           >
             {t('model.installHint', {
               name: KERNEL_TEXT[k.id].name,
@@ -455,7 +455,7 @@ function KernelCard() {
       {currentInfo && (currentInfo.state === 'error' || currentInfo.problems.length > 0) ? (
         <div
           role="alert"
-          className="mx-[18px] mb-3 flex flex-col gap-1 rounded-[10px] bg-danger-bg px-3.5 py-2.5 text-[0.962rem] text-danger"
+          className="mx-[18px] mb-3 flex flex-col gap-1 rounded-[12px] bg-danger-bg px-3.5 py-2.5 text-[0.929rem] text-danger"
         >
           <span className="whitespace-pre-wrap">{currentInfo.error}</span>
           {currentInfo.problems.map((p) => (
@@ -466,7 +466,7 @@ function KernelCard() {
         </div>
       ) : null}
       <div className="flex flex-col gap-2 px-[18px] pb-[18px]">
-        <div className="flex items-center gap-2.5 rounded-[10px] bg-bg px-3.5 py-2.5 text-[0.962rem]">
+        <div className="flex items-center gap-2.5 rounded-[12px] bg-bg px-3.5 py-2.5 text-[0.929rem]">
           <span className="shrink-0 text-fg-muted">{t('model.process')}</span>
           <span className="flex-1" data-testid="kernel-state">
             {currentInfo ? t(`model.state.${currentInfo.state}` as MessageKey) : ''}
@@ -479,13 +479,13 @@ function KernelCard() {
             {currentInfo?.state === 'stopped' ? t('model.start') : t('model.restart')}
           </Button>
         </div>
-        <div className="flex items-center gap-2.5 rounded-[10px] bg-bg px-3.5 py-2.5 text-[0.962rem]">
+        <div className="flex items-center gap-2.5 rounded-[12px] bg-bg px-3.5 py-2.5 text-[0.929rem]">
           <span className="shrink-0 text-fg-muted">{t('model.network')}</span>
           <span className="flex-1">{t('model.networkNote')}</span>
         </div>
-        <div className="flex items-center gap-2.5 rounded-[10px] bg-bg px-3.5 py-2.5 text-[0.962rem]">
+        <div className="flex items-center gap-2.5 rounded-[12px] bg-bg px-3.5 py-2.5 text-[0.929rem]">
           <span className="shrink-0 text-fg-muted">{t('model.logs')}</span>
-          <span className="flex-1 truncate font-mono text-[0.923rem]">{logs ?? ''}</span>
+          <span className="flex-1 truncate font-mono text-[0.929rem]">{logs ?? ''}</span>
           <Button variant="link" onClick={() => void kits.kernel.openLogs(current)}>
             {t('model.openDir')}
           </Button>
@@ -501,7 +501,7 @@ export function ModelSection() {
   return (
     <div className="flex w-full max-w-[760px] flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
+        <h2 className="m-0 font-semibold text-[1.429rem] tracking-[-0.01em]">
           {t('settings.model')}
         </h2>
         <p className="m-0 text-fg-muted">{t('model.intro')}</p>
@@ -509,7 +509,7 @@ export function ModelSection() {
       <section className="flex flex-col gap-2.5">
         <div className="flex items-center gap-2.5 px-0.5">
           <span className="font-semibold">{t('model.gateways')}</span>
-          <small className="text-[0.923rem] text-fg-muted">{t('model.gatewaysNote')}</small>
+          <small className="text-[0.929rem] text-fg-muted">{t('model.gatewaysNote')}</small>
           <span className="flex-1" />
           <Button variant="primary" aria-expanded={adding} onClick={() => setAdding(!adding)}>
             {t('model.addGateway')}
@@ -517,14 +517,14 @@ export function ModelSection() {
         </div>
         {adding ? <AddGatewayForm onDone={() => setAdding(false)} /> : null}
         {gateways.length === 0 && !adding ? (
-          <p className="m-0 rounded-[14px] border border-line border-dashed px-4 py-6 text-center text-fg-muted">
+          <p className="m-0 rounded-[16px] border border-line border-dashed px-4 py-6 text-center text-fg-muted">
             {t('model.empty')}
           </p>
         ) : null}
         {gateways.map((g) => (
           <GatewayCard key={g.id} gateway={g} />
         ))}
-        <p className="mx-0.5 my-0 text-[0.923rem] text-fg-label">{t('model.footnote')}</p>
+        <p className="mx-0.5 my-0 text-[0.929rem] text-fg-label">{t('model.footnote')}</p>
       </section>
       <KernelCard />
     </div>

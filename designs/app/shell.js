@@ -19,7 +19,7 @@
 ::-webkit-scrollbar-thumb:hover{background-color:#A0A3A9}
 .kn-top{display:flex;align-items:center;gap:8px;height:32px;padding:0 8px}
 .kn-logo{width:20px;height:20px;border-radius:6px;background:#16171A;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex:0 0 auto}
-.kn-brand{font-weight:650;font-size:15px;letter-spacing:-.01em;text-decoration:none;color:#16171A}
+.kn-brand{font-weight:650;font-size:16px;letter-spacing:-.01em;text-decoration:none;color:#16171A}
 .kn-icon{width:26px;height:26px;border:0;border-radius:6px;background:transparent;color:#60646B;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
 .kn-icon:hover{background:#EBEBE8;color:#16171A}
 .kn-item{display:flex;align-items:center;gap:10px;height:32px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:#16171A;text-decoration:none;font:inherit;cursor:pointer;text-align:left;width:100%}

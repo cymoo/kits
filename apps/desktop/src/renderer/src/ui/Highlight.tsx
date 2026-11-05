@@ -7,7 +7,7 @@ export function Highlight({ text }: { text: string }) {
       {pieces.map((p, i) =>
         p.startsWith('\u0001') ? (
           // biome-ignore lint/suspicious/noArrayIndexKey: 片段按顺序切出来，不会重排
-          <mark key={i} className="rounded-[3px] bg-mark px-px text-fg">
+          <mark key={i} className="rounded-[4px] bg-mark px-px text-fg">
             {p.slice(1, -1)}
           </mark>
         ) : (

@@ -18,7 +18,7 @@ type Theme = GeneralSettings['theme']
 // 主题选项上的小预览：侧栏、两行字、一张卡片
 const PREVIEW: Record<'light' | 'dark', { bg: string; side: string; line: string; card: string }> =
   {
-    light: { bg: '#FFFFFF', side: '#F1F0EC', line: '#D9D8D2', card: '#F1F4FF' },
+    light: { bg: '#FFFFFF', side: '#F4F4F2', line: '#DCDCD8', card: '#F1F4FF' },
     dark: { bg: '#1F1F22', side: '#161618', line: '#3F3F46', card: '#1E2340' },
   }
 
@@ -29,8 +29,8 @@ function ThemePreview({ theme }: { theme: Theme }) {
       <span className="flex h-full flex-1" style={{ background: p.bg }}>
         <span className="w-[26%]" style={{ background: p.side }} />
         <span className="flex flex-1 flex-col gap-1 p-2">
-          <span className="block h-[5px] w-[70%] rounded-[3px]" style={{ background: p.line }} />
-          <span className="block h-[5px] w-[45%] rounded-[3px]" style={{ background: p.line }} />
+          <span className="block h-[5px] w-[70%] rounded-[4px]" style={{ background: p.line }} />
+          <span className="block h-[5px] w-[45%] rounded-[4px]" style={{ background: p.line }} />
           <span className="mt-auto block h-[18px] w-full rounded" style={{ background: p.card }} />
         </span>
       </span>
@@ -55,10 +55,10 @@ function ThemePreview({ theme }: { theme: Theme }) {
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised">
+    <section className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised">
       <div className="flex items-baseline gap-2.5 border-line-soft border-b px-[18px] py-3">
         <b className="font-semibold">{title}</b>
-        {hint ? <small className="text-[0.923rem] text-fg-muted">{hint}</small> : null}
+        {hint ? <small className="text-[0.929rem] text-fg-muted">{hint}</small> : null}
       </div>
       {children}
     </section>
@@ -70,7 +70,7 @@ function Row({ label, note, children }: { label: string; note?: string; children
     <div className="flex items-center gap-3 border-line-soft border-b px-[18px] py-3 last:border-b-0">
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className="font-medium">{label}</span>
-        {note ? <span className="text-[0.923rem] text-fg-muted">{note}</span> : null}
+        {note ? <span className="text-[0.929rem] text-fg-muted">{note}</span> : null}
       </span>
       {children}
     </div>
@@ -100,7 +100,7 @@ function FontPicker({
           aria-label={label}
           className={cx(
             'flex h-[34px] cursor-pointer items-center gap-2 rounded-[8px] border border-line bg-raised px-3 text-left hover:bg-active',
-            mono && 'font-mono text-[0.962rem]',
+            mono && 'font-mono text-[0.929rem]',
           )}
           style={value ? { fontFamily: `"${value}"` } : undefined}
         >
@@ -149,7 +149,7 @@ export function GeneralSection() {
   return (
     <div className="flex w-full max-w-[720px] flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
+        <h2 className="m-0 font-semibold text-[1.429rem] tracking-[-0.01em]">
           {t('settings.general')}
         </h2>
         <p className="m-0 text-fg-muted">{t('general.intro')}</p>
@@ -159,7 +159,7 @@ export function GeneralSection() {
         <div className="flex flex-col gap-2.5 border-line-soft border-b px-[18px] py-4">
           <div className="flex items-baseline gap-2">
             <span className="font-medium">{t('general.theme')}</span>
-            <small className="text-[0.923rem] text-fg-muted">{t('general.themeHint')}</small>
+            <small className="text-[0.929rem] text-fg-muted">{t('general.themeHint')}</small>
           </div>
           <div
             role="radiogroup"
@@ -202,7 +202,7 @@ export function GeneralSection() {
           <div className="flex flex-col gap-2">
             <div className="flex items-baseline gap-2">
               <span className="font-medium">{t('general.scale')}</span>
-              <small className="text-[0.923rem] text-fg-muted">
+              <small className="text-[0.929rem] text-fg-muted">
                 {t('general.scaleHint', {
                   px: g.uiScale === 's' ? 13 : g.uiScale === 'l' ? 15 : 14,
                 })}
@@ -223,7 +223,7 @@ export function GeneralSection() {
           <div className="flex flex-col gap-2">
             <div className="flex items-baseline gap-2">
               <span className="font-medium">{t('general.sidebar')}</span>
-              <small className="text-[0.923rem] text-fg-muted">{t('general.sidebarHint')}</small>
+              <small className="text-[0.929rem] text-fg-muted">{t('general.sidebarHint')}</small>
             </div>
             <Segmented
               label={t('general.sidebar')}
@@ -263,7 +263,7 @@ export function GeneralSection() {
         </div>
         <div className="flex items-center gap-3 px-[18px] pt-1 pb-4">
           <span className="font-medium">{t('general.codeSize')}</span>
-          <small className="flex-1 text-[0.923rem] text-fg-muted">
+          <small className="flex-1 text-[0.929rem] text-fg-muted">
             {t('general.codeSizeHint')}
           </small>
           <Segmented
@@ -315,10 +315,10 @@ export function GeneralSection() {
           {KEYS.map(([what, key]) => (
             <div
               key={what}
-              className="flex items-center gap-2.5 border-line-soft border-b py-[7px] text-[0.962rem]"
+              className="flex items-center gap-2.5 border-line-soft border-b py-[7px] text-[0.929rem]"
             >
               <span className="flex-1 text-fg-muted">{t(what)}</span>
-              <span className="rounded-[5px] bg-muted px-[7px] py-px font-mono text-[0.885rem]">
+              <span className="rounded-[6px] bg-muted px-[7px] py-px font-mono text-[0.857rem]">
                 {key}
               </span>
             </div>

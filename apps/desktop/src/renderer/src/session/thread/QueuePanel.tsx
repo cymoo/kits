@@ -68,7 +68,7 @@ export function QueuePanel({
             type="button"
             title={`${t('queue.interjectAll')} ${interjectLabel}`}
             onClick={() => void interject()}
-            className="h-6 shrink-0 cursor-pointer rounded-md px-2 text-[0.962rem] text-fg-muted hover:bg-active hover:text-fg"
+            className="h-6 shrink-0 cursor-pointer rounded-md px-2 text-[0.929rem] text-fg-muted hover:bg-active hover:text-fg"
           >
             {t('queue.interjectAll')}
           </button>
@@ -80,13 +80,13 @@ export function QueuePanel({
             <div
               key={q.id}
               data-testid="queued-item"
-              className="group flex min-h-[38px] items-center gap-0.5 border-line-soft border-t pr-2 pl-3.5 text-[1.038rem]"
+              className="group flex min-h-[38px] items-center gap-0.5 border-line-soft border-t pr-2 pl-3.5 text-[1rem]"
             >
               <span className="min-w-0 flex-1 truncate" title={q.text}>
                 {q.text}
               </span>
               {q.attachments.length ? (
-                <span className="shrink-0 px-1.5 text-[0.923rem] text-fg-subtle">
+                <span className="shrink-0 px-1.5 text-[0.929rem] text-fg-subtle">
                   {t('queue.files', { n: q.attachments.length })}
                 </span>
               ) : null}
@@ -113,7 +113,7 @@ export function QueuePanel({
                   type="button"
                   title={t('queue.interjectTitle')}
                   onClick={() => void interject(q.id)}
-                  className="ml-1 h-[26px] shrink-0 cursor-pointer rounded-[7px] bg-active px-2.5 text-[0.962rem] hover:bg-line outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  className="ml-1 h-[26px] shrink-0 cursor-pointer rounded-[8px] bg-active px-2.5 text-[0.929rem] hover:bg-line outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   {t('queue.interject')}
                 </button>

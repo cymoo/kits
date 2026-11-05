@@ -1,4 +1,4 @@
-import { AlertCircle, Check, ChevronDown, FileText, Lightbulb } from 'lucide-react'
+import { AlertCircle, ChevronDown, ChevronRight, FileText, Lightbulb } from 'lucide-react'
 import { useState } from 'react'
 import { t } from '../../app/i18n'
 import { formatDuration, useNow } from '../../lib/use-now'
@@ -24,14 +24,14 @@ export function UserBlock({
     <div className="flex min-w-0 max-w-[84%] flex-col items-end gap-1.5 self-end">
       <div
         data-testid="user-message"
-        className="max-w-full whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-active px-3.5 py-2.5 text-[1.077rem] leading-[1.6] [overflow-wrap:anywhere]"
+        className="max-w-full whitespace-pre-wrap rounded-[16px_16px_4px_16px] bg-active px-3.5 py-2.5 text-[1rem] leading-[1.571] [overflow-wrap:anywhere]"
       >
         {text}
       </div>
       {pending ? (
         <div
           data-testid="interject-pending"
-          className="flex items-center gap-1.5 text-[0.923rem] text-fg-subtle"
+          className="flex items-center gap-1.5 text-[0.929rem] text-fg-subtle"
         >
           <Spinner tone="accent" />
           {t('interject.pending')}
@@ -43,7 +43,7 @@ export function UserBlock({
             <span
               // biome-ignore lint/suspicious/noArrayIndexKey: 同名附件按位置区分
               key={i}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-[7px] border border-line px-2 py-0.5 text-[0.923rem] text-fg-muted [overflow-wrap:anywhere]"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-[8px] border border-line px-2 py-0.5 text-[0.929rem] text-fg-muted [overflow-wrap:anywhere]"
             >
               <FileText size={12} className="shrink-0" />
               {a.name}
@@ -88,20 +88,17 @@ export function TurnBlock({
   const elapsed = formatDuration((block.endedAt ?? now) - block.startedAt)
   const summary = turnSummary(block)
   return (
-    <div
-      className={cx(
-        'overflow-hidden rounded-[12px] border',
-        running ? 'border-accent/25' : 'border-line-soft',
-      )}
-      data-testid="turn"
-    >
+    <div className="-mt-1 -ml-1" data-testid="turn">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setUserOpen(!open)}
-        className="flex min-h-9 w-full cursor-pointer items-center gap-2 bg-raised px-3 py-1.5 text-left text-fg-muted outline-none hover:bg-active focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
+        className="flex min-h-7 w-full cursor-pointer items-center gap-1.5 rounded-[8px] py-0.5 pr-2 pl-1 text-left text-[0.929rem] text-fg-muted outline-none hover:bg-active focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset"
       >
-        {block.state === 'done' ? <Check size={14} className="text-ok" strokeWidth={2} /> : null}
+        <ChevronRight
+          size={14}
+          className={cx('shrink-0 text-fg-subtle transition-transform', open && 'rotate-90')}
+        />
         {running ? <Spinner tone="accent" /> : null}
         {block.state === 'failed' ? <AlertCircle size={14} className="text-danger" /> : null}
         <span className="shrink-0 font-medium text-fg">
@@ -111,24 +108,18 @@ export function TurnBlock({
           {summary}
         </span>
         {block.failed ? (
-          <span className="shrink-0 text-[0.923rem] text-danger">
-            {t('turn.failed', { n: block.failed })}
-          </span>
+          <span className="shrink-0 text-danger">{t('turn.failed', { n: block.failed })}</span>
         ) : null}
-        <span className="shrink-0 text-[0.923rem] tabular-nums">
+        <span className="shrink-0 text-fg-label tabular-nums">
           {running
             ? `${t('turn.running')} · ${elapsed}`
             : block.state === 'failed'
               ? `${t('turn.stopped')} · ${elapsed}`
               : elapsed}
         </span>
-        <ChevronDown
-          size={14}
-          className={cx('text-fg-subtle transition-transform', open && 'rotate-180')}
-        />
       </button>
       {open ? (
-        <div className="flex flex-col border-line-soft border-t bg-bg/40 pt-1 pb-2">
+        <div className="mt-0.5 ml-2.5 flex flex-col border-line-soft border-l pl-1.5">
           {block.reasoning ? (
             <>
               <button
@@ -146,7 +137,7 @@ export function TurnBlock({
                 <StepChevron open={thinkOpen} />
               </button>
               {thinkOpen ? (
-                <p className="mt-0 mr-3.5 mb-1.5 ml-[38px] whitespace-pre-wrap border-line border-l-2 px-3 py-2 text-[0.962rem] text-fg-muted leading-[1.65]">
+                <p className="mt-0 mr-2 mb-1.5 ml-8 whitespace-pre-wrap py-0.5 text-[0.929rem] text-fg-muted leading-[1.538]">
                   {block.reasoning}
                 </p>
               ) : null}
@@ -154,7 +145,7 @@ export function TurnBlock({
           ) : null}
           {block.steps.map((s) =>
             s.live ? (
-              <div key={s.id} data-testid="live-text" className="py-1 pr-3.5 pl-[38px]">
+              <div key={s.id} data-testid="live-text" className="py-1 pr-2 pl-8">
                 <Markdown text={s.live.text} caret={s.live.caret} />
               </div>
             ) : (
@@ -193,7 +184,7 @@ export function StatusLine({ block }: { block: Extract<Block, { kind: 'status' }
   return (
     <div
       role="status"
-      className="flex items-center gap-2.5 rounded-[8px] bg-active px-3 py-[7px] text-[0.962rem] text-fg-muted"
+      className="flex items-center gap-2.5 rounded-[8px] bg-active px-3 py-[7px] text-[0.929rem] text-fg-muted"
     >
       <Spinner tone="muted" />
       <span className="min-w-0 flex-1 truncate">{block.text}</span>
@@ -214,7 +205,7 @@ export function CompactionDivider({ block }: { block: Extract<Block, { kind: 'co
     return (
       <div
         role="status"
-        className="flex items-center gap-2.5 rounded-[10px] border border-line bg-bg px-3 py-2 text-[0.962rem] text-fg-muted"
+        className="flex items-center gap-2.5 rounded-[12px] border border-line bg-bg px-3 py-2 text-[0.929rem] text-fg-muted"
       >
         <Spinner tone="muted" />
         <span className="flex-1">{t('compaction.running', { n: block.turns })}</span>
@@ -229,7 +220,7 @@ export function CompactionDivider({ block }: { block: Extract<Block, { kind: 'co
         : t('compaction.auto', { time: hm })
   return (
     <div className="flex flex-col gap-2" data-testid="compaction">
-      <div className="flex items-center gap-3 text-[0.885rem] text-fg-label">
+      <div className="flex items-center gap-3 text-[0.857rem] text-fg-label">
         <span className="h-px flex-1 bg-line" />
         {block.summary ? (
           <button
@@ -247,7 +238,7 @@ export function CompactionDivider({ block }: { block: Extract<Block, { kind: 'co
         <span className="h-px flex-1 bg-line" />
       </div>
       {open && block.summary ? (
-        <div className="rounded-[10px] border border-line bg-bg px-4 py-3 text-[0.962rem]">
+        <div className="rounded-[12px] border border-line bg-bg px-4 py-3 text-[0.929rem]">
           <Markdown text={block.summary} />
         </div>
       ) : null}

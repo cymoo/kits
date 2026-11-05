@@ -56,7 +56,7 @@ function CardIcon({ tone, children }: { tone: 'warn' | 'accent' | 'danger'; chil
 
 function ActionError({ message }: { message: string | undefined }) {
   return message ? (
-    <p role="alert" className="m-0 text-[0.923rem] text-danger">
+    <p role="alert" className="m-0 text-[0.929rem] text-danger">
       {message}
     </p>
   ) : null
@@ -146,20 +146,20 @@ export function PermissionCard({
         </CardIcon>
         <span className="font-semibold">{permissionHead(block.tool)}</span>
         {block.subtask ? (
-          <span className="text-[0.923rem] text-fg-muted">
+          <span className="text-[0.929rem] text-fg-muted">
             {t('perm.fromTask', { task: block.subtask })}
           </span>
         ) : null}
         <span className="flex-1" />
-        <span className="text-[0.923rem] text-warn">{t('perm.waiting')}</span>
+        <span className="text-[0.929rem] text-warn">{t('perm.waiting')}</span>
       </div>
       {block.subject ? (
-        <pre className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-[9px] bg-code-bg px-3.5 py-2.5 font-mono text-[1rem] text-code-fg leading-[1.6]">
+        <pre className="m-0 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded-[8px] bg-code-bg px-3.5 py-2.5 font-mono text-[1rem] text-code-fg leading-[1.6]">
           {block.tool === 'bash' ? <span className="text-fg-label">$ </span> : null}
           {block.subject}
         </pre>
       ) : null}
-      <div className="text-[0.923rem] text-fg-muted">
+      <div className="text-[0.929rem] text-fg-muted">
         {t('perm.workdir')}{' '}
         <span className="break-all font-mono" title={workdir}>
           {homeLabel(workdir)}
@@ -168,7 +168,7 @@ export function PermissionCard({
       {denying ? (
         <div className="flex flex-col gap-2 pt-0.5">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[0.923rem] text-fg-muted">{t('perm.reasonLabel')}</span>
+            <span className="text-[0.929rem] text-fg-muted">{t('perm.reasonLabel')}</span>
             <input
               // biome-ignore lint/a11y/noAutofocus: 点了拒绝就是要填原因
               autoFocus
@@ -208,7 +208,7 @@ export function PermissionCard({
               title={block.always.join('\n')}
             >
               {t('perm.always')}
-              <span className="truncate font-mono text-[0.923rem]">{always}</span>
+              <span className="truncate font-mono text-[0.929rem]">{always}</span>
             </Button>
           ) : null}
           <Button variant="primary" disabled={busy} onClick={() => void reply('once')}>
@@ -248,12 +248,12 @@ export function QuestionCard({ block, sessionId }: { block: Of<'question'>; sess
         <span className="font-semibold">{t('question.head')}</span>
         <span className="flex-1" />
         {block.state === 'pending' ? (
-          <span className={cx('text-[0.923rem]', waiting ? 'text-accent-fg' : 'text-fg-muted')}>
+          <span className={cx('text-[0.929rem]', waiting ? 'text-accent-fg' : 'text-fg-muted')}>
             {waiting ? t('question.blocking') : t('question.nonblocking')}
           </span>
         ) : null}
       </div>
-      <div className="font-medium text-[1.115rem] leading-[1.5]">{block.question}</div>
+      <div className="font-medium text-[1.143rem] leading-[1.5]">{block.question}</div>
       {block.state === 'pending' ? (
         <div className="flex flex-col gap-2">
           {block.options.map((o) => (
@@ -262,7 +262,7 @@ export function QuestionCard({ block, sessionId }: { block: Of<'question'>; sess
               type="button"
               disabled={busy}
               onClick={() => void answer(o)}
-              className="group flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-line bg-raised px-3 py-2.5 text-left transition-colors hover:border-accent/50 hover:bg-accent-bg/40 disabled:cursor-default disabled:opacity-60"
+              className="group flex cursor-pointer items-center gap-2.5 rounded-[12px] border border-line bg-raised px-3 py-2.5 text-left transition-colors hover:border-accent/50 hover:bg-accent-bg/40 disabled:cursor-default disabled:opacity-60"
             >
               <span
                 aria-hidden="true"
@@ -270,11 +270,11 @@ export function QuestionCard({ block, sessionId }: { block: Of<'question'>; sess
               />
               <span className="font-medium">{o}</span>
               {o === block.assumption ? (
-                <span className="ml-auto text-[0.923rem] text-fg-subtle">Agent 的假设</span>
+                <span className="ml-auto text-[0.929rem] text-fg-subtle">Agent 的假设</span>
               ) : null}
             </button>
           ))}
-          <label className="flex h-[38px] items-center gap-2 rounded-[10px] border border-line bg-raised px-3 focus-within:border-accent">
+          <label className="flex h-[38px] items-center gap-2 rounded-[12px] border border-line bg-raised px-3 focus-within:border-accent">
             <span className="sr-only">{t('question.otherLabel')}</span>
             <input
               value={other}
@@ -292,7 +292,7 @@ export function QuestionCard({ block, sessionId }: { block: Of<'question'>; sess
             <Kbd>↵</Kbd>
           </label>
           {!block.blocking && block.assumption ? (
-            <p className="m-0 text-[0.923rem] text-fg-muted">
+            <p className="m-0 text-[0.929rem] text-fg-muted">
               {t('question.assumption', { assumption: block.assumption })}
             </p>
           ) : null}
@@ -306,7 +306,7 @@ export function QuestionCard({ block, sessionId }: { block: Of<'question'>; sess
           </span>
         </div>
       ) : (
-        <div className="text-[0.923rem] text-fg-muted">{t('question.expired')}</div>
+        <div className="text-[0.929rem] text-fg-muted">{t('question.expired')}</div>
       )}
       <ActionError message={error} />
     </section>
@@ -339,20 +339,20 @@ export function RetryBar({ block, sessionId }: { block: Of<'retry'>; sessionId: 
             {left > 0 ? t('retry.in', { s: left }) : t('retry.now')}
           </span>
         </span>
-        <span className="text-[0.923rem] text-warn">{t('retry.safe')}</span>
+        <span className="text-[0.929rem] text-warn">{t('retry.safe')}</span>
         <ChevronDown
           size={14}
           className={cx('text-fg-subtle transition-transform', open && 'rotate-180')}
         />
       </button>
       {open ? (
-        <div className="flex flex-col gap-2 pr-3.5 pb-3 pl-9 text-[0.962rem] text-fg-muted">
+        <div className="flex flex-col gap-2 pr-3.5 pb-3 pl-9 text-[0.929rem] text-fg-muted">
           <div className="flex gap-2.5">
             <span className="shrink-0 basis-12 text-fg-label">{t('retry.reason')}</span>
-            <span className="break-all font-mono text-[0.923rem]">{block.message}</span>
+            <span className="break-all font-mono text-[0.929rem]">{block.message}</span>
           </div>
           <div className="flex gap-2 pt-0.5">
-            <Button className="text-[0.923rem]" onClick={() => void kits.session.abort(sessionId)}>
+            <Button className="text-[0.929rem]" onClick={() => void kits.session.abort(sessionId)}>
               {t('retry.stop')}
             </Button>
             <Button
@@ -413,7 +413,7 @@ export function ErrorCard({
           {block.resend ? t('error.resendBody') : t('error.body')}
         </p>
       ) : null}
-      <pre className="m-0 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-[8px] border border-danger-line bg-raised px-3 py-2.5 font-mono text-[0.885rem] text-fg-muted leading-[1.6]">
+      <pre className="m-0 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-[8px] border border-danger-line bg-raised px-3 py-2.5 font-mono text-[0.857rem] text-fg-muted leading-[1.6]">
         {block.message}
       </pre>
       {canContinue ? (

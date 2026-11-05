@@ -71,7 +71,7 @@ function StatusPill({
     <span
       data-testid="session-status"
       className={cx(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-[10px] px-[9px] py-px font-medium text-[0.923rem]',
+        'inline-flex shrink-0 items-center gap-1.5 rounded-[12px] px-[9px] py-px font-medium text-[0.929rem]',
         tone,
       )}
     >
@@ -212,17 +212,17 @@ export function SessionPage() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-raised">
       <header className="flex h-12 shrink-0 items-center gap-2.5 border-line-soft border-b pr-4 pl-5">
-        <h1 className="m-0 min-w-0 truncate font-semibold text-[1.077rem]">{session.title}</h1>
+        <h1 className="m-0 min-w-0 truncate font-medium text-[1rem]">{session.title}</h1>
         <StatusPill session={session} startedAt={lastTurnStart} answering={answering} />
         <span className="flex-1" />
         <span
-          className="inline-flex min-w-0 items-center gap-1.5 text-[0.923rem] text-fg-muted"
+          className="inline-flex min-w-0 items-center gap-1.5 text-[0.929rem] text-fg-muted"
           title={session.workdir}
         >
           <Folder size={13} className="shrink-0" />
           <span className="truncate font-mono">{basename(session.workdir)}</span>
         </span>
-        <span className="min-w-0 truncate font-mono text-[0.923rem] text-fg-muted">
+        <span className="min-w-0 truncate font-mono text-[0.929rem] text-fg-muted">
           {[
             session.agent !== 'assistant' ? session.agent : null,
             session.kernel === 'opencode' ? 'OpenCode' : 'CodeAgent',
@@ -441,7 +441,7 @@ function ContextBanner({
     <div
       role="status"
       data-testid="context-banner"
-      className="mb-2 flex items-center gap-2.5 rounded-[10px] border border-warn-line bg-warn-soft px-3 py-2 text-[0.962rem]"
+      className="mb-2 flex items-center gap-2.5 rounded-[12px] border border-warn-line bg-warn-soft px-3 py-2 text-[0.929rem]"
     >
       <AlertCircle size={14} className="shrink-0 text-warn-icon" />
       <span className="min-w-0 flex-1">
@@ -461,7 +461,7 @@ function ContextBanner({
           fillHome(t('context.carryOver', { title: session.title }))
           navigate('/')
         }}
-        className="shrink-0 cursor-pointer text-[0.923rem] text-accent hover:text-accent-fg"
+        className="shrink-0 cursor-pointer text-[0.929rem] text-accent hover:text-accent-fg"
       >
         {t('context.newSession')}
       </button>
@@ -469,7 +469,7 @@ function ContextBanner({
         type="button"
         disabled={busy}
         onClick={() => void compact()}
-        className="h-7 shrink-0 cursor-pointer rounded-[8px] bg-primary px-2.5 font-medium text-[0.923rem] text-primary-fg hover:opacity-90 disabled:opacity-50"
+        className="h-7 shrink-0 cursor-pointer rounded-[8px] bg-primary px-2.5 font-medium text-[0.929rem] text-primary-fg hover:opacity-90 disabled:opacity-50"
       >
         {t('context.compactNow')}
       </button>

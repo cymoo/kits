@@ -29,16 +29,16 @@ export function PermSection() {
   return (
     <div className="flex w-full max-w-[720px] flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h2 className="m-0 font-semibold text-[1.538rem] tracking-[-0.01em]">
+        <h2 className="m-0 font-semibold text-[1.429rem] tracking-[-0.01em]">
           {t('settings.perm')}
         </h2>
         <p className="m-0 text-fg-muted">{t('perm.intro')}</p>
       </div>
 
-      <section className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised">
+      <section className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised">
         <div className="flex items-baseline gap-2.5 border-line-soft border-b px-[18px] py-3">
           <b className="font-semibold">{t('perm.mode')}</b>
-          <small className="text-[0.923rem] text-fg-muted">{t('perm.modeHint')}</small>
+          <small className="text-[0.929rem] text-fg-muted">{t('perm.modeHint')}</small>
         </div>
         <div
           role="radiogroup"
@@ -61,7 +61,7 @@ export function PermSection() {
                 )}
               >
                 <span className="font-semibold">{t(`perm.mode.${m}` as MessageKey)}</span>
-                <span className="text-[0.923rem] text-fg-muted leading-[1.55]">
+                <span className="text-[0.929rem] text-fg-muted leading-[1.55]">
                   {t(`perm.mode.${m}.note` as MessageKey)}
                 </span>
               </button>
@@ -70,10 +70,10 @@ export function PermSection() {
         </div>
       </section>
 
-      <section className="flex flex-col overflow-hidden rounded-[14px] border border-line bg-raised">
+      <section className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised">
         <div className="flex items-baseline gap-2.5 border-line-soft border-b px-[18px] py-3">
           <b className="font-semibold">{t('perm.defaults')}</b>
-          <small className="text-[0.923rem] text-fg-muted">{t('perm.defaultsHint')}</small>
+          <small className="text-[0.929rem] text-fg-muted">{t('perm.defaultsHint')}</small>
         </div>
         {TOOLS.map((tool) => {
           const level = defaults.data?.tools[tool]
@@ -82,12 +82,12 @@ export function PermSection() {
               key={tool}
               className="flex min-h-10 items-center gap-3 border-line-soft border-b px-[18px] py-1.5 last:border-b-0"
             >
-              <span className="w-[156px] shrink-0 font-mono text-[0.962rem]">{tool}</span>
-              <span className="min-w-0 flex-1 truncate text-[0.923rem] text-fg-muted">
+              <span className="w-[156px] shrink-0 font-mono text-[0.929rem]">{tool}</span>
+              <span className="min-w-0 flex-1 truncate text-[0.929rem] text-fg-muted">
                 {t(`perm.tool.${tool}` as MessageKey)}
               </span>
               {level ? (
-                <span className={cx('font-medium text-[0.923rem]', TONE[level])}>
+                <span className={cx('font-medium text-[0.929rem]', TONE[level])}>
                   {t(`mcp.${level}` as MessageKey)}
                 </span>
               ) : null}
@@ -96,16 +96,16 @@ export function PermSection() {
         })}
       </section>
 
-      <section className="flex flex-col gap-2.5 rounded-[14px] border border-line bg-raised px-[18px] py-3.5">
+      <section className="flex flex-col gap-2.5 rounded-[16px] border border-line bg-raised px-[18px] py-3.5">
         <div className="flex items-baseline gap-2.5">
           <b className="font-semibold">{t('perm.readonly')}</b>
-          <small className="text-[0.923rem] text-fg-muted">{t('perm.readonlyHint')}</small>
+          <small className="text-[0.929rem] text-fg-muted">{t('perm.readonlyHint')}</small>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {(defaults.data?.readonlyCommands ?? []).map((c) => (
             <span
               key={c}
-              className="inline-flex h-[24px] items-center rounded-[6px] bg-muted px-2 font-mono text-[0.885rem]"
+              className="inline-flex h-[24px] items-center rounded-[6px] bg-muted px-2 font-mono text-[0.857rem]"
             >
               {c}
             </span>
@@ -113,7 +113,7 @@ export function PermSection() {
         </div>
       </section>
 
-      <p className="mx-1 my-0 text-[0.923rem] text-fg-label leading-[1.6]">
+      <p className="mx-1 my-0 text-[0.929rem] text-fg-label leading-[1.6]">
         {t('perm.where')}{' '}
         <Link to="/settings/agent" className="text-accent no-underline hover:text-accent-fg">
           {t('settings.agent')}

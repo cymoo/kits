@@ -154,12 +154,12 @@ export function Palette() {
             }}
             onKeyDown={onKeyDown}
             placeholder={t('palette.placeholder')}
-            className="flex-1 border-0 bg-transparent text-[1.154rem] text-fg outline-none"
+            className="flex-1 border-0 bg-transparent text-[1.143rem] text-fg outline-none"
           />
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="h-6 cursor-pointer rounded-[6px] border border-line bg-raised px-2 text-[0.846rem] text-fg-muted"
+            className="h-6 cursor-pointer rounded-[6px] border border-line bg-raised px-2 text-[0.857rem] text-fg-muted"
           >
             {t('common.esc')}
           </button>
@@ -170,7 +170,7 @@ export function Palette() {
           role="listbox"
           aria-label={t('palette.label')}
         >
-          <div className="px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
+          <div className="px-2.5 pt-1.5 pb-1 font-medium text-[0.857rem] text-fg-label">
             {typed
               ? t('palette.sessionsFound', { n: found.data?.length ?? 0 })
               : t('palette.sessions')}
@@ -207,17 +207,17 @@ export function Palette() {
                   <Highlight text={h.title} />
                 </span>
                 {h.snippet ? (
-                  <span className="truncate text-[0.923rem] text-fg-muted">
+                  <span className="truncate text-[0.929rem] text-fg-muted">
                     <Highlight text={h.snippet} />
                   </span>
                 ) : null}
               </span>
-              <span className="shrink-0 text-[0.885rem] text-fg-label">
+              <span className="shrink-0 text-[0.857rem] text-fg-label">
                 {basename(h.session.workdir)} · {whenLabel(h.session.updatedAt)}
               </span>
             </button>
           ))}
-          <div className="px-2.5 pt-1.5 pb-1 font-medium text-[0.885rem] text-fg-label">
+          <div className="px-2.5 pt-1.5 pb-1 font-medium text-[0.857rem] text-fg-label">
             {t('palette.actions')}
           </div>
           {shown.map((a, j) => {
@@ -242,13 +242,13 @@ export function Palette() {
                 <span className="text-fg-muted">{a.icon}</span>
                 <span className="min-w-0 flex-1 truncate">{a.label}</span>
                 {a.kbd ? (
-                  <span className="font-mono text-[0.923rem] text-fg-label">{a.kbd}</span>
+                  <span className="font-mono text-[0.929rem] text-fg-label">{a.kbd}</span>
                 ) : null}
               </button>
             )
           })}
         </div>
-        <div className="flex items-center gap-3 border-line-soft border-t px-4 py-2 text-[0.885rem] text-fg-label">
+        <div className="flex items-center gap-3 border-line-soft border-t px-4 py-2 text-[0.857rem] text-fg-label">
           <span>{t('palette.footSelect')}</span>
           <span>{t('palette.footOpen')}</span>
           <span className="flex-1" />
