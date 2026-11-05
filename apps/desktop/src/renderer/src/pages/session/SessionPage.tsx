@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@kits/core/ipc'
+import type { QueuedDraft, SessionSummary } from '@kits/core/ipc'
 import {
   AlertCircle,
   ArrowDown,
@@ -10,7 +10,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { t } from '../../app/i18n'
 import { basename, usePrefs } from '../../lib/composer-prefs'
@@ -31,6 +31,7 @@ import {
 import { ErrorCard, PermissionCard, QuestionCard, RetryBar } from '../../session/thread/Cards'
 import { deriveBlocks, deriveTodos } from '../../session/thread/derive'
 import { useFollowBottom } from '../../session/thread/follow-bottom'
+import { holdDraft, takeDraft } from '../../session/thread/held-drafts'
 import { PlanCard } from '../../session/thread/Plan'
 import { QueuePanel } from '../../session/thread/QueuePanel'
 import { Composer, type ComposerHandle } from '../../shell/Composer'
@@ -175,9 +176,21 @@ export function SessionPage() {
   const todos = useMemo(() => (detail ? deriveTodos(detail) : []), [detail])
 
   const composer = useRef<ComposerHandle>(null)
+  const shownId = session?.id
+  const shown = useRef(shownId)
+  shown.current = shownId
+  // 等退回的草稿时可能切到了别的会话：放回原来的会话，切回去时再填
+  const restore = (sessionId: string, draft: QueuedDraft) => {
+    if (shown.current === sessionId && composer.current) composer.current.restore(draft)
+    else holdDraft(sessionId, draft)
+  }
+  useEffect(() => {
+    const draft = shownId ? takeDraft(shownId) : undefined
+    if (draft) composer.current?.restore(draft)
+  }, [shownId])
   const stop = async (sessionId: string) => {
     const draft = await kits.session.abort(sessionId)
-    if (draft) composer.current?.restore(draft)
+    if (draft) restore(sessionId, draft)
   }
 
   useShortcuts({
@@ -327,7 +340,7 @@ export function SessionPage() {
                 sessionId={session.id}
                 items={session.queued}
                 canInterject={running && !!session.canInterject}
-                onEdit={(draft) => composer.current?.restore(draft)}
+                onEdit={(draft) => restore(session.id, draft)}
                 onInterject={thread.jump}
               />
             ) : null}

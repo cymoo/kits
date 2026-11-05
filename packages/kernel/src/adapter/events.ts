@@ -118,7 +118,8 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
   const usageSent = new Set<string>()
   const permissionsSent = new Set<string>()
   const subsessions = new Map<string, string | undefined>()
-  let answering: string | undefined
+  // 助手消息回过的用户消息。断线补齐会把这一轮的旧步骤再放一遍，见过的不算新
+  const answered = new Set<string>()
   let lastRetry = ''
   // 助手消息上带的错误：轮询收尾时按出错结束，不当成功
   let messageError: string | undefined
@@ -217,9 +218,9 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
       else messageError = errorMessage(info.error)
     }
     const delivered: KernelEvent[] = []
-    if (info.role === 'assistant' && info.parentID && info.parentID !== answering) {
-      if (answering) delivered.push({ type: 'interject-delivered' })
-      answering = info.parentID
+    if (info.role === 'assistant' && info.parentID && !answered.has(info.parentID)) {
+      if (answered.size > 0) delivered.push({ type: 'interject-delivered' })
+      answered.add(info.parentID)
     }
     if (info.role !== 'assistant' || !info.time?.completed || usageSent.has(info.id))
       return delivered

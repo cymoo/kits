@@ -448,6 +448,83 @@ describe('SessionService', () => {
     await waitFor(s.id, ['aborted'])
   })
 
+  it('hands back an interjection still on its way when the turn is stopped', async () => {
+    const { service, waitFor, store, kernel } = setup('permission')
+    let cancel = (_: Error) => {}
+    vi.spyOn(kernel, 'interject').mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          cancel = reject
+        }),
+    )
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下日志')
+
+    const sending = service.interject({ id: s.id })
+    const draft = await service.abort(s.id)
+    cancel(new Error('This operation was aborted'))
+    await sending
+    await waitFor(s.id, ['aborted'])
+    await new Promise((r) => setTimeout(r, 50))
+
+    expect(draft?.text).toBe('顺便看下日志')
+    expect(service.get(s.id)?.session.queued).toBeUndefined()
+    expect(store.session(s.id)?.turns).toBe(1)
+  })
+
+  it('leaves typed text with the sender when a stop cancels its interjection', async () => {
+    const { service, waitFor, store, kernel } = setup('permission')
+    let cancel = (_: Error) => {}
+    vi.spyOn(kernel, 'interject').mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          cancel = reject
+        }),
+    )
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+
+    const sending = service.interject({ id: s.id, text: '先别改测试' })
+    const failed = expect(sending).rejects.toThrow()
+    await vi.waitFor(() => expect(kernel.interject).toHaveBeenCalled())
+    expect(await service.abort(s.id)).toBeNull()
+    cancel(new Error('This operation was aborted'))
+    await failed
+    await waitFor(s.id, ['aborted'])
+
+    expect(service.get(s.id)?.session.queued).toBeUndefined()
+    expect(store.session(s.id)?.turns).toBe(1)
+  })
+
+  it('does not put a failed typed interjection in the queue, the sender keeps it', async () => {
+    const { service, waitFor, kernel } = setup('permission')
+    vi.spyOn(kernel, 'interject').mockRejectedValue(new Error('连不上内核'))
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+
+    await expect(service.interject({ id: s.id, text: '先别改测试' })).rejects.toThrow('连不上内核')
+
+    expect(service.get(s.id)?.session.queued).toBeUndefined()
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
+  it('still hands queued messages back when the stop request fails', async () => {
+    const { service, waitFor, kernel } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下日志')
+    const abort = vi.spyOn(kernel, 'abort').mockRejectedValueOnce(new Error('内核没有回应'))
+
+    const draft = await service.abort(s.id)
+
+    expect(draft?.text).toBe('顺便看下日志')
+    abort.mockRestore()
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
   it('tells the page the running turn can take an interjection', async () => {
     const { service, waitFor } = setup('permission')
     const s = await service.create(input)

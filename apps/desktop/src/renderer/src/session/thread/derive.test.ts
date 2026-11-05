@@ -104,6 +104,28 @@ describe('deriveBlocks', () => {
     expect(blocks[2]).toMatchObject({ text: '先别改测试', pending: true })
   })
 
+  it('keeps a pending confirmation on screen when it sits before an interjection', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([
+        part(
+          {
+            type: 'permission',
+            requestId: 'per_1',
+            tool: 'bash',
+            input: { command: 'ls' },
+            patterns: ['ls'],
+            always: [],
+          },
+          'pending',
+        ),
+        note('先别改测试', 'sent'),
+      ]),
+    )
+
+    expect(blocks.map((b) => b.kind)).toEqual(['user', 'permission', 'user'])
+  })
+
   it('shows only the status line when the model has just seen an interjection', () => {
     seq = 0
     const blocks = deriveBlocks(

@@ -162,6 +162,8 @@ export class SessionService {
   // 正在手动压缩的会话
   private compacting = new Set<string>()
   private queues = new Map<string, Queued[]>()
+  // 从排队里拿出来、正在交给内核的
+  private delivering = new Map<string, Queued[]>()
   // 建会话时选的“这次不用的 MCP 服务”，第一轮在内核里建会话时用
   private mcpOff = new Map<string, string[]>()
   // 每次停止加一：转附件期间停止的追问据此作废
@@ -376,16 +378,55 @@ export class SessionService {
     attachments?: AttachmentInput[]
   }): Promise<void> {
     const { id, text } = input
-    const items = text
-      ? [{ id: this.id(), text, attachments: await this.stage(id, input.attachments ?? []) }]
-      : this.takeQueued(id, input.queueId)
-    const left = [...items]
+    const gen = this.abortGen.get(id) ?? 0
+    const stopped = () => (this.abortGen.get(id) ?? 0) !== gen
+    if (text) await this.interjectText(id, text, input.attachments ?? [], stopped)
+    else await this.interjectQueued(id, this.takeQueued(id, input.queueId), stopped)
+  }
+
+  // 输入框里的文字：发不出去就报错，文字还留在输入框；只有内核还没准备好时才排队
+  private async interjectText(
+    id: string,
+    text: string,
+    attachments: AttachmentInput[],
+    stopped: () => boolean,
+  ): Promise<void> {
+    const item = { id: this.id(), text, attachments: await this.stage(id, attachments) }
+    let sent = false
+    try {
+      if (!stopped()) sent = await this.deliver(id, item, stopped)
+      if (stopped()) throw new Error('已经停止了，这条没有发出去')
+    } catch (e) {
+      this.unstage(item.attachments)
+      throw e
+    }
+    if (!sent) this.requeue(id, [item])
+  }
+
+  // 正在送的算在 delivering 里：这时点停止，abort 把它们连同排队的一起退回去，这里不再放回队列
+  private async interjectQueued(
+    id: string,
+    items: Queued[],
+    stopped: () => boolean,
+  ): Promise<void> {
+    this.delivering.set(id, [...(this.delivering.get(id) ?? []), ...items])
+    const settle = (item: Queued) =>
+      this.delivering.set(
+        id,
+        (this.delivering.get(id) ?? []).filter((q) => q !== item),
+      )
     try {
       for (const item of items) {
-        if (!(await this.deliver(id, item))) break
-        left.shift()
+        if (!(await this.deliver(id, item, stopped))) break
+        settle(item)
       }
+    } catch (e) {
+      // 停止会取消还在路上的请求，这不算失败
+      if (!stopped()) throw e
     } finally {
+      const left = (this.delivering.get(id) ?? []).filter((q) => items.includes(q))
+      for (const item of left) settle(item)
+      if (!this.delivering.get(id)?.length) this.delivering.delete(id)
       this.requeue(id, left)
     }
   }
@@ -398,8 +439,8 @@ export class SessionService {
     if (!this.running.has(id) && !this.compacting.has(id)) this.sendQueued(id)
   }
 
-  // 交给内核；这一轮还没进内核、已经结束，或者内核不支持时返回 false
-  private async deliver(id: string, item: Queued): Promise<boolean> {
+  // 交给内核；这一轮还没进内核、已经结束、停止了，或者内核不支持时返回 false
+  private async deliver(id: string, item: Queued, stopped: () => boolean): Promise<boolean> {
     const run = this.running.get(id)
     const session = this.deps.store.session(id)
     if (!session || !run?.kernel || !run.ks || !run.submitted) return false
@@ -409,7 +450,8 @@ export class SessionService {
       attachments: item.attachments.map((a) => ({ name: a.name, text: a.text })),
       ...(run.system ? { system: run.system } : {}),
     })
-    if (!live) return false
+    // 停止后回来的：这条已经退给用户了，不再记
+    if (!live || stopped()) return false
     this.saveAttachments(id, run.recorder.view.id, item.attachments)
     const chips = item.attachments.map((a) => ({ name: a.name, size: a.size }))
     const turn = this.deps.store.nextKernelTurn(id)
@@ -488,7 +530,8 @@ export class SessionService {
   async abort(id: string): Promise<QueuedDraft | null> {
     this.abortGen.set(id, (this.abortGen.get(id) ?? 0) + 1)
     // 排队的消息不发了，退回去放进输入框
-    const draft = this.toDraft(this.takeQueued(id))
+    const draft = this.toDraft([...(this.delivering.get(id) ?? []), ...this.takeQueued(id)])
+    this.delivering.delete(id)
     const run = this.running.get(id)
     if (!run) return draft
     run.cancelled = true
@@ -496,7 +539,8 @@ export class SessionService {
     for (const resolve of run.questions.values()) resolve({ answered: false })
     run.questions.clear()
     // 还在启动的轮次在启动完后看到 cancelled 自己结束
-    if (run.kernel && run.ks) await run.kernel.abort(run.ks)
+    // 停止请求失败时适配器过一会儿自己结束这一轮；草稿已经拿出来了，照样交回去
+    if (run.kernel && run.ks) await run.kernel.abort(run.ks).catch(() => {})
     return draft
   }
 

@@ -637,7 +637,7 @@ export function deriveBlocks(
             session.workdir,
             running,
             replies.get(payload.callId),
-            running && asking.has(payload.callId),
+            open && asking.has(payload.callId),
           )
           const task = payload.parentCallId ? tasks.get(payload.parentCallId) : undefined
           if (task) task.subSteps?.push(step)
@@ -653,7 +653,8 @@ export function deriveBlocks(
             session.workdir,
             payload.patterns,
           )
-          if (p.status === 'pending' && running) {
+          // 卡片排在插话前面也要显示：内核在等它
+          if (p.status === 'pending' && open) {
             const subtask = payload.subagent
               ? tasks.get(payload.callId?.split('/')[0] ?? '')?.detail
               : undefined
@@ -765,10 +766,9 @@ export function deriveBlocks(
       }
       // 状态行：这一轮跑着就一直在，只换文字，不然每隔 2 秒没新内容就多一行、来了内容又少一行，对话会跳；
       // 在等你确认 / 回答、在重试时不显示
-      const waiting = cards.some(
-        (c) =>
-          c.kind === 'permission' || (c.kind === 'question' && c.blocking && c.state === 'pending'),
-      )
+      const waiting =
+        all.some((p) => p.type === 'permission' && p.status === 'pending') ||
+        cards.some((c) => c.kind === 'question' && c.blocking && c.state === 'pending')
       if (running && !waiting && !retrying) {
         const last = Math.max(m.createdAt, ...parts.map((p) => p.updatedAt))
         const runningStep = steps.find((s) => s.state === 'running')
