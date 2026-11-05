@@ -149,6 +149,7 @@
     at: '<circle cx="8" cy="8" r="2.5"/><path d="M10.5 8v1a1.8 1.8 0 0 0 3.5 0V8a6 6 0 1 0-2.4 4.8"/>',
     check: '<path d="m3.5 8.5 3 3 6-7"/>',
     up: '<path d="M8 13V3M4 7l4-4 4 4"/>',
+    stop: '<rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" stroke="none"/>',
     file: '<path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3"/>',
     agent: '<path d="M3 13V4.2l2.6 2.2h4.8L13 4.2V13z"/><circle cx="6.3" cy="9.3" r=".7" fill="currentColor" stroke="none"/><circle cx="9.7" cy="9.3" r=".7" fill="currentColor" stroke="none"/>'
   }
@@ -556,7 +557,16 @@
     const ta = box.querySelector('textarea')
     const send = box.querySelector('.kc-send')
     const menu = box.querySelector('.kc-menu')
-    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 220) + 'px'; send.disabled = !ta.value.trim() }
+    // 运行中输入框是空的：这个按钮是停止；有文字时是发送（这一轮结束后送出），停止走快捷键
+    let running = false
+    const paint = () => {
+      const stop = running && !ta.value.trim()
+      send.disabled = !stop && !ta.value.trim()
+      send.innerHTML = svg(stop ? 'stop' : 'up', 14, 1.8)
+      send.setAttribute('aria-label', stop ? '停止' : '发送')
+      send.title = stop ? '停止 ⌘.' : '发送 ↵'
+    }
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 220) + 'px'; paint() }
 
     // 向上放得下就向上开，放不下看哪边地方大，不顶出窗口
     function placeMenu() {
@@ -628,6 +638,7 @@
       const t = e.target.closest('[data-pop]')
       if (t) open(t.dataset.pop, t)
     })
+    box.setRunning = (on) => { running = on; paint() }
     box.fill = (text) => { ta.value = text; grow(); ta.focus(); ta.setSelectionRange(text.length, text.length); renderMenu() }
     return box
   }
@@ -637,10 +648,12 @@
 
   window.kitsTags = {
     'k-nav': (node) => { style(); return nav || buildNav(node.getAttribute('active'), node.hasAttribute('collapsed')) },
-    'k-composer': (node) => {
+    'k-composer': (node, read) => {
       style()
       const key = node.getAttribute('key') || 'main'
-      return composers[key] || (composers[key] = buildComposer(key, node.getAttribute('placeholder') || '给 Agent 发消息', node.getAttribute('rows') || 1, node.hasAttribute('big')))
+      const box = composers[key] || (composers[key] = buildComposer(key, node.getAttribute('placeholder') || '给 Agent 发消息', node.getAttribute('rows') || 1, node.hasAttribute('big')))
+      box.setRunning(node.hasAttribute('running') && read(node.getAttribute('running')) === true)
+      return box
     }
   }
   // 页面里的建议按钮用它把文字放进输入框

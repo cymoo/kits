@@ -12,6 +12,7 @@ import {
   Plus,
   Shield,
   SlidersHorizontal,
+  Square,
   X,
 } from 'lucide-react'
 import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -19,7 +20,7 @@ import { useNavigate } from 'react-router'
 import { t } from '../app/i18n'
 import { basename, resolvePrefs, usePrefs } from '../lib/composer-prefs'
 import { kits, useSettings } from '../lib/kits'
-import { isMac } from '../lib/shortcuts'
+import { isMac, shortcuts } from '../lib/shortcuts'
 import { useUi } from '../lib/ui-store'
 import { cx } from '../ui/cx'
 import {
@@ -66,6 +67,9 @@ export interface ComposerSubmit {
 const chip =
   'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-[8px] px-2 text-[0.962rem] text-fg-muted outline-none hover:bg-active hover:text-fg data-[state=open]:bg-active data-[state=open]:text-fg'
 
+const sendButton =
+  'ml-auto flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-primary text-primary-fg transition-opacity disabled:cursor-default disabled:opacity-25'
+
 export function Composer({
   big = false,
   placeholder,
@@ -74,6 +78,7 @@ export function Composer({
   locked = false,
   lockedAs,
   onSubmit,
+  onStop,
 }: {
   lockedAs?: {
     workdir: string
@@ -86,6 +91,8 @@ export function Composer({
   disabled?: boolean
   locked?: boolean
   onSubmit(input: ComposerSubmit): Promise<void> | void
+  // Agent 在跑时传：输入框是空的，发送键就是停止键；有内容时还是发送（这一轮结束后送出）
+  onStop?: () => void
 }) {
   const navigate = useNavigate()
   const settings = useSettings()
@@ -784,16 +791,28 @@ export function Composer({
             </MenuContent>
           </Menu>
         )}
-        <button
-          type="button"
-          aria-label={t('composer.send')}
-          title={missing ? t(`composer.missing.${missing}`) : `${t('composer.send')} ↵`}
-          disabled={!canSend}
-          onClick={() => void submit()}
-          className="ml-auto flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-primary text-primary-fg transition-opacity disabled:cursor-default disabled:opacity-25"
-        >
-          <ArrowUp size={14} strokeWidth={2.2} />
-        </button>
+        {onStop && !text.trim() && files.length === 0 ? (
+          <button
+            type="button"
+            aria-label={t('session.stop')}
+            title={`${t('session.stop')} ${shortcuts.stop.label}`}
+            onClick={onStop}
+            className={sendButton}
+          >
+            <Square size={11} fill="currentColor" strokeWidth={0} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={t('composer.send')}
+            title={missing ? t(`composer.missing.${missing}`) : `${t('composer.send')} ↵`}
+            disabled={!canSend}
+            onClick={() => void submit()}
+            className={sendButton}
+          >
+            <ArrowUp size={14} strokeWidth={2.2} />
+          </button>
+        )}
       </div>
     </div>
   )

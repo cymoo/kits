@@ -19,10 +19,10 @@ export function UserBlock({
   attachments?: { name: string; size: number }[]
 }) {
   return (
-    <div className="flex max-w-[84%] flex-col items-end gap-1.5 self-end">
+    <div className="flex min-w-0 max-w-[84%] flex-col items-end gap-1.5 self-end">
       <div
         data-testid="user-message"
-        className="whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-active px-3.5 py-2.5 text-[1.077rem] leading-[1.6]"
+        className="max-w-full whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-active px-3.5 py-2.5 text-[1.077rem] leading-[1.6] [overflow-wrap:anywhere]"
       >
         {text}
       </div>
@@ -32,9 +32,9 @@ export function UserBlock({
             <span
               // biome-ignore lint/suspicious/noArrayIndexKey: 同名附件按位置区分
               key={i}
-              className="inline-flex items-center gap-1.5 rounded-[7px] border border-line px-2 py-0.5 text-[0.923rem] text-fg-muted"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-[7px] border border-line px-2 py-0.5 text-[0.923rem] text-fg-muted [overflow-wrap:anywhere]"
             >
-              <FileText size={12} />
+              <FileText size={12} className="shrink-0" />
               {a.name}
             </span>
           ))}
@@ -139,14 +139,20 @@ export function TurnBlock({
               ) : null}
             </>
           ) : null}
-          {block.steps.map((s) => (
-            <StepRow
-              key={s.id}
-              step={s}
-              onOpenFile={(path) => onOpenFile(block.turn, path)}
-              onOpenOutput={onOpenOutput}
-            />
-          ))}
+          {block.steps.map((s) =>
+            s.live ? (
+              <div key={s.id} data-testid="live-text" className="py-1 pr-3.5 pl-[38px]">
+                <Markdown text={s.live.text} caret={s.live.caret} />
+              </div>
+            ) : (
+              <StepRow
+                key={s.id}
+                step={s}
+                onOpenFile={(path) => onOpenFile(block.turn, path)}
+                onOpenOutput={onOpenOutput}
+              />
+            ),
+          )}
         </div>
       ) : null}
     </div>
@@ -163,8 +169,8 @@ export function TextBlock({
 }) {
   return (
     <div className="group flex flex-col gap-1" data-testid="answer">
-      <Markdown text={block.text} caret={block.streaming} />
-      {block.streaming ? null : <CopyReply text={block.text} quiet={quiet} />}
+      <Markdown text={block.text} />
+      <CopyReply text={block.text} quiet={quiet} />
     </div>
   )
 }
@@ -178,7 +184,10 @@ export function StatusLine({ block }: { block: Extract<Block, { kind: 'status' }
     >
       <Spinner tone="muted" />
       <span className="min-w-0 flex-1 truncate">{block.text}</span>
-      <span className="shrink-0 text-fg-subtle">{formatDuration(now - block.since)}</span>
+      {/* 一直有新内容时不显示计时，不然总停在 0 秒 */}
+      {now - block.since >= 2_000 ? (
+        <span className="shrink-0 text-fg-subtle">{formatDuration(now - block.since)}</span>
+      ) : null}
     </div>
   )
 }

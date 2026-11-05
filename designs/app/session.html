@@ -110,7 +110,6 @@ a{color:#3659E3}a:hover{color:#2744B8}
       <span style="flex: 1"></span>
       <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #6E6E76"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M2 4.5h4l1.5 1.5H14v7H2z"></path></svg><span style="font-family: 'JetBrains Mono', monospace">{{dir}}</span></span>
       <span style="font-size: 13px; color: #6E6E76; font-family: 'JetBrains Mono', monospace">{{kernelModel}}</span>
-      <sc-if value="{{running}}"><button type="button" class="k-ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1B1F; cursor: pointer"><svg aria-hidden="true" width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="2"></rect></svg>停止<span style="color: #9A9AA1; font-size: 12px">⌘.</span></button></sc-if>
       <sc-if value="{{finished}}"><button type="button" aria-haspopup="menu" class="k-ghost" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #E5E4DF; border-radius: 8px; background: #FFFFFF; font: inherit; font-size: 13px; color: #1B1B1F; cursor: pointer">导出<svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4.5 6.5 3.5 3.5 3.5-3.5"></path></svg></button></sc-if>
       <sc-if value="{{narrow}}"><a href="{{wideHref}}" aria-label="放大工作区面板" class="k-ghost" style="width: 30px; height: 30px; border-radius: 8px; color: #6E6E76; display: flex; align-items: center; justify-content: center; text-decoration: none"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="3" width="11" height="10" rx="1.5"></rect><path d="M10 3v10"></path></svg></a></sc-if>
       <sc-if value="{{wide}}"><a href="{{narrowHref}}" aria-label="缩回工作区面板" class="k-ghost" style="width: 30px; height: 30px; border-radius: 8px; color: #6E6E76; display: flex; align-items: center; justify-content: center; text-decoration: none"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3 3 3v3M10 13h3v-3M3 3l4 4M13 13 9 9"></path></svg></a></sc-if>
@@ -123,7 +122,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
 
             <sc-if value="{{b.isUser}}">
               <div class="k-msg" style="align-self: flex-end; max-width: 84%; display: flex; flex-direction: column; gap: 6px; align-items: flex-end">
-                <div style="background: #F4F3F0; border-radius: 14px 14px 4px 14px; padding: 10px 14px; font-size: 15px; line-height: 1.6">{{b.text}}</div>
+                <div style="max-width: 100%; box-sizing: border-box; background: #F4F3F0; border-radius: 14px 14px 4px 14px; padding: 10px 14px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere">{{b.text}}</div>
                 <sc-if value="{{b.attach}}"><div style="display: flex; gap: 6px; align-items: center"><span style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #E5E4DF; border-radius: 7px; padding: 2px 8px; font-size: 13px; color: #4A4A52"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg>{{b.attach}}</span><span class="k-act"><button type="button" class="k-small">编辑后重发</button></span></div></sc-if>
               </div>
             </sc-if>
@@ -181,6 +180,7 @@ a{color:#3659E3}a:hover{color:#2744B8}
                         </div>
                       </sc-if>
                     </sc-for>
+                    <sc-if value="{{b.live}}"><p data-testid="live-text" style="margin: 0; padding: 6px 14px 2px 38px; font-size: 15px; line-height: 1.7; overflow-wrap: anywhere">{{b.live}}</p></sc-if>
                   </div>
                 </sc-if>
               </div>
@@ -350,7 +350,7 @@ Error: upstream request failed after 5 retries: ECONNRESET
           <sc-if value="{{ctxCompressing}}">
             <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid #E5E4DF; border-radius: 10px; background: #FBFBF9; font-size: 13.5px; color: #4A4A52"><span aria-hidden="true" style="width: 12px; height: 12px; border: 2px solid #D9D8D2; border-top-color: #3659E3; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span><span style="flex: 1">正在把前 8 轮压缩成摘要，大约 10 秒</span></div>
           </sc-if>
-          <k-composer key="session" placeholder="继续说。Agent 运行中发的消息会在这一轮结束后送出"></k-composer>
+          <k-composer key="session" running="{{running}}" placeholder="继续说。Agent 运行中发的消息会在这一轮结束后送出"></k-composer>
         </div>
       </section>
 
@@ -661,8 +661,7 @@ class Component extends DCLogic {
       },
       permission: {
         title: '给兑换接口加幂等校验', pill: s.perm === 'pending' || s.perm === 'denying' ? ['wait', '等你确认'] : ['run', '运行中 · 第 1 轮 · 1:20'], dir: 'member-svc',
-        blocks: [redeemUser, this.turn('t2', '第 1 轮', '进行中 · 1:12', 'running', redeemSteps),
-          { isText: true, paras: [this.p('幂等检查加好了，缓存放在新文件 `idempotency.py`。接下来跑 tests/points 下的测试确认没改坏。')] },
+        blocks: [redeemUser, { ...this.turn('t2', '第 1 轮', '进行中 · 1:12', 'running', redeemSteps), live: '幂等检查加好了，缓存放在新文件 idempotency.py。接下来跑 tests/points 下的测试确认没改坏。' },
           { isPerm: true }],
         changes: 'round1', output: 'empty-running', ctx: { usage: ['48K / 200K', 24, '前 0 轮 0K', '36K', ''], rows: 'redeem' }
       },
