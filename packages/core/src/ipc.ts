@@ -152,6 +152,8 @@ export const ipcContract = {
     setPermissionMode: method<{ id: string; mode: PermissionMode }, void>(),
     // 改模型：这一轮不变，下一条消息起生效
     setModel: method<{ id: string; model: string }, void>(),
+    // 导出整个会话：写到 {userData}/exports/，返回文件路径
+    export: method<{ id: string; format: 'markdown' | 'json' }, { path: string }>(),
     // 手动压缩上下文：等内核压完；失败抛错
     compact: method<string, void>(),
     prompt: method<{ id: string; text: string; attachments?: AttachmentInput[] }, void>(),
@@ -175,8 +177,6 @@ export const ipcContract = {
   output: {
     // 这个会话每轮的产出
     list: method<string, OutputView[]>(),
-    // 自动保存人工修改；null 表示还原为 AI 原稿
-    save: method<{ id: string; edited: unknown | null }, OutputView>(),
     // 写到 {userData}/exports/，返回文件路径
     export: method<{ id: string; format: 'markdown' | 'json' }, { path: string }>(),
   },

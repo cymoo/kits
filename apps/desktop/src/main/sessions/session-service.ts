@@ -31,6 +31,7 @@ import {
 import { extractText } from '../attachments/extract'
 import type { KernelManager } from '../kernel/kernel-manager'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
+import { sessionMarkdown } from './export'
 import type { SessionStore } from './session-store'
 import { type TurnChange, TurnRecorder } from './thread'
 
@@ -97,7 +98,7 @@ interface Queued {
   attachments: StagedAttachment[]
 }
 
-// 导出文件名：日期-标题[-第 N 轮]，去掉文件名里不能用的字符
+// 导出文件名：日期-标题，去掉文件名里不能用的字符
 export function exportName(title: string, at: number): string {
   const d = new Date(at)
   const date = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
@@ -192,19 +193,8 @@ export class SessionService {
   }
 
   outputs(id: string): OutputView[] {
-    return this.deps.store.outputs(id)
-  }
-
-  // 产出面板的自动保存；null 是还原为 AI 原稿
-  saveOutput(input: { id: string; edited: unknown | null }): OutputView {
-    const current = this.deps.store.output(input.id)
-    if (!current) throw new Error('没有这份产出')
-    // 改回和原稿一样就当没改
-    const same = JSON.stringify(input.edited) === JSON.stringify(current.aiDraft)
-    const saved = this.deps.store.saveEdited(input.id, same ? null : input.edited, this.now())
-    if (!saved) throw new Error('没有这份产出')
-    this.deps.push('session.output', saved)
-    return saved
+    // 早期版本把回复正文也记成产出，现在只认 submit_output 交的
+    return this.deps.store.outputs(id).filter((o) => o.kind === 'structured')
   }
 
   exportOutput(input: { id: string; format: 'markdown' | 'json' }): { path: string } {
@@ -219,17 +209,36 @@ export class SessionService {
           ? content
           : `\`\`\`json\n${JSON.stringify(content, null, 2)}\n\`\`\`\n`
         : JSON.stringify(content, null, 2)
+    const file = this.writeExport(session?.title ?? '', at, input.format, text)
+    const marked = this.deps.store.markExported(input.id, input.format, at)
+    if (marked) this.deps.push('session.output', marked)
+    return { path: file }
+  }
+
+  // 导出整个会话：Markdown 读，JSON 是完整记录
+  exportSession(input: { id: string; format: 'markdown' | 'json' }): { path: string } {
+    const detail = this.deps.store.detail(input.id)
+    if (!detail) throw new Error(`没有这个会话：${input.id}`)
+    const text =
+      input.format === 'markdown' ? sessionMarkdown(detail) : JSON.stringify(detail, null, 2)
+    return { path: this.writeExport(detail.session.title, this.now(), input.format, text) }
+  }
+
+  private writeExport(
+    title: string,
+    at: number,
+    format: 'markdown' | 'json',
+    text: string,
+  ): string {
     mkdirSync(this.deps.exportsDir, { recursive: true })
-    const base = exportName(session?.title ?? '', at)
-    const ext = input.format === 'markdown' ? 'md' : 'json'
+    const base = exportName(title, at)
+    const ext = format === 'markdown' ? 'md' : 'json'
     // 同一天同名的任务不互相覆盖：重名就加序号
     let file = path.join(this.deps.exportsDir, `${base}.${ext}`)
     for (let n = 2; existsSync(file); n++)
       file = path.join(this.deps.exportsDir, `${base}-${n}.${ext}`)
     writeFileSync(file, text.endsWith('\n') ? text : `${text}\n`)
-    const marked = this.deps.store.markExported(input.id, input.format, at)
-    if (marked) this.deps.push('session.output', marked)
-    return { path: file }
+    return file
   }
 
   // kits 工具服务：这次工具调用属于哪个会话（remember 按会话的工作目录写项目记忆）
@@ -1136,23 +1145,6 @@ export class SessionService {
     const change = recorder.apply(event)
     const isDelta = event.type === 'text-delta' || event.type === 'reasoning-delta'
     this.commit(sessionId, change, isDelta)
-    if (event.type === 'done' && event.reason === 'completed')
-      this.saveTextOutput(sessionId, recorder)
-  }
-
-  // 没有输出格式的 Agent：这一轮的回复正文就是产出
-  private saveTextOutput(sessionId: string, recorder: TurnRecorder): void {
-    const session = this.deps.store.session(sessionId)
-    if (!session || this.deps.resolveAgent(session.agent, session.workdir)?.outputSchema) return
-    const text = recorder.answerText()
-    if (!text) return
-    const saved = this.deps.store.saveDraft({
-      sessionId,
-      turn: recorder.view.turn,
-      kind: 'text',
-      aiDraft: text,
-    })
-    this.deps.push('session.output', saved)
   }
 
   // recorder 的变化落库并推给界面；正文增量攒着批量写

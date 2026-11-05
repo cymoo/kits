@@ -1,24 +1,27 @@
-import type { QueuedDraft, SessionSummary } from '@kits/core/ipc'
+import { type QueuedDraft, type SessionSummary, workdirKey } from '@kits/core/ipc'
 import {
   AlertCircle,
   ArrowDown,
   Check,
   Clock,
-  Folder,
   Maximize2,
   Minimize2,
   PanelRightClose,
   PanelRightOpen,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { t } from '../../app/i18n'
-import { basename, usePrefs } from '../../lib/composer-prefs'
+import { usePrefs } from '../../lib/composer-prefs'
+import { errorText } from '../../lib/errors'
 import { kits, useSettings } from '../../lib/kits'
 import { useLiveSession, useSessionDiffs, useSessionOutputs } from '../../lib/sessions'
-import { shortcuts, useShortcuts } from '../../lib/shortcuts'
+import { isMac, shortcuts, useShortcuts } from '../../lib/shortcuts'
 import { useUi } from '../../lib/ui-store'
 import { formatDuration, useNow } from '../../lib/use-now'
+import { dirName } from '../../lib/workspaces'
+import { ContextDialog } from '../../session/panels/ContextPanel'
 import { alwaysRules, deriveRounds, deriveUsage, formatTokens } from '../../session/panels/derive'
 import { type PanelTab, type PickedFile, Workbench } from '../../session/panels/Workbench'
 import {
@@ -33,15 +36,19 @@ import { ErrorCard, PermissionCard, QuestionCard, RetryBar } from '../../session
 import { deriveBlocks, deriveTodos } from '../../session/thread/derive'
 import { useFollowBottom } from '../../session/thread/follow-bottom'
 import { holdDraft, takeDraft } from '../../session/thread/held-drafts'
+import { OutputCard } from '../../session/thread/OutputCard'
+import { placeOutputs } from '../../session/thread/outputs'
 import { PlanCard } from '../../session/thread/Plan'
 import { QueuePanel } from '../../session/thread/QueuePanel'
 import { Composer, type ComposerHandle } from '../../shell/Composer'
+import { InlineRename } from '../../shell/InlineRename'
+import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { ResizeHandle } from '../../ui/ResizeHandle'
 import { Tooltip } from '../../ui/Tooltip'
+import { SessionMenu } from './SessionMenu'
 
-// 会话页（原型 session.html）：顶栏（标题、状态、目录、Agent · 内核 · 模型、停止）+ 对话流 + 输入框。
-// 右侧的改动 / 产出 / 上下文面板在 PR9。
+// 会话页（原型 session.html）：顶栏（工作区 / 标题、状态、… 菜单、面板按钮）+ 对话流 + 输入框 + 右侧面板。
 
 function StatusPill({
   session,
@@ -167,6 +174,35 @@ export function SessionPage() {
   const setPanel = useUi((u) => u.setPanel)
   const [tab, setTab] = useState<PanelTab>('changes')
   const [picked, setPicked] = useState<PickedFile>()
+  const [outputOpen, setOutputOpen] = useState(false)
+  const [pickedOutput, setPickedOutput] = useState<string>()
+  const [contextOpen, setContextOpen] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const renameInput = useRef<HTMLInputElement>(null)
+  const [notice, setNotice] = useState<{ path: string } | { error: string }>()
+  // 这些都跟着当前会话，换会话时收起
+  // biome-ignore lint/correctness/useExhaustiveDependencies: id 变了才收
+  useEffect(() => {
+    setTab('changes')
+    setOutputOpen(false)
+    setPickedOutput(undefined)
+    setRenaming(false)
+    setNotice(undefined)
+  }, [id])
+  const openOutput = (outputId?: string) => {
+    setPickedOutput(outputId)
+    setOutputOpen(true)
+    setTab('output')
+    if (panel === 'hidden') setPanel('side')
+  }
+  const exportOutput = async (outputId: string) => {
+    try {
+      const { path } = await kits.output.export({ id: outputId, format: 'json' })
+      setNotice({ path })
+    } catch (e) {
+      setNotice({ error: t('session.exportFailed', { error: errorText(e) }) })
+    }
+  }
   const rounds = useMemo(
     () => (detail ? deriveRounds(detail, diffs.data ?? []) : []),
     [detail, diffs.data],
@@ -184,6 +220,10 @@ export function SessionPage() {
     return gateway?.models.find((m) => m.id === ref.slice(i + 1))?.contextWindow ?? 0
   }, [session?.model, settings.data])
   const lastAnswer = blocks.findLast((b) => b.kind === 'text')?.id
+  const threadBlocks = useMemo(
+    () => placeOutputs(blocks, outputs.data ?? []),
+    [blocks, outputs.data],
+  )
   const todos = useMemo(() => (detail ? deriveTodos(detail) : []), [detail])
 
   const composer = useRef<ComposerHandle>(null)
@@ -219,11 +259,36 @@ export function SessionPage() {
     !firstPermission &&
     blocks.some((b) => b.kind === 'question' && b.blocking && b.state === 'pending')
 
-  const model = session.model.slice(session.model.indexOf('/') + 1)
+  const key = workdirKey(session.workdir)
+  const workspace =
+    settings.data?.workdirs.find((w) => workdirKey(w.path) === key)?.label ??
+    dirName(session.workdir)
   return (
     <div className="flex h-full min-h-0 flex-col bg-raised">
-      <header className="flex h-12 shrink-0 items-center gap-2.5 border-line-soft border-b pr-4 pl-5">
-        <h1 className="m-0 min-w-0 truncate font-medium text-[1rem]">{session.title}</h1>
+      <header className="flex h-12 shrink-0 items-center gap-2 border-line-soft border-b pr-3 pl-5">
+        <span
+          className="min-w-0 shrink truncate text-[0.929rem] text-fg-muted"
+          title={session.workdir}
+        >
+          {session.agent !== 'assistant' ? `${workspace} · ${session.agent}` : workspace}
+        </span>
+        <span aria-hidden="true" className="text-line-strong">
+          /
+        </span>
+        {renaming ? (
+          <span className="min-w-[200px] max-w-[420px] flex-1">
+            <InlineRename
+              value={session.title}
+              label={t('nav.renameLabel')}
+              maxLength={120}
+              input={renameInput}
+              save={(title) => kits.session.rename({ id: session.id, title })}
+              onDone={() => setRenaming(false)}
+            />
+          </span>
+        ) : (
+          <h1 className="m-0 min-w-0 truncate font-medium text-[1rem]">{session.title}</h1>
+        )}
         <StatusPill
           session={session}
           startedAt={lastTurnStart}
@@ -231,24 +296,44 @@ export function SessionPage() {
           answering={answering}
         />
         <span className="flex-1" />
-        <span
-          className="inline-flex min-w-0 items-center gap-1.5 text-[0.929rem] text-fg-muted"
-          title={session.workdir}
-        >
-          <Folder size={13} className="shrink-0" />
-          <span className="truncate font-mono">{basename(session.workdir)}</span>
-        </span>
-        <span className="min-w-0 truncate font-mono text-[0.929rem] text-fg-muted">
-          {[
-            session.agent !== 'assistant' ? session.agent : null,
-            session.kernel === 'opencode' ? 'OpenCode' : 'CodeAgent',
-            model,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </span>
+        <SessionMenu
+          session={session}
+          contextPct={contextWindow ? (usage.context / contextWindow) * 100 : undefined}
+          onContext={() => setContextOpen(true)}
+          onRename={() => setRenaming(true)}
+          onExported={(path) => setNotice({ path })}
+          onFailed={(error) => setNotice({ error })}
+        />
         <PanelButton />
       </header>
+      {notice ? (
+        <div
+          role={'error' in notice ? 'alert' : 'status'}
+          className={cx(
+            'flex shrink-0 items-center gap-2 border-line-soft border-b px-5 py-1.5 text-[0.929rem]',
+            'error' in notice ? 'bg-danger-bg/60 text-danger' : 'bg-ok-bg/50 text-ok',
+          )}
+        >
+          <span className="min-w-0 flex-1 truncate">
+            {'error' in notice
+              ? notice.error
+              : t('session.exported', { path: notice.path.split(/[\\/]/).pop() ?? '' })}
+          </span>
+          {'path' in notice ? (
+            <Button variant="link" onClick={() => void kits.app.revealPath(notice.path)}>
+              {t(isMac ? 'nav.revealMac' : 'nav.reveal')}
+            </Button>
+          ) : null}
+          <button
+            type="button"
+            aria-label={t('session.dismiss')}
+            onClick={() => setNotice(undefined)}
+            className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-[4px] hover:bg-active"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ) : null}
       <div className="flex min-h-0 flex-1">
         <section
           ref={thread.ref}
@@ -265,8 +350,18 @@ export function SessionPage() {
           style={panel === 'wide' ? { width: widths.chat } : undefined}
         >
           <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col gap-[18px] pb-4">
-            {blocks.map((b) => {
+            {threadBlocks.map((b) => {
               switch (b.kind) {
+                case 'output':
+                  return (
+                    <OutputCard
+                      key={b.id}
+                      output={b.output}
+                      agent={session.agent}
+                      onOpen={() => openOutput(b.output.id)}
+                      onExport={() => void exportOutput(b.output.id)}
+                    />
+                  )
                 case 'user':
                   return (
                     <UserBlock
@@ -287,8 +382,7 @@ export function SessionPage() {
                         if (panel === 'hidden') setPanel('side')
                       }}
                       onOpenOutput={() => {
-                        setTab('output')
-                        if (panel === 'hidden') setPanel('side')
+                        if (outputs.data?.length) openOutput()
                       }}
                     />
                   )
@@ -375,10 +469,7 @@ export function SessionPage() {
                   ? {
                       used: usage.context,
                       window: contextWindow,
-                      onOpen: () => {
-                        setTab('context')
-                        if (panel === 'hidden') setPanel('side')
-                      },
+                      onOpen: () => setContextOpen(true),
                     }
                   : undefined
               }
@@ -425,10 +516,15 @@ export function SessionPage() {
               rounds={rounds}
               picked={picked}
               onPick={setPicked}
-              rules={rules}
               outputs={outputs.data ?? []}
-              usage={usage}
-              contextWindow={contextWindow}
+              outputOpen={outputOpen}
+              onCloseOutput={() => {
+                setOutputOpen(false)
+                setTab('changes')
+              }}
+              pickedOutput={pickedOutput}
+              onPickOutput={setPickedOutput}
+              onExported={(path) => setNotice({ path })}
               wide={panel === 'wide'}
               tab={tab}
               onTab={setTab}
@@ -436,6 +532,14 @@ export function SessionPage() {
           </aside>
         )}
       </div>
+      <ContextDialog
+        open={contextOpen}
+        onOpenChange={setContextOpen}
+        detail={detail}
+        rules={rules}
+        usage={usage}
+        contextWindow={contextWindow}
+      />
     </div>
   )
 }

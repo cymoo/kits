@@ -1,8 +1,10 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 import { launchApp, mod } from './app'
 import { prepare } from './session'
 
-// 会话页右侧的工作区面板（PR9）：改动（按轮、diff 统一 / 并排、放大）、上下文；对话里点开步骤看工具结果；完成时的总结卡片。内核用 Mock。
+// 会话页右侧的面板：改动（按轮、diff 统一 / 并排、放大）；顶栏菜单和上下文对话框；对话里点开步骤看工具结果；完成时的总结卡片。内核用 Mock。
 
 const mock = (scenario: string) => ({
   KITS_KERNEL: 'mock',
@@ -34,7 +36,7 @@ test('shows the changed files, commands and usage of a finished turn', async () 
     await expect(panel.getByRole('tab', { name: /改动/ })).toContainText('1')
 
     await page.screenshot({ path: 'test-results/workbench-changes.png' })
-    await expect(panel.getByRole('tab')).toHaveText([/改动/, '产出', '上下文'])
+    await expect(panel.getByRole('tab')).toHaveText([/改动/])
 
     // 命令的结果在对话里就地看：标题是模型写的描述，点开是命令、输出和允许方式
     const turn = page.getByTestId('turn')
@@ -49,8 +51,9 @@ test('shows the changed files, commands and usage of a finished turn', async () 
     await expect(output).toContainText('自动允许')
     await page.screenshot({ path: 'test-results/workbench-step-output.png' })
 
-    await panel.getByRole('tab', { name: '上下文' }).click()
-    await expect(panel.getByTestId('context-usage')).toHaveText('21K / 128K')
+    await page.getByTestId('context-ring').click()
+    await expect(page.getByTestId('context-usage')).toHaveText('21K / 128K')
+    await page.keyboard.press('Escape')
 
     // 改文件的步骤跳到“改动”
     await turn.getByTestId('step').filter({ hasText: '修改' }).click()
@@ -199,9 +202,44 @@ test('shows a command waiting for confirmation on its step', async () => {
     await expect(step).toContainText('3.4 秒')
     await step.click()
     await expect(turn.getByTestId('step-output')).toContainText('本会话允许')
-    const panel = page.getByRole('complementary', { name: '会话面板' })
-    await panel.getByRole('tab', { name: '上下文' }).click()
-    await expect(panel.getByTestId('allow-rules')).toContainText('uv run pytest *')
+    await page.getByTestId('context-ring').click()
+    await expect(page.getByTestId('allow-rules')).toContainText('uv run pytest *')
+  } finally {
+    await close()
+  }
+})
+
+test('manages the session from the header menu', async () => {
+  const { page, configDir, userDataDir, close } = await launchApp(mock('done'))
+  try {
+    await send(page, configDir, '给兑换接口加幂等校验')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    const header = page.locator('header')
+    await expect(header).toContainText('member-svc')
+    const more = header.getByRole('button', { name: '更多操作' })
+
+    await more.click()
+    await page.getByRole('menuitem', { name: /查看上下文/ }).click()
+    await expect(page.getByRole('dialog', { name: '上下文' })).toContainText('coder-main')
+    await page.keyboard.press('Escape')
+
+    await more.click()
+    await page.getByRole('menuitem', { name: '导出 Markdown' }).click()
+    await expect(page.getByRole('status').filter({ hasText: '已导出到' })).toContainText('.md')
+    const dir = path.join(userDataDir, 'exports')
+    const file = readdirSync(dir).find((f) => f.endsWith('.md')) ?? ''
+    expect(readFileSync(path.join(dir, file), 'utf8')).toContain('改好了')
+
+    await more.click()
+    await page.getByRole('menuitem', { name: '重命名' }).click()
+    await page.getByLabel('会话标题').fill('新的标题')
+    await page.getByLabel('会话标题').press('Enter')
+    await expect(header.getByRole('heading', { name: '新的标题' })).toBeVisible()
+
+    await more.click()
+    await page.getByRole('menuitem', { name: '删除' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: '删除' }).click()
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
   } finally {
     await close()
   }

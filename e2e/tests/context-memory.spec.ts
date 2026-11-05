@@ -45,7 +45,7 @@ test('offers to compact when the context is nearly full and leaves a divider wit
     await divider.getByRole('button').click()
     await expect(divider).toContainText('@idempotent')
     // 上下文从摘要重新算
-    await page.getByRole('tab', { name: '上下文' }).click()
+    await page.getByTestId('context-ring').click()
     await expect(page.getByTestId('context-usage')).toHaveText(/^1(\.2)?K \/ 25K$/)
     await expect(page.getByTestId('context')).toContainText('项目 0 条 · 个人 0 条')
     await page.screenshot({ path: 'test-results/context-compacted.png' })

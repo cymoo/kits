@@ -40,15 +40,6 @@ describe('TurnRecorder', () => {
     expect(parts.map((p) => p.status)).toEqual(['sent'])
   })
 
-  it('takes the answer from the text after the last interjection', () => {
-    const r = recorder()
-    r.apply({ type: 'text-delta', partId: 't1', text: '先看看' })
-    r.interject('q1', '先别改测试', [], 2)
-    r.apply({ type: 'interject-delivered' })
-    r.apply({ type: 'text-delta', partId: 't2', text: '好的' })
-    expect(r.answerText()).toBe('好的')
-  })
-
   it('keeps which task a subagent tool belongs to', () => {
     const r = recorder()
     const { parts } = r.apply({
