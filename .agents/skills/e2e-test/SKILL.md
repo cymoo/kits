@@ -14,6 +14,8 @@ pnpm build
 pnpm test:e2e
 ```
 
+Electron 没有真正的 headless。`launchApp` 默认设 `KITS_HIDDEN_WINDOW=1`：窗口全透明、鼠标穿透、不抢焦点，mac 上不进程序坞，跑测试时能继续干活。要看窗口就设 `E2E_HEADED=1`。
+
 CI 只在 Windows 上跑；mac 是本地开发环境，提交前在本机跑一遍。
 
 ## 覆盖什么
