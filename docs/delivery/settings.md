@@ -144,3 +144,43 @@ phase1-implementation PR17（6.2 节主题、6.3 节 `#general` / `#perm` / `#pr
 
 - 写了 `limit` 以后内核会自动压缩：128K 窗口约在用到 96K 时触发。网关不报窗口、实际窗口又比 128K 大的模型，要手改，不然压缩来得过早。
 - 已有网关不会自动更新，要点一次“刷新列表”。
+
+## 2026-11-05　模型上下文窗口识别对齐 prometheus
+
+> PR：见本分支　作者：OpenCode
+
+### 原始需求
+
+网关（`http://llm-gateway.example.com/api/v1`）的模型列表已经返回 `max_model_len`，但设置里 `glm5.3-flash`、`qwen3-vl-se` 仍是默认的 128K，会话的上下文面板也按 128K 算。参考 `prometheus` 的 `providerModelsFetch` / `modelContextMetadata`，把取法补齐。
+
+做到什么程度算完：这个网关点一次“刷新列表”，三个模型分别取到 1048576 / 256000 / 32000；列表里不带上下文的网关，连接测试会再查单模型详情，仍取不到才用默认 128K。
+
+### 怎么验收
+
+1. 设置 → 内核与模型，展开网关，确认地址是 `http://llm-gateway.example.com/api/v1`（**要带 `/v1`**，内核的对话请求也走这个地址）。点“刷新列表”。预期：`glm5.3-flash` 的上下文变成 256，`qwen3-vl-se` 变成 32；`deepseek-v4.1-flash-nj` 如果没手改过会变成 1049，手改过（当前是 1024）则保留。
+2. 回到会话，右侧“上下文”：分母按刷新后的值显示。
+3. 找一个模型列表只返回 id、详情端点带上下文的网关（或本地 mock）：连接测试仍能带出窗口，不再一律 128K。
+4. 网关列表和详情都不报窗口：保持 128K，可手改，行为不变。
+
+### 主要改动
+
+- `apps/desktop/src/main/gateway/gateway-client.ts`：
+  - 字段名补齐 `max_input_tokens`（Anthropic）、`max_model_len`、`context_length`、`context_window`、`max_context_length`，按顺序取第一个合法值；数字字符串也认；加 1 亿的防呆上限。
+  - 列表里没报上下文的模型，逐个请求 `GET {baseUrl}/models/{id}` 取详情；并发 8、单请求 5s、整批 8s 预算，失败不影响连接测试。
+- `apps/desktop/src/main/gateway/gateway-client.test.ts`：补字符串数值 / `max_input_tokens` / 异常值跳过、详情端点回填两组用例。
+
+配置文件格式、数据库 schema、界面都没有变化。
+
+### 测试
+
+- `pnpm vitest run apps/desktop/src/main/gateway/gateway-client.test.ts`：9 个用例通过。
+- `pnpm --filter @kits/desktop typecheck`：通过。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 地址必须带版本段（本网关是 `/api/v1`）。不带时列表请求直接 404，连接测试会报 `网关返回 HTTP 404`；这和内核实际对话地址保持一致，没有偷偷补 `/v1`。
+- 手改过上下文的模型不会被刷新覆盖（包括用 K 输入框改过的值），这是原有约定。

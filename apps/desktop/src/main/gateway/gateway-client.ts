@@ -1,6 +1,7 @@
 // 网关连接测试（phase1-implementation 3.1 节）：GET {baseUrl}/models 拿模型列表并量延迟。
 // 不发对话请求、不计入用量。地址只认 http(s)，超时 10 s。
-// OpenAI 的 /models 没有上下文窗口，但不少网关带了，字段名各家不同，有就记下来。
+// OpenAI 的 /models 没有上下文窗口，但不少网关带了，字段名各家不同，有就记下来：
+// 列表里没带的再查一次单模型详情（和 prometheus 的 providerModelsFetch 同一套取法）。
 
 export interface GatewayTestInput {
   baseUrl: string
@@ -12,14 +13,80 @@ export type GatewayTestResult =
   | { ok: false; latencyMs: number; error: string }
 
 const TIMEOUT_MS = 10_000
+// 详情端点探测：请求数和模型数同阶、不消耗 token，但不要和列表请求叠加打爆连接
+const DETAIL_TIMEOUT_MS = 5_000
+const DETAIL_BUDGET_MS = 8_000
+const DETAIL_CONCURRENCY = 8
 
-// DeepSeek 等是 context_window，OpenRouter 是 context_length，vLLM 是 max_model_len
-const CONTEXT_FIELDS = ['context_window', 'context_length', 'max_context_length', 'max_model_len']
+// 同一事实在不同协议面上的键名不同（Anthropic / vLLM / 第三方网关），按顺序取第一个合法值
+const CONTEXT_FIELDS = [
+  'max_input_tokens',
+  'max_model_len',
+  'context_length',
+  'context_window',
+  'max_context_length',
+] as const
+
+// 防呆上限：挡住 Number.MAX_SAFE_INTEGER 之类的脏数据，不是任何模型的真实上限
+const MAX_PLAUSIBLE_CONTEXT_WINDOW = 100_000_000
 
 function contextWindowOf(model: Record<string, unknown>): number | undefined {
-  return CONTEXT_FIELDS.map((f) => model[f]).find(
-    (n): n is number => typeof n === 'number' && Number.isInteger(n) && n > 0,
-  )
+  for (const field of CONTEXT_FIELDS) {
+    const raw = model[field]
+    const value = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw
+    if (typeof value !== 'number' || !Number.isSafeInteger(value)) continue
+    if (value <= 0 || value > MAX_PLAUSIBLE_CONTEXT_WINDOW) continue
+    return value
+  }
+  return undefined
+}
+
+// 单模型详情端点：OpenAI 兼容面一般支持 GET {baseUrl}/models/{model}，键名和列表一致。
+// 超时 / 非 2xx / 解析失败都当作“取不到”，不影响连接测试本身。
+async function fetchContextFromDetail(
+  baseUrl: string,
+  apiKey: string | undefined,
+  model: string,
+  fetchImpl: typeof fetch,
+): Promise<number | undefined> {
+  try {
+    const res = await fetchImpl(new URL(`${baseUrl}/models/${encodeURIComponent(model)}`), {
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+      signal: AbortSignal.timeout(DETAIL_TIMEOUT_MS),
+    })
+    if (!res.ok) return undefined
+    const body = (await res.json()) as unknown
+    return body && typeof body === 'object' && !Array.isArray(body)
+      ? contextWindowOf(body as Record<string, unknown>)
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// 列表里没报上下文的模型逐个查详情，总预算用尽后剩余模型按“取不到”处理
+async function fillContextsFromDetails(
+  baseUrl: string,
+  apiKey: string | undefined,
+  models: string[],
+  contextWindows: Record<string, number>,
+  fetchImpl: typeof fetch,
+): Promise<void> {
+  const pending = models.filter((id) => contextWindows[id] === undefined)
+  if (pending.length === 0) return
+  const deadline = Date.now() + DETAIL_BUDGET_MS
+  let next = 0
+  const worker = async () => {
+    while (true) {
+      const index = next++
+      if (index >= pending.length || Date.now() >= deadline) return
+      const model = pending[index]
+      if (model === undefined) return
+      const window = await fetchContextFromDetail(baseUrl, apiKey, model, fetchImpl)
+      if (window !== undefined) contextWindows[model] = window
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(DETAIL_CONCURRENCY, pending.length) }, worker))
 }
 
 export async function testGateway(
@@ -28,9 +95,10 @@ export async function testGateway(
 ): Promise<GatewayTestResult> {
   const started = Date.now()
   const elapsed = () => Date.now() - started
+  const baseUrl = input.baseUrl.replace(/\/+$/, '')
   let url: URL
   try {
-    url = new URL(`${input.baseUrl.replace(/\/+$/, '')}/models`)
+    url = new URL(`${baseUrl}/models`)
   } catch {
     return { ok: false, latencyMs: 0, error: '地址格式不对' }
   }
@@ -72,6 +140,7 @@ export async function testGateway(
       if (window) contextWindows[m.id] = window
     }
     const models = [...new Set(listed.map((m) => m.id))].sort()
+    await fillContextsFromDetails(baseUrl, input.apiKey, models, contextWindows, fetchImpl)
     return { ok: true, latencyMs: elapsed(), models, contextWindows }
   } catch (e) {
     const err = e as Error & { cause?: { code?: string } }

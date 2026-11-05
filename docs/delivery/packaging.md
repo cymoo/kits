@@ -218,3 +218,34 @@ kits 主要运行在 Windows 上，mac 只用于本地开发，CI 不需要再�
 
 - mac 上的问题 CI 不再拦，全靠提交前在本机跑 `pnpm check` 和 `pnpm test:e2e`。
 - 从 2026-11-04 起 CI 因 GitHub 账单没有运行，#36～#40 的 Windows E2E 都没跑过。CI 恢复后第一次运行要看这些改动在 Windows 上是否通过，尤其是 `desktop.spec.ts` 的 `shows the hidden window when the app is launched again`。
+
+## 2026-11-05　未打包启动时不再构造 autoUpdater
+
+> PR：见本分支
+
+### 原始需求
+
+`createUpdater` 在主进程启动链上同步调用，以前一进来就取 `autoUpdater`。electron-updater 构造实例时校验版本号，未打包启动（开发、E2E）时 `app.getVersion()` 可能不是合法 semver，构造直接抛 `ERR_UPDATER_INVALID_VERSION`，后面的窗口建不起来。
+
+### 怎么验收
+
+1. 未打包启动应用（`pnpm dev`）。预期：窗口正常打开，设置里的更新检查显示未启用。
+2. 打包后的应用配上更新地址。预期：检查更新和之前一样。
+
+### 主要改动
+
+- `apps/desktop/src/main/updater.ts`：`autoUpdater` 推迟到 `check()` 里、确认已打包之后再取。这项改动来自内网，原样同步。
+
+配置项和数据库 schema 没有变。
+
+### 测试
+
+- `updater.test.ts` 新增 `leaves electron-updater alone when the app is not packaged`，放到旧代码上会失败。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+无。
