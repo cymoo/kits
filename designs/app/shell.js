@@ -461,12 +461,12 @@
     const on = convs.find((c) => c[1] === here)?.[0] === title
     return `<div class="kn-row"><a class="kn-item${on ? ' on' : ''}" href="${href}" title="${esc(title)}">${st ? `<span class="kn-st ${st}"></span>` : ''}<span class="kn-label">${esc(title)}</span>${tag ? `<span class="kn-tag" style="color:${st === 'err' ? '#C8381F' : '#B4650A'}">${tag}</span>` : `<span class="kn-when">${when}</span>`}</a><button type="button" class="kn-pin" data-act="more" data-title="${esc(title)}" data-pinned="${!!pinned}" data-busy="${st === 'run'}" aria-haspopup="menu" aria-label="“${esc(title)}”的更多操作" title="更多">${svg('more', 16)}</button></div>`
   }
-  // 折叠记在本机；当前会话所在的组强制展开
-  function wsFolded() { try { return JSON.parse(localStorage.getItem('kits.nav.ws') || '[]') } catch (e) { return [] } }
+  // 默认折叠，展开的记在本机；当前会话所在的组打开时展开，之后可以收起
+  function wsOpened() { try { return JSON.parse(localStorage.getItem('kits.nav.ws.open') || '[]') } catch (e) { return [] } }
   function wsHtml(name, path, here) {
     const list = convs.filter((c) => c[5] === name && !c[7])
     const hasHere = list.some((c) => c[0] === convs.find((x) => x[1] === here)?.[0])
-    const open = hasHere || !wsFolded().includes(name)
+    const open = hasHere || wsOpened().includes(name)
     const shown = list.slice(0, WS_LIMIT)
     const rest = list.length - shown.length
     // 收起时把组里最要紧的状态放到组标题上
@@ -526,9 +526,9 @@
         const open = ws.dataset.open !== 'true'
         ws.dataset.open = String(open)
         t.setAttribute('aria-expanded', String(open))
-        const folded = wsFolded().filter((n) => n !== ws.dataset.ws)
-        if (!open) folded.push(ws.dataset.ws)
-        try { localStorage.setItem('kits.nav.ws', JSON.stringify(folded)) } catch (e) {}
+        const opened = wsOpened().filter((n) => n !== ws.dataset.ws)
+        if (open) opened.push(ws.dataset.ws)
+        try { localStorage.setItem('kits.nav.ws.open', JSON.stringify(opened)) } catch (e) {}
       }
       if (t.dataset.act === 'ws-all') {
         const name = t.dataset.ws

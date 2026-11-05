@@ -1,7 +1,7 @@
 import type { SessionSummary } from '@kits/core/ipc'
 import { useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, Ellipsis, FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMatch, useNavigate } from 'react-router'
 import { t } from '../app/i18n'
 import { usePrefs } from '../lib/composer-prefs'
@@ -19,7 +19,7 @@ import { InlineRename } from './InlineRename'
 import { SessionRow } from './SessionRow'
 import { StatusDot } from './StatusDot'
 
-// 侧栏的一个工作区（原型 shell.js）：可折叠，当前会话所在的组强制展开；组标题的 + 在这里开新会话，
+// 侧栏的一个工作区（原型 shell.js）：默认折叠，打开其中的会话时展开；组标题的 + 在这里开新会话，
 // … 或右键打开菜单。移除连同会话一起删，磁盘上的目录不动。
 
 const SHOWN = 5
@@ -88,11 +88,16 @@ const action =
 
 export function WorkspaceGroup({ workspace: w, now }: { workspace: Workspace; now: number }) {
   const navigate = useNavigate()
-  const folded = useUi((u) => u.foldedWorkspaces.includes(w.key))
+  const open = useUi((u) => u.expandedWorkspaces.includes(w.key))
   const toggleWorkspace = useUi((u) => u.toggleWorkspace)
+  const expandWorkspace = useUi((u) => u.expandWorkspace)
   const viewing = useMatch('/s/:id')?.params.id
   const hasViewing = w.sessions.some((s) => s.id === viewing)
-  const open = !folded || hasViewing
+  // 打开一个会话时展开它所在的组；之后用户想收起就收起，不再撑开
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在换了会话时展开
+  useEffect(() => {
+    if (hasViewing) expandWorkspace(w.key)
+  }, [viewing, hasViewing])
   const [all, setAll] = useState(false)
   const [menu, setMenu] = useState(false)
   const [renaming, setRenaming] = useState(false)
