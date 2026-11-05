@@ -459,7 +459,7 @@
   function rowHtml([title, href, st, tag, , , when], here, pinned) {
     // 演示会话会共用一个 ?s=，只高亮第一个
     const on = convs.find((c) => c[1] === here)?.[0] === title
-    return `<div class="kn-row"><a class="kn-item${on ? ' on' : ''}" href="${href}" title="${esc(title)}">${st ? `<span class="kn-st ${st}"></span>` : ''}<span class="kn-label">${esc(title)}</span>${tag ? `<span class="kn-tag" style="color:${st === 'err' ? '#C8381F' : '#B4650A'}">${tag}</span>` : `<span class="kn-when">${when}</span>`}</a><button type="button" class="kn-pin" data-act="more" data-title="${esc(title)}" data-pinned="${!!pinned}" data-busy="${st === 'run'}" aria-haspopup="menu" aria-label="“${esc(title)}”的更多操作" title="更多">${svg('more', 14)}</button></div>`
+    return `<div class="kn-row"><a class="kn-item${on ? ' on' : ''}" href="${href}" title="${esc(title)}">${st ? `<span class="kn-st ${st}"></span>` : ''}<span class="kn-label">${esc(title)}</span>${tag ? `<span class="kn-tag" style="color:${st === 'err' ? '#C8381F' : '#B4650A'}">${tag}</span>` : `<span class="kn-when">${when}</span>`}</a><button type="button" class="kn-pin" data-act="more" data-title="${esc(title)}" data-pinned="${!!pinned}" data-busy="${st === 'run'}" aria-haspopup="menu" aria-label="“${esc(title)}”的更多操作" title="更多">${svg('more', 16)}</button></div>`
   }
   // 折叠记在本机；当前会话所在的组强制展开
   function wsFolded() { try { return JSON.parse(localStorage.getItem('kits.nav.ws') || '[]') } catch (e) { return [] } }
@@ -474,7 +474,7 @@
     return `<div class="kn-ws" data-ws="${esc(name)}" data-open="${open}">
       <div class="kn-wsrow">
         <button type="button" class="kn-wsbtn" data-act="ws-toggle" aria-expanded="${open}" title="${esc(path)}">${svg('down', 13, 1.6)}<span class="kn-label">${esc(name)}</span>${st ? `<span class="kn-st ${st}"></span>` : ''}</button>
-        <button type="button" class="kn-pin a" data-act="ws-more" data-ws="${esc(name)}" data-count="${convs.filter((c) => c[5] === name).length}" data-busy="${list.some((c) => c[2] === 'run')}" data-path="${esc(path)}" aria-haspopup="menu" aria-label="工作区“${esc(name)}”的更多操作" title="更多">${svg('more', 14)}</button>
+        <button type="button" class="kn-pin a" data-act="ws-more" data-ws="${esc(name)}" data-count="${convs.filter((c) => c[5] === name).length}" data-busy="${list.some((c) => c[2] === 'run')}" data-path="${esc(path)}" aria-haspopup="menu" aria-label="工作区“${esc(name)}”的更多操作" title="更多">${svg('more', 16)}</button>
         <a class="kn-pin b" href="index.html?ws=${encodeURIComponent(name)}" aria-label="在“${esc(name)}”里新建会话" title="在这里新建会话">${svg('plus', 14, 1.6)}</a>
       </div>
       <div class="kn-wslist">
