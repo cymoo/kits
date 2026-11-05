@@ -508,3 +508,51 @@ Agent 调 `todowrite` 时界面上只有一行“更新计划”，看不到清�
 - 子任务的正文和思考不显示，只显示工具步骤和最后的结果。
 - 子任务用的 token 和费用不算进会话的统计。
 - 子任务里模型网关在重试时，界面没有重试条。
+
+## 2026-11-05　其他内置工具的步骤
+
+> PR：#48　作者：Claude Code
+
+### 原始需求
+
+检查 `todowrite`、`task` 之外的内置工具是否需要专门的界面。逐个对了 OpenCode 1.19.5 的工具（`bash read glob grep edit write apply_patch task webfetch todowrite websearch skill`）、kits 工具（`ask_user submit_output remember`）和内核的 `invalid`：
+
+| 工具 | 现状 | 结论 |
+|---|---|---|
+| `bash` `read` `glob` `grep` `edit` `write` `apply_patch` `webfetch` `kits_ask_user` | 有各自的行、结果或卡片 | 不用改 |
+| `websearch` | 没有适配，只显示 `websearch` 这个词，看不到搜什么 | 改：显示搜索词 |
+| `invalid` | 只显示 `invalid`，模型调错工具时还算成功 | 改：显示想调的工具，算失败 |
+| `skill` | 点开是带 `<skill_content>` 包装和内核说明的原文 | 改：只留技能正文 |
+| `kits_remember` | 点开只有“已记住” | 改：行上写记到哪，不再能点开 |
+| `kits_submit_output` | 行上什么都没有，点开只有“已提交” | 改：写校验结果，通过的跳到“产出”，不通过的展开错误 |
+
+原型：`designs/app/session.html?s=output`（提交产出）、`?s=question`（搜索网页）。
+
+### 怎么验收
+
+1. `KITS_KERNEL=mock KITS_MOCK_SCENARIO=output-structured pnpm dev`，发一句话，展开工作过程。预期：“提交产出”右边是“通过校验”，点它切到“产出”。
+2. 真实模型，发“用 skill 工具加载 code-review 技能”，展开这一步：看到技能正文，开头没有 `<skill_content>`，结尾没有 `Base directory`。
+3. 发“记住：测试用 uv 跑”：“记下 …”右边是“项目记忆”，这一行点不开。
+4. 单测覆盖 `websearch`、`invalid`、产出校验失败（默认权限拒绝 `websearch`，Agent 要放开才调得到）。
+
+### 主要改动
+
+- `session/thread/derive.ts`：`describeTool` 加 `websearch`、`invalid`；`cleanOutput` 加 `skill`；`toolStat`、`toolStep` 处理两个 kits 工具。
+- `session/thread/Steps.tsx`、`Blocks.tsx`、`pages/session/SessionPage.tsx`：步骤可以跳到“产出”。
+- `designs/app/session.html`：`提交产出` 和 `搜索网页` 的步骤。原来提交产出的说明行改成点开看错误。
+
+配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`thread/derive.test.ts` 的 `tool steps`。
+- E2E：`output.spec.ts` 的提交产出步骤跳到“产出”。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 命令运行时看不到实时输出，要等结束：内核在 `metadata.output` 里有，要新加一种事件。
+- `websearch` 的结果格式没有实测（内网用不上，默认拒绝），按原文显示。

@@ -60,10 +60,13 @@ function turnSummary({ summary, filesChanged }: Extract<Block, { kind: 'turn' }>
 export function TurnBlock({
   block,
   onOpenFile,
+  onOpenOutput,
 }: {
   block: Extract<Block, { kind: 'turn' }>
   // 点改文件的步骤：在“改动”里打开这一轮的这个文件
   onOpenFile(turn: number, path: string): void
+  // 点提交产出的步骤：打开“产出”
+  onOpenOutput(): void
 }) {
   const running = block.state === 'running'
   // 运行中默认展开，结束后默认收起；用户点过就听用户的
@@ -137,7 +140,12 @@ export function TurnBlock({
             </>
           ) : null}
           {block.steps.map((s) => (
-            <StepRow key={s.id} step={s} onOpenFile={(path) => onOpenFile(block.turn, path)} />
+            <StepRow
+              key={s.id}
+              step={s}
+              onOpenFile={(path) => onOpenFile(block.turn, path)}
+              onOpenOutput={onOpenOutput}
+            />
           ))}
         </div>
       ) : null}

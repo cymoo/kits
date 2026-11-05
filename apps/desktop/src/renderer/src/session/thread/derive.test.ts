@@ -770,3 +770,75 @@ describe('subagents', () => {
     expect(blocks.find((b) => b.kind === 'permission')).toMatchObject({ subtask: '探索仓库' })
   })
 })
+
+describe('tool steps', () => {
+  const steps = (...parts: PartView[]) => {
+    const blocks = deriveBlocks(
+      {
+        session,
+        messages: [msg('u1', 'user'), msg('a1', 'assistant')],
+        parts,
+        attachments: [],
+      },
+      undefined,
+      10,
+    )
+    const turn = blocks.find((b) => b.kind === 'turn')
+    return turn?.kind === 'turn' ? turn.steps : []
+  }
+
+  it('shows the query of a web search', () => {
+    expect(steps(tool('websearch', { query: 'retry-after 429' }))[0]).toMatchObject({
+      kind: '搜索网页',
+      icon: 'web',
+      detail: 'retry-after 429',
+    })
+  })
+
+  it('shows a call the kernel rejected as a failed step', () => {
+    const [step] = steps(tool('invalid', { tool: 'bahs', error: '没有这个工具' }))
+    expect(step).toMatchObject({ detail: 'bahs', failed: true, meta: '失败', state: 'error' })
+  })
+
+  it('keeps the skill text and drops the wrapper around it', () => {
+    const output =
+      '<skill_content name="review">\n# Skill: review\n\n只读\n\nBase directory for this skill: /x\nNote: y\n\n<skill_files>\n</skill_files>\n</skill_content>'
+    const p = part(
+      { type: 'tool', callId: 'c', name: 'skill', input: { name: 'review' }, output },
+      'completed',
+    )
+    expect(steps(p)[0]?.output).toBe('# Skill: review\n\n只读')
+  })
+
+  it('says where a memory went and hides the bare confirmation', () => {
+    const p = part(
+      {
+        type: 'tool',
+        callId: 'c',
+        name: 'kits_remember',
+        input: { text: '测试用 uv', scope: 'personal' },
+        output: '已记住',
+      },
+      'completed',
+    )
+    expect(steps(p)[0]).toMatchObject({ detail: '测试用 uv', meta: '个人记忆' })
+    expect(steps(p)[0]?.output).toBeUndefined()
+  })
+
+  it('links an accepted output to the output panel', () => {
+    const p = part(
+      { type: 'tool', callId: 'c', name: 'kits_submit_output', input: {}, output: '已提交' },
+      'completed',
+    )
+    expect(steps(p)[0]).toMatchObject({ meta: '通过校验', toOutput: true })
+    expect(steps(p)[0]?.output).toBeUndefined()
+  })
+
+  it('shows why an output was refused', () => {
+    const p = part(
+      { type: 'tool', callId: 'c', name: 'kits_submit_output', input: {}, error: '输出不符合格式' },
+      'error',
+    )
+    expect(steps(p)[0]).toMatchObject({ meta: '格式不符', failed: true, output: '输出不符合格式' })
+  })
+})

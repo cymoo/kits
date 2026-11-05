@@ -122,7 +122,15 @@ function Section({
 // 子任务里默认放这么多步，留最后的：跑着的时候要看的是它现在在做什么
 const SUB_STEPS = 8
 
-function SubSteps({ steps, onOpenFile }: { steps: Step[]; onOpenFile(path: string): void }) {
+function SubSteps({
+  steps,
+  onOpenFile,
+  onOpenOutput,
+}: {
+  steps: Step[]
+  onOpenFile(path: string): void
+  onOpenOutput(): void
+}) {
   const [all, setAll] = useState(false)
   const hidden = all ? 0 : Math.max(0, steps.length - SUB_STEPS)
   return (
@@ -139,7 +147,7 @@ function SubSteps({ steps, onOpenFile }: { steps: Step[]; onOpenFile(path: strin
       ) : null}
       <div className="flex flex-col py-1">
         {steps.slice(hidden).map((s) => (
-          <StepRow key={s.id} step={s} onOpenFile={onOpenFile} nested />
+          <StepRow key={s.id} step={s} onOpenFile={onOpenFile} onOpenOutput={onOpenOutput} nested />
         ))}
       </div>
     </div>
@@ -150,10 +158,12 @@ function StepBody({
   step,
   nested,
   onOpenFile,
+  onOpenOutput,
 }: {
   step: Step
   nested?: boolean
   onOpenFile(path: string): void
+  onOpenOutput(): void
 }) {
   const [all, setAll] = useState(false)
   const output = step.output ?? ''
@@ -171,7 +181,9 @@ function StepBody({
       {step.prompt ? (
         <Section text={step.prompt} copy={t('step.copyPrompt')} label={t('step.prompt')} first />
       ) : null}
-      {step.subSteps?.length ? <SubSteps steps={step.subSteps} onOpenFile={onOpenFile} /> : null}
+      {step.subSteps?.length ? (
+        <SubSteps steps={step.subSteps} onOpenFile={onOpenFile} onOpenOutput={onOpenOutput} />
+      ) : null}
       {step.todos ? <TodoList items={step.todos} /> : null}
       {step.command ? (
         <Section text={step.detail} copy={t('step.copyCommand')} command first />
@@ -216,10 +228,12 @@ function StepBody({
 export function StepRow({
   step,
   onOpenFile,
+  onOpenOutput,
   nested,
 }: {
   step: Step
   onOpenFile(path: string): void
+  onOpenOutput(): void
   // 子任务里的一步
   nested?: boolean
 }) {
@@ -235,7 +249,7 @@ export function StepRow({
   const counted = step.subSteps?.length ? t('step.subCount', { n: step.subSteps.length }) : ''
   const meta = step.meta ?? [counted, elapsed].filter(Boolean).join(' · ')
   const Icon = ICONS[step.icon]
-  const { file } = step
+  const { file, toOutput } = step
   const content = (
     <>
       <span
@@ -278,7 +292,7 @@ export function StepRow({
         </span>
       ) : null}
       {expandable ? <StepChevron open={open} /> : null}
-      {file ? (
+      {file || toOutput ? (
         <span className={HINT}>
           <ArrowUpRight size={12} />
         </span>
@@ -287,13 +301,13 @@ export function StepRow({
   )
   return (
     <>
-      {expandable || file ? (
+      {expandable || file || toOutput ? (
         <button
           type="button"
           data-testid="step"
           title={step.command ? step.detail : undefined}
           {...(expandable ? { 'aria-expanded': open } : {})}
-          onClick={() => (file ? onOpenFile(file) : setUserOpen(!open))}
+          onClick={() => (file ? onOpenFile(file) : toOutput ? onOpenOutput() : setUserOpen(!open))}
           className={cx(STEP_ROW, STEP_ACTION, nested && 'px-2.5')}
         >
           {content}
@@ -303,7 +317,14 @@ export function StepRow({
           {content}
         </div>
       )}
-      {open ? <StepBody step={step} nested={!!nested} onOpenFile={onOpenFile} /> : null}
+      {open ? (
+        <StepBody
+          step={step}
+          nested={!!nested}
+          onOpenFile={onOpenFile}
+          onOpenOutput={onOpenOutput}
+        />
+      ) : null}
     </>
   )
 }
