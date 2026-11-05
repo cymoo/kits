@@ -130,4 +130,17 @@ describe('testGateway', () => {
       error: '地址格式不对',
     })
   })
+
+  it('reports the list latency without the detail probes', async () => {
+    const baseUrl = await serve((req, res) => {
+      if (req.url === '/v1/models') {
+        res.end(JSON.stringify({ data: [{ id: 'a' }] }))
+        return
+      }
+      setTimeout(() => res.end(JSON.stringify({ id: 'a', max_model_len: 65_536 })), 300)
+    })
+    const r = await testGateway({ baseUrl })
+    expect(r).toMatchObject({ ok: true, contextWindows: { a: 65_536 } })
+    expect(r.latencyMs).toBeLessThan(300)
+  })
 })
