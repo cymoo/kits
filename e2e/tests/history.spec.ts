@@ -235,21 +235,32 @@ test('groups the sidebar by workspace and folds a group', async () => {
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
 
     const group = page.getByTestId('workspace').filter({ hasText: 'member-svc' })
-    await expect(group.getByRole('link', { name: '第一个会话' })).toBeVisible()
-    await expect(group.getByRole('link', { name: '第一个会话' })).toContainText('刚刚')
+    const header = group.getByRole('button', { name: 'member-svc', exact: true })
+    const row = group.getByRole('link', { name: '第一个会话' })
+    // 打开会话时展开它所在的组
+    await expect(row).toContainText('刚刚')
 
-    // 当前会话所在的组不折；回到首页后才折得起来，刷新也不丢
-    await page.getByRole('link', { name: '新会话' }).click()
-    await group.getByRole('button', { name: 'member-svc', exact: true }).click()
-    await expect(group.getByRole('link', { name: '第一个会话' })).toHaveCount(0)
+    // 正看着这个会话也收得起来，再点又展开
+    await header.click()
+    await expect(row).toHaveCount(0)
+    await header.click()
+    await expect(row).toBeVisible()
+
+    // 别的工作区默认折叠；展开了刷新还在（重开时上次的会话会撑开它所在的组，所以看另一个组）
+    await page.evaluate(async () => {
+      const { workdirs } = await window.kits.settings.get()
+      await window.kits.settings.update({
+        workdirs: [...workdirs, { path: '/tmp/other-svc', lastUsedAt: 0 }],
+      })
+    })
+    const other = page
+      .getByTestId('workspace')
+      .filter({ hasText: 'other-svc' })
+      .getByRole('button', { name: 'other-svc', exact: true })
+    await expect(other).toHaveAttribute('aria-expanded', 'false')
+    await other.click()
     await page.reload()
-    // 重开时可能回到上次的会话，组又被它撑开，回首页再看
-    await page.getByRole('link', { name: '新会话' }).click()
-    await expect(group.getByRole('button', { name: 'member-svc', exact: true })).toHaveAttribute(
-      'aria-expanded',
-      'false',
-    )
-    await group.getByRole('button', { name: 'member-svc', exact: true }).click()
+    await expect(other).toHaveAttribute('aria-expanded', 'true')
 
     // 重命名只改显示名
     await group.getByRole('button', { name: '工作区“member-svc”的更多操作' }).click()

@@ -6,7 +6,7 @@ import { clampWidth, parseWidths, type WidthId, type Widths } from './widths'
 const NAV_KEY = 'kits.nav.collapsed'
 const PANEL_KEY = 'kits.panel'
 const WIDTHS_KEY = 'kits.widths'
-const FOLDED_KEY = 'kits.nav.folded'
+const EXPANDED_KEY = 'kits.nav.expanded'
 
 // 会话页右侧的工作区面板：side 窄栏（默认）、wide 放大（对话缩到左边 400px）、hidden 收起
 export type PanelMode = 'side' | 'wide' | 'hidden'
@@ -28,9 +28,9 @@ function readCollapsed(): boolean {
   }
 }
 
-function readFolded(): string[] {
+function readExpanded(): string[] {
   try {
-    const v = JSON.parse(localStorage.getItem(FOLDED_KEY) ?? '[]')
+    const v = JSON.parse(localStorage.getItem(EXPANDED_KEY) ?? '[]')
     return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
   } catch {
     return []
@@ -47,8 +47,8 @@ function readWidths(): Widths {
 
 interface UiState {
   navCollapsed: boolean
-  // 侧栏里折起来的工作区（workdirKey）
-  foldedWorkspaces: string[]
+  // 侧栏里展开着的工作区（workdirKey），其余默认折叠
+  expandedWorkspaces: string[]
   paletteOpen: boolean
   panel: PanelMode
   widths: Widths
@@ -56,6 +56,7 @@ interface UiState {
   homeDraft: { text: string; n: number } | undefined
   toggleNav(): void
   toggleWorkspace(key: string): void
+  expandWorkspace(key: string): void
   setNavCollapsed(collapsed: boolean): void
   setPaletteOpen(open: boolean): void
   setPanel(mode: PanelMode): void
@@ -63,9 +64,18 @@ interface UiState {
   fillHome(text: string): void
 }
 
+function saveExpanded(list: string[], set: (patch: Partial<UiState>) => void): void {
+  try {
+    localStorage.setItem(EXPANDED_KEY, JSON.stringify(list))
+  } catch {
+    // 存不了就只在本次生效
+  }
+  set({ expandedWorkspaces: list })
+}
+
 export const useUi = create<UiState>((set, get) => ({
   navCollapsed: readCollapsed(),
-  foldedWorkspaces: readFolded(),
+  expandedWorkspaces: readExpanded(),
   paletteOpen: false,
   panel: readPanel(),
   widths: readWidths(),
@@ -108,14 +118,12 @@ export const useUi = create<UiState>((set, get) => ({
     set({ navCollapsed: next })
   },
   toggleWorkspace(key) {
-    const folded = get().foldedWorkspaces
-    const next = folded.includes(key) ? folded.filter((k) => k !== key) : [...folded, key]
-    try {
-      localStorage.setItem(FOLDED_KEY, JSON.stringify(next))
-    } catch {
-      // 存不了就只在本次生效
-    }
-    set({ foldedWorkspaces: next })
+    const list = get().expandedWorkspaces
+    saveExpanded(list.includes(key) ? list.filter((k) => k !== key) : [...list, key], set)
+  },
+  expandWorkspace(key) {
+    const list = get().expandedWorkspaces
+    if (!list.includes(key)) saveExpanded([...list, key], set)
   },
   setPaletteOpen(open) {
     set({ paletteOpen: open })
