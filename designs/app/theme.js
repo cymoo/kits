@@ -4,28 +4,28 @@
 (function () {
   const KEY = 'kits.proto.theme'
   const BG = {
-    '#F6F5F2': '#161618', '#FFFFFF': '#1F1F22', '#F1F0EC': '#1B1B1E', '#E9E8E3': '#2A2A2E',
-    '#EFEEEA': '#26262A', '#ECEBE7': '#26262A', '#F4F3F0': '#1B1B1E', '#FBFBF9': '#1B1B1E',
-    '#FCFCFB': '#1B1B1E', '#FAFAF8': '#1B1B1E', '#F0EFEB': '#26262B', '#E8E8E6': '#2A2A2E',
+    '#F9F9F8': '#161618', '#FFFFFF': '#1F1F22', '#F4F4F2': '#1B1B1E', '#EBEBE8': '#2A2A2E',
+    '#F1F1EE': '#26262A', '#EFEFEC': '#26262A', '#F6F6F4': '#1B1B1E', '#FBFBFA': '#1B1B1E',
+    '#FCFCFB': '#1B1B1E', '#FAFAF8': '#1B1B1E', '#F2F2F0': '#26262B', '#E8E8E6': '#2A2A2E',
     '#F1F4FF': '#1E2340', '#F7F8FF': '#1A1E33', '#EEF2FF': '#1E2340', '#D5DCF7': '#2A3260',
     '#E3F3E9': '#12291B', '#EEF8F1': '#12291B', '#FBF0D9': '#2D2110', '#FFFBF0': '#2A1F0F',
-    '#FDE8E4': '#331614', '#FEF4F2': '#2E1513', '#FDF1EF': '#2E1513', '#1B1B1F': '#ECECEF',
-    '#D9D8D2': '#3F3F46', '#D4D4D8': '#3F3F46', '#FBE7A1': '#5C4A12', '#3659E3': '#7B93FF',
-    '#C9C8C1': '#3F3F46', '#E9B949': '#6B4F1A', '#8FA3F0': '#4C5FB8', '#9A9AA1': '#52525B',
+    '#FDE8E4': '#331614', '#FEF4F2': '#2E1513', '#FDF1EF': '#2E1513', '#16171A': '#ECECEF',
+    '#DCDCD8': '#3F3F46', '#D4D4D8': '#3F3F46', '#FBE7A1': '#5C4A12', '#3563E0': '#7B93FF',
+    '#CFCFCB': '#3F3F46', '#E9B949': '#6B4F1A', '#8FA3F0': '#4C5FB8', '#A0A3A9': '#52525B',
   }
   const FG = {
-    '#1B1B1F': '#ECECEF', '#6E6E76': '#A1A1AA', '#4A4A52': '#C4C4CC', '#8A8A92': '#8A8A92',
-    '#9A9AA1': '#71717A', '#B0B0B6': '#5F5F66', '#FFFFFF': '#161618', '#3659E3': '#7B93FF',
-    '#2744B8': '#A5B4FF', '#1E7F43': '#4ADE80', '#15613A': '#4ADE80', '#B4650A': '#F0A245',
+    '#16171A': '#ECECEF', '#60646B': '#A1A1AA', '#43464C': '#C4C4CC', '#84878E': '#84878E',
+    '#A0A3A9': '#71717A', '#B4B6BB': '#5F5F66', '#FFFFFF': '#161618', '#3563E0': '#7B93FF',
+    '#2A4FBF': '#A5B4FF', '#1E7F43': '#4ADE80', '#15613A': '#4ADE80', '#B4650A': '#F0A245',
     '#8A5A00': '#F0A245', '#6B4600': '#F5B76A', '#C8381F': '#F87171', '#9A2C1F': '#F87171',
-    '#B42318': '#F87171', '#7A1E12': '#FCA5A5', '#C9C8C1': '#52525B', '#D9D8D2': '#52525B',
+    '#B42318': '#F87171', '#7A1E12': '#FCA5A5', '#CFCFCB': '#52525B', '#DCDCD8': '#52525B',
   }
   const BD = {
-    '#E5E4DF': '#2E2E33', '#ECEBE7': '#26262B', '#F0EFEB': '#26262B', '#F6F5F2': '#26262B',
-    '#C9C8C1': '#3F3F46', '#D9D8D2': '#3F3F46', '#E9B949': '#6B4F1A', '#F3D9A4': '#5A4318',
+    '#E8E8E5': '#2E2E33', '#EFEFEC': '#26262B', '#F2F2F0': '#26262B', '#F9F9F8': '#26262B',
+    '#CFCFCB': '#3F3F46', '#DCDCD8': '#3F3F46', '#E9B949': '#6B4F1A', '#F3D9A4': '#5A4318',
     '#F2B8AE': '#5A2620', '#F8D4CD': '#4A201B', '#D5DCF7': '#34407A', '#8FA3F0': '#4C5FB8',
-    '#3659E3': '#7B93FF', '#1B1B1F': '#ECECEF', '#FFFFFF': '#1F1F22', '#9A9AA1': '#71717A',
-    '#E9E8E3': '#2E2E33',
+    '#3563E0': '#7B93FF', '#16171A': '#ECECEF', '#FFFFFF': '#1F1F22', '#A0A3A9': '#71717A',
+    '#EBEBE8': '#2E2E33',
   }
 
   const hex = (r, g, b) => `#${[r, g, b].map((n) => Number(n).toString(16).padStart(2, '0')).join('')}`.toUpperCase()
@@ -51,7 +51,7 @@
   const mapStyle = (style) => {
     if (isCode(style)) {
       const bg = style.getPropertyValue('background') || style.getPropertyValue('background-color')
-      if (/#1B1B1F|rgb\(27,\s*27,\s*31\)/i.test(bg)) style.setProperty('background', '#111113')
+      if (/#16171A|rgb\(22,\s*23,\s*26\)/i.test(bg)) style.setProperty('background', '#111113')
       return
     }
     for (let i = 0; i < style.length; i++) {
