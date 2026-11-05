@@ -76,7 +76,7 @@ export class Notifier {
       this.notify(`end:${s.id}:${s.updatedAt}`, {
         sessionId: s.id,
         title: `完成了 · ${clip(s.title, 40)}`,
-        body: `第 ${s.turns} 轮做完了`,
+        body: '这一轮做完了',
       })
     }
   }

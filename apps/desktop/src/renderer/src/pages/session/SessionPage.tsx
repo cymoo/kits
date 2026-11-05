@@ -45,10 +45,13 @@ import { Tooltip } from '../../ui/Tooltip'
 function StatusPill({
   session,
   startedAt,
+  spent,
   answering,
 }: {
   session: SessionSummary
   startedAt: number
+  // 刚结束的这一轮用了多久；还没有结束过时没有
+  spent: number | undefined
   // 在等的是提问的回答，不是确认
   answering: boolean
 }) {
@@ -63,10 +66,12 @@ function StatusPill({
   }[session.status]
   const text =
     session.status === 'running'
-      ? t('pill.running', { n: session.turns, time: formatDuration(now - startedAt) })
+      ? t('pill.running', { time: formatDuration(now - startedAt) })
       : session.status === 'waiting' && answering
         ? t('pill.answer')
-        : t(`pill.${session.status}`, { n: session.turns })
+        : session.status === 'done' && spent !== undefined
+          ? t('pill.doneIn', { time: formatDuration(spent) })
+          : t(`pill.${session.status}`)
   return (
     <span
       data-testid="session-status"
@@ -145,6 +150,11 @@ export function SessionPage() {
   )
   const lastTurnStart =
     detail?.messages.filter((m) => m.role === 'assistant').at(-1)?.createdAt ?? 0
+  // 压缩也记成一条助手消息，它的耗时不算这一轮的
+  const lastTurn = detail?.messages.findLast(
+    (m) => m.role === 'assistant' && m.finishReason !== 'compaction',
+  )
+  const spent = lastTurn?.completedAt ? lastTurn.completedAt - lastTurn.createdAt : undefined
 
   const thread = useFollowBottom(id)
 
@@ -213,7 +223,12 @@ export function SessionPage() {
     <div className="flex h-full min-h-0 flex-col bg-raised">
       <header className="flex h-12 shrink-0 items-center gap-2.5 border-line-soft border-b pr-4 pl-5">
         <h1 className="m-0 min-w-0 truncate font-medium text-[1rem]">{session.title}</h1>
-        <StatusPill session={session} startedAt={lastTurnStart} answering={answering} />
+        <StatusPill
+          session={session}
+          startedAt={lastTurnStart}
+          spent={spent}
+          answering={answering}
+        />
         <span className="flex-1" />
         <span
           className="inline-flex min-w-0 items-center gap-1.5 text-[0.929rem] text-fg-muted"

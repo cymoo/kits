@@ -40,7 +40,7 @@ test('offers to compact when the context is nearly full and leaves a divider wit
 
     await banner.getByRole('button', { name: '现在压缩' }).click()
     const divider = page.getByTestId('compaction')
-    await expect(divider).toContainText('前 1 轮已压缩成摘要')
+    await expect(divider).toContainText('前面的对话已压缩成摘要')
     await expect(banner).toBeHidden()
     await divider.getByRole('button').click()
     await expect(divider).toContainText('@idempotent')

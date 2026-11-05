@@ -41,7 +41,7 @@ const pill =
 function subline(s: SessionSummary): string {
   if (s.status === 'error' && s.lastError) return s.lastError
   if (s.status === 'waiting') return t('history.waitingSub')
-  return [t('history.turns', { n: s.turns }), s.agent].join(' · ')
+  return s.agent
 }
 
 export function HistoryPage() {

@@ -81,7 +81,6 @@ export type Block =
       id: string
       turn: number
       // 插话之后接着做的部分
-      resumed?: boolean
       state: 'running' | 'done' | 'failed'
       steps: Step[]
       reasoning: string
@@ -125,7 +124,6 @@ export type Block =
       id: string
       state: 'running' | 'done' | 'failed'
       // 压掉了前几轮
-      turns: number
       summary: string
       at: number
     }
@@ -563,7 +561,6 @@ export function deriveBlocks(
             : p.status === 'error' || p.status === 'expired'
               ? 'failed'
               : 'done',
-        turns: m.turn,
         summary: p.payload.summary,
         at: p.updatedAt,
       })
@@ -710,7 +707,6 @@ export function deriveBlocks(
           kind: 'turn',
           id: `${m.id}:turn${suffix}`,
           turn: m.turn,
-          ...(si > 0 ? { resumed: true } : {}),
           state: !isLast
             ? 'done'
             : running

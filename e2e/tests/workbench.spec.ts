@@ -28,7 +28,7 @@ test('shows the changed files, commands and usage of a finished turn', async () 
 
     // 改动：一轮结束后内核算出 diff，按轮列出
     const files = panel.getByTestId('changed-files')
-    await expect(files).toContainText('第 1 轮')
+    await expect(files).toContainText('给兑换接口加幂等校验')
     await expect(files.getByRole('button', { name: /src\/points\/redeem\.py/ })).toBeVisible()
     await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
     await expect(panel.getByRole('tab', { name: /改动/ })).toContainText('1')
@@ -38,7 +38,7 @@ test('shows the changed files, commands and usage of a finished turn', async () 
 
     // 命令的结果在对话里就地看：标题是模型写的描述，点开是命令、输出和允许方式
     const turn = page.getByTestId('turn')
-    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await turn.getByRole('button').first().click()
     const step = turn.getByTestId('step').filter({ hasText: '跑 points 的测试' })
     await expect(step).toContainText('uv run pytest tests/points -q')
     await expect(step).toContainText('1.2 秒')
@@ -162,7 +162,7 @@ test('opens a failed command with the end of its output', async () => {
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     const turn = page.getByTestId('turn')
     await expect(turn).toContainText('1 步失败')
-    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await turn.getByRole('button').first().click()
     await expect(turn.getByTestId('step').filter({ hasText: '跑 points 的测试' })).toContainText(
       '退出 1',
     )
@@ -195,7 +195,7 @@ test('shows a command waiting for confirmation on its step', async () => {
       .getByRole('button', { name: /本会话允许/ })
       .click()
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
-    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await turn.getByRole('button').first().click()
     await expect(step).toContainText('3.4 秒')
     await step.click()
     await expect(turn.getByTestId('step-output')).toContainText('本会话允许')

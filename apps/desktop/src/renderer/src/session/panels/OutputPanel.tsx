@@ -79,15 +79,17 @@ export function OutputPanel({
         {outputs.length > 1 ? (
           <Menu>
             <MenuTrigger className="inline-flex h-[26px] cursor-pointer items-center gap-1 rounded-[8px] px-2 text-[0.929rem] text-fg-muted hover:bg-active">
-              {t('output.turn', { n: current.turn })}
+              {t('output.nth', { n: outputs.indexOf(current) + 1 })}
               <ChevronDown size={11} />
             </MenuTrigger>
             <MenuContent align="end" className="min-w-[140px]">
-              {[...outputs].reverse().map((o) => (
-                <MenuItem key={o.id} onSelect={() => setPicked(o.id)}>
-                  {t('output.turn', { n: o.turn })}
-                </MenuItem>
-              ))}
+              {outputs
+                .map((o, i) => (
+                  <MenuItem key={o.id} onSelect={() => setPicked(o.id)}>
+                    {t('output.nth', { n: i + 1 })}
+                  </MenuItem>
+                ))
+                .reverse()}
             </MenuContent>
           </Menu>
         ) : null}

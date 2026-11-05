@@ -14,6 +14,8 @@ export interface ChangedFile {
 
 export interface Round {
   turn: number
+  // 这一轮用户消息的第一行，分组标题用；只发了附件时为空
+  title: string
   files: ChangedFile[]
   additions: number
   deletions: number
@@ -54,8 +56,14 @@ export function deriveRounds(detail: SessionDetail, diffs: FileDiffView[]): Roun
     })
     byTurn.set(d.turn, list)
   }
+  const titles = new Map(
+    detail.messages
+      .filter((m) => m.role === 'user')
+      .map((m) => [m.turn, m.text.trim().split('\n')[0] ?? '']),
+  )
   const rounds: Round[] = [...byTurn].map(([turn, files]) => ({
     turn,
+    title: titles.get(turn) ?? '',
     files,
     additions: files.reduce((n, f) => n + f.additions, 0),
     deletions: files.reduce((n, f) => n + f.deletions, 0),
@@ -102,6 +110,7 @@ export function deriveRounds(detail: SessionDetail, diffs: FileDiffView[]): Roun
     if (files.size) {
       rounds.push({
         turn: last.turn,
+        title: titles.get(last.turn) ?? '',
         files: [...files.values()],
         additions: 0,
         deletions: 0,

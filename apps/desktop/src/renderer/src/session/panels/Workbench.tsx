@@ -187,8 +187,8 @@ function ChangesPanel({
         {rounds.map((r) => (
           <div key={r.turn} className="flex flex-col gap-0.5 pb-1.5">
             <div className="flex items-center gap-1.5 px-1.5 pt-1.5 pb-0.5 font-medium text-[0.857rem] text-fg-label">
-              <span className="min-w-0 flex-1">
-                {t('changes.round', { n: r.turn })}
+              <span className="min-w-0 flex-1 truncate" title={r.title}>
+                {r.title || t('changes.untitled')}
                 {r.pending ? ` · ${t('changes.running')}` : ''}
               </span>
               <span className="font-normal">{stat(r.additions, r.deletions)}</span>
