@@ -283,3 +283,50 @@ phase1-implementation PR19（4.3 节）：CodeAgent 方言和配置转换、假�
 
 - CodeAgent 的子任务事件没有真机核对，见清单第 26 项。
 - 已经卡住的会话升级后不会自己恢复，要点“停止”后重发。
+
+## 2026-11-05　随应用带 ripgrep，内网能用 grep 和 glob
+
+> 日期：2026-11-05　PR：见本分支 `fix/kernel-bundle-ripgrep`　作者：Claude Code
+
+### 原始需求
+
+内网用户反馈：grep、glob 工具全部返回 `ripgrep execution failed`，模型改用 `bash rg` 又报“'rg' 不是内部或外部命令”，搜索只能退化到 `Select-String`，部分调用卡 20 秒以上。
+
+原因：OpenCode 1.19.5 按 PATH → `{XDG_CACHE_HOME}/opencode/bin` → GitHub 下载的顺序找 `rg`。kits 没带 ripgrep，内网又连不上 GitHub。
+
+做到什么程度算完：在连不上 GitHub 的 Windows 机器上，grep、glob 能用，模型在命令里也能调 `rg`。打包不需要联网（内网打包机连不上 GitHub），所以 `rg.exe` 提交进仓库。
+
+### 怎么验收
+
+1. 在 Windows 上跑 `pnpm vendor:kernel`。预期：输出 `copied third_party/ripgrep/win-x64 -> vendor/ripgrep/win-x64`。
+2. 打便携版，解开后看 `resources/bin/ripgrep/rg.exe` 存在。
+3. 在连不上 GitHub 的机器上运行，发“搜一下项目里哪里用了 TODO”。预期：步骤里“搜索”有结果，没有 `ripgrep execution failed`。
+4. 发“用命令行跑 `rg --version`”，确认执行。预期：输出 `ripgrep 15.1.0`。
+5. 看 `{userData}/kernel/opencode/data/opencode/bin/`。预期：没有下载来的 `rg.exe`，也没有 `ripgrep-*` 临时目录。
+
+### 主要改动
+
+- `third_party/ripgrep/`：`win-x64/rg.exe`、`LICENSE-MIT`，来源和校验值写在同目录的 `README.md`。
+- `scripts/vendor-kernel.mjs`、`apps/desktop/electron-builder.yml`：拷到 `vendor/ripgrep/<os>-<arch>/`，打包到 `resources/bin/ripgrep/`。没有这个平台的目录时留空，安装包里不带。
+- `packages/kernel`：`KernelConfig.toolsDir`；两个方言把它加到子进程 PATH 最前面（`prependPath`，沿用 Windows 上的 `Path` 键名，不写出两份）。Agent 跑的命令继承这个 PATH。
+- `apps/desktop/src/main`：`toolsFolder()`，打包后是 `resources/bin/ripgrep`，开发时是 `third_party/ripgrep/<os>-<arch>`。
+
+配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`dialects/opencode.test.ts`、`codeagent.test.ts` 覆盖 PATH 的顺序、`Path` 键名、没有工具目录时不动 PATH。
+- 在 macOS 上用真内核加临时 `rg` 脚本跑过 grep 工具：内核调用了 `toolsDir` 里的 `rg`，没有下载。这个检查没有留在仓库里。
+- 在 macOS 上临时放了 `third_party/ripgrep/mac-arm64`，`vendor:kernel` 加 `package:dir` 后文件出现在 `Resources/bin/ripgrep/`。
+
+### 新增依赖
+
+| 依赖 | 版本 | 用途 | 许可证 |
+| --- | --- | --- | --- |
+| ripgrep（二进制，不是 npm 包） | 15.1.0 | 内核的 grep、glob，模型命令里的 `rg` | MIT / Unlicense |
+
+### 已知问题
+
+- 上面的 Windows 验收步骤还没有实跑，开发机是 macOS，CI 也停着。
+- 只带了 Windows x64。macOS 和 Linux 上走内核原来的查找顺序，内网里还是下载不了。
+- 升级 OpenCode 时要核对它要的 ripgrep 版本和查找顺序。

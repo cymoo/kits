@@ -11,7 +11,7 @@ import type {
   KernelExit,
   SpawnedKernel,
 } from '../kernel'
-import { openLog, stopChild, tail } from './child'
+import { openLog, prependPath, stopChild, tail } from './child'
 
 // CodeAgent 方言（phase1-implementation 4.3 节，按 docs/references/codeagent-sdk.md 写，真机待验）：
 // - `codeagent serve --port 0 --token <随机> --config-dir <目录>`，端口自己选，就绪时 stdout 打一行
@@ -55,7 +55,7 @@ export function codeagentEnv(
   cfg: KernelConfig,
   base: NodeJS.ProcessEnv = process.env,
 ): Record<string, string | undefined> {
-  return {
+  const env = {
     ...base,
     // 家目录类的变量指到 kits 的数据目录：内核的缓存、会话数据不落到用户家目录
     XDG_DATA_HOME: cfg.dataDir,
@@ -64,6 +64,7 @@ export function codeagentEnv(
     XDG_STATE_HOME: cfg.dataDir,
     ...cfg.env,
   }
+  return prependPath(env, cfg.toolsDir)
 }
 
 export const API_PREFIX = '/api/v1'

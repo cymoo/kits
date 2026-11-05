@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { resolveKernelBinary } from '../binary'
+import { prependPath } from './child'
 import { opencodeDialect, skipPluginInstall, spawnEnv } from './opencode'
 
 // 契约测试：启动真实的 opencode serve，验证方言层的启动、就绪判断和关闭。不调模型。
@@ -84,6 +85,22 @@ describe('spawnEnv', () => {
     const env = spawnEnv(cfg, { XDG_DATA_HOME: '/home/me/.local/share', KITS_GW_CORP_KEY: 'mine' })
     expect(env.XDG_DATA_HOME).toBe('/kits/data')
     expect(env.KITS_GW_CORP_KEY).toBe('test')
+  })
+})
+
+describe('toolsDir', () => {
+  it('goes first on PATH so the kernel finds rg without downloading it', () => {
+    const env = spawnEnv({ ...cfg, toolsDir: '/kits/rg' }, { PATH: '/bin' })
+    expect(env.PATH?.split(path.delimiter)).toEqual(['/kits/rg', '/bin'])
+  })
+
+  it('keeps the name of a Windows style Path variable', () => {
+    const env = prependPath({ Path: 'C:\\Windows' }, 'C:\\kits', ';')
+    expect(env).toEqual({ Path: 'C:\\kits;C:\\Windows' })
+  })
+
+  it('leaves PATH alone without a tools dir', () => {
+    expect(spawnEnv(cfg, { PATH: '/bin' }).PATH).toBe('/bin')
   })
 })
 

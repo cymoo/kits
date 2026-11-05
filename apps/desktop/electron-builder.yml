@@ -19,6 +19,10 @@ extraResources:
   - from: ../../vendor/codeagent/${os}-${arch}
     to: bin/codeagent
     filter: ["**/*"]
+  # 内核的 grep、glob 要用 ripgrep，内网下载不了，随包带一份（third_party/ripgrep 没有这个平台时是空目录）
+  - from: ../../vendor/ripgrep/${os}-${arch}
+    to: bin/ripgrep
+    filter: ["**/*"]
   # 数据库迁移、内置 Agent 和技能、托盘图标
   - from: drizzle
     to: drizzle
