@@ -189,6 +189,15 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
   }, 60_000)
 
+  it('stops asking once the session rules allow the command', async () => {
+    const s = await session('ok')
+    await kernel.setPermission(s, agentPermissions(builtinAssistant, 'auto', mcp))
+    const events = await run(s, '用 printf 打印 hi', () => Promise.reject(new Error('不该再问')))
+    expect(events.some((e) => e.type === 'permission-request')).toBe(false)
+    expect(events.some((e) => e.type === 'tool-end')).toBe(true)
+    expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+  }, 60_000)
+
   it('hands a message sent during a turn to the next step of that turn', async () => {
     const s = await session('ok')
     const before = mocks.ok?.requests.length ?? 0

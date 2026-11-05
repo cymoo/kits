@@ -330,3 +330,40 @@ phase1-implementation PR19（4.3 节）：CodeAgent 方言和配置转换、假�
 - 上面的 Windows 验收步骤还没有实跑，开发机是 macOS，CI 也停着。
 - 只带了 Windows x64。macOS 和 Linux 上走内核原来的查找顺序，内网里还是下载不了。
 - 升级 OpenCode 时要核对它要的 ripgrep 版本和查找顺序。
+
+## 2026-11-06　界面改版 3：已有会话改权限和模型
+
+> PR：分支 `feat/kernel-session-settings`　作者：Claude Code
+
+### 原始需求
+
+已有会话的权限和模型要能改。见[界面改版方案](../plans/2026-11-ui-refresh.md)的决策 2a、2b、2c。这个 PR 只做内核和主进程，输入框的入口在下一个 PR。
+
+### 怎么验收
+
+界面入口下一个 PR 才有，这个 PR 看测试：
+
+1. `pnpm test`：`SessionService session settings` 全过。
+2. 装了 OpenCode 时，契约测试 `stops asking once the session rules allow the command` 过：把规则换成“全部自动”后，内核不再问。
+
+### 主要改动
+
+- `AgentKernel.setPermission(session, rules)`：`PATCH /session/{id}`。内核把规则追加到末尾，后面的优先，所以发完整的新规则串。OpenCode 1.19.5 实测过；CodeAgent 按 SDK 文档写，记入核对清单第 30 项。
+- `session.setPermissionMode`：内核会话已建好时先改内核，失败就抛错、权限不变；还没建的话建的时候带上。
+- `session.setModel`：只改库，下一条消息起用新模型，正在跑的这一轮不变。
+- 这一轮里改了权限：内核这一步已经在问的话，kits 按新权限替用户答，已经弹出的确认卡片仍要回答。
+- 留痕：`MessageView.role` 加 `notice`，`text` 是 `permission:auto`、`model:corp/fast`，会话页显示一行。方案里原本写的是 `notice` part，但 part 必须挂在消息下，运行中挂到助手消息上会和 `TurnRecorder` 的 `seq` 打架，挂新的助手消息又会让“最后一轮”判断出错，所以改成单独一种消息。`messages.role` 是文本列，schema 没有变化。
+
+### 测试
+
+- 单元测试：`session-service.test.ts` 的 `SessionService session settings`（还没进内核、整串规则、没变化、内核拒绝、这一轮里改权限、下一条用新模型）；`derive.test.ts` 的留痕。
+- 契约测试：上面第 2 条。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- OpenCode 的会话规则只追加不替换，频繁切换会变长，数量很小，暂不处理。
+- 留痕在运行中排在这一轮下面，这一轮后面的内容仍在它上面。

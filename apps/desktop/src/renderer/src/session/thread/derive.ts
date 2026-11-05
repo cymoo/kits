@@ -118,12 +118,13 @@ export type Block =
       answer?: string
     }
   | { kind: 'retry'; id: string; attempt: number; message: string; nextAt: number }
+  // 改了权限或模型留的一行
+  | { kind: 'notice'; id: string; setting: 'permission' | 'model'; value: string }
   // 上下文压缩的分隔线：手动压缩是单独一条助手消息；内核自动压缩夹在某一轮里（没有摘要正文）
   | {
       kind: 'compaction'
       id: string
       state: 'running' | 'done' | 'failed'
-      // 压掉了前几轮
       summary: string
       at: number
     }
@@ -546,6 +547,16 @@ export function deriveBlocks(
           .map((a) => ({ name: a.name, size: a.size })),
       })
       lastUserText = m.text
+      continue
+    }
+    if (m.role === 'notice') {
+      const at = m.text.indexOf(':')
+      blocks.push({
+        kind: 'notice',
+        id: m.id,
+        setting: m.text.slice(0, at) === 'model' ? 'model' : 'permission',
+        value: m.text.slice(at + 1),
+      })
       continue
     }
     const all = (byMessage.get(m.id) ?? []).sort((a, b) => a.seq - b.seq)

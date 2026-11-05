@@ -1,4 +1,4 @@
-import type { KernelEvent, PermissionReply } from '@kits/core'
+import type { KernelEvent, PermissionReply, PermissionRule } from '@kits/core'
 import { parseModelRef } from '@kits/core'
 import { opencodeAgentName, toOpencodeRuleset } from '../generate/opencode-config'
 import type {
@@ -290,7 +290,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
   }
 
   private async request<T>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PATCH',
     route: string,
     workdir: string,
     body?: unknown,
@@ -346,6 +346,13 @@ export class OpencodeFamilyKernel implements AgentKernel {
       agent: opts.agent,
       ...(opts.model ? { model: opts.model } : {}),
     }
+  }
+
+  // 内核把这串规则追加到会话规则的末尾，后面的优先，所以发完整的新规则串就能盖掉旧的
+  async setPermission(session: KernelSession, rules: PermissionRule[]): Promise<void> {
+    await this.request('PATCH', `/session/${session.id}`, session.workdir, {
+      permission: toOpencodeRuleset(rules),
+    })
   }
 
   async *prompt(session: KernelSession, input: UserInput): AsyncIterable<KernelEvent> {

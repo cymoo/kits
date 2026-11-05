@@ -44,6 +44,7 @@ CodeAgent 方言（`packages/kernel/src/dialects/codeagent.ts`）按 [codeagent-
 | 24 | 退出 | 关 kits 时内核和它拉起的 MCP 进程一起结束（Windows `taskkill /T`） | 任务管理器里还有没有残留 | `dialects/child.ts` 的 `stopChild` |
 | 28 | 权限回复事件 | 事件 `permission.replied`，带 `sessionID`、`requestID`、`reply`；回复一个请求时内核连带处理同一会话的其他请求 | 并行两个请求，点“本会话允许”后另一张卡片会不会收起；回复已经不在的请求是不是返回 404 | `events.ts` 的 `permission.replied`、`opencode-family.ts` 的 `respondPermission` |
 | 29 | 运行中再发消息 | `POST /session/{id}/prompt_async` 在这一轮运行中再调一次；OpenCode 把它并进同一轮，模型下一步看到 | 运行中调一次：是并进这一轮，还是排成新的 prompt；`prompt.completed` 来几次；助手消息带不带 `parentID` | 并进同一轮时打开 `dialects/codeagent.ts` 的 `interject` |
+| 30 | 改权限 | `PATCH /session/{id}` body `permission: PermissionRule[]` | 运行中改了下一次工具调用生效吗？规则是追加还是替换（追加时后面的优先吗） | `opencode-family.ts` 的 `setPermission` |
 
 ## 跑完以后
 

@@ -23,6 +23,7 @@ import { alwaysRules, deriveRounds, deriveUsage, formatTokens } from '../../sess
 import { type PanelTab, type PickedFile, Workbench } from '../../session/panels/Workbench'
 import {
   CompactionDivider,
+  NoticeLine,
   StatusLine,
   TextBlock,
   TurnBlock,
@@ -311,6 +312,8 @@ export function SessionPage() {
                   return <RetryBar key={b.id} block={b} sessionId={session.id} />
                 case 'compaction':
                   return <CompactionDivider key={b.id} block={b} />
+                case 'notice':
+                  return <NoticeLine key={b.id} block={b} />
                 case 'error':
                   return (
                     <ErrorCard

@@ -1,3 +1,4 @@
+import type { PermissionMode } from '@kits/core/ipc'
 import { AlertCircle, ChevronDown, ChevronRight, FileText, Lightbulb } from 'lucide-react'
 import { useState } from 'react'
 import { t } from '../../app/i18n'
@@ -194,6 +195,23 @@ export function StatusLine({ block }: { block: Extract<Block, { kind: 'status' }
 }
 
 // 上下文压缩的分隔线（原型 session.html 的 context 场景）：点开看摘要
+export function NoticeLine({ block }: { block: Extract<Block, { kind: 'notice' }> }) {
+  const text =
+    block.setting === 'model'
+      ? t('notice.model', { model: block.value.slice(block.value.indexOf('/') + 1) })
+      : t('notice.permission', { mode: t(`perm.${block.value as PermissionMode}`) })
+  return (
+    <div
+      data-testid="notice"
+      className="flex items-center gap-3 text-[0.857rem] text-fg-label leading-[1.5]"
+    >
+      <span className="h-px flex-1 bg-line-soft" />
+      <span>{text}</span>
+      <span className="h-px flex-1 bg-line-soft" />
+    </div>
+  )
+}
+
 export function CompactionDivider({ block }: { block: Extract<Block, { kind: 'compaction' }> }) {
   const [open, setOpen] = useState(false)
   const time = new Date(block.at)

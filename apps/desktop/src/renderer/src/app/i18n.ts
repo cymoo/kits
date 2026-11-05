@@ -523,6 +523,8 @@ const zhCN = {
   'context.window': '{n} 窗口',
   'reply.copy': '复制回复',
   'reply.copied': '已复制',
+  'notice.permission': '权限改为“{mode}”，立即生效',
+  'notice.model': '模型切换到 {model}，下一条消息起生效',
   'pill.answer': '等你回答',
   'pill.running': '运行中 · {time}',
   'pill.waiting': '等你确认',
