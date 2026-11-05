@@ -238,14 +238,14 @@ export class SessionStore {
 
   // 记下这条用户消息是内核会话里的第几条；at 不给就接着已记下的最大值往后编
   assignKernelTurn(sessionId: string, messageId: string, at?: number): number {
-    const rows = this.db
-      .select({ k: messages.kernelTurn })
-      .from(messages)
-      .where(eq(messages.sessionId, sessionId))
-      .all()
-    const next = at ?? rows.reduce((n, r) => Math.max(n, r.k ?? 0), 0) + 1
+    const next = at ?? this.nextKernelTurn(sessionId)
     this.db.update(messages).set({ kernelTurn: next }).where(eq(messages.id, messageId)).run()
     return next
+  }
+
+  // 下一条用户消息在内核里排第几
+  nextKernelTurn(sessionId: string): number {
+    return Math.max(0, ...this.kernelTurns(sessionId).keys()) + 1
   }
 
   // 内核的第几条用户消息 → 本地第几轮
@@ -255,7 +255,19 @@ export class SessionStore {
       .from(messages)
       .where(eq(messages.sessionId, sessionId))
       .all()
-    return new Map(rows.flatMap((r) => (r.k ? [[r.k, r.turn] as [number, number]] : [])))
+    // 插话也是内核里的一条用户消息，算在它所在的那一轮
+    const interjects = this.db
+      .select({ payload: parts.payload, turn: messages.turn })
+      .from(parts)
+      .innerJoin(messages, eq(parts.messageId, messages.id))
+      .where(and(eq(parts.sessionId, sessionId), eq(parts.type, 'interject')))
+      .all()
+    return new Map([
+      ...rows.flatMap((r) => (r.k ? [[r.k, r.turn] as [number, number]] : [])),
+      ...interjects.map(
+        (r) => [(r.payload as { kernelTurn: number }).kernelTurn, r.turn] as [number, number],
+      ),
+    ])
   }
 
   diffs(sessionId: string): FileDiffView[] {

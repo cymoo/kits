@@ -68,7 +68,50 @@ function detail(parts: PartView[], assistant: Partial<MessageView> = {}): Sessio
   }
 }
 
+const note = (text: string, status: string, updatedAt = 3) =>
+  part({ type: 'interject', text, attachments: [], kernelTurn: 2 }, status, updatedAt)
+
 describe('deriveBlocks', () => {
+  it('splits the work at an interjection the model saw', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail(
+        [
+          tool('read', { filePath: '/w/a.ts' }),
+          note('先别改测试', 'sent', 7),
+          tool('read', { filePath: '/w/b.ts' }),
+          part({ type: 'text', text: '好了' }),
+        ],
+        { completedAt: 9, finishReason: 'completed' },
+      ),
+    )
+
+    expect(blocks.map((b) => b.kind)).toEqual(['user', 'turn', 'user', 'turn', 'text'])
+    expect(blocks[1]).toMatchObject({ state: 'done', endedAt: 7 })
+    expect(blocks[2]).toMatchObject({ text: '先别改测试' })
+    expect(blocks[2]).not.toHaveProperty('pending')
+    expect(blocks[3]).toMatchObject({ resumed: true, startedAt: 7, endedAt: 9 })
+  })
+
+  it('keeps an interjection the model has not seen below the running work', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([note('先别改测试', 'pending'), tool('read', { filePath: '/w/a.ts' }, 'running')]),
+    )
+
+    expect(blocks.map((b) => b.kind)).toEqual(['user', 'turn', 'user', 'status'])
+    expect(blocks[1]).toMatchObject({ state: 'running' })
+    expect(blocks[2]).toMatchObject({ text: '先别改测试', pending: true })
+  })
+
+  it('shows only the status line when the model has just seen an interjection', () => {
+    seq = 0
+    const blocks = deriveBlocks(
+      detail([tool('read', { filePath: '/w/a.ts' }), note('先别改测试', 'sent')]),
+    )
+    expect(blocks.map((b) => b.kind)).toEqual(['user', 'turn', 'user', 'status'])
+  })
+
   it('puts tools in the work process and the text after the last tool in the answer', () => {
     seq = 0
     const blocks = deriveBlocks(

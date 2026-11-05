@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type {
   AskUserInput,
@@ -13,6 +13,7 @@ import type {
   OutputView,
   PartView,
   PushEvents,
+  QueuedDraft,
   SessionSearchHit,
   SessionSummary,
   ToolCallRegistry,
@@ -90,6 +91,7 @@ interface StagedAttachment {
 
 // 运行中发的一条消息，排队到这一轮结束
 interface Queued {
+  id: string
   text: string
   attachments: StagedAttachment[]
 }
@@ -120,9 +122,34 @@ interface Running {
   turn: number
   // 这一轮带的附件（已经转成文字），随消息发给内核
   attachments: { name: string; text: string }[]
+  // 这一轮的消息进了内核：之后才能插话，插话要排在它后面
+  submitted: boolean
+  // Agent 的提示词，插话时一样带上
+  system: string
 }
 
 type PermissionReply = 'once' | 'always' | 'reject'
+
+// 插话在内核里是单独一条用户消息：同一轮同一个文件可能有几份改动，这里合成一份
+export function mergeDiffs(files: FileDiffView[]): FileDiffView[] {
+  const merged = new Map<string, FileDiffView>()
+  for (const f of files) {
+    const key = `${f.turn}:${f.path}`
+    const prev = merged.get(key)
+    merged.set(
+      key,
+      prev
+        ? {
+            ...prev,
+            additions: prev.additions + f.additions,
+            deletions: prev.deletions + f.deletions,
+            patch: `${prev.patch}\n${f.patch}`,
+          }
+        : f,
+    )
+  }
+  return [...merged.values()]
+}
 
 // 任务前 40 个字当标题，换行压成空格
 export function titleOf(text: string): string {
@@ -239,7 +266,20 @@ export class SessionService {
   // 排队的消息不落库，推给界面时带上
   private view(s: SessionSummary): SessionSummary {
     const queued = this.queues.get(s.id)
-    return queued?.length ? { ...s, queued: queued.map((q) => q.text) } : s
+    const canInterject = this.running.get(s.id)?.kernel?.capabilities.interject
+    return {
+      ...s,
+      ...(queued?.length
+        ? {
+            queued: queued.map((q) => ({
+              id: q.id,
+              text: q.text,
+              attachments: q.attachments.map((a) => ({ name: a.name, size: a.size })),
+            })),
+          }
+        : {}),
+      ...(canInterject ? { canInterject } : {}),
+    }
   }
 
   isRunning(id: string): boolean {
@@ -287,11 +327,115 @@ export class SessionService {
     if (!session) throw new Error(`没有这个会话：${id}`)
     // 正在跑一轮、或正在压缩：排到它结束
     if (this.running.has(id) || this.compacting.has(id)) {
-      this.queues.set(id, [...(this.queues.get(id) ?? []), { text, attachments: staged }])
+      const queued = { id: this.id(), text, attachments: staged }
+      this.queues.set(id, [...(this.queues.get(id) ?? []), queued])
       this.deps.push('session.changed', this.view(session))
       return
     }
     this.startTurn(session, text, staged)
+  }
+
+  // 拿走排队的消息，附件读回来放进草稿，磁盘上的副本删掉
+  private toDraft(items: Queued[]): QueuedDraft | null {
+    if (!items.length) return null
+    const attachments = items.flatMap((q) =>
+      q.attachments.map((a) => ({
+        name: a.name,
+        mime: a.mime,
+        data: new Uint8Array(readFileSync(a.path)),
+      })),
+    )
+    for (const q of items) this.unstage(q.attachments)
+    return { text: items.map((q) => q.text).join('\n\n'), attachments }
+  }
+
+  // 从队列里摘掉；只给 queueId 时摘那一条，不给就全部
+  private takeQueued(id: string, queueId?: string): Queued[] {
+    const queued = this.queues.get(id) ?? []
+    const taken = queueId ? queued.filter((q) => q.id === queueId) : queued
+    const left = queued.filter((q) => !taken.includes(q))
+    if (left.length) this.queues.set(id, left)
+    else this.queues.delete(id)
+    if (taken.length) this.pushSession(id)
+    return taken
+  }
+
+  private pushSession(id: string): void {
+    const s = this.deps.store.session(id)
+    if (s) this.deps.push('session.changed', this.view(s))
+  }
+
+  dequeue(id: string, queueId: string): QueuedDraft | null {
+    return this.toDraft(this.takeQueued(id, queueId))
+  }
+
+  async interject(input: {
+    id: string
+    queueId?: string
+    text?: string
+    attachments?: AttachmentInput[]
+  }): Promise<void> {
+    const { id, text } = input
+    const items = text
+      ? [{ id: this.id(), text, attachments: await this.stage(id, input.attachments ?? []) }]
+      : this.takeQueued(id, input.queueId)
+    const left = [...items]
+    try {
+      for (const item of items) {
+        if (!(await this.deliver(id, item))) break
+        left.shift()
+      }
+    } finally {
+      this.requeue(id, left)
+    }
+  }
+
+  // 没送出去的放回排队最前面。这一轮这时已经结束的话接着发
+  private requeue(id: string, items: Queued[]): void {
+    if (!items.length) return
+    this.queues.set(id, [...items, ...(this.queues.get(id) ?? [])])
+    this.pushSession(id)
+    if (!this.running.has(id) && !this.compacting.has(id)) this.sendQueued(id)
+  }
+
+  // 交给内核；这一轮还没进内核、已经结束，或者内核不支持时返回 false
+  private async deliver(id: string, item: Queued): Promise<boolean> {
+    const run = this.running.get(id)
+    const session = this.deps.store.session(id)
+    if (!session || !run?.kernel || !run.ks || !run.submitted) return false
+    const sent = skillPrompt(item.text, this.deps.enabledSkills?.(session.workdir) ?? [])
+    const live = await run.kernel.interject(run.ks, {
+      text: sent,
+      attachments: item.attachments.map((a) => ({ name: a.name, text: a.text })),
+      ...(run.system ? { system: run.system } : {}),
+    })
+    if (!live) return false
+    this.saveAttachments(id, run.recorder.view.id, item.attachments)
+    const chips = item.attachments.map((a) => ({ name: a.name, size: a.size }))
+    const turn = this.deps.store.nextKernelTurn(id)
+    this.commit(id, run.recorder.interject(item.id, item.text, chips, turn))
+    return true
+  }
+
+  private saveAttachments(id: string, messageId: string, staged: StagedAttachment[]): void {
+    for (const a of staged) {
+      this.deps.store.saveAttachment({
+        id: a.id,
+        sessionId: id,
+        messageId,
+        name: a.name,
+        mime: a.mime,
+        size: a.size,
+        path: a.path,
+        textPath: a.textPath,
+      })
+    }
+    if (staged.length) {
+      this.deps.push('session.attachments', {
+        sessionId: id,
+        attachments: this.deps.store.attachments(id),
+      })
+    }
   }
 
   // 附件存到 {attachmentsDir}/<会话>/，原文件和转出来的文字各一份
@@ -341,22 +485,19 @@ export class SessionService {
     }
   }
 
-  async abort(id: string): Promise<void> {
+  async abort(id: string): Promise<QueuedDraft | null> {
     this.abortGen.set(id, (this.abortGen.get(id) ?? 0) + 1)
-    // 排队的消息作废，它们带的附件也删掉
-    for (const q of this.queues.get(id) ?? []) this.unstage(q.attachments)
-    if (this.queues.delete(id)) {
-      const s = this.deps.store.session(id)
-      if (s) this.deps.push('session.changed', s)
-    }
+    // 排队的消息不发了，退回去放进输入框
+    const draft = this.toDraft(this.takeQueued(id))
     const run = this.running.get(id)
-    if (!run) return
+    if (!run) return draft
     run.cancelled = true
     // 阻塞提问不再等了；ask_user 先返回，内核才能收尾
     for (const resolve of run.questions.values()) resolve({ answered: false })
     run.questions.clear()
     // 还在启动的轮次在启动完后看到 cancelled 自己结束
     if (run.kernel && run.ks) await run.kernel.abort(run.ks)
+    return draft
   }
 
   async respondPermission(input: {
@@ -602,24 +743,7 @@ export class SessionService {
       createdAt: at + 1,
     }
     this.saveMessage(user)
-    for (const a of attachments) {
-      this.deps.store.saveAttachment({
-        id: a.id,
-        sessionId: session.id,
-        messageId: user.id,
-        name: a.name,
-        mime: a.mime,
-        size: a.size,
-        path: a.path,
-        textPath: a.textPath,
-      })
-    }
-    if (attachments.length) {
-      this.deps.push('session.attachments', {
-        sessionId: session.id,
-        attachments: this.deps.store.attachments(session.id),
-      })
-    }
+    this.saveAttachments(session.id, user.id, attachments)
     this.saveMessage(assistant)
     this.update(session.id, { turns: turn, status: 'running', lastError: null })
     const recorder = new TurnRecorder(session.id, assistant, this.now)
@@ -632,6 +756,8 @@ export class SessionService {
       userMessageId: user.id,
       turn,
       attachments: attachments.map((a) => ({ name: a.name, text: a.text })),
+      submitted: false,
+      system: '',
     }
     this.running.set(session.id, run)
     void this.runTurn(session, text, run)
@@ -726,17 +852,18 @@ export class SessionService {
         this.apply(session.id, recorder, { type: 'done', reason: 'aborted' })
         return
       }
-      let submitted = false
       // `/技能名 …`：发给内核时明确让 Agent 先加载这个技能；界面上的用户消息照原样
       const sent = skillPrompt(text, this.deps.enabledSkills?.(session.workdir) ?? [])
       // Agent 的提示词随消息带上，接在内核自带的系统提示词后面（内核配置里不写 prompt）
       const system = profile ? agentSystemPrompt(profile) : ''
+      run.system = system
       const input = { text: sent, attachments: run.attachments, ...(system ? { system } : {}) }
       for await (const event of kernel.prompt(ks, input)) {
         // 内核有了动静（不是准备阶段就结束）才算这条消息真的进了内核：这时记下它是内核里第几条用户消息
-        if (!submitted && event.type !== 'done') {
-          submitted = true
+        if (!run.submitted && event.type !== 'done') {
           await this.assignKernelTurn(session, run, kernel, ks)
+          run.submitted = true
+          this.pushSession(session.id)
         }
         // 内核的子会话只继承主会话的拒绝规则：主会话放行的（比如“全部自动”）这里替用户答了，不弹卡片。
         // 用户允许过的也一样，内核重启后它自己不记得了
@@ -814,16 +941,18 @@ export class SessionService {
         const found = await withDeadline(kernel.diff(ks), this.readTimeoutMs)
         if (this.diffGen.get(id) !== gen) return
         const turns = this.deps.store.kernelTurns(id)
-        const files: FileDiffView[] = found
-          .filter((d) => d.path)
-          .map((d) => ({
-            turn: d.turn ? (turns.get(d.turn) ?? d.turn) : turn,
-            path: d.path,
-            status: d.status,
-            additions: d.additions,
-            deletions: d.deletions,
-            patch: d.patch,
-          }))
+        const files = mergeDiffs(
+          found
+            .filter((d) => d.path)
+            .map((d) => ({
+              turn: d.turn ? (turns.get(d.turn) ?? d.turn) : turn,
+              path: d.path,
+              status: d.status,
+              additions: d.additions,
+              deletions: d.deletions,
+              patch: d.patch,
+            })),
+        )
         const next = JSON.stringify(files)
         if (next === last) continue
         last = next

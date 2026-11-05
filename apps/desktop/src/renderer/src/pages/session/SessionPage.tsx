@@ -10,7 +10,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { t } from '../../app/i18n'
 import { basename, usePrefs } from '../../lib/composer-prefs'
@@ -32,7 +32,8 @@ import { ErrorCard, PermissionCard, QuestionCard, RetryBar } from '../../session
 import { deriveBlocks, deriveTodos } from '../../session/thread/derive'
 import { useFollowBottom } from '../../session/thread/follow-bottom'
 import { PlanCard } from '../../session/thread/Plan'
-import { Composer } from '../../shell/Composer'
+import { QueuePanel } from '../../session/thread/QueuePanel'
+import { Composer, type ComposerHandle } from '../../shell/Composer'
 import { cx } from '../../ui/cx'
 import { ResizeHandle } from '../../ui/ResizeHandle'
 import { Tooltip } from '../../ui/Tooltip'
@@ -87,27 +88,6 @@ function StatusPill({
       {session.status === 'done' ? <Check size={11} strokeWidth={2.4} /> : null}
       {text}
     </span>
-  )
-}
-
-// 运行中发的消息：这一轮结束后合成一条发出去
-function Queued({ items }: { items: string[] }) {
-  return (
-    <div
-      data-testid="queued"
-      className="mb-2 flex flex-col gap-1 rounded-[10px] border border-line-soft border-dashed bg-bg/60 px-3 py-2"
-    >
-      <span className="flex items-center gap-1.5 text-[0.846rem] text-fg-subtle">
-        <Clock size={11} />
-        {t('queue.label')}
-      </span>
-      {items.map((text, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: 排队的消息可能重复，只按位置区分
-        <span key={i} className="line-clamp-2 whitespace-pre-wrap text-[0.962rem] text-fg-muted">
-          {text}
-        </span>
-      ))}
-    </div>
   )
 }
 
@@ -194,8 +174,14 @@ export function SessionPage() {
   const lastAnswer = blocks.findLast((b) => b.kind === 'text')?.id
   const todos = useMemo(() => (detail ? deriveTodos(detail) : []), [detail])
 
+  const composer = useRef<ComposerHandle>(null)
+  const stop = async (sessionId: string) => {
+    const draft = await kits.session.abort(sessionId)
+    if (draft) composer.current?.restore(draft)
+  }
+
   useShortcuts({
-    stop: () => (id && running ? void kits.session.abort(id) : undefined),
+    stop: () => (id && running ? void stop(id) : undefined),
     widePanel: () => setPanel(panel === 'wide' ? 'side' : 'wide'),
   })
 
@@ -253,7 +239,14 @@ export function SessionPage() {
             {blocks.map((b) => {
               switch (b.kind) {
                 case 'user':
-                  return <UserBlock key={b.id} text={b.text} attachments={b.attachments} />
+                  return (
+                    <UserBlock
+                      key={b.id}
+                      text={b.text}
+                      attachments={b.attachments}
+                      {...(b.pending ? { pending: true } : {})}
+                    />
+                  )
                 case 'turn':
                   return (
                     <TurnBlock
@@ -322,7 +315,6 @@ export function SessionPage() {
                 </button>
               </Tooltip>
             )}
-            {session.queued?.length ? <Queued items={session.queued} /> : null}
             {todos.length ? <PlanCard items={todos} /> : null}
             <ContextBanner
               session={session}
@@ -330,16 +322,37 @@ export function SessionPage() {
               window={contextWindow}
               hidden={running || blocks.at(-1)?.kind === 'compaction'}
             />
+            {session.queued?.length ? (
+              <QueuePanel
+                sessionId={session.id}
+                items={session.queued}
+                canInterject={running && !!session.canInterject}
+                onEdit={(draft) => composer.current?.restore(draft)}
+                onInterject={thread.jump}
+              />
+            ) : null}
             <Composer
               // 每个会话一个输入框：草稿不会跟到别的会话里
               key={session.id}
+              ref={composer}
               locked
               lockedAs={session}
-              placeholder={running ? t('composer.followUpRunning') : t('composer.followUp')}
+              placeholder={t('composer.followUp')}
               onSubmit={({ text, attachments }) =>
                 kits.session.prompt({ id: session.id, text, attachments })
               }
-              {...(running ? { onStop: () => void kits.session.abort(session.id) } : {})}
+              {...(running ? { onStop: () => void stop(session.id) } : {})}
+              {...(running && session.canInterject
+                ? {
+                    onInterject: async ({ text, attachments }) => {
+                      await kits.session.interject({
+                        id: session.id,
+                        ...(text ? { text, attachments } : {}),
+                      })
+                      thread.jump()
+                    },
+                  }
+                : {})}
             />
           </div>
         </section>

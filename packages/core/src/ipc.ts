@@ -12,6 +12,7 @@ import type {
   MessageView,
   OutputView,
   PartView,
+  QueuedDraft,
   SessionActivity,
   SessionDetail,
   SessionSearchHit,
@@ -149,7 +150,15 @@ export const ipcContract = {
     // 手动压缩上下文：等内核压完；失败抛错
     compact: method<string, void>(),
     prompt: method<{ id: string; text: string; attachments?: AttachmentInput[] }, void>(),
-    abort: method<string, void>(),
+    // 停止；排队的消息退回来，放回输入框
+    abort: method<string, QueuedDraft | null>(),
+    // 从排队里拿走一条：编辑时放回输入框，删除时丢掉返回值
+    dequeue: method<{ id: string; queueId: string }, QueuedDraft | null>(),
+    // 插话：有文字发这一条；有 queueId 发排队里的那一条；都没有发全部排队的
+    interject: method<
+      { id: string; queueId?: string; text?: string; attachments?: AttachmentInput[] },
+      void
+    >(),
     respondPermission: method<
       { id: string; requestId: string; reply: 'once' | 'always' | 'reject'; message?: string },
       void

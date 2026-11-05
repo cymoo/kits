@@ -6,7 +6,7 @@ import { MockKernel, type MockScenarioName } from '@kits/kernel'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openDatabase } from '../db'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
-import { exportName, SessionService, titleOf } from './session-service'
+import { exportName, mergeDiffs, SessionService, titleOf } from './session-service'
 import { SessionStore } from './session-store'
 
 const migrations = path.resolve(import.meta.dirname, '../../../drizzle')
@@ -323,8 +323,9 @@ describe('SessionService', () => {
     await waitFor(s.id, ['waiting'])
     await service.prompt(s.id, '顺便看下日志')
     await service.prompt(s.id, '改完提交')
-    expect(service.get(s.id)?.session.queued).toEqual(['顺便看下日志', '改完提交'])
-    expect(pushed.at(-1)?.payload).toMatchObject({ queued: ['顺便看下日志', '改完提交'] })
+    const queued = service.get(s.id)?.session.queued
+    expect(queued?.map((q) => q.text)).toEqual(['顺便看下日志', '改完提交'])
+    expect(pushed.at(-1)?.payload).toMatchObject({ queued })
     await service.respondPermission({
       id: s.id,
       requestId: pendingRequest(store, s.id),
@@ -337,15 +338,123 @@ describe('SessionService', () => {
     await waitFor(s.id, ['aborted'])
   })
 
-  it('drops queued follow-ups when the turn is stopped', async () => {
+  it('hands queued follow-ups back when the turn is stopped', async () => {
     const { service, waitFor, store } = setup('permission')
     const s = await service.create(input)
     await waitFor(s.id, ['waiting'])
     await service.prompt(s.id, '顺便看下日志')
-    await service.abort(s.id)
+    await service.prompt(s.id, '改完提交')
+    const draft = await service.abort(s.id)
     await waitFor(s.id, ['aborted'])
     await new Promise((r) => setTimeout(r, 50))
+    expect(draft).toEqual({ text: '顺便看下日志\n\n改完提交', attachments: [] })
     expect(store.session(s.id)?.turns).toBe(1)
+  })
+
+  it('takes one queued message out for editing', async () => {
+    const { service, waitFor } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下日志')
+    await service.prompt(s.id, '改完提交')
+    const [first] = service.get(s.id)?.session.queued ?? []
+
+    expect(service.dequeue(s.id, first?.id ?? '')?.text).toBe('顺便看下日志')
+    expect(service.get(s.id)?.session.queued?.map((q) => q.text)).toEqual(['改完提交'])
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
+  it('hands a queued message to the running turn and keeps it out of the next one', async () => {
+    const { service, waitFor, store, kernel } = setup('permission')
+    const interject = vi.spyOn(kernel, 'interject')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下日志')
+    const [queued] = service.get(s.id)?.session.queued ?? []
+
+    await service.interject({ id: s.id, queueId: queued?.id ?? '' })
+
+    expect(interject.mock.calls[0]?.[1].text).toBe('顺便看下日志')
+    expect(service.get(s.id)?.session.queued).toBeUndefined()
+    const part = store.detail(s.id)?.parts.find((p) => p.type === 'interject')
+    expect(part).toMatchObject({ status: 'pending', payload: { text: '顺便看下日志' } })
+    await service.respondPermission({
+      id: s.id,
+      requestId: pendingRequest(store, s.id),
+      reply: 'once',
+    })
+    await waitFor(s.id, ['done'])
+    expect(store.session(s.id)?.turns).toBe(1)
+    expect(store.detail(s.id)?.parts.find((p) => p.type === 'interject')?.status).toBe('sent')
+  })
+
+  it('sends typed text straight to the running turn', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+
+    await service.interject({ id: s.id, text: '先别改测试' })
+
+    expect(store.detail(s.id)?.parts.find((p) => p.type === 'interject')?.payload).toMatchObject({
+      text: '先别改测试',
+    })
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
+  it('numbers an interjection as a user message of the kernel, in its local turn', async () => {
+    const { service, waitFor, store } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+
+    await service.interject({ id: s.id, text: '先别改测试' })
+
+    expect([...store.kernelTurns(s.id)]).toEqual([
+      [1, 1],
+      [2, 1],
+    ])
+    expect(store.nextKernelTurn(s.id)).toBe(3)
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
+  it('puts the message back in the queue when the kernel refuses it', async () => {
+    const { service, waitFor, store, kernel } = setup('permission')
+    vi.spyOn(kernel, 'interject').mockResolvedValue(false)
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下日志')
+
+    await service.interject({ id: s.id })
+
+    expect(service.get(s.id)?.session.queued?.map((q) => q.text)).toEqual(['顺便看下日志'])
+    expect(store.detail(s.id)?.parts.some((p) => p.type === 'interject')).toBe(false)
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
+  it('puts the message back in the queue when the kernel call fails', async () => {
+    const { service, waitFor, kernel } = setup('permission')
+    vi.spyOn(kernel, 'interject').mockRejectedValue(new Error('连不上内核'))
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    await service.prompt(s.id, '顺便看下日志')
+
+    await expect(service.interject({ id: s.id })).rejects.toThrow('连不上内核')
+
+    expect(service.get(s.id)?.session.queued?.map((q) => q.text)).toEqual(['顺便看下日志'])
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
+  })
+
+  it('tells the page the running turn can take an interjection', async () => {
+    const { service, waitFor } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    expect(service.get(s.id)?.session.canInterject).toBe(true)
+    await service.abort(s.id)
+    await waitFor(s.id, ['aborted'])
   })
 
   it('stops a running turn', async () => {
@@ -400,7 +509,7 @@ describe('SessionService while the kernel is starting', () => {
     const s = await service.create(input)
     await service.prompt(s.id, '再来一轮')
     expect(store.session(s.id)?.turns).toBe(1)
-    expect(service.get(s.id)?.session.queued).toEqual(['再来一轮'])
+    expect(service.get(s.id)?.session.queued?.map((q) => q.text)).toEqual(['再来一轮'])
     open()
     await vi.waitFor(() => expect(store.session(s.id)?.turns).toBe(2))
     await waitFor(s.id, ['done'])
@@ -864,5 +973,21 @@ describe('titleOf', () => {
   it('folds whitespace and cuts at 40 characters', () => {
     expect(titleOf('  修 一下\n bug ')).toBe('修 一下 bug')
     expect(titleOf('字'.repeat(50))).toBe(`${'字'.repeat(40)}…`)
+  })
+})
+
+describe('mergeDiffs', () => {
+  it('adds up the changes of one file in one turn', () => {
+    const diff = { turn: 1, path: 'a.ts', status: 'modified' as const }
+    expect(
+      mergeDiffs([
+        { ...diff, additions: 1, deletions: 2, patch: 'one' },
+        { ...diff, additions: 3, deletions: 0, patch: 'two' },
+        { ...diff, turn: 2, additions: 1, deletions: 0, patch: 'three' },
+      ]),
+    ).toEqual([
+      { ...diff, additions: 4, deletions: 2, patch: 'one\ntwo' },
+      { ...diff, turn: 2, additions: 1, deletions: 0, patch: 'three' },
+    ])
   })
 })

@@ -28,6 +28,8 @@ describe('contractEntries', () => {
       ['session', 'compact'],
       ['session', 'prompt'],
       ['session', 'abort'],
+      ['session', 'dequeue'],
+      ['session', 'interject'],
       ['session', 'respondPermission'],
       ['session', 'answerQuestion'],
       ['session', 'diffs'],

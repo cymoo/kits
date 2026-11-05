@@ -47,6 +47,8 @@ interface RawMessageInfo {
   id?: string
   sessionID?: string
   role?: string
+  // 助手消息回的是哪条用户消息：运行中插话后，新的一步换成回那一条
+  parentID?: string
   time?: { created?: number; completed?: number }
   cost?: number
   // 这一步失败时内核写在消息上的错误（断线期间的 session.error 靠它补回来）
@@ -116,6 +118,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
   const usageSent = new Set<string>()
   const permissionsSent = new Set<string>()
   const subsessions = new Map<string, string | undefined>()
+  let answering: string | undefined
   let lastRetry = ''
   // 助手消息上带的错误：轮询收尾时按出错结束，不当成功
   let messageError: string | undefined
@@ -213,12 +216,19 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
       if ((info.error as { name?: string }).name === 'MessageAbortedError') aborted = true
       else messageError = errorMessage(info.error)
     }
-    if (info.role !== 'assistant' || !info.time?.completed || usageSent.has(info.id)) return []
+    const delivered: KernelEvent[] = []
+    if (info.role === 'assistant' && info.parentID && info.parentID !== answering) {
+      if (answering) delivered.push({ type: 'interject-delivered' })
+      answering = info.parentID
+    }
+    if (info.role !== 'assistant' || !info.time?.completed || usageSent.has(info.id))
+      return delivered
     usageSent.add(info.id)
     const t = info.tokens ?? {}
     const cacheRead = num(t.cache?.read)
     const cacheWrite = num(t.cache?.write)
     return [
+      ...delivered,
       {
         type: 'usage',
         inputTokens: num(t.input) + cacheRead + cacheWrite,

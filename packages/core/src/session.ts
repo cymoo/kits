@@ -22,7 +22,15 @@ export interface SessionSummary {
   // 置顶的时间，没置顶为 null
   pinnedAt: number | null
   // 运行中发的消息，这一轮结束后一起发出去（不落库）
-  queued?: string[]
+  queued?: QueuedMessage[]
+  // 这一轮的内核支持插话
+  canInterject?: boolean
+}
+
+export interface QueuedMessage {
+  id: string
+  text: string
+  attachments: { name: string; size: number }[]
 }
 
 export interface MessageView {
@@ -83,6 +91,13 @@ export type PartPayload =
       blocking: boolean
       answer?: string
     }
+  // 运行中插的话。kernelTurn：它是内核会话里第几条用户消息
+  | {
+      type: 'interject'
+      text: string
+      attachments: { name: string; size: number }[]
+      kernelTurn: number
+    }
   | { type: 'retry'; attempt: number; message: string; nextAt: number }
   | { type: 'compaction'; summary: string }
   | { type: 'error'; message: string }
@@ -96,7 +111,7 @@ export interface PartView {
   seq: number
   type: PartType
   payload: PartPayload
-  // tool：running / completed / error；permission：pending / 回复；其他为空
+  // tool：running / completed / error；permission：pending / 回复；interject：pending / sent；其他为空
   status: string | null
   createdAt: number
   updatedAt: number
@@ -114,6 +129,12 @@ export interface AttachmentInput {
   name: string
   mime: string
   data: Uint8Array
+}
+
+// 退回输入框的排队消息
+export interface QueuedDraft {
+  text: string
+  attachments: AttachmentInput[]
 }
 
 // 用户消息下面的附件芯片

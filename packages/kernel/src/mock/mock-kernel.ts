@@ -44,7 +44,7 @@ let nextRequest = 0
 
 export class MockKernel implements AgentKernel {
   readonly id = 'opencode' as const
-  readonly capabilities = { subagents: false, revert: false }
+  readonly capabilities = { subagents: false, revert: false, interject: true }
   private readonly scenario: MockScenario
   // dispose 之后所有等待立刻结束，还没开始的等待也不再挂起
   private disposed = false
@@ -58,6 +58,8 @@ export class MockKernel implements AgentKernel {
   // 每个会话发过几轮（内核里的用户消息条数）
   private prompts = new Map<string, number>()
   private aborted = new Set<string>()
+  // 插了话还没到下一步的会话
+  private interjected = new Set<string>()
   private abortWaiters = new Map<string, () => void>()
   private exitListeners: ((exit: KernelExit) => void)[] = []
   private started = false
@@ -115,6 +117,13 @@ export class MockKernel implements AgentKernel {
     this.abortWaiters.clear()
   }
 
+  async interject(session: KernelSession, _input: UserInput): Promise<boolean> {
+    if (this.stopped(session.id)) return false
+    this.interjected.add(session.id)
+    this.prompts.set(session.id, (this.prompts.get(session.id) ?? 0) + 1)
+    return true
+  }
+
   async *prompt(session: KernelSession, _input: UserInput): AsyncIterable<KernelEvent> {
     this.aborted.delete(session.id)
     this.prompts.set(session.id, (this.prompts.get(session.id) ?? 0) + 1)
@@ -125,6 +134,7 @@ export class MockKernel implements AgentKernel {
     ): AsyncGenerator<KernelEvent, 'ok' | 'aborted' | 'crashed'> {
       for (const step of steps) {
         if (!(await self.wait(session.id, step.delay ?? 50))) return 'aborted'
+        if (self.interjected.delete(session.id)) yield { type: 'interject-delivered' }
         if ('event' in step) {
           yield step.event
         } else if ('text' in step || 'reasoning' in step) {

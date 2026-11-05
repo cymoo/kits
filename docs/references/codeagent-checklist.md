@@ -43,6 +43,7 @@ CodeAgent 方言（`packages/kernel/src/dialects/codeagent.ts`）按 [codeagent-
 | 26 | 子任务 | 子任务在子会话里跑：`session.created` 带 `parentID`，task 工具运行时 `metadata.sessionId` 是子会话 id，子会话的 `permission.requested` 带子会话的 `sessionID` | 子任务里要确认的命令有没有弹卡片；CodeAgent 是不是改走 `task.started`（文档里有这个事件） | `events.ts` 的 `subsessions` |
 | 24 | 退出 | 关 kits 时内核和它拉起的 MCP 进程一起结束（Windows `taskkill /T`） | 任务管理器里还有没有残留 | `dialects/child.ts` 的 `stopChild` |
 | 28 | 权限回复事件 | 事件 `permission.replied`，带 `sessionID`、`requestID`、`reply`；回复一个请求时内核连带处理同一会话的其他请求 | 并行两个请求，点“本会话允许”后另一张卡片会不会收起；回复已经不在的请求是不是返回 404 | `events.ts` 的 `permission.replied`、`opencode-family.ts` 的 `respondPermission` |
+| 29 | 运行中再发消息 | `POST /session/{id}/prompt_async` 在这一轮运行中再调一次；OpenCode 把它并进同一轮，模型下一步看到 | 运行中调一次：是并进这一轮，还是排成新的 prompt；`prompt.completed` 来几次；助手消息带不带 `parentID` | 并进同一轮时打开 `dialects/codeagent.ts` 的 `interject` |
 
 ## 跑完以后
 

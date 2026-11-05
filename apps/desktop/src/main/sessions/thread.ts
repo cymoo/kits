@@ -5,7 +5,8 @@ import type { KernelEvent, MessageView, PartPayload, PartView, SessionStatus } f
 // - 正文 / 思考的增量按内核的 partId 合并到同一个 part；
 // - 工具按 callId 一个 part，开始时 running，结束时 completed / error；
 // - 权限请求、阻塞提问各一个 part，状态 pending，会话进入 waiting；都回复了回到 running；
-//   这一轮结束时还没回复的标成 expired（不阻塞的提问除外）。
+//   这一轮结束时还没回复的标成 expired（不阻塞的提问除外）；
+// - 插话一条一个 part，模型看到之前是 pending，看到时才定下它在这一轮里的位置。
 
 export interface TurnChange {
   parts: PartView[]
@@ -31,9 +32,9 @@ export class TurnRecorder {
   // 回复正文：最后一个工具之后的文字（和会话页的“正文”块一样）
   answerText(): string {
     const ordered = [...this.parts.values()].sort((a, b) => a.seq - b.seq)
-    const lastTool = ordered.map((p) => p.type).lastIndexOf('tool')
+    const lastWork = ordered.findLastIndex((p) => p.type === 'tool' || p.type === 'interject')
     return ordered
-      .slice(lastTool + 1)
+      .slice(lastWork + 1)
       .flatMap((p) => (p.payload.type === 'text' ? [p.payload.text] : []))
       .join('')
       .trim()
@@ -108,6 +109,34 @@ export class TurnRecorder {
         p.status === 'pending' &&
         (p.type === 'permission' || (p.payload.type === 'question' && p.payload.blocking)),
     )
+  }
+
+  // 插话已经交给内核了
+  interject(
+    id: string,
+    text: string,
+    attachments: { name: string; size: number }[],
+    kernelTurn: number,
+  ): TurnChange {
+    const part = this.upsert(
+      `interject:${id}`,
+      'interject',
+      () => ({ type: 'interject', text, attachments, kernelTurn }),
+      'pending',
+    )
+    return { parts: [part] }
+  }
+
+  // 模型看到了：排到这时候的位置，等待期间到的步骤算在它前面
+  private settleInterjects(): PartView[] {
+    const at = this.now()
+    return [...this.parts.values()]
+      .filter((p) => p.type === 'interject' && p.status === 'pending')
+      .map((p) => {
+        const part = { ...p, seq: this.seq++, status: 'sent', updatedAt: at }
+        this.parts.set(p.id, part)
+        return part
+      })
   }
 
   // 用户回复了权限请求
@@ -217,6 +246,8 @@ export class TurnRecorder {
         }
       case 'permission-replied':
         return this.settlePermission(event.requestId, event.reply)
+      case 'interject-delivered':
+        return { parts: this.settleInterjects() }
       case 'retry':
         return {
           parts: [
@@ -256,7 +287,8 @@ export class TurnRecorder {
         this.message = { ...this.message, completedAt: this.now(), finishReason: event.reason }
         const status: SessionStatus =
           event.reason === 'completed' ? 'done' : event.reason === 'aborted' ? 'aborted' : 'error'
-        const change: TurnChange = { parts: [], message: this.message, status }
+        // 停止了也留在内核的历史里，下一轮模型能看到
+        const change: TurnChange = { parts: this.settleInterjects(), message: this.message, status }
         // 这一轮结束了，还没回复的确认 / 提问作废，卡片上不再给按钮
         for (const p of [...this.parts.values()]) {
           // 不阻塞的提问轮次结束后还能回答（回答作为下一条消息）

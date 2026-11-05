@@ -18,6 +18,9 @@ export const shortcuts: Record<ShortcutId, { key: string; label: string }> = {
   widePanel: { key: '\\', label: `${modLabel}\\` },
 }
 
+// 输入框里的：运行中插话，只在输入框里生效，不进全局表
+export const interjectLabel = `${modLabel}↵`
+
 export function matchShortcut(e: KeyboardEvent, id: ShortcutId, mac = isMac): boolean {
   const mod = mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey
   return mod && !e.altKey && e.key.toLowerCase() === shortcuts[id].key
