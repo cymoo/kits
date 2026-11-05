@@ -192,6 +192,10 @@ export interface FileEntry {
 
 export type FilePreview =
   | { kind: 'text'; text: string; size: number; truncated: boolean }
+  | { kind: 'image'; dataUrl: string; size: number }
+  | { kind: 'pdf'; data: Uint8Array; size: number }
+  // Word 转出来的 HTML，放进沙箱 iframe 显示
+  | { kind: 'html'; html: string; size: number }
   | { kind: 'unsupported'; reason: 'binary' | 'large'; size: number }
 
 // ⌘K 搜会话：命中的部分夹在 \u0001 和 \u0002 之间，渲染进程按它高亮

@@ -12,7 +12,7 @@
 - [plans/2026-11-dev-plan.html](plans/2026-11-dev-plan.html) — 六周开发计划（2026-11-03 → 12-11），当前执行的计划
 - [plans/phase1.md](plans/phase1.md) — 第一阶段方案：架构、内核接口、权限模型
 - [plans/phase1-implementation.md](plans/phase1-implementation.md) — 第一阶段实现方案：配置模型、内核层、主进程、界面、测试，拆成 20 个 PR（2026-11-03，评审中）
-- [plans/2026-11-ui-refresh.md](plans/2026-11-ui-refresh.md) — 界面改版方案：去轮次、输入框、工作区侧栏、视觉令牌、文件面板，拆成 8 个 PR（2026-11-05，评审中）
+- [plans/2026-11-ui-refresh.md](plans/2026-11-ui-refresh.md) — 界面改版方案：去轮次、输入框、工作区侧栏、视觉令牌、文件面板，拆成 8 个 PR（2026-11-06，已完成）
 - [references/codeagent-sdk.md](references/codeagent-sdk.md) — CodeAgent SDK 规格（HTTP + SSE）
 - [references/model-poc.md](references/model-poc.md) — 模型 PoC：OpenCode 经公司网关调 DeepSeek 的工具调用稳定性（10 次运行数据、配置样例、SSE 事件样本）
 - [delivery/TEMPLATE.md](delivery/TEMPLATE.md) — 交付说明模板

@@ -1,6 +1,6 @@
 # 界面改版方案
 
-> 版本：v1　日期：2026-11-05　状态：评审中　原型：`designs/app/`（`session.html`、`shell.js`）
+> 版本：v1　日期：2026-11-05　状态：已完成（2026-11-06，#59～#67）　原型：`designs/app/`（`session.html`、`shell.js`）
 
 ## 要解决什么
 

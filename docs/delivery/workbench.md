@@ -140,3 +140,40 @@ phase1-implementation PR9（6.4 节的右侧面板和总结卡片）：会话页
 - 回复里的代码块还没有高亮。
 - 超过 5000 行或 300 KB 的代码不高亮，超过 2 万行不显示行号。
 
+## 2026-11-06　界面改版 8：图片、PDF、Word 预览
+
+> PR：分支 `feat/workbench-file-previews`　作者：Claude Code
+
+### 原始需求
+
+文件面板要能看测试同学常用的需求文档。见[界面改版方案](../plans/2026-11-ui-refresh.md)的决策 6。
+
+### 怎么验收
+
+1. 文件页签点图片（png、jpg、gif、webp、svg 等）：居中显示，宽了就缩。
+2. 点 PDF：一页一页看，底部能翻页；中文 PDF 文字正常；拖面板宽度页面跟着缩放。
+3. 点 Word（docx）：正文、表格、图片都在；链接和脚本不起作用。`.doc` 这种老格式给“用系统应用打开”。
+4. 损坏的 docx：提示不能预览，不报错。
+
+### 主要改动
+
+- `main/files/browse.ts`：按扩展名返回图片、PDF、HTML。Word 用已有的 `mammoth` 转 HTML。
+- `lib/pdf.ts`、`session/panels/PdfView.tsx`：用已有的 `pdfjs-dist` 在渲染进程画 canvas。CMap、标准字体、解码器经 `files.pdfAsset` 从主进程取，不打进页面。
+- Word 的 HTML 放进 `sandbox=""` 的 iframe，不新增净化库。
+- 配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`files/browse.test.ts` 的图片、PDF、Word、坏文件和 `pdfAsset`。
+- E2E：`workbench.spec.ts` 的 `previews images, pdf and word files`，检查 canvas 上确实画了东西。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- PDF 一次看一页，没有缩放和搜索。
+- 大于 20 MB 的文件不预览。
+- PDF 预览在 macOS 打包后的应用里实测过，Windows 打包后没有实测。
+
