@@ -27,9 +27,8 @@ test('streams a turn from the home page to done', async () => {
     await expect(page.getByText('这个会话做了什么')).toHaveCount(0)
     // 完成后工作过程收起，点开能看到每一步
     const turn = page.getByTestId('turn')
-    await expect(turn).toContainText('第 1 轮')
     await expect(turn).toContainText('读 1 个文件')
-    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await turn.getByRole('button').first().click()
     await expect(turn.getByTestId('step').filter({ hasText: '读取' })).toContainText(
       'src/points/redeem.py',
     )
@@ -145,12 +144,13 @@ test('continues the same session with a follow-up message', async () => {
     await prepare(page, configDir)
     await page.getByLabel('给 Agent 发消息').fill('第一轮')
     await page.getByLabel('给 Agent 发消息').press('Enter')
-    await expect(page.getByTestId('session-status')).toHaveText(/已完成 · 1 轮/)
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     const follow = page.getByLabel('给 Agent 发消息')
     await follow.fill('再来一轮')
     await follow.press('Enter')
     await expect(page.getByTestId('user-message')).toHaveCount(2)
-    await expect(page.getByTestId('session-status')).toHaveText(/已完成 · 2 轮/)
+    await expect(page.getByTestId('answer')).toHaveCount(2)
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
   } finally {
     await close()
   }
@@ -298,13 +298,12 @@ test('copies any reply from the icon under it', async () => {
     await prepare(page, configDir)
     await page.getByLabel('给 Agent 发消息').fill('第一轮')
     await page.getByLabel('给 Agent 发消息').press('Enter')
-    await expect(page.getByTestId('session-status')).toHaveText(/已完成 · 1 轮/)
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     await page.getByLabel('给 Agent 发消息').fill('再来一轮')
     await page.getByLabel('给 Agent 发消息').press('Enter')
-    await expect(page.getByTestId('session-status')).toHaveText(/已完成 · 2 轮/)
-
     const answers = page.getByTestId('answer')
     await expect(answers).toHaveCount(2)
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     const first = answers.first().getByRole('button', { name: '复制回复' })
     const last = answers.last().getByRole('button', { name: '复制回复' })
     // 最后一条一直显示，前面的鼠标移上去才出现

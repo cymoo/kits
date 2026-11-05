@@ -101,9 +101,6 @@ export function TurnBlock({
         />
         {running ? <Spinner tone="accent" /> : null}
         {block.state === 'failed' ? <AlertCircle size={14} className="text-danger" /> : null}
-        <span className="shrink-0 font-medium text-fg">
-          {t(block.resumed ? 'turn.resumed' : 'turn.title', { n: block.turn })}
-        </span>
         <span className="min-w-0 flex-1 truncate" title={summary}>
           {summary}
         </span>
@@ -208,7 +205,7 @@ export function CompactionDivider({ block }: { block: Extract<Block, { kind: 'co
         className="flex items-center gap-2.5 rounded-[12px] border border-line bg-bg px-3 py-2 text-[0.929rem] text-fg-muted"
       >
         <Spinner tone="muted" />
-        <span className="flex-1">{t('compaction.running', { n: block.turns })}</span>
+        <span className="flex-1">{t('compaction.running')}</span>
       </div>
     )
   }
@@ -216,7 +213,7 @@ export function CompactionDivider({ block }: { block: Extract<Block, { kind: 'co
     block.state === 'failed'
       ? t('compaction.failed')
       : block.summary
-        ? t('compaction.done', { n: block.turns, time: hm })
+        ? t('compaction.done', { time: hm })
         : t('compaction.auto', { time: hm })
   return (
     <div className="flex flex-col gap-2" data-testid="compaction">

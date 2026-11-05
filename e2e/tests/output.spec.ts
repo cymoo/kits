@@ -104,7 +104,7 @@ test('shows the JSON submitted by an agent with an output format and exports it'
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     const panel = page.getByRole('complementary', { name: '工作区面板' })
     const turn = page.getByTestId('turn')
-    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await turn.getByRole('button').first().click()
     const submit = turn.getByTestId('step').filter({ hasText: '提交产出' })
     await expect(submit).toContainText('通过校验')
     await submit.click()

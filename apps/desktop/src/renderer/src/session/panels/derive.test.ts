@@ -51,6 +51,14 @@ const detail = (messages: MessageView[], parts: PartView[]): SessionDetail => ({
 })
 
 describe('deriveRounds', () => {
+  it('titles a group with the first line of the message that asked for it', () => {
+    const rounds = deriveRounds(
+      detail([msg('u1', 1, { role: 'user', text: '  改退款接口\n顺便补测试' }), msg('a1', 1)], []),
+      [{ turn: 1, path: 'a.py', status: 'added', additions: 1, deletions: 0, patch: '' }],
+    )
+    expect(rounds[0]?.title).toBe('改退款接口')
+  })
+
   it('groups the stored diffs by turn with the latest turn first', () => {
     const rounds = deriveRounds(detail([msg('a1', 1), msg('a2', 2)], []), [
       { turn: 1, path: 'a.py', status: 'added', additions: 42, deletions: 0, patch: '' },

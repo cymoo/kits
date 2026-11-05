@@ -34,7 +34,7 @@ test('allows a command once with the shortcut', async () => {
     await expect(page.getByTestId('answer')).toContainText('12 个测试全部通过')
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     const turn = page.getByTestId('turn')
-    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await turn.getByRole('button').first().click()
     await turn.getByTestId('step').filter({ hasText: '跑 points 的测试' }).click()
     await expect(turn.getByTestId('step-output')).toContainText('已允许')
   } finally {
@@ -56,7 +56,7 @@ test('shows what a subagent is doing and asks for its commands', async () => {
     await page.screenshot({ path: 'test-results/subagent.png' })
     await page.keyboard.press(`${mod}+Enter`)
     await expect(page.getByTestId('answer')).toContainText('子任务跑完了')
-    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await turn.getByRole('button').first().click()
     const step = turn.getByTestId('step').filter({ hasText: '跑 points 的测试' })
     await expect(step).toContainText('2 步')
     await step.click()
@@ -83,7 +83,7 @@ test('follows the plan above the composer and keeps each update in the steps', a
     await expect(page.getByTestId('answer')).toContainText('都做完了')
     await expect(plan).toBeHidden()
     const turn = page.getByTestId('turn')
-    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await turn.getByRole('button').first().click()
     const update = turn.getByTestId('step').filter({ hasText: '更新计划' })
     await expect(update).toHaveCount(3)
     await update.nth(0).click()
@@ -111,7 +111,7 @@ test('rejects a command with a reason and lets the agent go on', async () => {
     await expect(card).toBeHidden()
     await expect(page.getByTestId('answer')).toContainText('不跑测试了')
     const turn = page.getByTestId('turn')
-    await turn.getByRole('button', { name: /第 1 轮/ }).click()
+    await turn.getByRole('button').first().click()
     await expect(turn.getByTestId('step').filter({ hasText: '跑 points 的测试' })).toContainText(
       '已拒绝',
     )

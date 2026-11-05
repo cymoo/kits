@@ -90,7 +90,7 @@ describe('deriveBlocks', () => {
     expect(blocks[1]).toMatchObject({ state: 'done', endedAt: 7 })
     expect(blocks[2]).toMatchObject({ text: '先别改测试' })
     expect(blocks[2]).not.toHaveProperty('pending')
-    expect(blocks[3]).toMatchObject({ resumed: true, startedAt: 7, endedAt: 9 })
+    expect(blocks[3]).toMatchObject({ kind: 'turn', turn: 1, startedAt: 7, endedAt: 9 })
   })
 
   it('keeps an interjection the model has not seen below the running work', () => {

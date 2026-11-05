@@ -97,7 +97,7 @@ interface Queued {
 }
 
 // 导出文件名：日期-标题[-第 N 轮]，去掉文件名里不能用的字符
-export function exportName(title: string, turn: number, turns: number, at: number): string {
+export function exportName(title: string, at: number): string {
   const d = new Date(at)
   const date = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`
   const slug =
@@ -105,7 +105,7 @@ export function exportName(title: string, turn: number, turns: number, at: numbe
       .replace(/[\\/:*?"<>|\s]+/g, '-')
       .replace(/^-+|-+$/g, '')
       .slice(0, 40) || '产出'
-  return `${date}-${slug}${turns > 1 ? `-第${turn}轮` : ''}`
+  return `${date}-${slug}`
 }
 
 // 一轮从 startTurn 起就登记：内核冷启动期间也能拦住重复的 prompt、接住停止
@@ -219,7 +219,7 @@ export class SessionService {
           : `\`\`\`json\n${JSON.stringify(content, null, 2)}\n\`\`\`\n`
         : JSON.stringify(content, null, 2)
     mkdirSync(this.deps.exportsDir, { recursive: true })
-    const base = exportName(session?.title ?? '', output.turn, session?.turns ?? 1, at)
+    const base = exportName(session?.title ?? '', at)
     const ext = input.format === 'markdown' ? 'md' : 'json'
     // 同一天同名的任务不互相覆盖：重名就加序号
     let file = path.join(this.deps.exportsDir, `${base}.${ext}`)

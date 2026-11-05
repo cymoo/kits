@@ -988,10 +988,10 @@ describe('SessionService compact', () => {
 })
 
 describe('exportName', () => {
-  it('drops characters that cannot go into a file name and adds the turn when there are several', () => {
+  it('drops characters that cannot go into a file name', () => {
     const at = new Date(2026, 10, 4).getTime()
-    expect(exportName('a/b: c?', 2, 3, at)).toBe('20261104-a-b-c-第2轮')
-    expect(exportName('', 1, 1, at)).toBe('20261104-产出')
+    expect(exportName('a/b: c?', at)).toBe('20261104-a-b-c')
+    expect(exportName('', at)).toBe('20261104-产出')
   })
 })
 
