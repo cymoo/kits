@@ -83,15 +83,18 @@ const sendButton =
 
 // 上下文用量环：八成以上变色，和输入框上方的提示同一个阈值；输入框窄时只留环
 function ContextRing({ used, window, onOpen }: { used: number; window: number; onOpen(): void }) {
-  const pct = Math.min(100, (used / window) * 100)
+  const pct = window ? Math.min(100, (used / window) * 100) : 0
   const near = pct >= 80
   const circle = 2 * Math.PI * 6
+  const label = window
+    ? t('composer.context', { used: formatTokens(used), window: formatTokens(window) })
+    : t('session.viewContext')
   return (
     <button
       type="button"
       data-testid="context-ring"
-      aria-label={t('composer.context', { used: formatTokens(used), window: formatTokens(window) })}
-      title={t('composer.context', { used: formatTokens(used), window: formatTokens(window) })}
+      aria-label={label}
+      title={label}
       onClick={onOpen}
       className={cx(chip, 'tabular-nums', near && 'text-warn hover:text-warn')}
     >
@@ -108,7 +111,7 @@ function ContextRing({ used, window, onOpen }: { used: number; window: number; o
           className={near ? 'stroke-warn' : 'stroke-fg-muted'}
         />
       </svg>
-      <span className="@max-[420px]:hidden">{Math.round(pct)}%</span>
+      {window ? <span className="@max-[420px]:hidden">{Math.round(pct)}%</span> : null}
     </button>
   )
 }
@@ -141,8 +144,8 @@ export function Composer({
   }
   onPermission?: (mode: (typeof PERMS)[number]) => Promise<void> | void
   onModel?: (model: string) => Promise<void> | void
-  // 上下文用量：不知道窗口多大时不传
-  context?: { used: number; window: number; onOpen(): void } | undefined
+  // 会话页的上下文用量环，上下文只从这里打开；window 不知道时是 0
+  context?: { used: number; window: number; onOpen(): void }
   big?: boolean
   placeholder: string
   disabled?: boolean

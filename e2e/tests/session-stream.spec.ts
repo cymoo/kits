@@ -376,3 +376,26 @@ test('changes the permission and model of an open session from the composer', as
     await close()
   }
 })
+
+test('reaches the context from the ring when the model window is unknown', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'done',
+    KITS_MOCK_SPEED: '0.2',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    await page.getByLabel('给 Agent 发消息').fill('开始')
+    await page.getByLabel('给 Agent 发消息').press('Enter')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    // 这个会话的模型从设置里删掉了，窗口大小就不知道了
+    await page.evaluate(() => window.kits.settings.update({ gateways: [] }))
+    const ring = page.getByTestId('context-ring')
+    await expect(ring).not.toContainText('%')
+    await ring.click()
+    await expect(page.getByRole('dialog', { name: '上下文' })).toBeVisible()
+  } finally {
+    await close()
+  }
+})

@@ -164,9 +164,6 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
       <sc-if value="{{menuOpen}}">
         <div onClick="{{toggleMenu}}" style="position: fixed; inset: 0; z-index: 30"></div>
         <div class="k-menu" role="menu" style="top: 44px; right: 48px">
-          <button type="button" role="menuitem" onClick="{{openContext}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"></circle><path d="M8 2a6 6 0 0 1 6 6H8z"></path></svg><span>查看上下文</span><small>{{ctxPctText}}</small></button>
-          <button type="button" role="menuitem" onClick="{{toggleMenu}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h10M3 10h10M6.5 3.5 8 5l1.5-1.5M6.5 12.5 8 11l1.5 1.5"></path></svg><span>压缩上下文</span></button>
-          <hr>
           <button type="button" role="menuitem" onClick="{{toggleMenu}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"></path></svg><span>导出 Markdown</span></button>
           <button type="button" role="menuitem" onClick="{{toggleMenu}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"></path></svg><span>导出 JSON</span></button>
           <button type="button" role="menuitem" onClick="{{toggleMenu}}"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3H3v10h10V9.5M9 3h4v4M13 3 7.5 8.5"></path></svg><span>在访达中显示</span></button>
@@ -1139,8 +1136,8 @@ class Component extends DCLogic {
 
     return {
       wide, narrow: !wide, title: sc.title, crumb: sc.dir + (sc.agent ? ' · ' + sc.agent : ''), dirPath: '~/repo/' + sc.dir,
-      menuOpen: s.menuOpen, toggleMenu: () => this.setState({ menuOpen: !s.menuOpen }), openContext: () => this.setState({ menuOpen: false, ctxOpen: true }),
-      ctxOpen: s.ctxOpen, closeContext: () => this.setState({ ctxOpen: false }), ctxPct: ctxPct, ctxPctText: Math.round(ctxPct) + '%', ctxUsed: usageText,
+      menuOpen: s.menuOpen, toggleMenu: () => this.setState({ menuOpen: !s.menuOpen }),
+      ctxOpen: s.ctxOpen, closeContext: () => this.setState({ ctxOpen: false }), ctxPct: ctxPct, ctxUsed: usageText,
       openOutput: () => this.setState({ tab: 'output', outputTab: true }), openExport: () => this.setState({ tab: 'output', outputTab: true, exportOpen: true }),
       pillStyle: 'display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; border-radius: 12px; padding: 1px 9px; flex: 0 0 auto; ' + pillDefs[pk][0],
       pillDot: pillDefs[pk][1] ? 'width: 6px; height: 6px; border-radius: 50%; background: ' + pillDefs[pk][1] : '', pillCheck: pk === 'done', pillText,
