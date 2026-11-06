@@ -429,8 +429,8 @@ const zhCN = {
   'perm.tool.webfetch': '联网取网页；只用内网模型，默认禁止',
   'perm.tool.task': '子 Agent',
   'perm.tool.skill': '加载技能；设置里关掉的技能拒绝',
-  'perm.readonly': '自动允许的只读命令',
-  'perm.readonlyHint': '带重定向、命令替换、-exec 这类写法的除外',
+  'perm.readonly': '只读命令',
+  'perm.readonlyHint': '“每次确认”和“只读”模式下自动允许；带重定向、命令替换、-exec 这类写法的除外',
   'perm.where': '改单个 Agent 的权限、单个 MCP 工具的档位：',
   'privacy.intro':
     '数据只存在这台电脑上。kits 不上传会话，也不连外网；模型请求只发到你配置的网关。',

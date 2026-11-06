@@ -336,7 +336,7 @@ const hardDeniedCommands = [
 ]
 
 // 工作区里改了等于改权限或执行命令的路径：.git（core.fsmonitor、diff.external、hooks 让白名单里的
-// git status 跑任意命令）、内核和 kits 的项目配置、CI、编辑器任务、git 钩子工具。“执行前确认”下要问
+// git status 跑任意命令）、内核和 kits 的项目配置、CI、编辑器任务、git 钩子工具。“智能”和“每次确认”下要问
 const PROTECTED_DIRS = ['.git', '.opencode', '.agents', '.github/workflows', '.husky', '.vscode']
 const PROTECTED_FILES = ['.git', 'opencode.json', 'opencode.jsonc', '.env', '.env.*']
 const protectedEditPatterns = [
@@ -481,8 +481,9 @@ function editRules(place?: SessionPlace): Record<string, PermissionLevel> {
   return rules
 }
 
-// phase1 方案 4.5 节的默认值，bash 带只读白名单。
-// 规则写在这里而不是只写在会话上：内核的子会话只继承 deny，ask 要靠这份全局规则才管得到子任务
+// phase1 方案 4.5 节的默认值，也是“每次确认”档的规则，bash 带只读白名单。
+// 写内核全局配置时也用它：内核的子会话只继承 deny，ask 要靠全局规则才管得到子任务。bash 例外，
+// 全局只写 ask（见 generateOpencodeConfig），子任务的命令由 kits 按会话规则回答
 export const defaultPermissions: PermissionSet = {
   // 会话规则排在内核默认值后面，这里不写内核的 .env 询问就被 allow 盖掉了
   read: { '*': 'allow', '*.env': 'ask', '*.env.*': 'ask', '*.env.example': 'allow' },
