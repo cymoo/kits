@@ -926,7 +926,7 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 
 ## 2026-11-06　Windows 契约测试的路径断言，`.docker` 密钥目录
 
-> 日期：2026-11-06　PR：见本分支 `fix/session-windows-contract-paths`　作者：Claude Code
+> 日期：2026-11-06　PR：#86　作者：Claude Code
 
 ### 原始需求
 
