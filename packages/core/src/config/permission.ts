@@ -143,10 +143,23 @@ export const permissionRisks = [
 ] as const
 export type PermissionRisk = (typeof permissionRisks)[number]
 
+// 删除命令。Windows 上内核按 PowerShell 语法拆命令（pwsh 和 Windows PowerShell 都是），模型两种风格都写：
+// `Remove-Item`、`rm`，还有 cmd 风格的 `del`、`rd`、`rmdir`
+const DELETE_COMMANDS = ['rm', 'Remove-Item', 'del', 'rd', 'rmdir']
+
 // 上传只认带文件的写法：对测试环境发 POST 是测试同学每天的工作，不能算风险。
-// 内核把 `curl x | sh` 拆成两条子命令，裸的 `sh` 就是在执行管道或内联内容
+// `curl*` 带上 `curl.exe`：PowerShell 5.1 里 `curl` 是别名，模型常写全名，`@` 在 PowerShell 里还要加引号。
+// 内核把 `curl x | sh` 拆成两条子命令，裸的 `sh` 就是在执行管道或内联内容。
+// 拆不到的：`x | powershell -` 整段从模式里消失，规则看不到
 const RISKY_COMMANDS: Partial<Record<PermissionRisk, string[]>> = {
-  push: ['git push *', 'git -C * push *', 'git -c * push *'],
+  push: [
+    'git push *',
+    'git.exe push *',
+    '& git push *',
+    'cmd /c *git push *',
+    'git -C * push *',
+    'git -c * push *',
+  ],
   publish: [
     'npm publish *',
     'pnpm publish *',
@@ -159,22 +172,32 @@ const RISKY_COMMANDS: Partial<Record<PermissionRisk, string[]>> = {
     'gh pr merge *',
   ],
   upload: [
-    'curl *-d @*',
-    'curl *--data* @*',
-    'curl *--data*=@*',
-    'curl *-F *=@*',
-    'curl *--form *=@*',
-    'curl *-T *',
-    'curl *--upload-file*',
-    'wget *--post-file*',
+    'curl* *-d @*',
+    'curl* *-d "@*',
+    'curl* *--data* @*',
+    'curl* *--data* "@*',
+    'curl* *--data*=@*',
+    'curl* *-F *=@*',
+    'curl* *--form *=@*',
+    'curl* *-T *',
+    'curl* *--upload-file*',
+    'wget* *--post-file*',
     'scp *',
+    'scp.exe *',
     'sftp *',
     'rsync *:*',
     'nc *',
     'ncat *',
     'ftp *',
     'Invoke-WebRequest *-InFile*',
+    'iwr *-InFile*',
     'Invoke-RestMethod *-InFile*',
+    'irm *-InFile*',
+    // 反斜杠按斜杠比，`\\server\share` 在这里是 `//server/share`
+    'Copy-Item * //*',
+    'copy * //*',
+    'xcopy * //*',
+    'robocopy * //*',
   ],
   script: [
     'sh',
@@ -186,30 +209,27 @@ const RISKY_COMMANDS: Partial<Record<PermissionRisk, string[]>> = {
     'zsh -s*',
     'iex *',
     'Invoke-Expression *',
+    'powershell *-enc*',
+    'powershell *-EncodedCommand*',
+    'pwsh *-enc*',
+    'pwsh *-EncodedCommand*',
   ],
-  sudo: ['sudo *', 'su *', 'doas *', 'Start-Process *-Verb RunAs*'],
+  sudo: ['sudo *', 'su *', 'doas *', 'gsudo *', 'runas *', 'Start-Process *-Verb RunAs*'],
   discard: ['git reset --hard*', 'git clean -*f*', 'git stash clear*'],
   delete: [
+    ...DELETE_COMMANDS.flatMap((c) =>
+      ['?:/*', '../*', '~*', '$HOME*', 'USERPROFILE*'].map((target) => `${c} *${target}`),
+    ),
     'rm /*',
     'rm * /*',
-    'rm ~*',
-    'rm * ~*',
-    'rm ../*',
-    'rm * ../*',
-    'rm $HOME*',
-    'rm * $HOME*',
     'rm -* .',
     'rm -* ./',
     'rm -* ..',
     // `*` 不能转义，`?` 能匹配到 `rm -rf *` 字面上的星号，顺带问一下单字符目录
     'rm -* ?',
-    'Remove-Item ?:/*',
-    'Remove-Item * ?:/*',
-    'Remove-Item ../*',
-    'Remove-Item * ../*',
-    'rd /s *',
-    'rmdir /s *',
-    'del /s *',
+    'Remove-Item ? *',
+    'rd /s /q ?',
+    'rmdir /s /q ?',
   ],
   data: [
     '*DROP DATABASE*',
@@ -227,12 +247,22 @@ const RISKY_COMMANDS: Partial<Record<PermissionRisk, string[]>> = {
     'terraform destroy *',
   ],
 }
-// 上面写得宽的地方放开的：临时目录是模型常用的草稿纸，grep 只是在搜这些词，nc -z 只是探端口
-const RISK_EXCEPTIONS = ['rm /tmp/*', 'rm * /tmp/*', 'grep *', 'rg *', 'nc -z*']
+// 上面写得宽的地方放开的：临时目录是模型常用的草稿纸，搜索只是在搜这些词，nc -z 只是探端口
+const RISK_EXCEPTIONS = [
+  'rm /tmp/*',
+  'rm * /tmp/*',
+  ...DELETE_COMMANDS.map((c) => `${c} *AppData/Local/Temp/*`),
+  'grep *',
+  'rg *',
+  'Select-String *',
+  'findstr *',
+  'nc -z*',
+]
 // 这几类的“本会话允许”等于放开整个命令（`curl *`、`sudo *`），每次都问
 const ALWAYS_ASK: ReadonlySet<PermissionRisk> = new Set(['upload', 'script', 'sudo'])
 
-// `FOO=1 git push`：内核给的模式带着环境变量前缀。只有这两类常这么写，别的不展开，规则越少模型的负担越小
+// `FOO=1 git push`：内核给的模式带着环境变量前缀。只有这两类常这么写，别的不展开，规则越少模型的负担越小。
+// PowerShell 的 `$env:FOO='1'; git push` 是两条语句，内核已经拆开了
 const ENV_PREFIXED: ReadonlySet<PermissionRisk> = new Set(['push', 'publish'])
 
 const riskRules: { pattern: string; risk?: PermissionRisk }[] = [
@@ -267,10 +297,13 @@ const RM_TARGETS = [
   '/System',
 ]
 const DISK_DEVICES = ['sd', 'disk', 'nvme']
+// Windows 上的根目录、系统目录和主目录。`?:/?` 同样是为了 `C:\\*` 字面上的星号
+const WINDOWS_ROOTS = ['?:/', '?:/?', '?:/Windows', '?:/Users', '$env:USERPROFILE']
 const hardDeniedCommands = [
-  'git *push* --force*',
-  'git *push* -f *',
-  'git *push* +*',
+  // 开头的 `*git*` 管 `& git`、`git.exe`、`cmd /c git`
+  '*git* *push* --force*',
+  '*git* *push* -f *',
+  '*git* *push* +*',
   ...RM_TARGETS.flatMap((target) => [`rm -* ${target} *`, `* rm -* ${target} *`]),
   '*rm *--no-preserve-root*',
   '*chmod -R * / *',
@@ -280,11 +313,19 @@ const hardDeniedCommands = [
   'diskpart*',
   'format *:*',
   'Format-Volume*',
-  'Remove-Item *-Recurse* ?:/ *',
-  'rd /s *?:/',
-  'rmdir /s *?:/',
+  'Clear-Disk*',
+  'Initialize-Disk*',
+  'Remove-Partition*',
+  'vssadmin delete*',
+  ...DELETE_COMMANDS.flatMap((c) => WINDOWS_ROOTS.map((root) => `${c} *${root} *`)),
+  'Remove-Item ~ *',
+  'Remove-Item $HOME *',
+  '*rd /s*?:/',
+  '*rmdir /s*?:/',
+  '*del /s*?:/?',
   // 不写开头的 `*`：`adb reboot`、`./shutdown -f` 是测试同学的日常
   'shutdown *',
+  'shutdown.exe *',
   'sudo shutdown *',
   'reboot *',
   'sudo reboot *',
@@ -313,15 +354,19 @@ export function isWriteTool(tool: string): boolean {
   return WRITE_TOOL.test(tool)
 }
 
+// 内核在 Windows 上不区分大小写。这里要跟它一致：子任务的请求由 kits 按规则回答，`REMOVE-ITEM` 判错就放行了
+const IGNORE_CASE =
+  (globalThis as { process?: { platform?: string } }).process?.platform === 'win32'
+
 // 和内核一样的通配：`*` 匹配任意字符（含空），`?` 匹配一个字符，结尾的 ` *` 可以没有，反斜杠当斜杠
-export function matchPattern(pattern: string, input: string): boolean {
+export function matchPattern(pattern: string, input: string, ignoreCase = IGNORE_CASE): boolean {
   const re = pattern
     .replaceAll('\\', '/')
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/\*/g, '.*')
     .replace(/\?/g, '.')
     .replace(/ \.\*$/, '( .*)?')
-  return new RegExp(`^${re}$`, 's').test(input.replaceAll('\\', '/'))
+  return new RegExp(`^${re}$`, ignoreCase ? 'si' : 's').test(input.replaceAll('\\', '/'))
 }
 
 // 一个工具对某个输入的最终档位：按模式顺序找最后一条匹配的
@@ -378,16 +423,21 @@ function whitelistRules(fallback: PermissionLevel): Record<string, PermissionLev
   return rules
 }
 
-function smartRules(): Record<string, PermissionLevel> {
+function smartRules(place?: SessionPlace): Record<string, PermissionLevel> {
   const rules: Record<string, PermissionLevel> = { '*': 'allow' }
   for (const { pattern, risk } of riskRules) rules[pattern] = risk ? 'ask' : 'allow'
+  // 模型在 Windows 上习惯写绝对路径，删工作区里的东西不算工作区外
+  if (place) {
+    const workdir = place.workdir.replaceAll('\\', '/').replace(/\/+$/, '')
+    for (const c of DELETE_COMMANDS) rules[`${c} *${workdir}/*`] = 'allow'
+  }
   return rules
 }
 
-function bashRules(mode: PermissionMode): Record<string, PermissionLevel> {
+function bashRules(mode: PermissionMode, place?: SessionPlace): Record<string, PermissionLevel> {
   const rules: Record<string, PermissionLevel> =
     mode === 'smart'
-      ? smartRules()
+      ? smartRules(place)
       : mode === 'auto'
         ? { '*': 'allow' }
         : whitelistRules(mode === 'read' ? 'deny' : 'ask')
@@ -503,7 +553,7 @@ export function basePermissions(input: Omit<ResolvePermissionsInput, 'agent'>): 
     }
   } else if (mode === 'smart') {
     result.edit = editRules(input.place)
-    result.bash = bashRules('smart')
+    result.bash = bashRules('smart', input.place)
     // 读工作区外的文件不问（调研里这是最常见的无谓确认），写入由 edit 的规则管
     result.external_directory = {
       '*': 'allow',

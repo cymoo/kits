@@ -499,7 +499,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       const { asked } = await asks(await smartSession('smartwrite'))
       expect(asked.map((a) => a.tool)).toEqual(['edit'])
       // Windows CI 的临时目录是 8.3 短路径，前面是一串 ..\，这里只看结尾
-      expect(asked[0]?.patterns[0]?.replaceAll('\', '/')).toMatch(/\/outside\/new\.txt$/)
+      expect(asked[0]?.patterns[0]?.replaceAll('\\', '/')).toMatch(/\/outside\/new\.txt$/)
     }, 60_000)
 
     it('writes in a workspace that is not a git repository without asking', async () => {

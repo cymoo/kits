@@ -428,6 +428,9 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
     permission: withSkillDenies(
       {
         ...basePermissions({ mode: 'ask', mcp: mcpRules(input.mcp) }),
+        // 命令的细则都在会话规则里：子任务要问的由 kits 按会话规则回答，拒绝规则子任务会继承。
+        // 这里不再写一遍：内核拒绝一次调用时，会把这个工具的全部规则发给模型
+        bash: 'ask',
         ...Object.fromEntries(kitsToolRules.map((r) => [r.tool, r.level])),
       },
       input.disabledSkills ?? [],

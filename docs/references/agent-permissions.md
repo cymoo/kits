@@ -21,7 +21,16 @@
 - `curl x | sh` 拆成 `curl x` 和 `sh`，裸的 `sh` 就是在执行管道内容。`bash <<EOF` 同样是裸的 `bash`，分不开。
 - `FOO=1 git push` 的模式带着前缀，`git push *` 匹配不到。
 - `echo x > ../y` 不触发 `external_directory`，只有 `bash`。
-- **内核拒绝时把这个工具的全部规则塞进错误发给模型**，一次约 20KB。规则不能无限加，给人看的错误已由 kits 换成一句话。
+- **内核拒绝时把这个工具的全部规则塞进错误发给模型**。全局配置的 bash 因此只留一条 `ask`，细则都在会话规则里，一次约 16KB。规则不能无限加，给人看的错误已由 kits 换成一句话。
+
+Windows（真实 OpenCode 1.19.5，windows-latest，2026-11-06）：
+
+- 内核按 PowerShell 语法拆命令，pwsh 和 Windows PowerShell 都算；`Git Bash`、`cmd.exe` 排在后面，一般轮不到。CI 上是 pwsh，5.1 按源码同一条路径，没有单独跑。
+- **不带引号的 `$var\a\b` 会被截掉最后一段**：`Get-Content $HOME\.aws\credentials` 到规则只剩 `Get-Content $HOME\.aws`。带引号和 `~\` 开头的不截。密钥规则因此按目录写。
+- `Remove-Item`、`rm`、`Get-Content`、`Set-Content`、`Copy-Item` 能解析 `$env:USERPROFILE`、`~`、`..\`，算出 `external_directory`；`del`、`rd`、`rmdir`、`type`、`curl.exe` 不算，只能靠文本。
+- `$env:FOO='1'; git push` 拆成两条，`git push` 能匹配；`& git push` 的模式带着 `& `；`$x = git push` 不带。
+- `cmd /c ...` 整段是一条，`x | powershell -` 整段从模式里消失，`Get-ChildItem C:\x | Remove-Item -Recurse` 的 `Remove-Item` 看不到目标。
+- 匹配不区分大小写，kits 这边的 `matchPattern` 要跟着一致。
 
 ## 结论
 
