@@ -926,7 +926,7 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 
 ## 2026-11-06　权限重构：默认“智能”档，只问撤不回的操作
 
-> 日期：2026-11-06　PR：见本分支 `feat/session-smart-permissions`　作者：Claude Code
+> 日期：2026-11-06　PR：[#87](https://github.com/cymoo/kits/pull/87)　作者：Claude Code
 
 ### 原始需求
 
