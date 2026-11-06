@@ -249,3 +249,40 @@ kits 主要运行在 Windows 上，mac 只用于本地开发，CI 不需要再�
 ### 已知问题
 
 无。
+
+## 2026-11-06　打包时检查 ripgrep
+
+> PR：#85
+
+### 原始需求
+
+Windows 上测试时，grep、glob 工具报 `ripgrep execution failed`，PATH 里也没有 `rg`。kits 本该随包带 `rg.exe`，但打包有个漏洞：`vendor/ripgrep/win-x64` 不存在时 electron-builder 只打警告，`beforePack` 又只检查 OpenCode。在 #52 之前跑过 `pnpm vendor:kernel` 的机器，之后只跑打包命令，能打出没有 `rg.exe` 的包。
+
+做到什么程度算完：Windows 包缺 `rg.exe` 时打包失败，错误里写明怎么修。
+
+### 怎么验收
+
+1. 在 Windows 仓库根目录删掉 `vendor\ripgrep`，跑 `pnpm --filter @kits/desktop package:dir`。预期打包失败，报 `ripgrep not found at ...\vendor\ripgrep\win-x64\rg.exe; check third_party/ripgrep/win-x64 and run pnpm vendor:kernel`。
+2. 跑 `pnpm vendor:kernel` 后再打包。预期打包成功，`resources\bin\ripgrep\rg.exe` 存在。
+3. 在 mac 上跑 `pnpm vendor:kernel && pnpm --filter @kits/desktop package:dir`。预期照常成功，mac 不随包带 ripgrep。
+
+### 主要改动
+
+- `apps/desktop/scripts/check-kernel.mjs`：新增 `assertRipgrep`。Windows 一定要有 `rg.exe`；其他平台在 `third_party/ripgrep/<os>-<arch>` 存在时才要求，以后加了 mac 版也管得到。
+
+配置项和数据库 schema 没有变。
+
+### 测试
+
+- `check-kernel.test.ts` 覆盖：缺文件、空目录、已就绪、不带 ripgrep 的平台、有 `third_party` 没 vendor。
+- 在 mac 上跑 `electron-builder --win --x64 --dir`，放一个占位的 `opencode.exe`、不放 `rg.exe`，打包在 `beforePack` 失败。这个检查没有留在仓库里。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 这次只防打包漏带。那台 Windows 机器上的报错是不是这个原因，还要按定位结论在机器上确认；如果是 PATH 没传到内核或 `rg.exe` 被拦截，这个检查管不到。
+- mac 不随包带 ripgrep，内网的 mac 用户仍然依赖本机的 `rg`。
+
