@@ -995,3 +995,40 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 - 内核拒绝一次，模型收到约 20KB 规则（改之前约 17KB）。硬拒绝和风险清单别再大幅加长。
 - 调研里的合并卡片、规则管理页、总结卡、`permission_log` 记决策来源没有做，审查模型（P2）不做。
 - 本次在 macOS 上验证，Windows 看 CI。CodeAgent 走同一套规则，`external_directory` 和 `edit` 路径的写法要在核对清单里确认。
+
+## 2026-11-06　Windows 契约测试的路径断言，`.docker` 密钥目录
+
+> 日期：2026-11-06　PR：#86　作者：Claude Code
+
+### 原始需求
+
+#84 合入后 `main` 的 Windows CI 失败，2 个契约测试的断言写死了 Unix 下的文本。保护本身生效：两个用例都弹了询问。
+
+- 写 `.git/config`：Windows CI 的临时目录是 8.3 短路径，内核给的是 `..\..\...\.git\config`，不是 `.git/config`。
+- `wc -c $HOME/.ssh/config`：内核的 PowerShell 解析把路径最后一段截掉，收到的是 `wc -c $HOME/.ssh`。
+
+第二条暴露一个真问题：`.docker/config.json` 按文件写，截断后匹配不上，Windows 上不询问。
+
+### 怎么验收
+
+1. 看这个 PR 的 Windows CI。预期 `asks before writing into .git` 和 `asks before a whitelisted command reads a secret path` 通过。
+2. 在“执行前确认”下让 Agent 跑 `cat ~/.docker/config.json`。预期弹确认卡片。
+
+### 主要改动
+
+- `opencode-family.contract.test.ts`：两处断言不再依赖平台上的具体文本。
+- `packages/core/src/config/permission.ts`：`.docker` 改按目录匹配。
+
+配置项和数据库 schema 没有变化。
+
+### 测试
+
+- `permission.test.ts` 补 `.docker` 两条。契约测试本机通过，Windows 看 CI。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 内核在 PowerShell 下截断路径最后一段，比较深的写法仍然匹配不上，比如 `$HOME/backup/.ssh/id_rsa` 收到的可能只是 `$HOME/backup/.ssh`，这个能命中；再深一层的情况没有逐一验证。

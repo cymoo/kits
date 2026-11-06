@@ -257,6 +257,8 @@ describe('secrets', () => {
       'ls ~/.ssh',
       'head ~/.aws/credentials',
       'grep token ~/.netrc',
+      'cat ~/.docker/config.json',
+      'wc -c $HOME/.docker',
       'cat .env',
       'cat app/.env.local',
       String.raw`Get-Content $env:USERPROFILE\.ssh\id_rsa`,
