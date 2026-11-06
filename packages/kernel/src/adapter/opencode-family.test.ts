@@ -150,6 +150,7 @@ async function setup(options: OpencodeFamilyOptions = {}): Promise<KernelSession
     apiPrefix: '',
     permissionListPath: '/permission',
     interject: true,
+    projectInstructions: false,
     spawn: async () => ({
       baseUrl: fake.url,
       headers: {},

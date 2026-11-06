@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { builtinAssistant, type KernelEvent, parseMcpFile, parseSettings } from '@kits/core'
@@ -21,6 +21,7 @@ const binary = resolveKernelBinary('opencode', {
 
 const mcp = parseMcpFile({})
 const SUBAGENT_PROMPT = '建一个文件'
+const GIT_CONFIG_PROMPT = '改 git 配置'
 
 describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
   let root: string
@@ -72,6 +73,38 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
               },
             },
     })
+    // 主会话派子任务，子任务写 .git/config：子任务只继承 deny，保护路径要写在全局规则里才管得到
+    const gitConfig = {
+      name: 'write',
+      arguments: { filePath: path.join(workdir, '.git/config'), content: '[core]\n' },
+    }
+    mocks.guarded = await startMockModel({ toolCall: gitConfig })
+    mocks.guardedsub = await startMockModel({
+      pickTool: (body) =>
+        JSON.stringify(body.messages).includes(GIT_CONFIG_PROMPT)
+          ? gitConfig
+          : {
+              name: 'task',
+              arguments: {
+                description: '改配置',
+                subagent_type: 'general',
+                prompt: GIT_CONFIG_PROMPT,
+              },
+            },
+    })
+    mocks.skills = await startMockModel()
+    mocks.force = await startMockModel({
+      toolCall: {
+        name: 'bash',
+        arguments: { command: 'git push --force origin main', description: 'Force push' },
+      },
+    })
+    mocks.secret = await startMockModel({
+      toolCall: {
+        name: 'bash',
+        arguments: { command: 'wc -c $HOME/.ssh/config', description: 'Size' },
+      },
+    })
     const result = generateOpencodeConfig({
       settings: parseSettings({
         gateways: Object.entries(mocks).map(([id, m]) => ({
@@ -94,6 +127,11 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
         writer: 'k',
         subagent: 'k',
         parallel: 'k',
+        guarded: 'k',
+        guardedsub: 'k',
+        force: 'k',
+        skills: 'k',
+        secret: 'k',
       },
       lookupVar: () => undefined,
     })
@@ -328,7 +366,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
   }, 60_000)
 
-  it('reports the requests the kernel settled along with an always reply', async () => {
+  it('reports the requests the kernel settled along with a reject', async () => {
     const s = await session('parallel')
     const asked: string[] = []
     let late: boolean | undefined
@@ -337,8 +375,8 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       '并行建两个文件',
       async (e) => {
         asked.push(e.requestId)
-        // 两个请求都到了再回复第一个，“本会话允许”覆盖到第二个
-        if (asked.length === 2) await kernel.respondPermission(s, asked[0] as string, 'always')
+        // 两个请求都到了再回复第一个，内核连带拒绝第二个
+        if (asked.length === 2) await kernel.respondPermission(s, asked[0] as string, 'reject')
       },
       (e) => {
         if (e.type === 'permission-replied' && e.requestId === asked[1]) {
@@ -349,11 +387,92 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       },
     )
     expect(events.filter((e) => e.type === 'permission-replied')).toEqual(
-      asked.map((requestId) => ({ type: 'permission-replied', requestId, reply: 'always' })),
+      asked.map((requestId) => ({ type: 'permission-replied', requestId, reply: 'reject' })),
     )
     expect(late).toBe(false)
-    expect(events.at(-1)).toEqual({ type: 'done', reason: 'completed' })
+    expect(events.at(-1)?.type).toBe('done')
   }, 60_000)
+
+  it('asks before writing into .git, which would turn git status into a command', async () => {
+    const s = await session('guarded')
+    const asked: { tool: string; patterns: string[]; always: string[] }[] = []
+    await run(s, '改配置', (e) => {
+      asked.push({ tool: e.tool, patterns: e.patterns, always: e.always })
+      return kernel.respondPermission(s, e.requestId, 'reject', '不要改')
+    })
+    expect(asked).toEqual([{ tool: 'edit', patterns: ['.git/config'], always: ['.git/config'] }])
+  }, 60_000)
+
+  it('asks when a subagent writes into .git as well', async () => {
+    const s = await session('guardedsub')
+    const asked: string[] = []
+    await run(s, '派子任务', (e) => {
+      asked.push(e.tool)
+      return kernel.respondPermission(s, e.requestId, 'reject', '不要改')
+    })
+    expect(asked).toEqual(['edit'])
+  }, 60_000)
+
+  it('denies a force push without asking', async () => {
+    const s = await session('force')
+    const events = await run(s, '强推', () => Promise.reject(new Error('不该问')))
+    const end = events.find((e) => e.type === 'tool-end')
+    expect(end && end.type === 'tool-end' && end.error).toBeTruthy()
+  }, 60_000)
+
+  it('asks before a whitelisted command reads a secret path', async () => {
+    const s = await session('secret')
+    const asked: string[][] = []
+    await run(s, '看大小', (e) => {
+      asked.push(e.patterns)
+      return kernel.respondPermission(s, e.requestId, 'reject', '不要读')
+    })
+    expect(asked).toEqual([['wc -c $HOME/.ssh/config']])
+  }, 60_000)
+
+  it('still finds the project skills with the project config off', async () => {
+    const dir = path.join(path.dirname(workdir), 'with-skill')
+    mkdirSync(path.join(dir, '.agents/skills/kits-project-skill'), { recursive: true })
+    execFileSync('git', ['init', '-q'], { cwd: dir })
+    writeFileSync(
+      path.join(dir, '.agents/skills/kits-project-skill/SKILL.md'),
+      '---\nname: kits-project-skill\ndescription: 项目技能探针\n---\n正文\n',
+    )
+    const s = await kernel.createSession({
+      workdir: dir,
+      agent: 'assistant',
+      model: `skills/${MOCK_MODEL_ID}`,
+      title: 'contract',
+      permission: agentPermissions(builtinAssistant, 'ask', mcp),
+    })
+    await run(s, '打印 hi', (e) => kernel.respondPermission(s, e.requestId, 'once'))
+    expect(JSON.stringify(mocks.skills?.requests)).toContain('项目技能探针')
+  }, 60_000)
+
+  it('does not load plugins from the working directory', async () => {
+    const dir = path.join(path.dirname(workdir), 'cloned')
+    const marker = path.join(path.dirname(workdir), 'plugin-ran')
+    mkdirSync(path.join(dir, '.opencode/plugin'), { recursive: true })
+    execFileSync('git', ['init', '-q'], { cwd: dir })
+    writeFileSync(
+      path.join(dir, '.opencode/plugin/p.js'),
+      `import { writeFileSync } from 'node:fs'
+export const P = async () => {
+  writeFileSync(${JSON.stringify(marker)}, 'x')
+  return {}
+}
+`,
+    )
+    const s = await kernel.createSession({
+      workdir: dir,
+      agent: 'assistant',
+      model: `ok/${MOCK_MODEL_ID}`,
+      title: 'contract',
+      permission: agentPermissions(builtinAssistant, 'ask', mcp),
+    })
+    await run(s, '打印 hi', (e) => kernel.respondPermission(s, e.requestId, 'once'))
+    expect(existsSync(marker)).toBe(false)
+  }, 120_000)
 
   it('maps the diff of a file the agent wrote', async () => {
     const s = await session('writer')
@@ -378,7 +497,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
 
   it('reads back the session messages and an empty diff', async () => {
     const s = await session('ok')
-    await run(s, '打印 hi', (e) => kernel.respondPermission(s, e.requestId, 'always'))
+    await run(s, '打印 hi', (e) => kernel.respondPermission(s, e.requestId, 'once'))
     const messages = await kernel.messages(s)
     expect(messages.map((m) => m.info.role)).toContain('assistant')
     expect(await kernel.diff(s)).toEqual([])
@@ -386,7 +505,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
 
   it('compacts a session and returns the summary text', async () => {
     const s = await session('ok')
-    await run(s, '打印 hi', (e) => kernel.respondPermission(s, e.requestId, 'always'))
+    await run(s, '打印 hi', (e) => kernel.respondPermission(s, e.requestId, 'once'))
     const result = await kernel.summarize(s)
     // 假网关没带工具的请求回固定的一句，压缩请求也走这里
     expect(result.summary).toContain(MOCK_TITLE)

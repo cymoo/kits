@@ -214,7 +214,7 @@ MCP 工具在内核里的名字是 `<服务名>_<工具名>`，规则转换时�
 | MCP | `mcp.<name> = { type: "local" \| "remote", command/url, environment/headers, enabled, oauth: false }` | `${VAR}` 写成 `{env:KITS_MCP_VAR}`，值先查 secrets 再查环境变量、只进子进程环境，不落盘 |
 | kits 工具 | `mcp.kits = { type: "remote", url: "http://127.0.0.1:<port>/mcp", headers: { Authorization } }` | 每次运行随机 token |
 | 技能 | `skills.paths: [<每个启用技能的目录>]` | 1.19.5 原生支持，单个技能目录和父目录都认，不用软链接；内核自动把每个技能注册成 `/` 命令（`source: skill`），不另外生成 `command`。注意内核自带 `/init`、`/review` 命令，内置技能别用这两个名字 |
-| 记忆、AGENTS.md | `instructions: [个人 memory.md, 项目 memory.md]` | AGENTS.md 内核原生读 |
+| 记忆、AGENTS.md | `instructions: [个人 memory.md, 项目 memory.md]` | OpenCode 关了项目配置后，项目的 AGENTS.md 和 memory.md 由 kits 随消息带上（2026-11-06）；CodeAgent 的 AGENTS.md 内核原生读 |
 | 联网 | `autoupdate: false`、`share: "disabled"`、`lsp: false`、`formatter: false`、`enabled_providers: [网关 id]`；环境变量 `OPENCODE_DISABLE_MODELS_FETCH=1`、`OPENCODE_DISABLE_LSP_DOWNLOAD=1` | PR1 已对 1.19.5 的 `GET /doc` 核对 |
 
 生成后先校验：网关地址和 key 非空（PoC 问题 5）、模型存在于某个启用的网关、输出 schema 是合法 JSON Schema。不合法在界面上给出指向设置项的错误，不启动内核。

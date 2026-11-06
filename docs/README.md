@@ -14,6 +14,7 @@
 - [plans/phase1-implementation.md](plans/phase1-implementation.md) — 第一阶段实现方案：配置模型、内核层、主进程、界面、测试，拆成 20 个 PR（2026-11-03，评审中）
 - [plans/2026-11-ui-refresh.md](plans/2026-11-ui-refresh.md) — 界面改版方案：去轮次、输入框、工作区侧栏、视觉令牌、文件面板，拆成 8 个 PR（2026-11-06，已完成）
 - [references/codeagent-sdk.md](references/codeagent-sdk.md) — CodeAgent SDK 规格（HTTP + SSE）
+- [references/agent-permissions.md](references/agent-permissions.md) — Agent 权限方案调研：kits 现状和实测漏洞、各家 harness 对比、推荐的分级漏斗方案（2026-11-06，草案）
 - [references/model-poc.md](references/model-poc.md) — 模型 PoC：OpenCode 经公司网关调 DeepSeek 的工具调用稳定性（10 次运行数据、配置样例、SSE 事件样本）
 - [delivery/TEMPLATE.md](delivery/TEMPLATE.md) — 交付说明模板
 - [delivery/scaffold.md](delivery/scaffold.md) — 工程骨架的交付说明（2026-11-03）

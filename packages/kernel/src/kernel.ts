@@ -82,18 +82,27 @@ export interface CompactionResult {
   tokens: number
 }
 
+export type KernelPermissionReply = Exclude<PermissionReply, 'always'>
+
 export interface AgentKernel {
   readonly id: KernelId
-  readonly capabilities: { subagents: boolean; revert: boolean; interject: boolean }
+  // projectInstructions：内核自己读项目的 AGENTS.md 和记忆，不读的 kits 随消息带上
+  readonly capabilities: {
+    subagents: boolean
+    revert: boolean
+    interject: boolean
+    projectInstructions: boolean
+  }
   start(cfg: KernelConfig): Promise<void>
   createSession(opts: CreateSessionOptions): Promise<KernelSession>
   // 一轮对话：事件流以一条 done 结束
   prompt(session: KernelSession, input: UserInput): AsyncIterable<KernelEvent>
-  // 拒绝时 message 作为反馈交给模型。内核里已经没有这个请求时返回 false
+  // 拒绝时 message 作为反馈交给模型。内核里已经没有这个请求时返回 false。
+  // 没有 always：内核记的 always 按工作目录共享，还盖得过 deny，“本会话允许”由 kits 自己记
   respondPermission(
     session: KernelSession,
     requestId: string,
-    reply: PermissionReply,
+    reply: KernelPermissionReply,
     message?: string,
   ): Promise<boolean>
   // 改这个内核会话的权限：rules 是新的完整规则串，下一次工具调用起生效，这一轮还在跑也一样
@@ -124,6 +133,8 @@ export interface KernelDialect {
   readonly permissionListPath: string
   // 运行中再发消息会并进这一轮。不支持的内核，排队的消息等这一轮结束再发
   readonly interject: boolean
+  // 内核自己读项目的 AGENTS.md 和记忆
+  readonly projectInstructions: boolean
 }
 
 export interface SpawnedKernel {

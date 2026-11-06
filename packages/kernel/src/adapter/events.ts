@@ -1,4 +1,4 @@
-import type { DoneReason, KernelEvent, PermissionReply } from '@kits/core'
+import { alwaysScope, type DoneReason, type KernelEvent, type PermissionReply } from '@kits/core'
 
 // OpenCode 系 SSE 事件 → KernelEvent（映射表见 docs/references/model-poc.md“对 KernelEvent 映射和适配器的启示”）。
 // 一轮 prompt 一个映射器，按 sessionID 过滤。有状态：
@@ -303,7 +303,10 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
             tool: String(p.permission),
             input: p.metadata ?? {},
             patterns: (p.patterns as string[] | undefined) ?? [],
-            always: (p.always as string[] | undefined) ?? [],
+            always: alwaysScope(
+              (p.patterns as string[] | undefined) ?? [],
+              (p.always as string[] | undefined) ?? [],
+            ),
             ...(callId ? { callId } : {}),
             ...(asked ? { subagent: true } : {}),
           },

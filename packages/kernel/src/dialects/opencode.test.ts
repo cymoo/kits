@@ -79,6 +79,7 @@ describe('spawnEnv', () => {
     expect(env.OPENCODE_DISABLE_CLAUDE_CODE).toBe('1')
     expect(env.OPENCODE_DISABLE_MODELS_FETCH).toBe('1')
     expect(env.OPENCODE_DISABLE_LSP_DOWNLOAD).toBe('1')
+    expect(env.OPENCODE_DISABLE_PROJECT_CONFIG).toBe('1')
   })
 
   it('overrides inherited XDG variables and passes the secret env through', () => {

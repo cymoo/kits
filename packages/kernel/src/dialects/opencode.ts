@@ -68,7 +68,8 @@ async function waitForHealth(
 // OPENCODE_TEST_HOME 是 1.19.5 里 Global.Path.home 的唯一覆盖口（home = OPENCODE_TEST_HOME ?? os.homedir()），
 // 配置查找会扫 {home}/.opencode，不设它用户的 ~/.opencode/opencode.json 还是会被加载；
 // DISABLE 关掉自动更新、读 Claude Code 配置（PoC 里每轮多 2.8k 输入 token，还让内核行为依赖本机环境）、
-// 从 models.dev 拉模型列表和自动下载 LSP（内网连不上，还会拖慢启动）。
+// 从 models.dev 拉模型列表和自动下载 LSP（内网连不上，还会拖慢启动）、
+// 读工作目录的 opencode.json 和 .opencode（里面的插件在打开会话时就会执行，克隆来的仓库不可信；kits 的配置只写一份）。
 // 外部技能不关：它会从会话目录往上找到仓库根，读项目的 .agents/skills（kits 的项目技能）；
 // “全局”那一份在 {OPENCODE_TEST_HOME}/.agents/skills，也就是 kits 的数据目录，不会读到用户家目录里的技能。
 // cfg.env（网关 key 等）最后叠上，配置文件里用 `{env:…}` 引用。
@@ -90,6 +91,7 @@ export function spawnEnv(
     OPENCODE_DISABLE_CLAUDE_CODE: '1',
     OPENCODE_DISABLE_MODELS_FETCH: '1',
     OPENCODE_DISABLE_LSP_DOWNLOAD: '1',
+    OPENCODE_DISABLE_PROJECT_CONFIG: '1',
     ...cfg.env,
   }
   return prependPath(env, cfg.toolsDir)
@@ -114,6 +116,8 @@ export const opencodeDialect: KernelDialect = {
   apiPrefix: '',
   permissionListPath: '/permission',
   interject: true,
+  // 关了项目配置（spawnEnv）后内核不读了，kits 随消息带上
+  projectInstructions: false,
 
   async spawn(cfg: KernelConfig): Promise<SpawnedKernel> {
     skipPluginInstall(cfg)
