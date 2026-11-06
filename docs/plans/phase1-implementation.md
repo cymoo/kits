@@ -192,10 +192,11 @@ Agent 通过 kits 工具 `remember(text, scope)` 写入；两份文件通过内�
 
 1. **默认值**：phase1 4.5 节的表（已在 `defaultPermissionRules`），加上只读命令白名单：`git status|diff|log|show|branch`、`ls`、`cat`、`head`、`tail`、`wc`、`pwd`、`grep`、`rg`、`find`、`tree`、`echo` 开头的命令 allow。
 2. **会话模式**（输入框上的三档，存在 session 上）：
-   - `ask` 执行前确认：用默认值。
+   - `ask` 每次确认（原“执行前确认”，默认档已换成 `smart` 智能，见 [agent-permissions.md](../references/agent-permissions.md)）：用默认值。
    - `read` 只读：`edit` deny，`bash` 除白名单外 deny，`external_directory` deny，MCP 写入类 deny。
-   - `auto` 全部自动：`bash`、`edit` allow；`external_directory` 和 MCP 写入类仍 ask。
-3. **Agent 覆盖**：Agent 文件里的 `permissions`。`deny` 永远生效（api-reviewer 在 auto 模式下也不会执行命令）；`allow` / `ask` 只在 `ask` 模式下生效。
+   - `auto` 全部自动：只留硬拒绝，其余都 allow。
+   - `smart` 智能（默认）：命令默认 allow，撤不回的操作 ask，见 `permission.ts` 的 `RISKY_COMMANDS`。
+3. **Agent 覆盖**：Agent 文件里的 `permissions`。`deny` 永远生效（api-reviewer 在 auto 模式下也不会执行命令）；`allow` / `ask` 只在 `ask` 和 `smart` 模式下生效。
 
 MCP 工具在内核里的名字是 `<服务名>_<工具名>`，规则转换时按这个名字写。“本会话允许”对应内核权限回复的 `always`，内核自己按会话记住；终端面板里列出本会话的允许规则，撤销 = 把该模式加回 ask（内核没有撤销接口的话，重开会话才生效，界面说明）。
 

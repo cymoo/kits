@@ -168,6 +168,12 @@ describe('createOpencodeEventMapper', () => {
     expect(out.map((e) => e.type)).toEqual(['tool-start', 'tool-end'])
   })
 
+  it('replaces the rule dump of a denied call with a sentence', () => {
+    const error = 'The user has specified a rule which prevents you from using this tool [{...}]'
+    const { out } = feed([tool('running'), tool('error', { error })])
+    expect(out[1]).toMatchObject({ type: 'tool-end', error: expect.stringContaining('权限规则') })
+  })
+
   it('maps a failed tool to tool-end with the error', () => {
     const { out } = feed([
       assistant,

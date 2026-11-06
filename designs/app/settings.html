@@ -394,12 +394,12 @@ class Component extends DCLogic {
       return { id, desc: agentDefs[id].desc, tag: agentDefs[id].tag, on, pick: () => this.setState({ agent: id, agentPerms: {} }),
         style: 'display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 8px; background: ' + (on ? '#FFFFFF' : 'transparent') + '; box-shadow: ' + (on ? '0 0 0 1px #E8E8E5' : 'none') + '; font: inherit; color: #16171A; cursor: pointer; text-align: left; width: 100%' };
     });
-    const tools = [['read', '读文件、搜索（read / grep / glob）'], ['edit', '改文件，限工作区内，有快照可看 diff'], ['bash', '执行命令；只读命令自动允许'], ['external_directory', '访问工作区以外的路径'], ['webfetch', '联网取网页；只用内网模型，默认禁止'], ['task', '子 Agent']].map(([name, desc]) => {
+    const tools = [['read', '读文件、搜索（read / grep / glob）'], ['edit', '改文件，限工作区内，有快照可看 diff'], ['bash', '执行命令；“智能”模式只问撤不回的命令'], ['external_directory', '访问工作区以外的路径'], ['webfetch', '联网取网页；只用内网模型，默认禁止'], ['task', '子 Agent']].map(([name, desc]) => {
       const set = (v) => () => this.setState({ agentPerms: { ...s.agentPerms, [name]: v } });
       return { name, desc, ...seg3(s.agentPerms, name, cur.tools[name]), setAllow: set('allow'), setAsk: set('ask'), setDeny: set('deny') };
     });
 
-    const stubs = { perm: ['权限', '默认权限模式（执行前确认 / 只读 / 全部自动）和细则。细则的形态和 Agent 页里的“工具与权限”一致，这版先不单独画。'], privacy: ['数据与隐私', '数据只存本机；记录 AI 原稿与人工修改、token 用量；可导出评测数据（JSONL）。这版先不单独画。'] };
+    const stubs = { perm: ['权限', '默认权限模式（智能 / 只读 / 全部自动 / 每次确认）和细则。细则的形态和 Agent 页里的“工具与权限”一致，这版先不单独画。'], privacy: ['数据与隐私', '数据只存本机；记录 AI 原稿与人工修改、token 用量；可导出评测数据（JSONL）。这版先不单独画。'] };
     return {
       sections,
       isGeneral: section === 'general', isModel: section === 'model', isMcp: section === 'mcp', isSkills: section === 'skills', isAgent: section === 'agent',

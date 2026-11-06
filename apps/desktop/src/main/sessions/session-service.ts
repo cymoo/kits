@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import path from 'node:path'
 import type {
   AskUserInput,
@@ -921,7 +922,10 @@ export class SessionService {
     profile: ReturnType<SessionServiceDeps['resolveAgent']>,
   ): PermissionRule[] {
     return [
-      ...agentPermissions(profile, session.permissionMode, this.deps.loadMcp()),
+      ...agentPermissions(profile, session.permissionMode, this.deps.loadMcp(), {
+        workdir: session.workdir,
+        home: homedir(),
+      }),
       // 关掉的技能和内核自带的技能：会话规则排在全局后面，这里要再拒绝一遍
       ...skillDenies(this.deps.disabledSkills?.() ?? []),
       // 输入框里关掉的平台：这个会话里它的工具一律不能用（排在最后，最后命中的生效）

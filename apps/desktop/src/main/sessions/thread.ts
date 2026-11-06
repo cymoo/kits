@@ -1,4 +1,12 @@
-import type { KernelEvent, MessageView, PartPayload, PartView, SessionStatus } from '@kits/core'
+import {
+  type KernelEvent,
+  type MessageView,
+  type PartPayload,
+  type PartView,
+  permissionRisk,
+  rememberable,
+  type SessionStatus,
+} from '@kits/core'
 
 // 一轮对话的事件 → 消息和 parts（phase1-implementation 5.2 节）。纯逻辑，不碰数据库：
 // 返回这次变了哪些 part、消息有没有变、会话状态要不要变，由 SessionService 落库和推给界面。
@@ -212,7 +220,8 @@ export class TurnRecorder {
             ),
           ],
         }
-      case 'permission-request':
+      case 'permission-request': {
+        const risk = permissionRisk(event.tool, event.patterns)
         return {
           parts: [
             this.upsert(
@@ -224,7 +233,8 @@ export class TurnRecorder {
                 tool: event.tool,
                 input: event.input,
                 patterns: event.patterns,
-                always: event.always,
+                always: rememberable(risk) ? event.always : [],
+                ...(risk ? { risk } : {}),
                 ...(event.callId ? { callId: event.callId } : {}),
                 ...(event.subagent ? { subagent: true } : {}),
               }),
@@ -233,6 +243,7 @@ export class TurnRecorder {
           ],
           status: 'waiting',
         }
+      }
       case 'permission-replied':
         return this.settlePermission(event.requestId, event.reply)
       case 'interject-delivered':

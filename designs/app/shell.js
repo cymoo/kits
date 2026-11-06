@@ -211,7 +211,7 @@
   // 每个工作区默认显示几个会话，多的折起来
   const WS_LIMIT = 5
   const prefs = {
-    dir: '~/repo/member-svc', agent: 'assistant', kernel: 'codeagent', model: 'coder-main', perm: 'ask',
+    dir: '~/repo/member-svc', agent: 'assistant', kernel: 'codeagent', model: 'coder-main', perm: 'smart',
     mcp: { 'req-platform': true, wiki: true, gitlab: true, 'defect-tracker': false }
   }
   const wsQuery = new URLSearchParams(location.search).get('ws')
@@ -220,9 +220,9 @@
   const agentDefs = [['assistant', '不限定任务的通用 Agent', '内置'], ['api-reviewer', '对照文档和实现，列出不一致', '项目'], ['doc-writer', '给模块和接口补文档', '个人']]
   const mcpDefs = [['req-platform', '需求平台', 'ok'], ['wiki', '知识库', 'ok'], ['gitlab', 'GitLab', 'err'], ['defect-tracker', '缺陷平台', 'ok']]
   const permDefs = {
-    ask: ['执行前确认', '改文件直接进行，执行命令和写外部平台前问你'],
+    smart: ['智能', '只有推送、发布、写外部平台这类撤不回的操作才问你'],
     read: ['只读', '只读代码和平台数据，不改文件也不执行命令'],
-    auto: ['全部自动', '工作区内改文件、执行命令都不再询问']
+    auto: ['全部自动', '都不再询问，只拦强推、删根目录这类命令']
   }
   const kernelDefs = { codeagent: 'CodeAgent', opencode: 'OpenCode' }
   const gatewayDefs = [['公司网关', ['coder-main', 'coder-fast', 'reasoner-pro']], ['内网自建 vLLM', ['qwen-coder-32b']]]

@@ -19,6 +19,22 @@ async function send(page: Page, configDir: string, text: string) {
   await expect(page).toHaveURL(/#\/s\//)
 }
 
+test('says what a risky command will do before asking', async () => {
+  const { page, configDir, close } = await launchApp(mock('permission-push'))
+  try {
+    await send(page, configDir, '推上去')
+    const card = page.getByTestId('permission-card')
+    await expect(card).toContainText('这条命令会把提交推到远程仓库')
+    await expect(card).toContainText('$ git push origin main')
+    await expect(card.getByRole('button', { name: /本会话允许/ })).toContainText('git push *')
+    await page.screenshot({ path: 'test-results/permission-risk-card.png' })
+    await card.getByRole('button', { name: /允许一次/ }).click()
+    await expect(page.getByTestId('answer')).toContainText('推好了')
+  } finally {
+    await close()
+  }
+})
+
 test('allows a command once with the shortcut', async () => {
   const { page, configDir, close } = await launchApp(mock('permission'))
   try {
@@ -52,7 +68,7 @@ test('shows what a subagent is doing and asks for its commands', async () => {
     await expect(turn).toContainText('子任务 1 个')
     await expect(turn).toContainText('跑 tests/points，把失败的用例列出来。')
     await expect(turn.getByTestId('sub-steps')).toContainText('tests/points/conftest.py')
-    await expect(turn.getByTestId('sub-steps')).toContainText('标记跑过')
+    await expect(turn.getByTestId('sub-steps')).toContainText('推上去')
     await page.screenshot({ path: 'test-results/subagent.png' })
     await page.keyboard.press(`${mod}+Enter`)
     await expect(page.getByTestId('answer')).toContainText('子任务跑完了')

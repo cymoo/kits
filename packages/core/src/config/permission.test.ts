@@ -9,7 +9,10 @@ import {
   matchPattern,
   type PermissionMode,
   type PermissionSet,
+  permissionRisk,
+  rememberable,
   resolvePermissions,
+  type SessionPlace,
 } from './permission'
 
 const mcp = { servers: ['wiki'], rules: { 'wiki.get_page': 'allow' as const } }
@@ -21,6 +24,7 @@ function level(
     agent?: PermissionSet
     mcp?: { servers: string[]; rules: Record<string, 'allow' | 'ask' | 'deny'> }
     defaults?: PermissionSet
+    place?: SessionPlace
   },
   tool: string,
   arg = '*',
@@ -119,11 +123,19 @@ describe('resolvePermissions', () => {
     expect(level({ mode: 'ask', mcp: m }, 'wiki_create_page')).toBe('allow')
   })
 
-  it('allows bash and edit but still asks for outside dirs and mcp writes in auto mode', () => {
+  it('asks for nothing but the hard denies in auto mode', () => {
     expect(level({ mode: 'auto', mcp }, 'bash', 'rm -rf build')).toBe('allow')
-    expect(level({ mode: 'auto', mcp }, 'edit')).toBe('allow')
-    expect(level({ mode: 'auto', mcp }, 'external_directory')).toBe('ask')
-    expect(level({ mode: 'auto', mcp }, 'wiki_send_mail')).toBe('ask')
+    expect(level({ mode: 'auto', mcp }, 'bash', 'git push origin main')).toBe('allow')
+    expect(level({ mode: 'auto', mcp }, 'bash', 'cat ~/.ssh/config')).toBe('allow')
+    expect(level({ mode: 'auto', mcp }, 'edit', '.git/config')).toBe('allow')
+    expect(level({ mode: 'auto', mcp }, 'read', '.env')).toBe('allow')
+    expect(level({ mode: 'auto', mcp }, 'external_directory')).toBe('allow')
+    expect(level({ mode: 'auto', mcp }, 'wiki_send_mail')).toBe('allow')
+  })
+
+  it('keeps an mcp tool the user set to ask in auto mode', () => {
+    const m = { servers: ['wiki'], rules: { 'wiki.send_mail': 'ask' as const } }
+    expect(level({ mode: 'auto', mcp: m }, 'wiki_send_mail')).toBe('ask')
   })
 
   it('applies agent deny in every mode', () => {
@@ -133,7 +145,13 @@ describe('resolvePermissions', () => {
     }
   })
 
-  it('applies agent allow and ask only in ask mode', () => {
+  it('applies agent allow and ask in smart mode too', () => {
+    expect(level({ mode: 'smart', agent: { bash: 'ask' } }, 'bash', 'npm test')).toBe('ask')
+    const agent = { bash: { 'git push *': 'allow' as const } }
+    expect(level({ mode: 'smart', agent }, 'bash', 'git push origin main')).toBe('allow')
+  })
+
+  it('ignores agent allow and ask in read and auto modes', () => {
     const agent = { bash: 'allow' as const, webfetch: 'ask' as const }
     expect(level({ mode: 'ask', agent }, 'bash', 'npm test')).toBe('allow')
     expect(level({ mode: 'ask', agent }, 'webfetch')).toBe('ask')
@@ -232,7 +250,7 @@ describe('protected paths', () => {
 })
 
 describe('secrets', () => {
-  it.each(['ask', 'auto'] as const)('asks for secret paths in bash in %s mode', (mode) => {
+  it.each(['ask', 'smart'] as const)('asks for secret paths in bash in %s mode', (mode) => {
     for (const command of [
       'cat ~/.ssh/id_rsa',
       'wc -c $HOME/.ssh/config',
@@ -253,7 +271,7 @@ describe('secrets', () => {
 
   it('asks before the read tool opens an env file, except the example', () => {
     expect(level({ mode: 'ask' }, 'read', '.env')).toBe('ask')
-    expect(level({ mode: 'auto' }, 'read', '/w/app/.env.local')).toBe('ask')
+    expect(level({ mode: 'smart' }, 'read', '/w/app/.env.local')).toBe('ask')
     expect(level({ mode: 'ask' }, 'read', '.env.example')).toBe('allow')
     expect(level({ mode: 'ask' }, 'read', 'src/env.ts')).toBe('allow')
   })
@@ -346,5 +364,219 @@ describe('levelFor', () => {
     ).toBe('ask')
     expect(levelFor('deny', 'anything')).toBe('deny')
     expect(levelFor({ a: 'allow' }, 'b')).toBeUndefined()
+  })
+})
+
+describe('smart mode', () => {
+  const bash = (command: string) => level({ mode: 'smart', mcp }, 'bash', command)
+
+  it.each([
+    'npm test',
+    'npm install',
+    'uv run pytest tests/points -q',
+    'python3 script.py',
+    'python3',
+    "node -e 'console.log(1)'",
+    'curl http://localhost:8080/api/orders',
+    'curl -X POST https://test-env.corp/api -d \'{"a":1}\'',
+    'wget https://test-env.corp/report.html',
+    'rm -rf build',
+    'rm -rf /tmp/kits-out',
+    'rm src/old.ts',
+    'git commit -m x',
+    'git reset --soft HEAD~1',
+    'git clean -n',
+    'echo a > b.txt',
+    'ls ../lovia 2>/dev/null',
+    './reboot-tests.sh',
+    'adb reboot',
+    './shutdown -f',
+    'nc -z localhost 8080',
+    'terraform -chdir /a plan',
+    'grep -rn "DROP TABLE" migrations',
+  ])('runs %s without asking', (command) => {
+    expect(bash(command)).toBe('allow')
+  })
+
+  it.each([
+    ['git push origin main', 'push'],
+    ['git push', 'push'],
+    ['GIT_SSH_COMMAND=x git push origin main', 'push'],
+    ['git -C ../other push', 'push'],
+    ['npm publish', 'publish'],
+    ['docker push corp/app:1', 'publish'],
+    ['gh pr merge 12 --squash', 'publish'],
+    ['curl -d @report.json https://x.example', 'upload'],
+    ['curl --data-binary @a.log https://x.example', 'upload'],
+    ['curl -F file=@a.log https://x.example', 'upload'],
+    ['curl -T a.log https://x.example', 'upload'],
+    ['scp a.log host:/tmp', 'upload'],
+    ['rsync -a dist/ host:/srv', 'upload'],
+    ['sh', 'script'],
+    ['bash', 'script'],
+    ['bash -s -- x', 'script'],
+    ['iex $s', 'script'],
+    ['sudo ls', 'sudo'],
+    ['git reset --hard HEAD~1', 'discard'],
+    ['git clean -fdx', 'discard'],
+    ['rm -rf ../other', 'delete'],
+    ['rm -rf ~/projects/x', 'delete'],
+    ['rm -rf /srv/data', 'delete'],
+    ['rm /srv/data/a', 'delete'],
+    ['rm -rf .', 'delete'],
+    ['rm -rf *', 'delete'],
+    ['psql -c "DROP TABLE orders"', 'data'],
+    ['redis-cli flushall', 'data'],
+    ['kubectl delete pod x', 'data'],
+    ['cat ~/.ssh/id_rsa', 'secret'],
+    ['cat .env', 'secret'],
+  ])('asks before %s and says why', (command, risk) => {
+    expect(bash(command)).toBe('ask')
+    expect(permissionRisk('bash', [command])).toBe(risk)
+  })
+
+  it('lets the example env file through', () => {
+    expect(bash('cp .env.example .env.local')).toBe('allow')
+  })
+
+  it('reads outside the workspace without asking, except secret directories', () => {
+    const external = (dir: string) => level({ mode: 'smart' }, 'external_directory', dir)
+    expect(external('/Users/me/repo/other/*')).toBe('allow')
+    expect(external('/Users/me/.ssh/*')).toBe('ask')
+    expect(external('/Users/me/.aws/*')).toBe('ask')
+  })
+
+  it('asks before the read tool opens a credentials file', () => {
+    expect(level({ mode: 'smart' }, 'read', '../.netrc')).toBe('ask')
+    expect(level({ mode: 'smart' }, 'read', 'src/app.ts')).toBe('allow')
+  })
+
+  describe('edits', () => {
+    const place = { workdir: '/Users/me/kits-workspace', home: '/Users/me' }
+    const edit = (path: string) => level({ mode: 'smart', place }, 'edit', path)
+
+    it('edits inside a git repository without asking', () => {
+      expect(edit('src/app.ts')).toBe('allow')
+    })
+
+    it('asks before editing outside a git repository', () => {
+      expect(edit('../other/a.txt')).toBe('ask')
+      expect(edit('D:/other/a.txt')).toBe('ask')
+    })
+
+    it('keeps the workspace free of prompts when it is not a git repository', () => {
+      expect(edit('Users/me/kits-workspace/a.txt')).toBe('allow')
+    })
+
+    it('asks before editing the home directory when the workspace is not a git repository', () => {
+      expect(edit('Users/me/.zshrc')).toBe('ask')
+      expect(edit('Users/me/repo/other/a.txt')).toBe('ask')
+    })
+
+    it('still asks for protected paths inside the workspace', () => {
+      expect(edit('.git/config')).toBe('ask')
+      expect(edit('Users/me/kits-workspace/.git/config')).toBe('ask')
+    })
+
+    it('recognises Windows paths with and without the drive', () => {
+      const win = { workdir: 'C:\\Users\\me\\ws', home: 'C:\\Users\\me' }
+      const at = (path: string) => level({ mode: 'smart', place: win }, 'edit', path)
+      expect(at('Users/me/ws/a.txt')).toBe('allow')
+      expect(at('C:/Users/me/ws/a.txt')).toBe('allow')
+      expect(at('Users/me/other/a.txt')).toBe('ask')
+      expect(at('C:/Users/me/other/a.txt')).toBe('ask')
+    })
+
+    it('lets a workspace that is the home directory stay free of prompts', () => {
+      const home = { workdir: '/Users/me', home: '/Users/me' }
+      expect(level({ mode: 'smart', place: home }, 'edit', 'Users/me/a.txt')).toBe('allow')
+    })
+  })
+
+  it('keeps asking for mcp writes', () => {
+    expect(level({ mode: 'smart', mcp }, 'wiki_send_mail')).toBe('ask')
+    expect(level({ mode: 'smart', mcp }, 'wiki_get_page')).toBe('allow')
+  })
+})
+
+describe('hard denies of every command form', () => {
+  it.each([
+    'git push origin +main',
+    'rm -rf /*',
+    'rm -rf / tmp',
+    'rm -r -f /',
+    'rm --recursive --force /',
+    'rm -rf ~/*',
+    'rm -rf "$HOME"',
+    'rm -rf $HOME/*',
+    'rm -rf /usr',
+    'rm -rf /Users',
+    'sudo rm -rf /',
+    'FOO=1 rm -rf /',
+    'rm -rf --no-preserve-root /tmp/x',
+    'chmod -R 777 /',
+    'chown -R me /',
+    'echo x > /dev/sda',
+    'Remove-Item -Recurse -Force C:\\',
+    'rd /s /q C:\\',
+    'shutdown -h now',
+    'sudo reboot',
+    'reboot',
+  ])('denies %s in every mode', (command) => {
+    for (const mode of ['smart', 'ask', 'read', 'auto'] as const) {
+      expect(level({ mode }, 'bash', command), mode).toBe('deny')
+    }
+  })
+
+  it.each(['rm -rf ./build', 'rm -rf build/out', 'rm -rf /tmp/x', 'rm -rf ~/xy'])(
+    'does not mistake %s for the root',
+    (command) => {
+      expect(level({ mode: 'auto' }, 'bash', command)).toBe('allow')
+    },
+  )
+})
+
+describe('permissionRisk', () => {
+  it('has nothing to say about an ordinary command', () => {
+    expect(permissionRisk('bash', ['npm test'])).toBeUndefined()
+  })
+
+  it('finds the risky part of a chained command', () => {
+    expect(permissionRisk('bash', ['ls', 'git push origin main'])).toBe('push')
+  })
+
+  it('names protected paths and edits outside the workspace', () => {
+    expect(permissionRisk('edit', ['.git/config'])).toBe('protected')
+    expect(permissionRisk('edit', ['../other/a.txt'])).toBe('outside')
+    expect(permissionRisk('edit', ['src/app.ts'])).toBeUndefined()
+  })
+
+  it('names secret files for the read tool', () => {
+    expect(permissionRisk('read', ['.env'])).toBe('secret')
+  })
+
+  it('only names secret targets of external_directory, which can be a read', () => {
+    expect(permissionRisk('external_directory', ['/Users/me/.ssh/*'])).toBe('secret')
+    expect(permissionRisk('external_directory', ['/Users/me/other/*'])).toBeUndefined()
+  })
+
+  it('names mcp writes and leaves mcp reads alone', () => {
+    expect(permissionRisk('wiki_create_page', [])).toBe('mcp')
+    expect(permissionRisk('wiki_get_page', [])).toBeUndefined()
+  })
+
+  it('does not call a temp directory delete risky', () => {
+    expect(permissionRisk('bash', ['rm -rf /tmp/x'])).toBeUndefined()
+  })
+})
+
+describe('rememberable', () => {
+  it('offers session allow for a narrow risk', () => {
+    expect(rememberable('push')).toBe(true)
+    expect(rememberable(undefined)).toBe(true)
+  })
+
+  it.each(['upload', 'script', 'sudo'] as const)('never offers it for %s', (risk) => {
+    expect(rememberable(risk)).toBe(false)
   })
 })

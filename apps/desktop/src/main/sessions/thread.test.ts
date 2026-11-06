@@ -52,6 +52,32 @@ describe('TurnRecorder', () => {
     expect(parts[0]?.payload).toMatchObject({ callId: 't/c', parentCallId: 't' })
   })
 
+  it('records why a permission is worth asking', () => {
+    const r = recorder()
+    const change = r.apply({
+      type: 'permission-request',
+      requestId: 'per_1',
+      tool: 'bash',
+      input: { command: 'git push origin main' },
+      patterns: ['git push origin main'],
+      always: ['git push *'],
+    })
+    expect(change.parts?.[0]?.payload).toMatchObject({ risk: 'push', always: ['git push *'] })
+  })
+
+  it('offers no session allow when it would open the whole command', () => {
+    const r = recorder()
+    const change = r.apply({
+      type: 'permission-request',
+      requestId: 'per_1',
+      tool: 'bash',
+      input: { command: 'sudo ls' },
+      patterns: ['sudo ls'],
+      always: ['sudo *'],
+    })
+    expect(change.parts?.[0]?.payload).toMatchObject({ risk: 'sudo', always: [] })
+  })
+
   it('marks a permission that came from a subagent', () => {
     const { parts } = recorder().apply({
       type: 'permission-request',

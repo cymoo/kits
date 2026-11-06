@@ -1,3 +1,4 @@
+import type { PermissionRisk } from '@kits/core/ipc'
 import { AlertCircle, Check, ChevronDown, CircleHelp, SquareTerminal } from 'lucide-react'
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -69,7 +70,8 @@ function typingElsewhere(e: globalThis.KeyboardEvent, card: HTMLElement | null):
   return el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable
 }
 
-function permissionHead(tool: string): string {
+function permissionHead(tool: string, risk?: PermissionRisk): string {
+  if (risk) return t(`perm.risk.${risk}`)
   if (tool === 'bash') return t('perm.head.bash')
   if (tool === 'edit' || tool === 'write' || tool === 'apply_patch') return t('perm.head.edit')
   if (tool === 'webfetch') return t('perm.head.webfetch')
@@ -132,11 +134,12 @@ export function PermissionCard({
     }
   }
   const always = block.always[0]
+  const head = permissionHead(block.tool, block.risk)
 
   return (
     <section
       ref={card}
-      aria-label={permissionHead(block.tool)}
+      aria-label={head}
       data-testid="permission-card"
       className="flex flex-col gap-2.5 rounded-[12px] border border-warn-line bg-warn-soft px-4 py-3.5 shadow-[0_0_0_4px_rgb(233_185_73/0.12)]"
     >
@@ -144,7 +147,7 @@ export function PermissionCard({
         <CardIcon tone="warn">
           <SquareTerminal size={13} strokeWidth={1.8} />
         </CardIcon>
-        <span className="font-semibold">{permissionHead(block.tool)}</span>
+        <span className="font-semibold">{head}</span>
         {block.subtask ? (
           <span className="text-[0.929rem] text-fg-muted">
             {t('perm.fromTask', { task: block.subtask })}

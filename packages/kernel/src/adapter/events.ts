@@ -104,6 +104,15 @@ function num(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0
 }
 
+// 内核拒绝一次调用时把整串规则当错误（几十 KB 的 JSON），给人看的换成一句话。模型那边是内核发的，管不到
+const DENIED_PREFIX = 'The user has specified a rule which prevents'
+const DENIED_TEXT = '被权限规则拦下了，Agent 会换个做法；确实要做的话请你自己在终端里跑'
+
+function toolError(error: string | undefined): string {
+  if (error?.startsWith(DENIED_PREFIX)) return DENIED_TEXT
+  return error ?? 'tool failed'
+}
+
 function errorMessage(error: unknown): string {
   if (typeof error !== 'object' || error === null) return String(error ?? 'unknown error')
   const e = error as { name?: string; data?: { message?: string }; message?: string }
@@ -176,7 +185,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
         type: 'tool-end',
         callId,
         output: part.state?.output ?? null,
-        ...(status === 'error' ? { error: part.state?.error ?? 'tool failed' } : {}),
+        ...(status === 'error' ? { error: toolError(part.state?.error) } : {}),
         ...(part.state?.title ? { title: part.state.title } : {}),
         ...(typeof part.state?.metadata?.exit === 'number'
           ? { exitCode: part.state.metadata.exit }

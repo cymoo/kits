@@ -58,6 +58,7 @@ export interface MockScenario {
 export const mockScenarioNames = [
   'streaming',
   'permission',
+  'permission-push',
   'question',
   'done',
   'retry',
@@ -214,6 +215,49 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
       usage(21_400, 980),
     ],
     diff: [redeemDiff],
+  },
+  'permission-push': {
+    name: 'permission-push',
+    steps: [
+      busy,
+      {
+        delay: 200,
+        event: {
+          type: 'tool-start',
+          callId: 'call_push',
+          name: 'bash',
+          input: { command: 'git push origin main', description: '推到远程' },
+        },
+      },
+      {
+        delay: 100,
+        permission: {
+          requestId: 'per_push',
+          tool: 'bash',
+          input: { command: 'git push origin main' },
+          patterns: ['git push origin main'],
+          always: ['git push *'],
+          callId: 'call_push',
+        },
+        allow: [
+          {
+            delay: 200,
+            event: { type: 'tool-end', callId: 'call_push', output: 'main -> main', exitCode: 0 },
+          },
+          { delay: 100, text: '推好了。', partId: 'prt_pushed' },
+        ],
+        reject: [
+          {
+            event: {
+              type: 'tool-end',
+              callId: 'call_push',
+              output: null,
+              error: '用户拒绝了这条命令',
+            },
+          },
+        ],
+      },
+    ],
   },
   permission: {
     name: 'permission',
@@ -385,7 +429,7 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
           callId: 'call_task/call_sub_bash',
           parentCallId: 'call_task',
           name: 'bash',
-          input: { command: 'touch tests/points/.ran', description: '标记跑过' },
+          input: { command: 'git push origin points', description: '推上去' },
         },
       },
       {
@@ -393,9 +437,9 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
         permission: {
           requestId: 'perm_sub',
           tool: 'bash',
-          input: { command: 'touch tests/points/.ran' },
-          patterns: ['touch tests/points/.ran'],
-          always: ['touch *'],
+          input: { command: 'git push origin points' },
+          patterns: ['git push origin points'],
+          always: ['git push *'],
           callId: 'call_task/call_sub_bash',
           subagent: true,
         },
