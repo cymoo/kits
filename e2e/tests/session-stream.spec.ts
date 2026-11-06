@@ -258,16 +258,24 @@ test('follows again when a taller window brings the thread back to the bottom', 
       await page.getByLabel('给 Agent 发消息').fill(`第 ${turn} 个问题`)
       await page.getByLabel('给 Agent 发消息').press('Enter')
       await expect(page.getByTestId('user-message')).toHaveCount(turn)
+      // 只等状态不够：新一轮刚发出时，状态可能还是上一轮的“已完成”。回复是这一轮结束才有的
+      await expect(page.getByTestId('answer')).toHaveCount(turn)
       await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     }
 
     const thread = page.getByRole('region', { name: '对话' })
     const jump = page.getByRole('button', { name: '跳转至底部' })
     const distance = () => thread.evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight)
-    await thread.evaluate((el) => {
-      el.scrollTop = el.scrollHeight - el.clientHeight - 100
-    })
-    await expect(jump).toBeVisible()
+    await expect.poll(distance).toBeLessThan(40)
+    // 这里只是准备步骤：离底部只差 100px，收尾时界面一动就可能被拉回底部（内网 Linux CI 上遇到过），
+    // 被拉回去就重新滚。要验证的是下面窗口变高之后的行为
+    await expect(async () => {
+      await thread.evaluate((el) => {
+        el.scrollTop = el.scrollHeight - el.clientHeight - 100
+      })
+      await expect(jump).toBeVisible({ timeout: 1_000 })
+      expect(await distance()).toBeGreaterThan(60)
+    }).toPass({ timeout: 15_000 })
 
     // 窗口变高 80px：离底部只剩 20px，scrollTop 没变，不会有 scroll 事件
     await app.evaluate(({ BrowserWindow }) => {
