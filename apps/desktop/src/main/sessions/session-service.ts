@@ -32,6 +32,7 @@ import { extractText } from '../attachments/extract'
 import type { KernelManager } from '../kernel/kernel-manager'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
 import { sessionMarkdown } from './export'
+import { projectInstructions } from './project-instructions'
 import type { SessionStore } from './session-store'
 import { type TurnChange, TurnRecorder } from './thread'
 
@@ -563,7 +564,9 @@ export class SessionService {
     const run = this.running.get(input.id)
     if (!run?.kernel || !run.ks) throw new Error('这一轮已经结束了')
     const message = input.message?.trim() || undefined
-    const live = await run.kernel.respondPermission(run.ks, input.requestId, input.reply, message)
+    // “本会话允许”只在 kits 记（part 的状态），不告诉内核：内核按工作目录共享，还会盖过 deny
+    const kernelReply = input.reply === 'always' ? 'once' : input.reply
+    const live = await run.kernel.respondPermission(run.ks, input.requestId, kernelReply, message)
     const change = live
       ? run.recorder.replyPermission(input.requestId, input.reply, message)
       : run.recorder.expirePermission(input.requestId)
@@ -581,6 +584,16 @@ export class SessionService {
     // 等内核回复期间这一轮可能已经结束、甚至排队的下一轮已经开始：决定照存，会话状态不再由它改
     const current = this.running.get(input.id) === run && run.recorder.view.completedAt === null
     this.commit(input.id, current ? change : { parts: change.parts })
+    if (live && input.reply === 'always' && current) await this.answerCovered(input.id)
+  }
+
+  // 新规则覆盖到的、还在等回复的请求一起答掉（并行的工具调用），内核不知道这条规则，不会自己放行
+  private async answerCovered(id: string): Promise<void> {
+    for (const { status, payload } of this.deps.store.detail(id)?.parts ?? []) {
+      if (status !== 'pending' || payload.type !== 'permission') continue
+      if (!this.running.has(id) || !this.alwaysAllowed(id, payload)) continue
+      await this.respondPermission({ id, requestId: payload.requestId, reply: 'once' })
+    }
   }
 
   // ask_user 的处理函数（接到 KitsToolHost）。内核传来的会话 id 可能是 kits 的，也可能是内核自己的（Mock 内核）
@@ -930,7 +943,7 @@ export class SessionService {
     return patterns.every((p) => effectiveLevel(rules, request.tool, p) === 'allow')
   }
 
-  // 用户在这个会话里点过“本会话允许”的。内核也记，但只记在内存里，重启就没了
+  // 用户在这个会话里点过“本会话允许”的。只有 kits 记：内核收到的都是 once，同类请求每次都来问，这里替用户答
   private alwaysAllowed(sessionId: string, request: { tool: string; patterns: string[] }): boolean {
     const rules = this.deps.store.alwaysRules(sessionId)
     const patterns = request.patterns.length > 0 ? request.patterns : ['*']
@@ -994,7 +1007,12 @@ export class SessionService {
       // `/技能名 …`：发给内核时明确让 Agent 先加载这个技能；界面上的用户消息照原样
       const sent = skillPrompt(text, this.deps.enabledSkills?.(session.workdir) ?? [])
       // Agent 的提示词随消息带上，接在内核自带的系统提示词后面（内核配置里不写 prompt）
-      const system = profile ? agentSystemPrompt(profile) : ''
+      const system = [
+        profile ? agentSystemPrompt(profile) : '',
+        kernel.capabilities.projectInstructions ? '' : projectInstructions(session.workdir),
+      ]
+        .filter(Boolean)
+        .join('\n\n')
       run.system = system
       const input = { text: sent, attachments: run.attachments, ...(system ? { system } : {}) }
       for await (const event of kernel.prompt(ks, input)) {
@@ -1005,7 +1023,7 @@ export class SessionService {
           this.pushSession(session.id)
         }
         // 内核的子会话只继承主会话的拒绝规则：主会话放行的（比如“全部自动”）这里替用户答了，不弹卡片。
-        // 用户允许过的也一样，内核重启后它自己不记得了
+        // 用户允许过的也一样
         // 这一轮里改了权限时内核可能已经在问了，同样替用户答
         if (event.type === 'permission-request') {
           const now = store.session(session.id) ?? session

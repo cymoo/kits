@@ -45,7 +45,12 @@ let nextRequest = 0
 
 export class MockKernel implements AgentKernel {
   readonly id = 'opencode' as const
-  readonly capabilities = { subagents: false, revert: false, interject: true }
+  readonly capabilities = {
+    subagents: false,
+    revert: false,
+    interject: true,
+    projectInstructions: true,
+  }
   private readonly scenario: MockScenario
   // dispose 之后所有等待立刻结束，还没开始的等待也不再挂起
   private disposed = false

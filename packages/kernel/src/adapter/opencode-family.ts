@@ -1,4 +1,4 @@
-import type { KernelEvent, PermissionReply, PermissionRule } from '@kits/core'
+import type { KernelEvent, PermissionRule } from '@kits/core'
 import { parseModelRef } from '@kits/core'
 import { opencodeAgentName, toOpencodeRuleset } from '../generate/opencode-config'
 import type {
@@ -10,6 +10,7 @@ import type {
   KernelDialect,
   KernelExit,
   KernelMessage,
+  KernelPermissionReply,
   KernelSession,
   SpawnedKernel,
   UserInput,
@@ -217,7 +218,12 @@ function composeText(input: UserInput): { type: 'text'; text: string }[] {
 
 export class OpencodeFamilyKernel implements AgentKernel {
   get capabilities() {
-    return { subagents: true, revert: true, interject: this.dialect.interject }
+    return {
+      subagents: true,
+      revert: true,
+      interject: this.dialect.interject,
+      projectInstructions: this.dialect.projectInstructions,
+    }
   }
   private spawned: SpawnedKernel | undefined
   private hubs = new Map<string, EventHub>()
@@ -555,7 +561,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
   async respondPermission(
     session: KernelSession,
     requestId: string,
-    reply: PermissionReply,
+    reply: KernelPermissionReply,
     message?: string,
   ): Promise<boolean> {
     try {

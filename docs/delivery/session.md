@@ -854,3 +854,73 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 
 - Linux 上“窗口变高后恢复跟随”暂时没有 E2E 覆盖。kits 只发布 mac 和 Windows 版，发布版本不受影响。
 - 失败原因还没查清，可能是环境问题，也可能是 Linux 上的产品问题，见 #82。修好后去掉 `test.skip`。
+
+## 2026-11-06　权限漏洞修复：本会话允许、保护路径、硬拒绝、密钥文件、项目插件
+
+> 日期：2026-11-06　PR：#84　作者：Claude Code
+
+### 原始需求
+
+[权限方案调研](../references/agent-permissions.md)用真实 OpenCode 1.19.5 测出 5 个漏洞，这次做方案里的 P0：
+
+1. “本会话允许”盖得过 deny：允许过 `git push origin main` 后，配成 deny 的 `git push --force` 直接执行。
+2. “本会话允许”按工作目录生效：同一目录新开的会话也不再询问。
+3. 写 `.git/config` 再跑白名单里的 `git status`，全程不弹窗就能执行任意命令。
+4. 工作目录里的 `.opencode/plugin` 在打开会话时就执行了。
+5. 白名单命令能读 `~/.ssh` 这类密钥文件。
+
+做到什么程度算完：这 5 个场景有回归测试，第 5 条只要求挡住密钥路径。分级漏斗（智能档、审查模型）不在这次范围内。
+
+### 怎么验收
+
+用“执行前确认”模式，工作目录是一个 git 仓库。用真实模型时让 Agent 执行下面的操作。
+
+1. 让 Agent 跑 `git push origin main`，弹卡片时点“本会话允许”。再让它跑 `git push --force origin main`。预期不弹卡片，命令被拒绝，Agent 说明不能强推。
+2. 在同一目录新建会话，让 Agent 再跑 `git push origin main`。预期又弹确认卡片。
+3. 让 Agent 修改 `.git/config`。预期弹“修改文件前需要你确认”，“本会话允许”后面写的是 `.git/config`，不是 `*`。改 `src` 下的普通文件不弹。
+4. 在工作目录放一个 `.opencode/plugin/p.js`，内容是模块加载时写一个文件。新建会话发一条消息。预期那个文件没有生成。
+5. 让 Agent 跑 `cat ~/.ssh/config`，以及读 `.env`。预期两个都弹卡片，切到“全部自动”也一样。读 `.env.example` 不弹。
+6. 工作目录放一个 `AGENTS.md`，写“回答开头加 OK”。发一条消息。预期回答开头有 OK。让 Agent 记一条项目记忆，下一轮问它记了什么，预期答得出来。
+7. “全部自动”模式下让 Agent 跑 `git push --force`。预期被拒绝。跑普通的 `rm -rf build` 不弹。
+8. 设置 → 权限：“全部自动”的说明写了读密钥文件要问、强推这类命令禁止，`edit` 那行写了 `.git`、CI 配置先问。
+
+### 主要改动
+
+- `packages/core/src/config/permission.ts`：
+  - `edit` 改成带模式的规则：`.git`、`.opencode`、`.agents`、`.github/workflows`、`.husky`、`.vscode`、`opencode.json`、`.env*` 要问，只在“执行前确认”下生效。
+  - `read` 补上 `.env` 询问：内核默认有这条，但 kits 的 `read: allow` 把它盖掉了，和 phase1 方案 4.5 节不符。
+  - bash 加密钥路径规则：“执行前确认”和“全部自动”要问，“只读”拒绝。
+  - 加硬拒绝规则：强推、删根目录和家目录、`mkfs`、`dd` 写磁盘、`format`、`diskpart`。所有模式生效，排在 Agent 覆盖后面。
+  - 规则写在默认值里而不是只写在会话上：内核的子会话只继承 deny，ask 要靠全局规则才管得到子任务。
+  - 新增 `alwaysScope`：内核给的 `always` 是 `*` 时收窄到这次请求的内容。不收窄的话，点一次“本会话允许”就开了所有保护路径。
+- `packages/kernel`：`AgentKernel.respondPermission` 不再接受 `always`，类型上防止再发给内核。OpenCode 启动时设 `OPENCODE_DISABLE_PROJECT_CONFIG=1`，不读工作目录的 `opencode.json` 和 `.opencode`，也省掉了那个目录触发的 npm 安装等待。
+- `apps/desktop/src/main/sessions/session-service.ts`：“本会话允许”只记在 kits，发给内核的是 `once`。内核不再帮忙放行并行的同类请求，改由 `answerCovered` 答掉新规则覆盖到的待确认请求。
+- 设置页权限的两句说明。原型这一页只有占位，没有改。
+- `docs/references/codeagent-checklist.md` 加第 31 项：CodeAgent 有没有关项目配置的办法。
+
+没有新配置项，数据库 schema 没有变化。
+
+- `apps/desktop/src/main/sessions/project-instructions.ts`（新增）：`OPENCODE_DISABLE_PROJECT_CONFIG` 连项目的 `AGENTS.md` 和 `.agents/memory.md` 也不读了，改由 kits 从工作目录往上找到仓库根，随消息带给模型。内核能力加 `projectInstructions` 标记，OpenCode 是 false，CodeAgent 是 true，后者不变。
+
+**行为变化：** 工作目录里的 `opencode.json`、`.opencode/` 下的插件、命令、Agent、技能都不再加载。kits 的项目技能和项目 Agent 在 `.agents/` 下，不受影响，项目技能有契约测试。
+
+### 测试
+
+- 单元测试：`permission.test.ts` 补保护路径、密钥、硬拒绝、`alwaysScope`；`session-service.test.ts` 补 always 不发给内核、并行请求的处理、项目说明随消息带上；`project-instructions.test.ts` 是新增的；`events.test.ts`、`opencode.test.ts` 各补一条。
+- 契约测试（真实 OpenCode 1.19.5）：写 `.git/config` 要问（主会话和子任务各一条）、强推被拒、白名单命令读密钥路径要问、工作目录插件不加载。修复前这 5 条都失败。另加一条：关了项目配置后 `.agents/skills` 的项目技能还在。原来验证 `always` 连带处理的用例改成验证 `reject` 的连带处理。
+- E2E：全量跑过，没有新增。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 子任务读不到项目的 `AGENTS.md` 和记忆：kits 只能给主会话的消息带 system，子任务由内核发起。之前子任务能读到，这是这次的代价。
+- 读工作区外的普通文件仍然不问，比如 `wc -c /etc/hosts`。要等分类器比对路径（调研报告的 P1）。
+- 规则按命令文本匹配，防的是模型顺手和误操作，不是有意绕过：`python -c`、变量拼路径、`-uf` 这种合并参数都拦不住。
+- “本会话允许”的范围还是内核给的，`curl *`、`node *` 这类等于放开整个命令。P1 里不再对解释器和出网命令提供这个选项。
+- Agent 文件在“执行前确认”下写的 `allow` 仍然优先于保护路径和密钥规则，只有硬拒绝压得住。项目里的 Agent 文件来自仓库，用户选了它就等于信任它，`.agents/` 列入保护路径防的是 Agent 自己改。
+- macOS 文件系统不区分大小写，内核匹配区分：`.GIT/config` 这样写绕得过保护路径。Windows 上内核不区分大小写，不受影响。
+- 本次在 macOS 上验证，Windows 上看 CI。CodeAgent 见核对清单第 31 项。
+

@@ -396,11 +396,12 @@ const zhCN = {
   'perm.mode.read.note':
     '不改文件，只能跑只读命令，MCP 写入类工具一律拒绝。适合排查、问答、审代码。',
   'perm.mode.auto': '全部自动',
-  'perm.mode.auto.note': '改文件、跑命令都不问；工作区以外和 MCP 写入类工具仍然先问你。',
+  'perm.mode.auto.note':
+    '改文件、跑命令都不问；工作区以外、MCP 写入类工具和读密钥文件仍然先问你。强推、删根目录这类命令任何模式都禁止。',
   'perm.defaults': '默认权限',
   'perm.defaultsHint': '“执行前确认”模式下各工具的档位；Agent 文件里的 deny 永远生效',
   'perm.tool.read': '读文件、搜索（read / grep / glob）',
-  'perm.tool.edit': '改文件，限工作区内，改动面板里能看',
+  'perm.tool.edit': '改文件，限工作区内；.git、CI 配置这类先问',
   'perm.tool.bash': '执行命令；只读命令（见下面）自动允许',
   'perm.tool.external_directory': '访问工作区以外的路径',
   'perm.tool.webfetch': '联网取网页；只用内网模型，默认禁止',

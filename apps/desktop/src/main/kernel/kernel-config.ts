@@ -120,7 +120,8 @@ export function prepareKernelConfig(input: PrepareInput) {
     mcp: loadMcp(config),
     skills: skills.filter((s) => s.enabled),
     disabledSkills: settings.skillsDisabled,
-    // 个人记忆用绝对路径（存在才列，第一次建出来时会重启内核）；项目记忆写相对路径，内核按会话目录往上找
+    // 个人记忆用绝对路径（存在才列，第一次建出来时会重启内核）；项目记忆写相对路径，内核按会话目录往上找。
+    // OpenCode 关了项目配置，相对路径找不到，项目记忆走 projectInstructions；这一条是给 CodeAgent 的
     instructions: [
       ...(existsSync(config.paths.memory) ? [config.paths.memory] : []),
       PROJECT_MEMORY,

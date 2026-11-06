@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 // 权限：每个工具一档（允许 / 询问 / 拒绝），bash 这类按输入分档的工具可以写成“模式 → 档位”。
 // 键是内核里的工具名（可以带通配，如 `wiki_*`），MCP 工具是 `<服务名>_<工具名>`；模式里 `*` 是通配。
-// 三层叠加见 phase1-implementation 3.6 节：默认值 → 会话模式 → Agent 覆盖。
+// 三层叠加见 phase1-implementation 3.6 节：默认值 → 会话模式 → Agent 覆盖，最后是硬拒绝。
 // 解析结果是一串有顺序的规则（和内核一样，后面匹配的优先）：每一层整段接在前一层后面，不挪动、不合并，
 // 所以 Agent 里后写的规则一定压过前面的默认值和 MCP 设置，通配键之间怎么相交都不用特殊处理。
 
@@ -92,6 +92,45 @@ const unsafeCommandPatterns = [
   'Sort-Object *{*',
 ]
 
+// 密钥文件：白名单命令也能读它们，内核只检查固定命令表里的静态路径，`cat $HOME/.ssh/x` 这类写法它不问。
+// 按命令文本匹配，只挡写出路径的，防的是模型顺手读，不是有意绕过
+const SECRET_DIRS = ['.ssh', '.aws', '.gnupg', '.kube']
+const SECRET_FILES = ['.netrc', '.git-credentials', '.npmrc', '.pypirc', '.docker/config.json']
+const secretCommandPatterns = [
+  ...SECRET_DIRS.flatMap((d) => [`*${d} *`, `*${d}/*`]),
+  ...SECRET_FILES.map((f) => `*${f}*`),
+  '* .env *',
+  '* .env.*',
+  '*/.env *',
+  '*/.env.*',
+]
+
+// 撤不回的命令，所有档位都拒绝，Agent 也放不开：理由交回模型，要做让用户自己来。
+// 这是兜底，不求列全，`*` 不能转义，所以 `rm -rf /*` 这种写不出来（写了会连带拦掉所有绝对路径）
+const RM_RF = ['-rf', '-fr', '-Rf', '-fR', '-r -f', '-f -r']
+const hardDeniedCommands = [
+  'git *push* --force*',
+  'git *push* -f *',
+  ...RM_RF.flatMap((flags) => ['/', '~', '~/', '$HOME', '$HOME/'].map((t) => `rm ${flags} ${t}`)),
+  'mkfs*',
+  'dd *of=/dev/sd*',
+  'dd *of=/dev/disk*',
+  'dd *of=/dev/nvme*',
+  'diskpart*',
+  'format *:*',
+  'Format-Volume*',
+  'Remove-Item -Recurse -Force C:\\',
+]
+
+// 工作区里改了等于改权限或执行命令的路径：.git（core.fsmonitor、diff.external、hooks 让白名单里的
+// git status 跑任意命令）、内核和 kits 的项目配置、CI、编辑器任务、git 钩子工具。“执行前确认”下要问
+const PROTECTED_DIRS = ['.git', '.opencode', '.agents', '.github/workflows', '.husky', '.vscode']
+const PROTECTED_FILES = ['.git', 'opencode.json', 'opencode.jsonc', '.env', '.env.*']
+const protectedEditPatterns = [
+  ...PROTECTED_DIRS.flatMap((d) => [`${d}/*`, `*/${d}/*`]),
+  ...PROTECTED_FILES.flatMap((f) => [f, `*/${f}`]),
+]
+
 // MCP 工具名像写入操作的，默认询问
 const WRITE_TOOL = /^(create|update|delete|push|send)_/
 const WRITE_PREFIXES = ['create_', 'update_', 'delete_', 'push_', 'send_']
@@ -160,19 +199,30 @@ export const KITS_TOOLS = ['ask_user', 'submit_output', 'remember'] as const
 
 function bashRules(fallback: PermissionLevel): Record<string, PermissionLevel> {
   const rules: Record<string, PermissionLevel> = { '*': fallback }
-  if (fallback === 'allow') return rules
-  for (const pattern of readonlyCommandPatterns) rules[pattern] = 'allow'
-  for (const pattern of unsafeCommandPatterns) rules[pattern] = fallback
+  if (fallback !== 'allow') {
+    for (const pattern of readonlyCommandPatterns) rules[pattern] = 'allow'
+    for (const pattern of unsafeCommandPatterns) rules[pattern] = fallback
+  }
+  for (const pattern of secretCommandPatterns) rules[pattern] = fallback === 'deny' ? 'deny' : 'ask'
+  for (const pattern of hardDeniedCommands) rules[pattern] = 'deny'
   return rules
 }
 
-// phase1 方案 4.5 节的默认值，bash 带只读白名单
+function editRules(): Record<string, PermissionLevel> {
+  const rules: Record<string, PermissionLevel> = { '*': 'allow' }
+  for (const pattern of protectedEditPatterns) rules[pattern] = 'ask'
+  return rules
+}
+
+// phase1 方案 4.5 节的默认值，bash 带只读白名单。
+// 规则写在这里而不是只写在会话上：内核的子会话只继承 deny，ask 要靠这份全局规则才管得到子任务
 export const defaultPermissions: PermissionSet = {
-  read: 'allow',
+  // 会话规则排在内核默认值后面，这里不写内核的 .env 询问就被 allow 盖掉了
+  read: { '*': 'allow', '*.env': 'ask', '*.env.*': 'ask', '*.env.example': 'allow' },
   grep: 'allow',
   glob: 'allow',
   list: 'allow',
-  edit: 'allow',
+  edit: editRules(),
   bash: bashRules('ask'),
   external_directory: 'ask',
   skill: 'allow',
@@ -244,6 +294,20 @@ export function agentOverrideRules(agent: PermissionSet, mode: PermissionMode): 
   return flattenPermissions(agent).filter((r) => r.level === 'deny' || mode === 'ask')
 }
 
+// 硬拒绝排在 Agent 覆盖后面，Agent 写 `bash: allow` 也放不开
+export const hardDenyRules: PermissionRule[] = hardDeniedCommands.map((pattern) => ({
+  tool: 'bash',
+  pattern,
+  level: 'deny' as const,
+}))
+
+// 内核给的 `always` 是 `*` 时等于放行整个工具：edit 只有保护路径才问，点一次“本会话允许”
+// 就把所有保护路径都开了。收窄到这次请求的内容，请求里没有具体内容时才保留
+export function alwaysScope(patterns: string[], always: string[]): string[] {
+  const concrete = patterns.filter((p) => p !== '*')
+  return always.includes('*') && concrete.length > 0 ? concrete : always
+}
+
 // kits 自己的工具（提问、提交产出、记忆）放在最后，Agent 写了 `'*': deny` 也照样能用
 export const kitsToolRules: PermissionRule[] = KITS_TOOLS.map((tool) => ({
   tool: mcpToolKey(KITS_MCP_SERVER, tool),
@@ -255,6 +319,7 @@ export function resolvePermissions(input: ResolvePermissionsInput): PermissionRu
   return [
     ...flattenPermissions(basePermissions(input)),
     ...agentOverrideRules(input.agent ?? {}, input.mode),
+    ...hardDenyRules,
     ...kitsToolRules,
   ]
 }

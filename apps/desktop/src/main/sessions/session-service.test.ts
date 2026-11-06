@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { builtinAssistant, type PushEvents, parseMcpFile, type SessionStatus } from '@kits/core'
@@ -177,6 +177,85 @@ describe('SessionService', () => {
     await vi.waitFor(() => expect(store.session(s.id)).toMatchObject({ turns: 2, status: 'done' }))
     const cards = store.detail(s.id)?.parts.filter((p) => p.type === 'permission')
     expect(cards?.map((p) => p.status)).toEqual(['always'])
+  })
+
+  it('keeps an always reply out of the kernel, which would share it across sessions', async () => {
+    const { service, waitFor, store, kernel } = setup('permission')
+    const s = await service.create(input)
+    await waitFor(s.id, ['waiting'])
+    const reply = vi.spyOn(kernel, 'respondPermission')
+    const requestId = pendingRequest(store, s.id)
+    await service.respondPermission({ id: s.id, requestId, reply: 'always' })
+    expect(reply).toHaveBeenCalledWith(expect.anything(), requestId, 'once', undefined)
+    await waitFor(s.id, ['done'])
+    const part = store.detail(s.id)?.parts.find((p) => p.type === 'permission')
+    expect(part?.status).toBe('always')
+  })
+
+  it('answers the waiting requests a new session rule covers and leaves the others', async () => {
+    const { service, store, kernel, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const reply = vi.spyOn(kernel, 'respondPermission').mockResolvedValue(true)
+    let finish = () => {}
+    const held = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const request = (requestId: string, command: string) => ({
+      type: 'permission-request' as const,
+      requestId,
+      tool: 'bash',
+      input: {},
+      patterns: [command],
+      always: [`${command.split(' ')[0]} *`],
+    })
+    vi.spyOn(kernel, 'prompt').mockImplementation(async function* () {
+      yield request('r1', 'touch a')
+      yield request('r2', 'touch b')
+      yield request('r3', 'rm b')
+      await held
+      yield { type: 'done', reason: 'completed' }
+    })
+    await service.prompt(s.id, '再来')
+    await vi.waitFor(() =>
+      expect(store.detail(s.id)?.parts.filter((p) => p.status === 'pending')).toHaveLength(3),
+    )
+    await service.respondPermission({ id: s.id, requestId: 'r1', reply: 'always' })
+    expect(reply.mock.calls.map((c) => [c[1], c[2]])).toEqual([
+      ['r1', 'once'],
+      ['r2', 'once'],
+    ])
+    expect(
+      store
+        .detail(s.id)
+        ?.parts.filter((p) => p.type === 'permission')
+        .map((p) => p.status),
+    ).toEqual(['always', 'once', 'pending'])
+    finish()
+    await waitFor(s.id, ['done'])
+  })
+
+  it('sends the project instructions along when the kernel does not read them', async () => {
+    const { service, kernel, waitFor } = setup('done')
+    const workdir = mkdtempSync(path.join(os.tmpdir(), 'kits-project-'))
+    writeFileSync(path.join(workdir, 'AGENTS.md'), '用中文回答')
+    Object.assign(kernel.capabilities, { projectInstructions: false })
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create({ ...input, workdir })
+    await waitFor(s.id, ['done'])
+    expect(prompt.mock.calls[0]?.[1].system).toContain('用中文回答')
+    rmSync(workdir, { recursive: true, force: true })
+  })
+
+  it('leaves the project instructions to a kernel that reads them', async () => {
+    const { service, kernel, waitFor } = setup('done')
+    const workdir = mkdtempSync(path.join(os.tmpdir(), 'kits-project-'))
+    writeFileSync(path.join(workdir, 'AGENTS.md'), '用中文回答')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create({ ...input, workdir })
+    await waitFor(s.id, ['done'])
+    expect(prompt.mock.calls[0]?.[1].system ?? '').not.toContain('用中文回答')
+    rmSync(workdir, { recursive: true, force: true })
   })
 
   it('shows the permission card of a subagent when the session would ask too', async () => {

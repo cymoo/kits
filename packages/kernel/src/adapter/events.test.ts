@@ -210,6 +210,20 @@ describe('createOpencodeEventMapper', () => {
     expect(out).toEqual([{ type: 'permission-replied', requestId: 'per_1', reply: 'always' }])
   })
 
+  it('narrows an always over the whole tool to what was asked', () => {
+    const { out } = feed([
+      ev('permission.asked', {
+        id: 'per_1',
+        sessionID: S,
+        permission: 'edit',
+        patterns: ['.git/config'],
+        metadata: {},
+        always: ['*'],
+      }),
+    ])
+    expect(out).toMatchObject([{ type: 'permission-request', always: ['.git/config'] }])
+  })
+
   it('maps permission.asked with patterns, always and the call id', () => {
     const { out } = feed([
       ev('permission.asked', {

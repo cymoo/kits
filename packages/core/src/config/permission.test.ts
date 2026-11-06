@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  alwaysScope,
   basePermissions,
   defaultPermissions,
   effectiveLevel,
@@ -200,6 +201,109 @@ describe('resolvePermissions', () => {
     const m = { servers: ['kits_wiki'], rules: {} }
     expect(level({ mode: 'read', mcp: m }, 'kits_wiki_delete_page')).toBe('deny')
     expect(level({ mode: 'read', mcp: m }, 'kits_remember')).toBe('allow')
+  })
+})
+
+describe('protected paths', () => {
+  it.each([
+    '.git/config',
+    'vendor/lib/.git/hooks/pre-commit',
+    '.github/workflows/ci.yml',
+    '.vscode/tasks.json',
+    '.husky/pre-commit',
+    '.agents/skills/x/SKILL.md',
+    '.opencode/plugin/p.js',
+    'opencode.json',
+    '.env',
+    'app/.env.local',
+  ])('asks before editing %s in ask mode', (file) => {
+    expect(level({ mode: 'ask' }, 'edit', file)).toBe('ask')
+  })
+
+  it('keeps editing ordinary files free', () => {
+    expect(level({ mode: 'ask' }, 'edit', 'src/git/config.ts')).toBe('allow')
+    expect(level({ mode: 'ask' }, 'edit', 'docs/.github-notes.md')).toBe('allow')
+  })
+
+  it('leaves protected paths alone in auto mode and denied in read mode', () => {
+    expect(level({ mode: 'auto' }, 'edit', '.git/config')).toBe('allow')
+    expect(level({ mode: 'read' }, 'edit', '.git/config')).toBe('deny')
+  })
+})
+
+describe('secrets', () => {
+  it.each(['ask', 'auto'] as const)('asks for secret paths in bash in %s mode', (mode) => {
+    for (const command of [
+      'cat ~/.ssh/id_rsa',
+      'wc -c $HOME/.ssh/config',
+      'ls ~/.ssh',
+      'head ~/.aws/credentials',
+      'grep token ~/.netrc',
+      'cat .env',
+      'cat app/.env.local',
+      String.raw`Get-Content $env:USERPROFILE\.ssh\id_rsa`,
+    ]) {
+      expect(level({ mode }, 'bash', command)).toBe('ask')
+    }
+  })
+
+  it('denies secret paths in read mode', () => {
+    expect(level({ mode: 'read' }, 'bash', 'cat ~/.ssh/id_rsa')).toBe('deny')
+  })
+
+  it('asks before the read tool opens an env file, except the example', () => {
+    expect(level({ mode: 'ask' }, 'read', '.env')).toBe('ask')
+    expect(level({ mode: 'auto' }, 'read', '/w/app/.env.local')).toBe('ask')
+    expect(level({ mode: 'ask' }, 'read', '.env.example')).toBe('allow')
+    expect(level({ mode: 'ask' }, 'read', 'src/env.ts')).toBe('allow')
+  })
+})
+
+describe('hard denies', () => {
+  const commands = [
+    'git push --force',
+    'git push --force origin main',
+    'git push origin main --force',
+    'git push origin main --force-with-lease',
+    'git push -f origin main',
+    'git push origin main -f',
+    'git -C /w push --force',
+    'rm -rf /',
+    'rm -fr ~',
+    'rm -rf $HOME',
+    'mkfs.ext4 /dev/sda',
+    'format C:',
+    'Remove-Item -Recurse -Force C:\\',
+  ]
+
+  it.each(['ask', 'read', 'auto'] as const)('denies destructive commands in %s mode', (mode) => {
+    for (const command of commands) expect(level({ mode }, 'bash', command)).toBe('deny')
+  })
+
+  it('wins over an agent that allows all commands', () => {
+    const agent = { bash: 'allow' as const }
+    expect(level({ mode: 'ask', agent }, 'bash', 'git push --force')).toBe('deny')
+  })
+
+  it('keeps ordinary pushes and deletes out of it', () => {
+    expect(level({ mode: 'ask' }, 'bash', 'git push origin main')).toBe('ask')
+    expect(level({ mode: 'auto' }, 'bash', 'git push origin feat-f')).toBe('allow')
+    expect(level({ mode: 'auto' }, 'bash', 'rm -rf build')).toBe('allow')
+  })
+})
+
+describe('alwaysScope', () => {
+  it('narrows an always that covers the whole tool to the requested patterns', () => {
+    expect(alwaysScope(['.git/config'], ['*'])).toEqual(['.git/config'])
+  })
+
+  it('keeps a pattern the kernel already scoped', () => {
+    expect(alwaysScope(['ls -la'], ['ls *'])).toEqual(['ls *'])
+  })
+
+  it('keeps the wildcard when the request has no concrete pattern', () => {
+    expect(alwaysScope(['*'], ['*'])).toEqual(['*'])
+    expect(alwaysScope([], ['*'])).toEqual(['*'])
   })
 })
 
