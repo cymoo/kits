@@ -819,3 +819,38 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 - 如果 Linux 上每次都被拉回底部，这次放宽不起作用，用例会在 15 秒后失败。这种情况要当成产品问题查，不要继续放宽。
 - 窗口变高这一步（`win.setSize`）在 Linux 上的表现没有验证，失败可能挪到下一个断言。
 - 按钮出现、用例检查过之后才发生的回弹，这个用例发现不了。
+
+## 2026-11-06　在 Linux 上跳过“窗口变高后恢复跟随”用例
+
+> 日期：2026-11-06　PR：分支 `fix/session-e2e-skip-linux`　作者：Claude Code
+
+### 原始需求
+
+上一节放宽准备步骤后，内网 Jenkins（Linux）上这个用例仍然失败，也拿不到 `error-context.md`。先只在 Linux 上跳过，让 Jenkins 恢复可用，排查记在 [#82](https://github.com/cymoo/kits/issues/82)。
+
+做到什么程度算完：Jenkins 上这个用例显示跳过；GitHub 的 Windows CI 和本机 mac 继续跑它。
+
+### 怎么验收
+
+1. 在内网 Jenkins 上跑一次。预期 `follows again when a taller window brings the thread back to the bottom` 显示跳过，不再失败。
+2. 看 GitHub 的 Windows CI 日志。预期这个用例通过，不是跳过。
+
+### 主要改动
+
+- `e2e/tests/session-stream.spec.ts`：这个用例在 Linux 上跳过，跳过原因写了 #82。
+
+产品代码、配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 本机 mac 上用例照常跑并通过。
+- 把跳过条件临时改成 mac，用例显示跳过，说明跳过语句有效。这个改动没有提交。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- Linux 上“窗口变高后恢复跟随”暂时没有 E2E 覆盖。kits 只发布 mac 和 Windows 版，发布版本不受影响。
+- 失败原因还没查清，可能是环境问题，也可能是 Linux 上的产品问题，见 #82。修好后去掉 `test.skip`。
