@@ -1041,7 +1041,7 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 
 ## 2026-11-06　权限说明的文案收尾
 
-> 日期：2026-11-06　PR：见本分支 `docs/permission-wording`　作者：Claude Code
+> 日期：2026-11-06　PR：[#88](https://github.com/cymoo/kits/pull/88)　作者：Claude Code
 
 ### 原始需求
 
