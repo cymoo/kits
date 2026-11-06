@@ -1,4 +1,10 @@
-import type { PartPayload, PartView, SessionActivity, SessionDetail } from '@kits/core/ipc'
+import type {
+  PartPayload,
+  PartView,
+  PermissionRisk,
+  SessionActivity,
+  SessionDetail,
+} from '@kits/core/ipc'
 import { formatDuration } from '../../lib/use-now'
 
 // parts → 会话页的块（phase1-implementation 6.4 节）。纯函数，界面只渲染块。
@@ -102,8 +108,10 @@ export type Block =
       subject: string
       // 哪个子任务要确认的
       subtask?: string
-      // “本会话允许”的规则，空表示内核不支持
+      // “本会话允许”的规则，空表示不提供：内核不支持，或这类操作放开就等于全放开
       always: string[]
+      // 为什么值得问，有的话卡片先说后果
+      risk?: PermissionRisk
     }
   | {
       kind: 'question'
@@ -673,6 +681,7 @@ export function deriveBlocks(
               tool: payload.tool,
               subject,
               always: payload.always,
+              ...(payload.risk ? { risk: payload.risk } : {}),
               ...(subtask ? { subtask } : {}),
             })
           } else if (

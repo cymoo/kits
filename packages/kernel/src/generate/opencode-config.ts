@@ -16,6 +16,7 @@ import {
   type PermissionMode,
   type PermissionRule,
   type PermissionSet,
+  type SessionPlace,
   type Settings,
   type SkillInfo,
 } from '@kits/core'
@@ -133,14 +134,15 @@ export function gatewayKeyEnv(id: string): string {
 
 // 一个 Agent 在某个会话模式下的完整权限：一串有顺序的规则（后面的优先），建会话时整串交给内核（PR2）。
 // 层次：默认值和 MCP（按模式调整）→ Agent 覆盖（按文件顺序）→ 工具允许列表 → 技能允许列表 → kits 工具。
-// 允许列表不是用户的权限选择，所以不受“allow 只在 ask 模式生效”的限制。
+// 允许列表不是用户的权限选择，所以不受“allow 在只读和全部自动下不生效”的限制。
 // 内核的 tools 开关不会转成权限规则（契约测试实测），列表外的工具在权限里也写 deny。
 export function agentPermissions(
   agent: AgentProfile | undefined,
   mode: PermissionMode,
   mcp: McpFile,
+  place?: SessionPlace,
 ): PermissionRule[] {
-  const before = rulesBeforeSkills(agent, mode, mcp)
+  const before = rulesBeforeSkills(agent, mode, mcp, place)
   return [...before, ...skillRules(agent, before), ...kitsToolRules]
 }
 
@@ -148,9 +150,12 @@ function rulesBeforeSkills(
   agent: AgentProfile | undefined,
   mode: PermissionMode,
   mcp: McpFile,
+  place?: SessionPlace,
 ): PermissionRule[] {
   return [
-    ...flattenPermissions(basePermissions({ mode, mcp: mcpRules(mcp) })),
+    ...flattenPermissions(
+      basePermissions({ mode, mcp: mcpRules(mcp), ...(place ? { place } : {}) }),
+    ),
     ...(agent ? agentOverrideRules(agent.permissions, mode) : []),
     ...deniedBuiltinKeys(agent).map((tool) => ({ tool, pattern: '*', level: 'deny' as const })),
     ...deniedServers(agent, mcp).map((server) => ({
@@ -423,6 +428,9 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
     permission: withSkillDenies(
       {
         ...basePermissions({ mode: 'ask', mcp: mcpRules(input.mcp) }),
+        // 命令的细则都在会话规则里：子任务要问的由 kits 按会话规则回答，拒绝规则子任务会继承。
+        // 这里不再写一遍：内核拒绝一次调用时，会把这个工具的全部规则发给模型
+        bash: 'ask',
         ...Object.fromEntries(kitsToolRules.map((r) => [r.tool, r.level])),
       },
       input.disabledSkills ?? [],

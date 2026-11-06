@@ -1,4 +1,4 @@
-import type { AttachmentInput, QueuedDraft } from '@kits/core/ipc'
+import type { AttachmentInput, PermissionMode, QueuedDraft } from '@kits/core/ipc'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowUp,
@@ -62,13 +62,14 @@ const MAX_BYTES = 20 * 1024 * 1024
 const ACCEPT =
   '.docx,.pdf,.md,.markdown,.txt,.log,.csv,.tsv,.json,.jsonl,.yaml,.yml,.xml,.html,.sql,.py,.js,.ts,.tsx,.java,.go,.kt,.rs,.sh'
 
-const PERMS = ['ask', 'read', 'auto'] as const
+// “每次确认”收在设置页，这里只在当前就是它的时候列出来，不然菜单里没有选中项
+const PERMS = ['smart', 'read', 'auto'] as const satisfies readonly PermissionMode[]
 
 export interface ComposerSubmit {
   text: string
   workdir: string
   agent: string
-  permissionMode: (typeof PERMS)[number]
+  permissionMode: PermissionMode
   kernel: 'opencode' | 'codeagent'
   model: string
   attachments: AttachmentInput[]
@@ -140,9 +141,9 @@ export function Composer({
     workdir: string
     agent: string
     model: string
-    permissionMode: (typeof PERMS)[number]
+    permissionMode: PermissionMode
   }
-  onPermission?: (mode: (typeof PERMS)[number]) => Promise<void> | void
+  onPermission?: (mode: PermissionMode) => Promise<void> | void
   onModel?: (model: string) => Promise<void> | void
   // 会话页的上下文用量环，上下文只从这里打开；window 不知道时是 0
   context?: { used: number; window: number; onOpen(): void }
@@ -467,12 +468,12 @@ export function Composer({
         <MenuRadioGroup
           value={permission}
           onValueChange={(v) => {
-            const mode = v as (typeof PERMS)[number]
+            const mode = v as PermissionMode
             if (locked) change(onPermission?.(mode))
             else prefs.set({ permissionMode: mode })
           }}
         >
-          {PERMS.map((p) => (
+          {[...PERMS, ...(permission === 'ask' ? (['ask'] as const) : [])].map((p) => (
             <MenuRadioItem key={p} value={p}>
               <span className="block">{t(`perm.${p}`)}</span>
               <small className="block whitespace-nowrap text-[0.929rem] text-fg-muted">

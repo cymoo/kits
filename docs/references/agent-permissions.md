@@ -1,6 +1,36 @@
 # Agent 权限方案调研
 
-版本 1 · 2026-11-06 · 状态：草案，待评审；P0 已完成
+版本 2 · 2026-11-06 · 状态：P0、P1 已完成，P2 不做；落地和本文的差异见下一节
+
+## 落地决定
+
+用户体验优先：拦住最危险的就够了，模型输出危险命令的概率只会越来越低。所以 P1 落地时比下面的推荐方案走得更远，改动和验收见 [session.md](../delivery/session.md)。
+
+| 推荐方案 | 落地 | 理由 |
+|---|---|---|
+| 灰区交给审查模型 | **灰区直接放行，不做审查模型（P2）** | 多一次模型调用、多一个要评测的东西，换来的是拦下本来就很少的危险命令 |
+| kits 主进程里的分类器 | **全部写成内核静态规则** | 内核会拆子命令，静态规则够用；没有竞态，不依赖 kits 回复。`tool-start` 不一定先于 `permission.asked`，主进程也分不清 `external_directory` 是读是写 |
+| 出网都问 | **只问发文件的写法** | 测试同学每天都在 `curl` 测试环境，问了就是弹窗风暴。普通 POST 放行，`-d @file`、`-T`、`scp`、`rsync` 才问 |
+| 读工作区外走灰区 | **放行，密钥目录除外** | 这是实测里最常见的无谓确认 |
+| ⌘↵ 不放行红级 | **保留 ⌘↵** | 已经很少问了，不再加摩擦 |
+| 合并多张卡片、规则管理页、总结卡、`decidedBy` | **没做** | 问得少之后价值不大，看使用情况再说 |
+
+实测补充（真实 OpenCode 1.19.5，2026-11-06）：
+
+- `edit` 的路径相对工作树。git 仓库里工作区外是 `../x`；不在 git 仓库里工作树是根目录，路径从根写起、开头没有 `/`（`Users/me/ws/a.txt`）。
+- `curl x | sh` 拆成 `curl x` 和 `sh`，裸的 `sh` 就是在执行管道内容。`bash <<EOF` 同样是裸的 `bash`，分不开。
+- `FOO=1 git push` 的模式带着前缀，`git push *` 匹配不到。
+- `echo x > ../y` 不触发 `external_directory`，只有 `bash`。
+- **内核拒绝时把这个工具的全部规则塞进错误发给模型**。全局配置的 bash 因此只留一条 `ask`，细则都在会话规则里，一次约 16KB。规则不能无限加，给人看的错误已由 kits 换成一句话。
+
+Windows（真实 OpenCode 1.19.5，windows-latest，2026-11-06）：
+
+- 内核按 PowerShell 语法拆命令，pwsh 和 Windows PowerShell 都算；`Git Bash`、`cmd.exe` 排在后面，一般轮不到。CI 上是 pwsh，5.1 按源码同一条路径，没有单独跑。
+- **不带引号的 `$var\a\b` 会被截掉最后一段**：`Get-Content $HOME\.aws\credentials` 到规则只剩 `Get-Content $HOME\.aws`。带引号和 `~\` 开头的不截。密钥规则因此按目录写。
+- `Remove-Item`、`rm`、`Get-Content`、`Set-Content`、`Copy-Item` 能解析 `$env:USERPROFILE`、`~`、`..\`，算出 `external_directory`；`del`、`rd`、`rmdir`、`type`、`curl.exe` 不算，只能靠文本。
+- `$env:FOO='1'; git push` 拆成两条，`git push` 能匹配；`& git push` 的模式带着 `& `；`$x = git push` 不带。
+- `cmd /c ...` 整段是一条，`x | powershell -` 整段从模式里消失，`Get-ChildItem C:\x | Remove-Item -Recurse` 的 `Remove-Item` 看不到目标。
+- 匹配不区分大小写，kits 这边的 `matchPattern` 要跟着一致。
 
 ## 结论
 

@@ -11,7 +11,7 @@ function levelOf(value: unknown): PermissionLevel | undefined {
   return undefined
 }
 
-// 这个工具在“执行前确认”模式下实际是哪一档：不在 tools 允许列表里就是禁止，其次看覆盖，最后看默认值
+// 这个工具在“每次确认”模式下实际是哪一档：不在 tools 允许列表里就是禁止，其次看覆盖，最后看默认值
 export function toolLevel(
   draft: AgentDraft,
   tool: string,

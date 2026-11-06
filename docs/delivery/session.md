@@ -924,6 +924,84 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 - macOS 文件系统不区分大小写，内核匹配区分：`.GIT/config` 这样写绕得过保护路径。Windows 上内核不区分大小写，不受影响。
 - 本次在 macOS 上验证，Windows 上看 CI。CodeAgent 见核对清单第 31 项。
 
+## 2026-11-06　权限重构：默认“智能”档，只问撤不回的操作
+
+> 日期：2026-11-06　PR：[#87](https://github.com/cymoo/kits/pull/87)　作者：Claude Code
+
+### 原始需求
+
+根据 [agent-permissions.md](../references/agent-permissions.md) 重构权限方案，两个目标：用户友好，不再频繁弹审批；拦住最危险的命令。用户体验第一优先级，拦住最危险的就够了。和调研推荐方案的差异写在报告的“落地决定”一节，最大的一条：灰区直接放行，不做审查模型。
+
+原型：[session.html](../../designs/app/session.html)（`?s=permission`）、[shell.js](../../designs/app/shell.js) 的权限菜单。
+
+做到什么程度算完：默认档下日常开发和测试命令都不弹窗；推送、发布这类撤不回的操作弹窗并先说后果；强推、删根目录这类命令任何档位都跑不了。
+
+### 怎么验收
+
+用真实模型（`.env` 里的测试网关），工作目录是一个 git 仓库。让 Agent 按原样执行下面的命令。
+
+1. 新装或升级后打开设置 · 权限：默认选中“智能（推荐）”，能看到“什么时候问你”和“始终拦住”两段说明。输入框的权限菜单是智能、只读、全部自动三项。
+2. **不问：** `npm test`、`python3 -c "print(1)"`、`curl http://localhost:8080`、`ls ../`、`cat /etc/hosts`、`rm -rf build`、`git commit -m x`。都直接执行，没有卡片。
+3. **改文件不问：** 让 Agent 新建 `src/a.txt`。没有卡片。工作目录换成不是 git 仓库的 `~/kits-workspace` 再试一次，也没有卡片。
+4. **要问，并先说后果：** `git push origin main`，卡片标题是“这条命令会把提交推到远程仓库”，能选“本会话允许 `git push *`”。
+5. **要问，没有“本会话允许”：** `sudo ls`、`curl -T a.txt http://localhost:9`，放开等于放开整个命令。
+6. **工作区外写入要问：** 让 Agent 用改文件工具写 `../x.txt`，只弹一张卡片，标题是“这个操作会改工作区以外的文件”。
+7. **密钥要问：** `cat ~/.ssh/config`、让 Agent 用读文件工具读 `~/.ssh/config`。
+8. **拦下：** `git push --force origin main`。没有卡片，步骤里显示“被权限规则拦下了”，不是一大段 JSON，Agent 换做法。切到“全部自动”再试，一样被拦。
+9. **全部自动：** 切过去后第 4、6、7 步都不再问。
+10. **每次确认：** 设置页选它，新会话里 `npm test` 要问，和之前的“执行前确认”一样；输入框菜单里这时多一项“每次确认”。
+11. **老会话：** 升级前建的会话权限不变，显示“每次确认”。
+12. **Windows：** 看 PR 的 CI，`permission-windows.contract.test.ts` 在真实内核上过一遍 PowerShell 写法。真机上再试三条：`Remove-Item build -Recurse -Force` 不问，`Remove-Item $env:USERPROFILE\tmp -Recurse` 要问，`Remove-Item -Recurse -Force C:\ -WhatIf` 被拦。
+
+### 主要改动
+
+- `packages/core/src/config/permission.ts`：
+  - `PermissionMode` 加 `smart`。bash 是“默认放行 + 风险清单问 + 硬拒绝”，`RISKY_COMMANDS` 按风险分组，同一份表既生成内核规则，也给卡片说明原因（`permissionRisk`）。
+  - `external_directory` 放行，只有 `.ssh`、`.aws`、`.gnupg`、`.kube` 要问。工作区外写入改由 `edit` 的规则管：`../*`、`?:/*`，不在 git 仓库时按 `SessionPlace` 先问主目录、再放开工作区。
+  - 硬拒绝补全：`rm -rf /*`、`rm -rf / tmp`、`"$HOME"`、系统目录、`--no-preserve-root`、`sudo` 和环境变量前缀、`git push origin +main`、写裸磁盘设备、改根目录权限、关机重启、Windows 的 `rd /s`。
+  - “全部自动”真的什么都不问了：工作区外、MCP 写入、读密钥都放行，只留硬拒绝。用户在 MCP 页手动设成询问的工具照问。
+  - Agent 文件的 `allow` / `ask` 在智能档也生效。
+  - 只读白名单加 `cd`、`date`、`sleep`、`test`、`du`、`shasum`、`git cat-file`、`git rev-parse`、`git ls-files`。
+- `packages/core/src/config/settings.ts`：默认档 `smart`，配置版本升到 2。**版本 1 文件里的 `ask` 升级时换成 `smart`**：分不清是不是用户选的，那时也没有智能档可选。升级后再选“每次确认”不受影响。
+- `apps/desktop/src/main/sessions/thread.ts`：记下请求的 `risk`；`upload`、`script`、`sudo` 三类清空 `always`，不给“本会话允许”。
+- `apps/desktop/src/main/sessions/session-service.ts`：把工作目录和主目录交给规则。
+- **Windows：** 内核在 Windows 上按 PowerShell 语法拆命令，规则按真实内核给的文本写，不是按 bash 想的（报告“落地决定”一节有实测）。`Remove-Item`、`del`、`rd`、`rmdir` 和 `rm` 一样只问工作区外；`curl.exe`、`iwr`、`irm`、`Copy-Item` 到共享目录算传文件；`& git push`、`git.exe`、`cmd /c git push` 算推送；硬拒绝加 `C:\`、`C:\Windows`、`C:\Users`、`$env:USERPROFILE`、`Clear-Disk`、`vssadmin delete`。`matchPattern` 在 Windows 上不区分大小写，和内核一致。绝对路径写工作区里的目录不算工作区外。
+- `packages/kernel/src/generate/opencode-config.ts`：全局配置的 bash 只留 `ask`，细则都在会话规则里。子任务要问的由 kits 回答，拒绝规则子任务继承。
+- `packages/kernel/src/adapter/events.ts`：被规则拒绝时，内核的错误是几十 KB 的规则 JSON，给人看的换成一句话。
+- 界面：卡片有风险时标题说后果；输入框菜单换成智能、只读、全部自动，当前是“每次确认”时才多列一项；设置页四档，多两段说明。“执行前确认”改名“每次确认”。
+- 原型：权限卡片的演示换成 `git push`，权限菜单、测试命令的“本会话允许”改成“自动允许”。设置页权限在原型里只有占位，按现有风格补的，只改了占位文字。
+- Mock 内核加 `permission-push` 场景。
+
+没有新配置项，数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`permission.test.ts` 按命令列出不问、要问（含原因）、硬拒绝；工作区内外的 `edit`，含非 git 和 Windows 路径；`settings.test.ts` 补迁移；`thread.test.ts`、`events.test.ts`、`session-service.test.ts` 各补几条。
+- 契约测试（真实 OpenCode 1.19.5）：智能档下普通命令不问、推送要问、管道进 shell 要问、读工作区外不问、写工作区外只问一次，非 git 工作区内写不问、写外面要问。`permission-windows.contract.test.ts` 只在 Windows 上跑，把常见的 PowerShell 写法按放行、问、拒绝过一遍。
+- E2E：`session-cards.spec.ts` 加风险卡片，全量跑过。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+这些是有意接受的，换来的是不打扰：
+
+- **智能档防的是误操作，不是有心绕过。** `bash -c '...'`、`python x.py` 内部做什么规则看不到；`echo x > ../y`、`cp a ../b`、`sed -i` 这类用命令写工作区外不问，只有 `rm` 和改文件工具管得到。
+- 普通的 `curl`、`wget` 不问，包括对外网 POST 内联数据。真要防外传得靠网络出口白名单或沙箱。
+- `bash <<EOF` 也会问（内核给的模式和 `| bash` 一样是裸的 `bash`），标题说“执行管道或内联传进来的脚本”。
+- 子任务写工作区外不问：全局配置的 `edit` 没有工作区信息，只有主会话有。子任务的命令规则正常。
+- 工作区不是 git 仓库时，工作区外的判断只到主目录：系统目录普通用户本来写不了，别的盘的路径也会问（`?:/*`）。
+- Windows 上看不到目标的删除不问：`Get-ChildItem C:\x | Remove-Item -Recurse` 的目标在管道左边；`x | powershell -` 整段不在内核给的模式里。
+- `cmd /c` 整段是一条，里面只认 `git push`、`rd /s`、`del /s`，别的命令不解析。
+- Windows PowerShell 5.1 没有单独跑，CI 上是 pwsh，按源码语法是同一套。
+- `doom_loop` 还是问，全部自动也一样：内核这条只看全局规则，而且卡住重试本来就该让人看一眼。
+- 硬拒绝的 `* rm -*` 会误伤 `grep "rm -rf /" x` 这种命令，影响很小。
+- 内核拒绝一次，模型收到约 16KB 规则（改之前约 17KB），全局配置的 bash 只留了 `ask`。硬拒绝和风险清单别再大幅加长。
+- 调研里的合并卡片、规则管理页、总结卡、`permission_log` 记决策来源没有做，审查模型（P2）不做。
+- Windows 上的命令文本是在 CI 的真实内核上摸出来的，`permission-windows.contract.test.ts` 跑在 Windows CI 上。没有在真机上用真实模型走过。CodeAgent 走同一套规则，`external_directory` 和 `edit` 路径的写法要在核对清单里确认。
+
 ## 2026-11-06　Windows 契约测试的路径断言，`.docker` 密钥目录
 
 > 日期：2026-11-06　PR：#86　作者：Claude Code
@@ -960,4 +1038,3 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 ### 已知问题
 
 - 内核在 PowerShell 下截断路径最后一段，比较深的写法仍然匹配不上，比如 `$HOME/backup/.ssh/id_rsa` 收到的可能只是 `$HOME/backup/.ssh`，这个能命中；再深一层的情况没有逐一验证。
-

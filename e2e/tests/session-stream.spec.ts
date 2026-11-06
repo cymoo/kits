@@ -366,7 +366,7 @@ test('changes the permission and model of an open session from the composer', as
     await expect(composer).not.toContainText('assistant')
     await expect(composer.getByTestId('context-ring')).toBeVisible()
 
-    await composer.getByRole('button', { name: '执行前确认' }).click()
+    await composer.getByRole('button', { name: '智能' }).click()
     await page.getByRole('menuitemradio', { name: /全部自动/ }).click()
     await expect(composer.getByRole('button', { name: '全部自动' })).toBeVisible()
     await expect(page.getByTestId('notice')).toHaveText('权限改为“全部自动”，立即生效')

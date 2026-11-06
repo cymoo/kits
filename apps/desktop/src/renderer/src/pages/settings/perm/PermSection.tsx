@@ -1,4 +1,4 @@
-import type { PermissionLevel, PermissionMode } from '@kits/core/ipc'
+import type { PermissionLevel, PermissionMode, PermissionRisk } from '@kits/core/ipc'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { type MessageKey, t } from '../../../app/i18n'
@@ -8,7 +8,22 @@ import { cx } from '../../../ui/cx'
 // 设置 · 权限（原型 settings.html#perm 只有说明）：新会话默认的权限模式，加上默认权限和只读命令的说明。
 // 细则不在这里改：Agent 页改单个 Agent 的，MCP 页改每个工具的。
 
-const MODES: PermissionMode[] = ['ask', 'read', 'auto']
+const MODES: PermissionMode[] = ['smart', 'read', 'auto', 'ask']
+// “智能”模式要问的操作，顺序按用户碰到的频率
+const RISKS: PermissionRisk[] = [
+  'push',
+  'publish',
+  'mcp',
+  'outside',
+  'delete',
+  'discard',
+  'data',
+  'upload',
+  'script',
+  'sudo',
+  'secret',
+  'protected',
+]
 // 说明里列的内置工具，顺序和 Agent 页一致
 const TOOLS = ['read', 'edit', 'bash', 'external_directory', 'webfetch', 'task', 'skill']
 
@@ -25,7 +40,7 @@ export function PermSection() {
     queryKey: ['permission-defaults'],
     queryFn: () => kits.app.permissionDefaults(),
   })
-  const mode = settings.data?.permissionMode ?? 'ask'
+  const mode = settings.data?.permissionMode ?? 'smart'
   return (
     <div className="flex w-full max-w-[720px] flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -43,7 +58,7 @@ export function PermSection() {
         <div
           role="radiogroup"
           aria-label={t('perm.mode')}
-          className="grid grid-cols-3 gap-2.5 p-[18px]"
+          className="grid grid-cols-2 gap-2.5 p-[18px]"
         >
           {MODES.map((m) => {
             const on = mode === m
@@ -68,6 +83,26 @@ export function PermSection() {
             )
           })}
         </div>
+      </section>
+
+      <section className="flex flex-col gap-2.5 rounded-[16px] border border-line bg-raised px-[18px] py-3.5">
+        <div className="flex items-baseline gap-2.5">
+          <b className="font-semibold">{t('perm.smartAsks')}</b>
+          <small className="text-[0.929rem] text-fg-muted">{t('perm.smartAsksHint')}</small>
+        </div>
+        <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[0.929rem] text-fg-muted">
+          {RISKS.map((risk) => (
+            <li key={risk}>{t(`perm.risk.${risk}`)}</li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="flex flex-col gap-2.5 rounded-[16px] border border-line bg-raised px-[18px] py-3.5">
+        <div className="flex items-baseline gap-2.5">
+          <b className="font-semibold">{t('perm.blocked')}</b>
+          <small className="text-[0.929rem] text-fg-muted">{t('perm.blockedHint')}</small>
+        </div>
+        <p className="m-0 text-[0.929rem] text-fg-muted leading-[1.6]">{t('perm.blockedList')}</p>
       </section>
 
       <section className="flex flex-col overflow-hidden rounded-[16px] border border-line bg-raised">

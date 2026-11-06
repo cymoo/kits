@@ -60,7 +60,7 @@ export function resolvePrefs(
     mcpOff: prefs.mcpOff,
     workdir: prefs.workdir ?? settings?.workdirs[0]?.path,
     agent: prefs.agent,
-    permissionMode: prefs.permissionMode ?? settings?.permissionMode ?? 'ask',
+    permissionMode: prefs.permissionMode ?? settings?.permissionMode ?? 'smart',
     kernel: prefs.kernel ?? settings?.kernel ?? 'opencode',
     model: resolveModel(prefs.model, agentModel, settings),
   }

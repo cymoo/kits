@@ -295,7 +295,7 @@ test('keeps each permission note on one line', async () => {
   const { page, close } = await launchApp()
   try {
     await page.getByTitle('权限').click()
-    const note = page.getByRole('menuitemradio', { name: /执行前确认/ }).locator('small')
+    const note = page.getByRole('menuitemradio', { name: /智能/ }).locator('small')
     const { height, lineHeight } = await note.evaluate((el) => ({
       height: el.getBoundingClientRect().height,
       lineHeight: Number.parseFloat(getComputedStyle(el).lineHeight),

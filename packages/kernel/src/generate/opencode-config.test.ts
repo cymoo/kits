@@ -222,7 +222,7 @@ describe('generateOpencodeConfig', () => {
     // Agent 那一份只放 Agent 自己的规则，默认值在全局 permission 里，内核按“全局 → Agent”的顺序接起来
     expect(c.agent['kits-r'].permission).toMatchObject({ bash: 'deny', edit: 'deny' })
     expect(c.agent['kits-r'].permission.read).toBeUndefined()
-    expect(c.permission.bash).toMatchObject({ '*': 'ask', 'git status': 'allow' })
+    expect(c.permission.bash).toBe('ask')
   })
 
   it('keeps agent prompts out of the config so the kernel prompt stays in place', () => {

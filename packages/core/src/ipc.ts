@@ -26,7 +26,7 @@ import type { SkillOverview, SkillSource } from './skill-view'
 export type * from './agent-view'
 // 渲染进程的 tsconfig 不带 Node 类型，不能引 @kits/core 的入口（里面有 node:fs），要用的类型从这里转出去
 export type { Gateway, GatewayModel } from './config/gateway'
-export type { PermissionLevel, PermissionMode } from './config/permission'
+export type { PermissionLevel, PermissionMode, PermissionRisk } from './config/permission'
 export type { GeneralSettings, Settings } from './config/settings'
 export type * from './mcp-view'
 export type * from './memory-view'
@@ -114,7 +114,7 @@ export const ipcContract = {
       | { status: 'available'; version: string }
       | { status: 'error'; message: string }
     >(),
-    // 设置 · 权限页的说明：默认权限（执行前确认模式下）和只读命令白名单
+    // 设置 · 权限页的说明：默认权限（每次确认模式下）和只读命令白名单
     permissionDefaults: method<
       undefined,
       { tools: Record<string, PermissionLevel>; readonlyCommands: string[] }

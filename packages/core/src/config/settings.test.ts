@@ -6,9 +6,9 @@ describe('parseSettings', () => {
   it('fills every default for an empty file', () => {
     const s = parseSettings(undefined)
     expect(s).toMatchObject({
-      version: 1,
+      version: 2,
       kernel: 'opencode',
-      permissionMode: 'ask',
+      permissionMode: 'smart',
       gateways: [],
       onboardingDone: false,
     })
@@ -50,5 +50,22 @@ describe('findModel', () => {
     })
     expect(findModel(gateways, 'a/m')).toBeUndefined()
     expect(findModel(gateways, 'b/m')?.gateway.id).toBe('b')
+  })
+
+  it('defaults new installs to the smart permission mode', () => {
+    expect(parseSettings(undefined).permissionMode).toBe('smart')
+  })
+
+  it('moves a version 1 file off the old ask default', () => {
+    const s = parseSettings({ version: 1, permissionMode: 'ask', defaultModel: 'corp/m' })
+    expect(s).toMatchObject({ version: 2, permissionMode: 'smart', defaultModel: 'corp/m' })
+  })
+
+  it('keeps the other modes of a version 1 file', () => {
+    expect(parseSettings({ version: 1, permissionMode: 'auto' }).permissionMode).toBe('auto')
+  })
+
+  it('keeps ask once it was chosen on version 2', () => {
+    expect(parseSettings({ version: 2, permissionMode: 'ask' }).permissionMode).toBe('ask')
   })
 })

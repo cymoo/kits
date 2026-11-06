@@ -1096,6 +1096,18 @@ describe('SessionService session settings', () => {
     expect(kernel.permissionUpdates).toEqual([])
   })
 
+  it('tells the kernel which directory is the workspace of a smart session', async () => {
+    const { service, kernel, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    await service.setPermissionMode(s.id, 'smart')
+    expect(kernel.permissionUpdates[0]?.rules).toContainEqual({
+      tool: 'edit',
+      pattern: 'w/*',
+      level: 'allow',
+    })
+  })
+
   it('hands the whole new rule list to the kernel and leaves a notice', async () => {
     const { service, store, kernel, waitFor } = setup('done')
     const s = await service.create(input)

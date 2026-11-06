@@ -26,6 +26,8 @@ const GIT_CONFIG_PROMPT = '改 git 配置'
 describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
   let root: string
   let workdir: string
+  let outside: string
+  let plain: string
   let kernel: OpencodeFamilyKernel
   const mocks: Record<string, MockModel> = {}
 
@@ -36,10 +38,31 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     workdir = path.join(realpathSync(root), 'work')
     mkdirSync(workdir)
     execFileSync('git', ['init', '-q'], { cwd: workdir })
+    // 工作区外的目录，和不是 git 仓库的工作区：内核给 edit 的路径两种情况写法不同
+    outside = path.join(realpathSync(root), 'outside')
+    plain = path.join(realpathSync(root), 'plain')
+    mkdirSync(outside)
+    mkdirSync(plain)
+    writeFileSync(path.join(outside, 'notes.txt'), 'notes\n')
     mocks.ok = await startMockModel()
     mocks.flaky = await startMockModel({ failFirst: 1 })
     mocks.lazy = await startMockModel({ firstByteDelayMs: 1_500 })
     mocks.slow = await startMockModel({ firstByteDelayMs: 30_000 })
+    const shell = (command: string) => ({
+      toolCall: { name: 'bash', arguments: { command, description: 'Run it' } },
+    })
+    const write = (filePath: string) => ({
+      toolCall: { name: 'write', arguments: { filePath, content: 'hi\n' } },
+    })
+    mocks.smartcmd = await startMockModel(shell('touch kits-smart.txt'))
+    mocks.smartpush = await startMockModel(shell('git push origin main'))
+    mocks.smartpipe = await startMockModel(shell('printf true | sh'))
+    mocks.smartread = await startMockModel({
+      toolCall: { name: 'read', arguments: { filePath: path.join(outside, 'notes.txt') } },
+    })
+    mocks.smartwrite = await startMockModel(write(path.join(outside, 'new.txt')))
+    mocks.plainin = await startMockModel(write(path.join(plain, 'in.txt')))
+    mocks.plainout = await startMockModel(write(path.join(outside, 'from-plain.txt')))
     // 写一个新文件，用来看 diff 的映射
     mocks.writer = await startMockModel({
       toolCall: {
@@ -127,6 +150,13 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
         writer: 'k',
         subagent: 'k',
         parallel: 'k',
+        smartcmd: 'k',
+        smartpush: 'k',
+        smartpipe: 'k',
+        smartread: 'k',
+        smartwrite: 'k',
+        plainin: 'k',
+        plainout: 'k',
         guarded: 'k',
         guardedsub: 'k',
         force: 'k',
@@ -164,6 +194,19 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
       model: `${gateway}/${MOCK_MODEL_ID}`,
       title: 'contract',
       permission: agentPermissions(builtinAssistant, 'ask', mcp),
+    })
+  }
+
+  async function smartSession(gateway: string, dir = workdir): Promise<KernelSession> {
+    return kernel.createSession({
+      workdir: dir,
+      agent: 'assistant',
+      model: `${gateway}/${MOCK_MODEL_ID}`,
+      title: 'contract',
+      permission: agentPermissions(builtinAssistant, 'smart', mcp, {
+        workdir: dir,
+        home: realpathSync(root),
+      }),
     })
   }
 
@@ -417,6 +460,60 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     })
     expect(asked).toEqual(['edit'])
   }, 60_000)
+
+  describe('smart mode', () => {
+    const asks = async (s: KernelSession) => {
+      const asked: { tool: string; patterns: string[] }[] = []
+      const events = await run(s, '做吧', (e) => {
+        asked.push({ tool: e.tool, patterns: e.patterns })
+        return kernel.respondPermission(s, e.requestId, 'reject', '不要做')
+      })
+      return { asked, events }
+    }
+
+    it('runs an ordinary command without asking', async () => {
+      const { asked } = await asks(await smartSession('smartcmd'))
+      expect(asked).toEqual([])
+      expect(existsSync(path.join(workdir, 'kits-smart.txt'))).toBe(true)
+    }, 60_000)
+
+    it('asks before a push', async () => {
+      const { asked } = await asks(await smartSession('smartpush'))
+      expect(asked).toEqual([{ tool: 'bash', patterns: ['git push origin main'] }])
+    }, 60_000)
+
+    it('asks when a pipe feeds a shell', async () => {
+      const { asked } = await asks(await smartSession('smartpipe'))
+      expect(asked.map((a) => a.tool)).toEqual(['bash'])
+      expect(asked[0]?.patterns).toContain('sh')
+    }, 60_000)
+
+    it('reads outside the workspace without asking', async () => {
+      const { asked, events } = await asks(await smartSession('smartread'))
+      expect(asked).toEqual([])
+      const end = events.find((e) => e.type === 'tool-end')
+      expect(end && end.type === 'tool-end' && end.error).toBeFalsy()
+    }, 60_000)
+
+    it('asks once before writing outside a git workspace', async () => {
+      const { asked } = await asks(await smartSession('smartwrite'))
+      expect(asked.map((a) => a.tool)).toEqual(['edit'])
+      // Windows CI 的临时目录是 8.3 短路径，前面是一串 ..\，这里只看结尾
+      expect(asked[0]?.patterns[0]?.replaceAll('\\', '/')).toMatch(/\/outside\/new\.txt$/)
+    }, 60_000)
+
+    it('writes in a workspace that is not a git repository without asking', async () => {
+      const { asked } = await asks(await smartSession('plainin', plain))
+      expect(asked).toEqual([])
+      expect(existsSync(path.join(plain, 'in.txt'))).toBe(true)
+    }, 60_000)
+
+    it('asks before writing outside a workspace that is not a git repository', async () => {
+      const { asked } = await asks(await smartSession('plainout', plain))
+      expect(asked.map((a) => a.tool)).toEqual(['edit'])
+      expect(existsSync(path.join(outside, 'from-plain.txt'))).toBe(false)
+    }, 60_000)
+  })
 
   it('denies a force push without asking', async () => {
     const s = await session('force')

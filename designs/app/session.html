@@ -284,13 +284,13 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
                   <span style="flex: 1"></span>
                   <span style="font-size: 13px; color: {{permMetaColor}}">{{permMeta}}</span>
                 </div>
-                <pre style="margin: 0; font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 14px; line-height: 1.6; background: #16171A; color: #E8E8E6; border-radius: 8px; padding: 10px 14px; white-space: pre-wrap"><span style="color: #84878E">$</span> uv run pytest tests/points -q</pre>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: #43464C"><span>工作区 <span style="font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace">~/repo/member-svc</span></span><span>会运行项目里的测试代码，预计 1～5 秒</span><span>不会改文件、不联网</span></div>
+                <pre style="margin: 0; font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 14px; line-height: 1.6; background: #16171A; color: #E8E8E6; border-radius: 8px; padding: 10px 14px; white-space: pre-wrap"><span style="color: #84878E">$</span> git push origin feat/points-idempotent</pre>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: #43464C"><span>工作区 <span style="font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace">~/repo/member-svc</span></span></div>
                 <sc-if value="{{permPending}}">
                   <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-top: 2px">
                     <button type="button" onClick="{{permDeny}}" class="k-btn">拒绝<span style="font-size: 12px; color: #A0A3A9">Esc</span></button>
                     <span style="flex: 1"></span>
-                    <button type="button" onClick="{{permAlways}}" class="k-btn" style="gap: 6px">本会话允许 <span style="font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 13px">uv run pytest …</span></button>
+                    <button type="button" onClick="{{permAlways}}" class="k-btn" style="gap: 6px">本会话允许 <span style="font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 13px">git push *</span></button>
                     <button type="button" onClick="{{permOnce}}" class="k-primary">允许一次<span style="font-size: 12px; color: #B4B6BB">⌘↵</span></button>
                   </div>
                 </sc-if>
@@ -617,7 +617,7 @@ Error: upstream request failed after 5 retries: ECONNRESET
             <sc-for list="{{ctxRows}}" as="c"><div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F2F2F0"><span style="flex: 0 0 60px; font-size: 13px; color: #60646B">{{c.k}}</span><span style="flex: 1; min-width: 0; font-size: 13px; font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; white-space: pre-line">{{c.v}}</span></div></sc-for>
             <div style="display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #F2F2F0"><span style="flex: 0 0 60px; font-size: 13px; color: #60646B">允许规则</span><span style="flex: 1; min-width: 0; font-size: 13px">
               <sc-if value="{{alwaysRule}}"><span style="display: inline-flex; align-items: center; gap: 6px"><span style="font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; background: #EFEFEC; border-radius: 4px; padding: 0 5px">uv run pytest *</span><button type="button" class="k-small" style="height: 22px; font-size: 12px">撤销</button></span></sc-if>
-              <sc-if value="{{noRule}}"><span style="color: #84878E">还没有。只读命令（git status、ls、cat…）自动允许，其余命令执行前会在对话里问你。</span></sc-if>
+              <sc-if value="{{noRule}}"><span style="color: #84878E">还没有。“智能”模式下只有推送、发布这类撤不回的操作才问你。</span></sc-if>
             </span></div>
           </div>
       </div>
@@ -897,9 +897,9 @@ class Component extends DCLogic {
     const doneTurn2 = this.turn('t2', '1:34', 'done', [
       ['调用平台', 'req-platform · get_requirement', '0.3 秒', false, '', false, { args: '{\n  "id": "R-1024"\n}', out: '{\n  "title": "积分兑换优惠券",\n  "status": "开发中",\n  "owner": "会员组"\n}' }],
       ['读取文件', 'src/points/refund.py', '112 行'], ['搜索', 'grep "refund_request_id" src/ tests/', '3 处'], ['修改文件', 'src/points/idempotency.py', '+21 −9', true], ['修改文件', 'src/points/refund.py', '+2', true], ['修改文件', 'tests/points/test_refund.py', '+38', true],
-      this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', { exit: 1, time: '0.9 秒', how: '本会话允许', out: '.............F..                                                         [100%]\n=================================== FAILURES ===================================\n_______________ test_refund_same_request_id_returns_first_result _______________\n\n    def test_refund_same_request_id_returns_first_result():\n>       first = refund(order_id=1, amount=10, refund_request_id="r-1")\nE       TypeError: refund() got an unexpected keyword argument \'refund_request_id\'\n\ntests/points/test_refund.py:90: TypeError\n------------------------------ Captured log call -------------------------------\nINFO     points.refund:refund.py:14 refund start order=1\n=========================== short test summary info ============================\nFAILED tests/points/test_refund.py::test_refund_same_request_id_returns_first_result\n1 failed, 15 passed in 0.91s' }),
+      this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', { exit: 1, time: '0.9 秒', how: '自动允许', out: '.............F..                                                         [100%]\n=================================== FAILURES ===================================\n_______________ test_refund_same_request_id_returns_first_result _______________\n\n    def test_refund_same_request_id_returns_first_result():\n>       first = refund(order_id=1, amount=10, refund_request_id="r-1")\nE       TypeError: refund() got an unexpected keyword argument \'refund_request_id\'\n\ntests/points/test_refund.py:90: TypeError\n------------------------------ Captured log call -------------------------------\nINFO     points.refund:refund.py:14 refund start order=1\n=========================== short test summary info ============================\nFAILED tests/points/test_refund.py::test_refund_same_request_id_returns_first_result\n1 failed, 15 passed in 0.91s' }),
       ['修改文件', 'src/points/refund.py', '+1 −1', true],
-      this.sh('再跑一遍确认修好了', 'uv run pytest tests/points -q', { time: '1.0 秒', how: '本会话允许', out: '................\n16 passed in 1.02s' }),
+      this.sh('再跑一遍确认修好了', 'uv run pytest tests/points -q', { time: '1.0 秒', how: '自动允许', out: '................\n16 passed in 1.02s' }),
       this.sh('看这轮改了哪些文件', 'git status --short', { time: '0.1 秒', how: '自动允许', out: ' M src/points/idempotency.py\n M src/points/refund.py\n M tests/points/test_refund.py' }),
       ['记忆', '请求号字段叫 request_id / refund_request_id', '项目记忆']]);
     const doneText = { isText: true, paras: [
@@ -924,7 +924,7 @@ class Component extends DCLogic {
             ['子任务', '探索仓库结构', '10 步 · 0:41', false, '', false, { prompt: '快速看一遍仓库：是做什么的、目录怎么分、入口在哪。忽略 node_modules。', subs: taskSubs, out: '会员积分服务，FastAPI。src/points 是积分和兑换，src/order 是订单，入口 src/main.py。' }],
             ['子任务', '跑积分模块的测试', '2 步 · 0:27', false, '', true, { prompt: '跑 tests/points，把失败的用例列出来。', subs: [['读取', 'tests/points/conftest.py', '58 行'], ['运行', 'uv run pytest tests/points -q', '', true]] }]],
             { summary: '先探索，再跑测试', text: '用户要两件事，派两个子任务。' }),
-          { isPerm: true, from: '来自子任务：跑积分模块的测试' }],
+          { isPerm: true, from: '来自子任务：提交积分模块的改动' }],
         changes: 'none', output: 'empty-running', ctx: { usage: ['22K / 200K', 11, '历史消息 0K', '14K', ''], rows: 'redeem' }
       },
       streaming: {
@@ -933,7 +933,7 @@ class Component extends DCLogic {
           redeemText1, refundUser,
           this.turn('t2', '进行中 · 0:46', 'running', [
             ['读取文件', 'src/points/refund.py', '112 行'], ['搜索', 'grep "refund_request_id" src/ tests/', '3 处'], ['修改文件', 'src/points/idempotency.py', '+21 −9', true], ['修改文件', 'src/points/refund.py', '+3 −1', true], ['修改文件', 'tests/points/test_refund.py', '+38', true],
-            this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', { spin: true, time: '0:08', how: '本会话允许' })],
+            this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', { spin: true, time: '0:08', how: '自动允许' })],
             { summary: '把幂等检查抽成装饰器，先确认退款的参数名', text: '退款和兑换都要按请求号去重，缓存逻辑一样，不该复制两份。把 idempotency 里的 get/put 抽成一个装饰器，两个接口都用它。退款的请求号字段叫 refund_request_id，先确认一下 refund.py 里的参数名再改。' }),
           { isText: true, paras: [this.p('退款接口和兑换共用同一套请求号规则，所以我把 `idempotency` 里的检查抽成了装饰器 `@idempotent("refund_request_id")`，两个接口各加一行就行。退款的测试补好了，正在跑一遍', true)] }],
         changes: 'both', output: 'empty-running', ctx: { usage: ['71K / 200K', 35.5, '历史消息 50K', '9K', ''], rows: 'redeem' }
@@ -943,7 +943,7 @@ class Component extends DCLogic {
         blocks: [redeemUser, redeemTurn1('38 秒'), redeemText1, refundUser,
           this.turn('t2', s.stopped ? '已停止' : noteSent.length ? '0:52' : '进行中 · 0:46', s.stopped || noteSent.length ? 'done' : 'running', [
             ['读取文件', 'src/points/refund.py', '112 行'], ['修改文件', 'src/points/idempotency.py', '+21 −9', true], ['修改文件', 'src/points/refund.py', '+3 −1', true],
-            this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', s.stopped ? { time: '已停止', how: '本会话允许' } : noteSent.length ? { time: '0.9 秒', how: '本会话允许', out: '................\n16 passed in 0.92s' } : { spin: true, time: '0:08', how: '本会话允许' })]),
+            this.sh('跑积分模块的测试', 'uv run pytest tests/points -q', s.stopped ? { time: '已停止', how: '自动允许' } : noteSent.length ? { time: '0.9 秒', how: '自动允许', out: '................\n16 passed in 0.92s' } : { spin: true, time: '0:08', how: '自动允许' })]),
           ...noteSent.map((n) => ({ isUser: true, text: n.text })),
           ...(noteSent.length && !s.stopped ? [this.turn('t3', '进行中 · 0:06', 'running', [['读取文件', 'src/points/idempotency.py', '63 行'], ['修改文件', 'src/points/idempotency.py', '+4 −2', true]])] : []),
           ...notePending.map((n) => ({ isUser: true, text: n.text, note: '下一步送达', notePending: true }))],
@@ -1153,8 +1153,8 @@ class Component extends DCLogic {
       permCardStyle: 'border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; ' + (permWaiting ? 'border: 1px solid #E9B949; background: #FFFBF0; box-shadow: 0 0 0 4px rgba(233,185,73,.12)' : 'border: 1px solid #EFEFEC; background: #FCFCFB'),
       permIcon: 'width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; ' + (permWaiting ? 'background: #F3D9A4; color: #6B4600' : 'background: #EFEFEC; color: #43464C'),
       permFrom: (sc.blocks.find((b) => b.isPerm) || {}).from || '',
-      permHead: permWaiting ? '执行命令前需要你确认' : s.perm === 'denied' ? '命令已拒绝' : '已执行命令',
-      permMeta: permWaiting ? 'Agent 在等，其他会话不受影响' : s.perm === 'always' ? '本会话内 uv run pytest 开头的命令不再询问' : s.perm === 'once' ? '已允许一次' : '',
+      permHead: permWaiting ? '这条命令会把提交推到远程仓库' : s.perm === 'denied' ? '命令已拒绝' : '已执行命令',
+      permMeta: permWaiting ? 'Agent 在等，其他会话不受影响' : s.perm === 'always' ? '本会话内 git push 开头的命令不再询问' : s.perm === 'once' ? '已允许一次' : '',
       permMetaColor: permWaiting ? '#8A5A00' : '#84878E',
       permPending: s.perm === 'pending', permDenying: s.perm === 'denying', permRan: s.perm === 'once' || s.perm === 'always', permIsDenied: s.perm === 'denied',
       permOnce: () => this.setState({ perm: 'once' }), permAlways: () => this.setState({ perm: 'always' }), permDeny: () => this.setState({ perm: 'denying' }), permBack: () => this.setState({ perm: 'pending' }), permDenied: () => this.setState({ perm: 'denied' }),
