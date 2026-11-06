@@ -93,9 +93,10 @@ const unsafeCommandPatterns = [
 ]
 
 // 密钥文件：白名单命令也能读它们，内核只检查固定命令表里的静态路径，`cat $HOME/.ssh/x` 这类写法它不问。
-// 按命令文本匹配，只挡写出路径的，防的是模型顺手读，不是有意绕过
-const SECRET_DIRS = ['.ssh', '.aws', '.gnupg', '.kube']
-const SECRET_FILES = ['.netrc', '.git-credentials', '.npmrc', '.pypirc', '.docker/config.json']
+// 按命令文本匹配，只挡写出路径的，防的是模型顺手读，不是有意绕过。
+// 按目录写而不是具体文件：内核的 PowerShell 解析会截掉路径最后一段，`.docker/config.json` 到这里只剩 `.docker`
+const SECRET_DIRS = ['.ssh', '.aws', '.gnupg', '.kube', '.docker']
+const SECRET_FILES = ['.netrc', '.git-credentials', '.npmrc', '.pypirc']
 const secretCommandPatterns = [
   ...SECRET_DIRS.flatMap((d) => [`*${d} *`, `*${d}/*`]),
   ...SECRET_FILES.map((f) => `*${f}*`),
