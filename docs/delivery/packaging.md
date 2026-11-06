@@ -252,7 +252,7 @@ kits 主要运行在 Windows 上，mac 只用于本地开发，CI 不需要再�
 
 ## 2026-11-06　打包时检查 ripgrep
 
-> PR：见本分支 `fix/packaging-require-ripgrep`
+> PR：#85
 
 ### 原始需求
 
