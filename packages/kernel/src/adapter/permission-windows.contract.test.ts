@@ -160,7 +160,8 @@ describe.runIf(process.platform === 'win32' && binary)('smart mode on windows', 
   it.each(ASKED)(
     'asks before %s',
     async (command) => {
-      expect((await run(command)).asked).toEqual(['bash'])
+      // 能算出密钥目录的由 external_directory 先问，别的是 bash，都只问一次
+    expect((await run(command)).asked).toHaveLength(1)
     },
     60_000,
   )
