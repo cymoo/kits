@@ -123,6 +123,8 @@ test('walks through several changed files and jumps from a diff to the file', as
     const files = panel.getByTestId('changed-files')
     const diff = panel.getByTestId('diff')
 
+    // 一轮刚结束时先按步骤列出（只有 redeem.py），内核的快照 diff 稍后整轮换上：等 5 个文件都到了再操作
+    await expect(files.getByRole('button')).toHaveCount(5)
     // 五位数的行号、长行都在；方向键在文件之间换
     await files.getByRole('button', { name: /src\/points\/redeem\.py/ }).focus()
     await page.keyboard.press('ArrowDown')
