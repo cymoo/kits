@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { launchApp } from './app'
@@ -17,6 +17,11 @@ const PIXEL = [
 const docx = path.resolve(
   import.meta.dirname,
   '../../apps/desktop/src/main/attachments/fixtures/requirement.docx',
+)
+
+const pdf = path.resolve(
+  import.meta.dirname,
+  '../../apps/desktop/src/main/attachments/fixtures/spec.pdf',
 )
 
 test('uploads a Word file and a markdown file with the first task', async () => {
@@ -92,6 +97,95 @@ test('adds a file dropped on the composer and refuses one it cannot read', async
     // 没发出去：草稿和附件都还在
     await expect(box).toHaveValue('看看这个文件')
     await expect(page).not.toHaveURL(/#\/s\//)
+  } finally {
+    await close()
+  }
+})
+
+test('previews sent documents from the file name in the message', async () => {
+  const { app, page, configDir, userDataDir, close } = await launchApp(mock)
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    // 不真的打开系统应用，记下要打开什么
+    await app.evaluate(({ shell }) => {
+      const calls: string[] = []
+      Object.assign(globalThis, { shellCalls: calls })
+      shell.openPath = async (file) => {
+        calls.push(`open:${file}`)
+        return ''
+      }
+      shell.showItemInFolder = (file) => {
+        calls.push(`reveal:${file}`)
+      }
+    })
+    const shellCalls = () =>
+      app.evaluate(() => (globalThis as unknown as { shellCalls: string[] }).shellCalls)
+    await page.getByTestId('file-input').setInputFiles([docx, pdf])
+    await page.getByTestId('file-input').setInputFiles({
+      name: '用例.md',
+      mimeType: 'text/markdown',
+      buffer: Buffer.from('# 用例标题\n- 正常兑换\n'),
+    })
+    await page.getByTestId('file-input').setInputFiles({
+      name: 'run.sh',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('echo hi\n'),
+    })
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('按需求补测试')
+    await box.press('Enter')
+    await expect(page).toHaveURL(/#\/s\//)
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+
+    // Markdown：渲染后的样子，能切到源码
+    await page.getByRole('button', { name: '预览：用例.md' }).click()
+    const dialog = page.getByRole('dialog', { name: '用例.md' })
+    await expect(dialog.getByRole('heading', { name: '用例标题' })).toBeVisible()
+    await page.screenshot({ path: 'test-results/attachments-preview.png' })
+    await dialog.getByRole('radio', { name: '源码' }).click()
+    await expect(dialog.getByTestId('file-code')).toContainText('# 用例标题')
+    await dialog.getByRole('button', { name: '用系统应用打开' }).click()
+    await expect.poll(shellCalls).toEqual([expect.stringMatching(/^open:.*用例\.md$/)])
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+
+    // PDF：关上再开还能画出来
+    for (let i = 0; i < 2; i++) {
+      await page.getByRole('button', { name: `预览：${path.basename(pdf)}` }).click()
+      const viewer = page.getByRole('dialog', { name: path.basename(pdf) })
+      await expect(viewer.locator('canvas')).toBeVisible()
+      await page.screenshot({ path: 'test-results/attachments-preview-pdf.png' })
+      await page.keyboard.press('Escape')
+      await expect(viewer).toBeHidden()
+    }
+
+    // Word：沙箱里的正文
+    await page.getByRole('button', { name: '预览：requirement.docx' }).click()
+    const word = page.getByRole('dialog', { name: 'requirement.docx' })
+    await expect(word.locator('iframe')).toBeVisible()
+    await word.getByRole('button', { name: '关闭' }).click()
+    await expect(word).toBeHidden()
+
+    // 脚本不交给系统应用，只在文件夹里选中
+    await page.getByRole('button', { name: '预览：run.sh' }).click()
+    const script = page.getByRole('dialog', { name: 'run.sh' })
+    await expect(script.getByTestId('file-code')).toContainText('echo hi')
+    await expect(script.getByRole('button', { name: '用系统应用打开' })).toHaveCount(0)
+    await script.getByRole('button', { name: '在文件夹中显示' }).click()
+    await expect.poll(async () => (await shellCalls()).at(-1)).toMatch(/^reveal:.*run\.sh$/)
+    await page.keyboard.press('Escape')
+
+    // 原文件被清掉了：说明一下，不给打开按钮
+    const id = new URL(page.url()).hash.split('/').pop() ?? ''
+    const dir = path.join(userDataDir, 'attachments', id)
+    for (const f of readdirSync(dir)) {
+      if (f.endsWith('用例.md')) rmSync(path.join(dir, f))
+    }
+    await page.getByRole('button', { name: '预览：用例.md' }).click()
+    const gone = page.getByRole('dialog', { name: '用例.md' })
+    await expect(gone).toContainText('文件已经不在了')
+    await expect(gone.getByRole('button', { name: '用系统应用打开' })).toHaveCount(0)
   } finally {
     await close()
   }

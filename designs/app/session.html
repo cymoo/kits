@@ -185,7 +185,7 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
                 <div style="max-width: 100%; box-sizing: border-box; background: #F6F6F4; border-radius: 16px 16px 4px 16px; padding: 10px 14px; font-size: 14px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere">{{b.text}}</div>
                 <sc-if value="{{b.note}}"><div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #84878E"><sc-if value="{{b.notePending}}"><span aria-hidden="true" style="width: 10px; height: 10px; border: 2px solid #DCDCD8; border-top-color: #3563E0; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if>{{b.note}}</div></sc-if>
                 <sc-if value="{{b.image}}"><div style="width: 160px; height: 100px; border: 1px solid #E8E8E5; border-radius: 8px; background: #E4E7EC" role="img" aria-label="{{b.image}}" title="点开看大图"></div></sc-if>
-                <sc-if value="{{b.attach}}"><div style="display: flex; gap: 6px; align-items: center"><span style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #E8E8E5; border-radius: 8px; padding: 2px 8px; font-size: 13px; color: #43464C"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg>{{b.attach}}</span><span class="k-act"><button type="button" class="k-small">编辑后重发</button></span></div></sc-if>
+                <sc-if value="{{b.attach}}"><div style="display: flex; gap: 6px; align-items: center"><button type="button" class="k-row" onClick="{{b.openAttach}}" title="预览" style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #E8E8E5; border-radius: 8px; padding: 2px 8px; background: transparent; font: inherit; font-size: 13px; color: #43464C; cursor: pointer"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg>{{b.attach}}</button><span class="k-act"><button type="button" class="k-small">编辑后重发</button></span></div></sc-if>
               </div>
             </sc-if>
 
@@ -604,6 +604,15 @@ Error: upstream request failed after 5 retries: ECONNRESET
         </sc-if>
       </aside>
     </div>
+    <sc-if value="{{attOpen}}">
+      <div class="k-mask" onClick="{{closeAttach}}"></div>
+      <div class="k-dialog" role="dialog" aria-modal="true" aria-label="R-1024 积分兑换优惠券" style="width: 880px; height: 80vh; max-width: calc(100% - 96px)">
+        <div style="display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 8px 4px 16px; border-bottom: 1px solid #EFEFEC; flex: 0 0 auto"><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500">R-1024 积分兑换优惠券</span><button type="button" class="k-small">用系统应用打开</button><button type="button" class="k-small" onClick="{{closeAttach}}">关闭</button></div>
+        <div style="flex: 1; min-height: 0; overflow: auto; padding: 20px 24px; font-size: 14px; line-height: 24px; color: #16171A">
+          <div style="max-width: 720px; margin: 0 auto"><div style="font-size: 18px; font-weight: 600; margin-bottom: 8px">积分兑换优惠券</div><div style="color: #43464C">内容和文件页签的预览一样：PDF 翻页、Word 正文、Markdown 能切源码、表格、代码。脚本类附件不用系统应用打开，按钮换成“在文件夹中显示”；原文件被清掉时显示“文件已经不在了”，没有打开按钮。</div></div>
+        </div>
+      </div>
+    </sc-if>
     <sc-if value="{{ctxOpen}}">
       <div class="k-mask" onClick="{{closeContext}}"></div>
       <div class="k-dialog" role="dialog" aria-modal="true" aria-label="上下文">
@@ -628,7 +637,7 @@ Error: upstream request failed after 5 retries: ECONNRESET
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
 // 演示状态由 ?s= 决定：streaming 运行中、queued 排队和插话、plan 带计划的运行中、subagent 子任务、permission 命令确认、question Agent 提问、done 完成、
-// error 重试与出错、context 上下文接近上限（加 &open=context 打开上下文对话框）、changes 改动放大、output 结构化产出（对话里的卡片 + 放大的产出页签）、
+// error 重试与出错、context 上下文接近上限（加 &open=context 打开上下文对话框，&open=attachment 打开附件预览）、changes 改动放大、output 结构化产出（对话里的卡片 + 放大的产出页签）、
 // files 文件面板（&f=路径 打开预览）、files-wide 文件面板放大。
 const SUB_LIMIT = 8;
 class Component extends DCLogic {
@@ -641,7 +650,7 @@ class Component extends DCLogic {
     this.state = {
       open: { think: true }, stepOpen: {}, stepAll: {}, copied: null, planOpen: true,
       perm: 'pending', answer: null, retry: 'retry', retryOpen: true, ctx: 'near', summaryOpen: true,
-      tab: tabDefault[scene] || 'changes', sel: null, outputTab: scene === 'output', menuOpen: false, ctxOpen: query.get('open') === 'context',
+      tab: tabDefault[scene] || 'changes', sel: null, outputTab: scene === 'output', menuOpen: false, ctxOpen: query.get('open') === 'context', attOpen: query.get('open') === 'attachment',
       fileSel: query.get('f') || (scene === 'files-wide' ? 'docs/api/points.md' : null), fileQuery: '', fileView: 'rendered', dirsOpen: ['docs', 'docs/api', 'docs/requirements', 'src', 'src/points', 'tests', 'tests/fixtures'], notices: [], view: 'unified', vote: null, tags: [],
       itemOpen: 1, filter: 'all', exportOpen: scene === 'output', removed: [6], edited: [2],
       queue: scene === 'queued' ? ['退款的幂等 key 要带上商户号，别只用请求号', '顺便看下缓存过期时间是不是配置项'] : [], queueOpen: true, notes: []
@@ -655,7 +664,7 @@ class Component extends DCLogic {
       requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
     });
     document.addEventListener('kits-context', () => this.setState({ ctxOpen: true }));
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.state.ctxOpen) this.setState({ ctxOpen: false }); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && (this.state.ctxOpen || this.state.attOpen)) this.setState({ ctxOpen: false, attOpen: false }); });
     // 回车排队；⌘↵ 有文字就插话这一条，没有文字就把排队的全部插话
     if (scene === 'queued') {
       document.addEventListener('kits-send', (e) => this.setState({ queue: [...this.state.queue, e.detail.text] }));
@@ -887,7 +896,7 @@ class Component extends DCLogic {
     const wide = scene === 'changes' || scene === 'output' || scene === 'files-wide';
 
     // ---------- 各场景的对话流 ----------
-    const redeemUser = { isUser: true, text: '给积分兑换接口加上重复提交校验：同一个请求号只处理一次。改完跑一下 tests/points 下的测试。', attach: 'R-1024 积分兑换优惠券' };
+    const redeemUser = { isUser: true, text: '给积分兑换接口加上重复提交校验：同一个请求号只处理一次。改完跑一下 tests/points 下的测试。', attach: 'R-1024 积分兑换优惠券', openAttach: () => this.setState({ attOpen: true }) };
     const redeemSteps = [
       ['读取文件', 'src/points/redeem.py', '86 行'], ['搜索', 'grep "request_id" src/', '7 处'], this.sh('看工作区有没有没提交的改动', 'git status --short', { time: '0.1 秒', how: '自动允许', out: '' }),
       ['修改文件', 'src/points/redeem.py', '+18 −3', true], ['新建文件', 'src/points/idempotency.py', '+42', true]];
@@ -1138,6 +1147,7 @@ class Component extends DCLogic {
     return {
       wide, narrow: !wide, title: sc.title, crumb: sc.dir + (sc.agent ? ' · ' + sc.agent : ''), dirPath: '~/repo/' + sc.dir,
       menuOpen: s.menuOpen, toggleMenu: () => this.setState({ menuOpen: !s.menuOpen }),
+      attOpen: s.attOpen, closeAttach: () => this.setState({ attOpen: false }),
       ctxOpen: s.ctxOpen, closeContext: () => this.setState({ ctxOpen: false }), ctxPct: ctxPct, ctxUsed: usageText,
       openOutput: () => this.setState({ tab: 'output', outputTab: true }), openExport: () => this.setState({ tab: 'output', outputTab: true, exportOpen: true }),
       pillStyle: 'display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; border-radius: 12px; padding: 1px 9px; flex: 0 0 auto; ' + pillDefs[pk][0],

@@ -1,4 +1,5 @@
 export * from './agent-view'
+export * from './attachment'
 export * from './config/agent'
 export * from './config/files'
 export * from './config/frontmatter'

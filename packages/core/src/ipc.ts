@@ -24,6 +24,7 @@ import type {
 import type { SkillOverview, SkillSource } from './skill-view'
 
 export type * from './agent-view'
+export { canOpenAttachment } from './attachment'
 // 渲染进程的 tsconfig 不带 Node 类型，不能引 @kits/core 的入口（里面有 node:fs），要用的类型从这里转出去
 export type { Gateway, GatewayModel } from './config/gateway'
 export type { PermissionLevel, PermissionMode, PermissionRisk } from './config/permission'
@@ -167,6 +168,10 @@ export const ipcContract = {
     prompt: method<{ id: string; text: string; attachments?: AttachmentInput[] }, void>(),
     // 图片附件的 data URL（消息里的缩略图）；不是图片、文件没了时是 null
     attachmentImage: method<string, string | null>(),
+    // 附件预览（点消息下面的文件名）；文件没了时是 null
+    attachmentPreview: method<string, FilePreview | null>(),
+    // 用系统应用打开附件；canOpenAttachment 不放行的类型只在文件夹里选中
+    attachmentOpen: method<string, void>(),
     // 停止；排队的消息退回来，放回输入框
     abort: method<string, QueuedDraft | null>(),
     // 从排队里拿走一条：编辑时放回输入框，删除时丢掉返回值
