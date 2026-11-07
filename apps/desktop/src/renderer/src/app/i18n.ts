@@ -350,7 +350,7 @@ const zhCN = {
   'memory.open': '打开文件',
   'memory.projectPath': '存在 {path}，可以提交到仓库',
   'memory.personalPath': '存在 {path}',
-  'general.intro': '外观、字体、语言和通知。改了立刻生效，不用重启。',
+  'general.intro': '外观、字体、语言和通知。',
   'general.appearance': '外观',
   'general.theme': '主题',
   'general.themeHint': '跟随系统时会在白天和夜间自动切换',

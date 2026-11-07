@@ -4,6 +4,12 @@ kits 的版本变化都记在这里，格式参照 [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-07
+
+### 变更
+
+- 设置 · 通用的说明文字去掉了“改了立刻生效，不用重启”，只保留这一页管什么。
+
 ## [0.2.0] - 2026-11-07
 
 ### 新增
@@ -28,5 +34,6 @@ kits 的版本变化都记在这里，格式参照 [Keep a Changelog](https://ke
 - PDF 预览加载时没有提示，出错时看不懂原因。
 - 删掉会话或工作区后，内核里的会话还留着。
 
-[Unreleased]: https://github.com/cymoo/kits/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/cymoo/kits/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/cymoo/kits/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/cymoo/kits/releases/tag/v0.2.0
