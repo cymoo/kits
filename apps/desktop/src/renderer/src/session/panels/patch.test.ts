@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { gutterChars, highlightSource, oneSided, parsePatch, splitPath, splitRows } from './patch'
+import {
+  gutterChars,
+  highlightSource,
+  lineTokens,
+  oneSided,
+  parsePatch,
+  splitPath,
+  splitRows,
+} from './patch'
 
 const patch = [
   'Index: src/a.py',
@@ -83,6 +91,29 @@ describe('highlightSource', () => {
       { side: 'new', row: 2 },
       { side: 'new', row: 3 },
     ])
+  })
+})
+
+describe('lineTokens', () => {
+  const source = highlightSource(parsePatch(patch))
+  const done = { source, old: ['o0', 'o1', 'o2'], new: ['n0', 'n1', 'n2', 'n3'] }
+
+  it('takes the tokens of each line from its own side', () => {
+    expect([0, 1, 2, 3].map((i) => lineTokens(source, done, i))).toEqual([
+      undefined,
+      'n0',
+      'o1',
+      'n1',
+    ])
+  })
+
+  it('ignores tokens highlighted from an earlier patch of the same file', () => {
+    const refreshed = highlightSource(parsePatch(patch.replace('return 1', 'return 2')))
+    expect(lineTokens(refreshed, done, 2)).toBeUndefined()
+  })
+
+  it('shows plain text when the new patch is no longer highlighted', () => {
+    expect(lineTokens(source, undefined, 1)).toBeUndefined()
   })
 })
 

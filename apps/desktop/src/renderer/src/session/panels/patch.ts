@@ -119,6 +119,24 @@ export function highlightSource(lines: DiffLine[]): HighlightSource {
   return { old: old.join('\n'), new: neu.join('\n'), rows }
 }
 
+// 高亮的结果连同算它的 source 一起记下
+export interface HighlightedSource<T> {
+  source: HighlightSource
+  old: T[]
+  new: T[]
+}
+
+// 第 i 行 diff 的 token。结果不是当前 source 算的（patch 刷新了、新内容超过高亮阈值不再算）就不用，显示纯文本
+export function lineTokens<T>(
+  source: HighlightSource,
+  done: HighlightedSource<T> | undefined,
+  i: number,
+): T | undefined {
+  if (done?.source !== source) return undefined
+  const at = source.rows[i]
+  return at ? done[at.side][at.row] : undefined
+}
+
 // 路径拆成目录和文件名：列表里文件名放后面不截断，长路径先截目录
 export function splitPath(path: string): { dir: string; name: string } {
   const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1

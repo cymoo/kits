@@ -315,7 +315,7 @@ CI 的 `pnpm test` 通过，后面的 Windows E2E 能跑到。
   - 文件行和标题栏的路径改成“目录 + 文件名”，空间不够先截目录；完整路径另给读屏一份（两段是 flex 子项，读屏会在中间多读一个空格）。
   - diff 两种视图都折行（`pre-wrap` + `break-all`，保留缩进）；标题栏移出滚动区。
   - diff 按“轮次:路径”换组件，换文件回到顶部。
-  - 复用文件预览的 shiki 高亮（`lib/highlight.ts`）；超过 5000 行或 30 万字符不高亮。
+  - 复用文件预览的 shiki 高亮（`lib/highlight.ts`）；超过 5000 行或 30 万字符不高亮。高亮结果和算它的那份 patch 绑在一起，同一个文件的 patch 刷新后先显示纯文本，不会显示旧内容。
   - 单侧的改动并排时按统一视图显示；超过 2000 行先截。
   - 方向键换文件；标题栏的引用、查看完整文件、在文件夹中显示（删除的文件只留引用，工作目录外的文件不能在文件页签看）。
 - `pages/session/SessionPage.tsx`、`Workbench.tsx`：页签改成文件在前、默认打开文件；关掉产出页签回到文件。
@@ -328,7 +328,7 @@ CI 的 `pnpm test` 通过，后面的 Windows E2E 能跑到。
 
 ### 测试
 
-- 单元测试：`patch.test.ts` 补 9 个（行号栏宽度、单侧判断、高亮的行映射、路径拆分）。
+- 单元测试：`patch.test.ts` 补 12 个（行号栏宽度、单侧判断、高亮的行映射、路径拆分；同一个文件的 patch 刷新后或超过高亮阈值时不用旧 token，review 发现）。
 - E2E：`workbench.spec.ts` 新增 `walks through several changed files and jumps from a diff to the file`（五位数行号、方向键、删除的文件没有查看和显示、引用、查看完整文件）；`shows the changed files…` 改成先断言页签顺序和默认页签；`output.spec.ts` 关掉产出后回到文件。
 
 ### 新增依赖

@@ -15,7 +15,9 @@ import { OutputPanel } from './OutputPanel'
 import {
   type DiffLine,
   gutterChars,
+  type HighlightedSource,
   highlightSource,
+  lineTokens,
   oneSided,
   parsePatch,
   splitPath,
@@ -407,14 +409,15 @@ function useTokens(path: string, lines: DiffLine[]) {
     !!lang &&
     lines.length <= HIGHLIGHT_LINES &&
     source.old.length + source.new.length <= HIGHLIGHT_CHARS
-  const [tokens, setTokens] = useState<{ old: ThemedToken[][]; new: ThemedToken[][] }>()
+  // 记下这份 token 是哪份 source 算的：同一个文件的 patch 刷新后组件不换，旧 token 不能拿来显示新内容
+  const [done, setDone] = useState<HighlightedSource<ThemedToken[]>>()
   useEffect(() => {
     if (!can || !lang) return
     let gone = false
     const side = (code: string) => (code ? tokenize(code, lang) : Promise.resolve([]))
     void Promise.all([side(source.old), side(source.new)]).then(
       ([o, n]) => {
-        if (!gone) setTokens({ old: o, new: n })
+        if (!gone) setDone({ source, old: o, new: n })
       },
       () => {},
     )
@@ -422,10 +425,7 @@ function useTokens(path: string, lines: DiffLine[]) {
       gone = true
     }
   }, [source, lang, can])
-  return (i: number): ThemedToken[] | undefined => {
-    const at = source.rows[i]
-    return at ? tokens?.[at.side][at.row] : undefined
-  }
+  return (i: number) => lineTokens(source, can ? done : undefined, i)
 }
 
 function DiffView({
