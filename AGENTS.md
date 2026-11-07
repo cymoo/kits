@@ -103,6 +103,22 @@ UT 和 E2E 和代码一起提交，不另外排期。没有测试的 PR 不合�
 - 提交信息不加 AI 工具的署名行（不要 `Co-Authored-By: Claude …` 这类小尾巴），提交者就是推代码的人。
 - 不提交生成物（`dist/`、`out/`、`coverage/`）、密钥和本机配置。
 
+### 7. 版本和发版
+
+用户靠版本号判断有没有新版本，靠更新说明知道改了什么，所以这两样按规范来，不能由 CI 临时拼。
+
+- **版本号**按 [SemVer](https://semver.org/lang/zh-CN/)，只在仓库里改：`apps/desktop/package.json` 是唯一来源，根目录 `package.json` 跟着改成同一个。1.0 之前：加功能升次版本号（0.2.0 → 0.3.0），只修 bug 升修订号（0.2.0 → 0.2.1）；配置格式、数据库这类不兼容的改动也升次版本号，并在更新日志里写明要用户做什么。CI 不改版本号，也不用构建号拼版本号；不用预发布后缀（`-beta.1`），自动更新不认。
+- **更新日志**是仓库根目录的 `CHANGELOG.md`，按 [Keep a Changelog](https://keepachangelog.com/zh-CN/) 写，中文：
+  - 改了用户看得到的行为的 PR，顺手在最上面的 `## [Unreleased]` 里加一条；纯重构、测试、文档不加。
+  - 分类用 `### 新增`、`### 变更`、`### 修复`、`### 移除`，每条一句话，写给用户看：说现象和结果，不写实现细节和 PR 号。
+  - 这一节会原样出现在客户端的新版本提示里（打包时 `beforePack` 取出这个版本的一节写进 `latest.yml`），措辞按界面文案的标准来。
+- **发版**单独一个 PR，标题 `chore(release): x.y.z`，只做两件事：改版本号，把 `[Unreleased]` 改成 `## [x.y.z] - YYYY-MM-DD` 并在上面留一个空的 `[Unreleased]`。合入后在 `main` 上打 tag `vx.y.z`（GitHub 的 `release.yml` 按 tag 打包）。
+- **内网发布**由 CI 做，规则写在 README“打包和发布”：
+  - 只在版本号变了的时候发布，比已发布的低就拒绝；平时合入打的包只当测试包，不推给用户。
+  - 往更新目录拷文件时先拷安装包和 `.blockmap`，最后拷 `latest.yml`。旧版本的 `.blockmap` 留着，客户端能增量下载。
+  - 默认更新地址在打包命令里用 `-c.publish.url=<地址>` 传。内网地址、内网机器名不写进仓库，`electron-builder.yml` 里只放占位地址。
+- 发出去的版本有问题：修好后发一个更高的修订号，不撤回、不覆盖已发布的版本（客户端不会降级）。
+
 ## 技能
 
 - 技能遵循 [Agent Skills](https://agentskills.io) 规范（目录 + `SKILL.md`），放在 `.agents/skills/`，来源和版本记在 [.agents/skills/README.md](.agents/skills/README.md)。
