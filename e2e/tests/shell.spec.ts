@@ -50,7 +50,10 @@ test('saves settings to the config dir and applies the theme', async () => {
     expect(saved.general.theme).toBe('dark')
     await page.keyboard.press(`${mod}+Comma`)
     await expect(page.getByTestId('settings-footer')).toContainText(configDir)
-    await expect(page.getByTestId('settings-footer')).toContainText('kits 0.1.0')
+    // 版本号跟着发版变，不能写死
+    const pkg = path.resolve(import.meta.dirname, '../../apps/desktop/package.json')
+    const { version } = JSON.parse(readFileSync(pkg, 'utf8'))
+    await expect(page.getByTestId('settings-footer')).toContainText(`kits ${version}`)
     await page.waitForTimeout(400)
     await page.screenshot({ path: 'test-results/settings-dark.png' })
   } finally {
