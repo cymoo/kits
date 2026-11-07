@@ -286,6 +286,51 @@ describe('createUpdater', () => {
     expect(updater.view().state).toEqual({ status: 'latest', checkedAt: 1000 })
   })
 
+  it('checks again on window focus only when the last check is over 10 minutes old', async () => {
+    let clock = 1000
+    let checks = 0
+    const fake = new FakeUpdater()
+    fake.onCheck = () => {
+      checks++
+      fake.emit('update-not-available', {})
+    }
+    const updater = createUpdater({
+      isPackaged: true,
+      version: '0.2.0',
+      url: () => URL_SET,
+      load: () => fake,
+      now: () => clock,
+    })
+    await updater.check()
+    clock += 9 * 60_000
+    updater.onFocus()
+    await Promise.resolve()
+    expect(checks).toBe(1)
+    clock += 2 * 60_000
+    updater.onFocus()
+    await vi.waitFor(() => expect(checks).toBe(2))
+  })
+
+  it('writes checks, versions and errors to the update log', async () => {
+    const lines: string[] = []
+    const fake = new FakeUpdater()
+    fake.onCheck = () => fake.emit('update-available', { version: '0.2.1' })
+    const updater = createUpdater({
+      isPackaged: true,
+      version: '0.2.0',
+      url: () => URL_SET,
+      load: () => fake,
+      log: (level, message) => lines.push(`${level} ${message}`),
+    })
+    await updater.check()
+    fake.emit('error', new Error('HttpError: 404\nheaders: {...}'))
+    expect(lines).toContain('info checking http://ci/kits (current 0.2.0)')
+    expect(lines).toContain('info update available: 0.2.1')
+    expect(
+      lines.find((l) => l.startsWith('error update failed: Error: HttpError: 404\nheaders')),
+    ).toBeTruthy()
+  })
+
   it('installs silently and reopens kits only after the update is downloaded', async () => {
     const fake = new FakeUpdater()
     const { updater } = packaged(fake)

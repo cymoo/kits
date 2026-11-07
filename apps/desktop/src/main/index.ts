@@ -33,6 +33,7 @@ import { SessionStore } from './sessions/session-store'
 import { createStrayMouseFilter } from './stray-mouse'
 import { KitsToolHost } from './tools/kits-tool-host'
 import { createUpdater, readBuiltinUrl, resolveUpdateUrl } from './updater'
+import { createUpdateLog } from './updater-log'
 import { MOCK_UPDATE_URL, mockUpdater } from './updater-mock'
 import { inspectWorkdir } from './workdir/inspect'
 
@@ -228,6 +229,7 @@ app.whenReady().then(() => {
     version: platform.version,
     url: () => resolveUpdateUrl(config.getSettings().updateUrl, builtinUpdateUrl),
     onChange: (view) => push('app.update', view),
+    log: createUpdateLog(path.join(platform.userDataDir, 'logs', 'updater.log')),
     ...(updateMock
       ? { load: () => mockUpdater(updateMock, platform.version), firstCheckMs: 500 }
       : {}),
@@ -240,6 +242,8 @@ app.whenReady().then(() => {
     void updater.notify()
   }
   updater.start()
+  // 切回 kits 的窗口时补查一次（离上次检查超过 10 分钟才查）
+  app.on('browser-window-focus', () => updater.onFocus())
   const store = new SessionStore(db)
   // 系统通知：窗口不在前台时，等确认、提问、出错、完成各发一次；点了打开那个会话
   let openSession = (_id: string) => {}

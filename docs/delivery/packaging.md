@@ -352,3 +352,37 @@ Windows 上测试时，grep、glob 工具报 `ripgrep execution failed`，PATH �
 - mac 的自动更新没有验证：Squirrel.Mac 要求正式签名，现在是 ad-hoc 签名，大概率装不上。内网主要是 Windows，这次不处理。
 - 已经装了 0.1.x 的人没有默认地址，要手动装一次带默认地址的新包，之后才能自动更新。
 - 便携版不该自动更新。打便携版时如果也传了 `-c.publish.url`、包里也带了 `app-update.yml`，它会去检查（没验证便携版会不会生成这个文件）；便携版用户可以在 `settings.json` 里写 `"updateUrl": "off"`。发版流水线不出便携版，这次不单独处理。
+
+## 2026-11-07　更新检查更勤、补更新日志（0.2.3）
+
+> 日期：2026-11-07　提交：直接推 `main`（`chore(release): 0.2.3`）　作者：Claude Code
+
+### 原始需求
+
+内网验证 0.2.1 → 0.2.2 时，0.2.2 已经发布到 `userContent/kits`，开着的 0.2.1 等了几分钟都没提示，手动点“检查更新”才有。原因是只在启动 30 秒后查一次、之后每 6 小时查一次。要做到：发版后正在用的人很快能看到；没提示时有日志可查。
+
+### 怎么验收
+
+1. 0.2.2 开着不动，Jenkins 发布 0.2.3。预期 30 分钟内侧栏出现“新版本 0.2.3”，不用手动检查。
+2. 发布后切到别的程序超过 10 分钟再切回 kits。预期切回时就开始下载（设置 · 通用里能看到进度），不用等满 30 分钟。
+3. 看 `%APPDATA%\kits\logs\updater.log`：有 `checking <地址> (current 0.2.2)`、`update available: 0.2.3`、`downloaded 0.2.3 …` 这些行，以及 electron-updater 自己的日志。
+4. 把 `settings.json` 的 `updateUrl` 写成一个连不上的地址。预期卡片显示“检查失败：连不上更新地址，稍后自动再试”，日志里有完整的错误。
+
+### 主要改动
+
+- `main/updater.ts`：每 30 分钟查一次（原来 6 小时）；新增 `onFocus()`，窗口切回前台时离上次检查超过 10 分钟就补查；每次检查、查到的版本、下载好、出错、安装、换地址都写日志，electron-updater 自己的 logger 也接进来。
+- `main/updater-log.ts`：写 `{userData}/logs/updater.log`，超过 1 MB 改名成 `.old` 重新写，写不了就不再写。
+- `main/index.ts`：`browser-window-focus` 时调 `updater.onFocus()`。
+- 文案：卡片标题旁改成“后台每 30 分钟查一次”，检查失败改成“稍后自动再试”；原型同步。README 写了日志位置。
+
+### 测试
+
+- `updater.test.ts`：切回窗口在 10 分钟内不重复查、超过就查；出错写进日志。`updater-log.test.ts`：逐行追加并建目录、超过 1 MB 换文件、写不了时不抛错。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 每 30 分钟一次的检查对 Jenkins 是每台客户端每小时 2 次请求 `latest.yml`（几百字节），人多了也不是负担；以后要更省可以加 ETag。

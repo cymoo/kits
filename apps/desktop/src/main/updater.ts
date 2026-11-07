@@ -6,9 +6,12 @@ import electronUpdater from 'electron-updater'
 // 地址按 KITS_UPDATE_URL → settings.json 的 updateUrl → 安装包自带（打包时 -c.publish.url 写进 app-update.yml）的顺序取，
 // 任一处写 "off" 就关掉。没打包（开发、E2E）不检查。
 // 新版本在后台下载，下载好了只在侧栏底部出一个标签，不发系统通知、不自动重启；不点的话退出 kits 时自动装上。
+// 检查很便宜（只取一个几百字节的 latest.yml）：启动 30 秒后查一次，之后每 30 分钟查一次，
+// 窗口切回前台时离上次检查超过 10 分钟也查一次，发版后大家很快就能看到。
 
-const SIX_HOURS = 6 * 60 * 60 * 1000
+const CHECK_EVERY_MS = 30 * 60 * 1000
 const FIRST_CHECK_MS = 30_000
+const FOCUS_RECHECK_MS = 10 * 60 * 1000
 
 // 仓库里 electron-builder.yml 的 publish.url 是占位地址（updates.invalid），GitHub 上打的包当作没自带地址
 export function readBuiltinUrl(file: string): string {
@@ -93,6 +96,12 @@ export function parseReleaseNotes(raw: unknown): UpdateNote[] {
   return notes
 }
 
+// 写进更新日志的错误：保留多行（响应头里有排查要用的信息），太长截断
+function fullMessage(e: unknown): string {
+  const text = e instanceof Error ? (e.stack ?? e.message) : String(e)
+  return text.length > 2000 ? `${text.slice(0, 2000)}…` : text
+}
+
 // electron-updater 的错误信息里常带整段响应头，界面只放第一行
 function shortMessage(e: unknown): string {
   const text = e instanceof Error ? e.message : String(e)
@@ -109,7 +118,11 @@ export interface AutoUpdaterLike {
   checkForUpdates(): Promise<unknown>
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
   on(event: string, listener: (arg: unknown) => void): unknown
+  // electron-updater 自己的日志（请求了哪个地址、下载到哪、为什么失败）也写进更新日志
+  logger?: unknown
 }
+
+export type UpdateLogLevel = 'info' | 'warn' | 'error'
 
 // checkForUpdates 的结果里用到的部分：下载在后台继续，能取消
 interface CheckResultLike {
@@ -135,9 +148,14 @@ export function createUpdater(deps: {
   now?(): number
   // 启动后多久查第一次（E2E 用假更新时不等 30 秒）
   firstCheckMs?: number
+  // 更新日志（{userData}/logs/updater.log），排查“为什么没提示”用
+  log?(level: UpdateLogLevel, message: string): void
 }) {
   const load = deps.load ?? (() => electronUpdater.autoUpdater as unknown as AutoUpdaterLike)
   const now = deps.now ?? Date.now
+  const log = deps.log ?? (() => {})
+  // 上次真正发起检查的时间：窗口切回前台时据此决定要不要补查
+  let lastCheckAt = 0
   let state: UpdateState = { status: 'idle' }
   let updater: AutoUpdaterLike | undefined
   // 最近一次 setFeedURL 的地址
@@ -173,6 +191,10 @@ export function createUpdater(deps: {
 
   // 地址换了或关掉了：旧地址的下载取消，下好的也不装（退出时也不装），回到还没查过
   const invalidate = () => {
+    log(
+      'info',
+      `update address changed to "${deps.url().url || 'none'}"; dropping the previous check`,
+    )
     round = ''
     inflight?.cancel()
     if (updater) updater.autoInstallOnAppQuit = false
@@ -184,8 +206,15 @@ export function createUpdater(deps: {
     const u = load()
     u.autoDownload = true
     u.autoInstallOnAppQuit = false
+    u.logger = {
+      info: (m: unknown) => log('info', `electron-updater: ${String(m)}`),
+      warn: (m: unknown) => log('warn', `electron-updater: ${String(m)}`),
+      error: (m: unknown) => log('error', `electron-updater: ${fullMessage(m)}`),
+      debug: () => {},
+    }
     u.on('update-available', (arg) => {
       const info = arg as UpdateInfoLike
+      log('info', `update available: ${info.version}`)
       if (current() && !settled()) set({ status: 'downloading', version: info.version, percent: 0 })
     })
     u.on('download-progress', (arg) => {
@@ -194,11 +223,16 @@ export function createUpdater(deps: {
       if (percent !== state.percent) set({ ...state, percent })
     })
     u.on('update-not-available', () => {
+      log('info', `already on the latest version ${deps.version}`)
       if (current() && !settled()) set({ status: 'latest', checkedAt: now() })
     })
     u.on('update-downloaded', (arg) => {
-      if (!current()) return
       const info = arg as UpdateInfoLike
+      if (!current()) {
+        log('info', `ignored ${info.version} downloaded from an address no longer in use`)
+        return
+      }
+      log('info', `downloaded ${info.version}; it installs on restart or when kits quits`)
       u.autoInstallOnAppQuit = true
       set({
         status: 'ready',
@@ -208,6 +242,7 @@ export function createUpdater(deps: {
       })
     })
     u.on('error', (e) => {
+      log('error', `update failed: ${fullMessage(e)}`)
       if (current() && !settled())
         set({ status: 'error', message: shortMessage(e), checkedAt: now() })
     })
@@ -224,9 +259,12 @@ export function createUpdater(deps: {
     try {
       up = ensure()
     } catch (e) {
+      log('error', `cannot start electron-updater: ${fullMessage(e)}`)
       set({ status: 'error', message: shortMessage(e), checkedAt: now() })
       return view()
     }
+    lastCheckAt = now()
+    log('info', `checking ${u.url} (current ${deps.version})`)
     set({ status: 'checking' })
     // 旧地址的检查和下载要先结束：electron-updater 会把没结束的那次直接当成这次的结果
     await pending
@@ -258,6 +296,7 @@ export function createUpdater(deps: {
         if (!live()) task.cancel()
       }
     } catch (e) {
+      log('error', `check failed: ${fullMessage(e)}`)
       if (live() && !settled()) set({ status: 'error', message: shortMessage(e), checkedAt: now() })
     }
     // 没有任何事件回来（electron-updater 判断不需要检查）时也别停在“正在检查”
@@ -271,6 +310,7 @@ export function createUpdater(deps: {
     // 静默安装并重新打开 kits。界面在有会话运行时不让点；退出流程照常走 will-quit 的清理
     install() {
       if (!settled() || !updater) return
+      log('info', 'restarting to install the downloaded update')
       updater.quitAndInstall(true, true)
     },
     // 设置改了（updateUrl）：地址换了或关掉了，旧地址的更新作废；换成新地址马上查一次
@@ -279,10 +319,14 @@ export function createUpdater(deps: {
       deps.onChange?.(view())
       if (deps.url().url) await check()
     },
-    // 启动后过一会儿查一次，之后每 6 小时查一次；查不到（内网没开、地址错）不打扰人
+    // 窗口切回前台：离上次检查超过 10 分钟就补查一次（正在查、正在下、已下好时 check 自己会跳过）
+    onFocus() {
+      if (now() - lastCheckAt >= FOCUS_RECHECK_MS) void check()
+    },
+    // 启动后过一会儿查一次，之后每 30 分钟查一次；查不到（内网没开、地址错）不打扰人，只写日志
     start() {
       setTimeout(() => void check(), deps.firstCheckMs ?? FIRST_CHECK_MS).unref()
-      setInterval(() => void check(), SIX_HOURS).unref()
+      setInterval(() => void check(), CHECK_EVERY_MS).unref()
     },
   }
 }

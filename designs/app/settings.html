@@ -105,7 +105,7 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
         </section>
 
         <section class="k-card">
-          <div class="h"><b>版本与更新</b><small>后台每 6 小时查一次，下载好了在侧栏底部提示</small></div>
+          <div class="h"><b>版本与更新</b><small>后台每 30 分钟查一次，下载好了在侧栏底部提示</small></div>
           <div style="display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #F9F9F8">
             <span style="display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0"><span style="font-weight: 500">kits 0.2.0</span><span style="{{upd.noteStyle}}">{{upd.note}}</span>
               <sc-if value="{{upd.downloading}}"><span role="progressbar" aria-label="下载进度" aria-valuenow="42" aria-valuemin="0" aria-valuemax="100" style="display: block; height: 4px; margin-top: 6px; border-radius: 2px; background: #EFEFEC; overflow: hidden"><span style="display: block; width: 42%; height: 100%; background: #3563E0"></span></span></sc-if>
@@ -343,7 +343,7 @@ class Component extends DCLogic {
 
     // 版本与更新：检查失败不标红，内网偶尔连不上很正常，下次自动再试
     const updReady = s.update === 'ready' || s.update === 'busy';
-    const updNotes = { latest: '已经是最新版本 · 10 分钟前查过', downloading: '正在下载 0.2.1 · 42%', ready: '0.2.1 已下载，重启后生效；不重启的话，退出时自动安装', busy: '0.2.1 已下载。还有 1 个会话在运行，结束后再重启；不重启的话，退出时自动安装', error: '检查失败：连不上更新地址，6 小时后自动再试' };
+    const updNotes = { latest: '已经是最新版本 · 10 分钟前查过', downloading: '正在下载 0.2.1 · 42%', ready: '0.2.1 已下载，重启后生效；不重启的话，退出时自动安装', busy: '0.2.1 已下载。还有 1 个会话在运行，结束后再重启；不重启的话，退出时自动安装', error: '检查失败：连不上更新地址，稍后自动再试' };
     const upd = {
       note: updNotes[s.update] || updNotes.latest,
       noteStyle: 'font-size: 13px; color: ' + (s.update === 'error' ? '#B4650A' : updReady ? '#2A4FBF' : '#60646B'),

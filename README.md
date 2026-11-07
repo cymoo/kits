@@ -53,7 +53,8 @@ pnpm vendor:kernel && pnpm --filter @kits/desktop package
   - 默认地址打进安装包：打包时加 `-c.publish.url=<地址>`（写进安装包的 `app-update.yml`），用户装上就会检查；仓库里的 `electron-builder.yml` 是占位地址，内网地址不写进仓库。用户可以在 `~/.kits/settings.json` 里写 `"updateUrl"` 换地址、写 `"off"` 关掉；环境变量 `KITS_UPDATE_URL` 优先级最高。
   - 发布：把 `apps/desktop/release/` 里的安装包、`.blockmap` 拷到这个目录，最后拷 `latest.yml`（先有安装包客户端才看得到新版本）。只在版本号变了的时候发布；版本号按 SemVer 在 `apps/desktop/package.json` 里改，CI 不改版本号。
   - 更新内容：打包时 `beforePack` 从仓库根目录 `CHANGELOG.md` 取出这个版本的一节（`## [x.y.z]` 下面的 `### 新增`、`### 修复`…）放进 `latest.yml`，客户端在侧栏的新版本标签里显示。
-  - 新版本在后台下载，下载好了侧栏底部出一个标签，点开能看更新内容、重启更新；不点的话退出 kits 时自动装上。设置 · 通用的“版本与更新”能看状态、手动查一次。
+  - 启动 30 秒后查一次，之后每 30 分钟查一次，切回 kits 窗口时离上次超过 10 分钟也会查。新版本在后台下载，下载好了侧栏底部出一个标签，点开能看更新内容、重启更新；不点的话退出 kits 时自动装上。设置 · 通用的“版本与更新”能看状态、手动查一次。
+  - 没提示更新时看日志：`{userData}/logs/updater.log`（Windows 是 `%APPDATA%\kits\logs\updater.log`），每次检查用的地址、查到的版本、下载和出错都在里面。
 
 ## 目录
 

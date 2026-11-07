@@ -391,7 +391,7 @@ const zhCN = {
   'general.keepRunningHint':
     '关到菜单栏 / 托盘，运行中的会话不中断；彻底退出用菜单栏 / 托盘里的“退出 kits”',
   'general.update': '版本与更新',
-  'general.updateHint': '后台每 6 小时查一次，下载好了在侧栏底部提示',
+  'general.updateHint': '后台每 30 分钟查一次，下载好了在侧栏底部提示',
   'update.badge': '新版本 {version}',
   'update.badgeTitle': '新版本 {version} 已经下载好',
   'update.readyTitle': 'kits {version} 已经下载好',
@@ -415,7 +415,7 @@ const zhCN = {
   'update.ready': '{version} 已下载，重启后生效；不重启的话，退出时自动安装',
   'update.readyBusy':
     '{version} 已下载。还有 {count} 个会话在运行，结束后再重启；不重启的话，退出时自动安装',
-  'update.error': '检查失败：连不上更新地址，6 小时后自动再试',
+  'update.error': '检查失败：连不上更新地址，稍后自动再试',
   'update.url': '更新地址',
   'update.urlNone': '未配置',
   'update.urlOff': '已关闭',

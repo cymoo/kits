@@ -4,6 +4,16 @@ kits 的版本变化都记在这里，格式参照 [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-07
+
+### 变更
+
+- 有新版本时更快提示：每 30 分钟检查一次，切回 kits 窗口时也会检查，不用再手动点“检查更新”。
+
+### 新增
+
+- 更新的检查、下载和出错会记到日志文件里，没收到提示时可以查原因。
+
 ## [0.2.2] - 2026-11-07
 
 ### 变更
@@ -42,7 +52,8 @@ kits 的版本变化都记在这里，格式参照 [Keep a Changelog](https://ke
 - PDF 预览加载时没有提示，出错时看不懂原因。
 - 删掉会话或工作区后，内核里的会话还留着。
 
-[Unreleased]: https://github.com/cymoo/kits/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/cymoo/kits/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/cymoo/kits/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/cymoo/kits/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/cymoo/kits/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/cymoo/kits/releases/tag/v0.2.0
