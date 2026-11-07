@@ -1,10 +1,20 @@
 import { DropdownMenu as M } from 'radix-ui'
 import type { ReactNode } from 'react'
+import { isMac } from '../lib/shortcuts'
 import { cx } from './cx'
 
 // 下拉菜单：原型里输入框的目录 / Agent / 权限 / 模型浮层都是这个样子（.kp）。
 export const Menu = M.Root
 export const MenuTrigger = M.Trigger
+
+// 菜单离窗口边的距离；mac 顶上留出红绿灯。菜单再长也不超出这个范围，放不下就滚动
+const COLLISION_PADDING = { top: isMac ? 40 : 12, right: 12, bottom: 12, left: 12 }
+
+// 菜单里自己滚动的一段：两头的项（内核切换、设置入口）留在外面，列表再长也够得着。
+// 窗口太矮时压到 120px，再矮就整个菜单滚动
+export function MenuScroll({ children }: { children: ReactNode }) {
+  return <div className="max-h-[320px] min-h-[120px] overflow-y-auto">{children}</div>
+}
 
 export function MenuContent({
   children,
@@ -23,9 +33,10 @@ export function MenuContent({
       <M.Content
         align={align}
         sideOffset={6}
+        collisionPadding={COLLISION_PADDING}
         {...(onCloseAutoFocus ? { onCloseAutoFocus } : {})}
         className={cx(
-          'z-50 min-w-[240px] max-w-[320px] rounded-[12px] border border-line bg-raised p-1.5 text-fg shadow-pop',
+          'z-50 flex max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[240px] max-w-[320px] flex-col overflow-y-auto rounded-[12px] border border-line bg-raised p-1.5 text-fg shadow-pop',
           className,
         )}
       >
@@ -44,7 +55,7 @@ export function MenuLabel({ children }: { children: ReactNode }) {
 }
 
 export function MenuSeparator() {
-  return <M.Separator className="mx-0.5 my-[5px] h-px bg-line-soft" />
+  return <M.Separator className="mx-0.5 my-[5px] h-px shrink-0 bg-line-soft" />
 }
 
 const item =

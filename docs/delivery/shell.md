@@ -458,3 +458,42 @@
 - `E2E_HEADED=1` 时窗口是正常窗口，没有这层过滤，这时动鼠标仍然会干扰测试。
 - 过滤器靠 `mouseUp` 复位按键状态。Playwright 做 HTML5 拖放时不发 `mouseReleased`，状态会卡住，之后的悬停移动都被挡掉。现在应用里没有 `draggable`，走不到；以后加了要一起处理。
 - 只在 macOS 上验证过，这个泄漏也只在 macOS 上看到。Windows 上有没有同样的现象没有实测，CI 上没有真实光标，碰不到。
+
+## 2026-11-07　输入框菜单：上传文件不换行，长模型列表不溢出
+
+> PR：[#92](https://github.com/cymoo/kits/pull/92)　作者：Claude Code
+
+### 原始需求
+
+- `+` 菜单的“上传文件”被挤成两行。看看去掉说明里的“文本”后是否还换行。
+- 选模型时，模型列表过长会被遮住或溢出窗口。
+
+原型：`designs/app/shell.js` 的模型浮层。
+
+### 怎么验收
+
+1. 运行 `pnpm dev`，点输入框左下角的 `+`。预期：“上传文件”在一行，右边说明是“Word、PDF、Markdown、图片”。
+2. 在“设置 → 内核与模型”给网关加 20 个以上模型，回到首页点模型按钮。预期：菜单不超出窗口，模型列表在菜单里滚动，顶上的 OpenCode / CodeAgent 和底部的“内核与模型设置”一直看得到。
+3. 加一个很长的模型 id。预期：菜单不变宽，id 末尾显示省略号，悬停看全名。
+4. 把窗口拉矮再打开模型菜单。预期：菜单仍在窗口内，mac 上不压住红绿灯那一行。
+
+### 主要改动
+
+- `composer.uploadNote` 去掉“文本”，和原型一致。实测默认字号下，“上传文件”的高度从 44px 回到一行。说明文字在更大字号下改为截断，“上传文件”本身不再换行。
+- `ui/Menu.tsx`：所有下拉菜单都限制在窗口内，放不下就滚动。新增 `MenuScroll`，用来放菜单里单独滚动的一段，最高 320px。
+- `shell/Composer.tsx`：模型列表放进 `MenuScroll`，模型 id 过长时截断。
+- 原型：模型浮层加 `.kp-list`，列表最高 320px，超出滚动。
+
+配置项、数据库 schema 没有变化。
+
+### 测试
+
+- E2E（`shell.spec.ts`）：`keeps a long model list inside the window and reachable`、`keeps the upload entry in the composer menu on one line`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+无。

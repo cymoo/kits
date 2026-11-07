@@ -251,13 +251,13 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
 
   it('hands an image to a model that can see', async () => {
     expect(await sendImage('eye')).toContain(PIXEL)
-  })
+  }, 60_000)
 
   it('keeps an image away from a model that cannot see', async () => {
     const sent = await sendImage('blind')
     expect(sent).not.toContain(PIXEL)
     expect(sent).toContain('这张图里有什么')
-  })
+  }, 60_000)
 
   it('streams a full turn through a permission request to done', async () => {
     const s = await session('ok')

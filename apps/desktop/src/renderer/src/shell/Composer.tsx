@@ -42,6 +42,7 @@ import {
   MenuLabel,
   MenuRadioGroup,
   MenuRadioItem,
+  MenuScroll,
   MenuSegmented,
   MenuSeparator,
   MenuSwitchItem,
@@ -49,7 +50,14 @@ import {
 } from '../ui/Menu'
 import { type AtQuery, atQuery, formatSize, insertAt } from './composer-at'
 import { draftAfterSend } from './composer-draft'
-import { brokenImage, isImageFile, MAX_IMAGE_BYTES, pastedImages } from './composer-image'
+import {
+  brokenImage,
+  isImageFile,
+  MAX_IMAGE_BYTES,
+  pastedFiles,
+  type Transferred,
+  transferredFiles,
+} from './composer-files'
 import { MENU_MAX_HEIGHT, type MenuPlacement, placeMenu } from './composer-menu'
 
 // 菜单和输入框的间距；窗口顶部留的地方，macOS 上要避开隐藏标题栏后的拖动区
@@ -58,7 +66,7 @@ const MENU_TOP_INSET = isMac ? 40 : 12
 
 // 输入框（原型 shell.js 的 <k-composer>）：文本区自动长高；目录、Agent、权限、内核与模型四个浮层；↵ 发送、⇧↵ 换行。
 // 首页（big）发送时新建会话；会话页发送时在当前会话里接着说。
-// `+` 上传附件、引用文件；附件也能直接拖进来，截图能直接粘贴；打 @ 弹出工作目录里的文件。`/` 技能菜单在 PR13。
+// `+` 上传附件、引用文件；附件也能直接拖进来或粘贴进来；打 @ 弹出工作目录里的文件。`/` 技能菜单在 PR13。
 // 当前模型看不了图片时不发，提示换模型或去掉图片。
 
 // 渲染进程这边先挡一下，主进程还会再查
@@ -265,6 +273,10 @@ export function Composer({
       setError(t(isImageFile(big) ? 'composer.imageTooBig' : 'composer.tooBig', { name: big.name }))
     }
     setFiles((cur) => [...cur, ...next.filter((f) => !tooBig(f))])
+  }
+  const addTransferred = ({ files: added, folders }: Transferred) => {
+    addFiles(added)
+    if (folders[0]) setError(t('composer.noFolder', { name: folders[0] }))
   }
   const updateAt = (value: string, caret: number) => {
     const q = atQuery(value, caret)
@@ -541,7 +553,7 @@ export function Composer({
         if (!e.dataTransfer.files.length) return
         e.preventDefault()
         setDragging(false)
-        addFiles(e.dataTransfer.files)
+        addTransferred(transferredFiles(e.dataTransfer))
       }}
       className={cx(
         '@container relative border border-line bg-raised shadow-[0_1px_2px_rgba(0,0,0,.03),0_6px_20px_rgba(0,0,0,.05)] transition-[border-color,box-shadow] focus-within:border-line-strong focus-within:shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_28px_rgba(0,0,0,.08)]',
@@ -775,10 +787,10 @@ export function Composer({
         }
         onKeyDown={onKeyDown}
         onPaste={(e) => {
-          const images = pastedImages(e.clipboardData)
-          if (!images.length) return
+          const pasted = pastedFiles(e.clipboardData)
+          if (!pasted.files.length && !pasted.folders.length) return
           e.preventDefault()
-          addFiles(images)
+          addTransferred(pasted)
         }}
         placeholder={placeholder}
         className={cx(
@@ -812,8 +824,10 @@ export function Composer({
           <MenuContent>
             <MenuItem onSelect={() => picker.current?.click()}>
               <Paperclip size={14} className="text-fg-muted" />
-              <span className="flex-1">{t('composer.upload')}</span>
-              <small className="text-[0.857rem] text-fg-label">{t('composer.uploadNote')}</small>
+              <span className="flex-1 whitespace-nowrap">{t('composer.upload')}</span>
+              <small className="min-w-0 truncate text-[0.857rem] text-fg-label">
+                {t('composer.uploadNote')}
+              </small>
             </MenuItem>
             <MenuItem onSelect={() => setTimeout(startReference, 0)}>
               <AtSign size={14} className="text-fg-muted" />
@@ -945,26 +959,30 @@ export function Composer({
             {gateways.length === 0 ? (
               <p className="m-0 px-2 py-2 text-fg-muted">{t('composer.noGateway')}</p>
             ) : null}
-            {gateways.map((g) => (
-              <MenuRadioGroup key={g.id} value={model} onValueChange={pickModel}>
-                <MenuLabel>{g.name || g.id}</MenuLabel>
-                {g.models.map((m) => (
-                  <MenuRadioItem key={m.id} value={`${g.id}/${m.id}`}>
-                    <span className="flex items-center gap-1.5">
-                      <span className="font-mono text-[0.929rem]">{m.id}</span>
-                      {m.vision ? (
-                        <ImageIcon
-                          size={12}
-                          className="shrink-0 text-fg-subtle"
-                          role="img"
-                          aria-label={t('composer.visionTag')}
-                        />
-                      ) : null}
-                    </span>
-                  </MenuRadioItem>
-                ))}
-              </MenuRadioGroup>
-            ))}
+            <MenuScroll>
+              {gateways.map((g) => (
+                <MenuRadioGroup key={g.id} value={model} onValueChange={pickModel}>
+                  <MenuLabel>{g.name || g.id}</MenuLabel>
+                  {g.models.map((m) => (
+                    <MenuRadioItem key={m.id} value={`${g.id}/${m.id}`}>
+                      <span className="flex items-center gap-1.5">
+                        <span className="min-w-0 truncate font-mono text-[0.929rem]" title={m.id}>
+                          {m.id}
+                        </span>
+                        {m.vision ? (
+                          <ImageIcon
+                            size={12}
+                            className="shrink-0 text-fg-subtle"
+                            role="img"
+                            aria-label={t('composer.visionTag')}
+                          />
+                        ) : null}
+                      </span>
+                    </MenuRadioItem>
+                  ))}
+                </MenuRadioGroup>
+              ))}
+            </MenuScroll>
             <MenuSeparator />
             <MenuItem onSelect={() => navigate('/settings/model')}>
               <SlidersHorizontal size={14} className="text-fg-muted" />
