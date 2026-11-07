@@ -944,7 +944,6 @@ describe('SessionService skills', () => {
     await waitFor(s.id, ['done'])
     expect(create.mock.calls[0]?.[0].agent).toBe('_project')
     expect(prompt.mock.calls[0]?.[1].system).toBe(`只读，不改文件\n\n${PLAN_RULE}`)
-<<<<<<< HEAD
   })
 })
 
@@ -1012,8 +1011,6 @@ describe('SessionService image attachments', () => {
     const s = await service.create({ ...input, attachments: [file] })
     await waitFor(s.id, ['done'])
     expect(service.attachmentImage(store.detail(s.id)?.attachments[0]?.id ?? '')).toBeNull()
-=======
->>>>>>> fix/session-todo-and-row-alignment
   })
 })
 
