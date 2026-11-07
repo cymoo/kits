@@ -4,10 +4,20 @@ import { useEffect, useRef, useState } from 'react'
 import { t } from '../../app/i18n'
 import { errorText } from '../../lib/errors'
 import { openPdf } from '../../lib/pdf'
+import { Button } from '../../ui/Button'
+import { Spinner } from '../../ui/Spinner'
 
 // 一次画一页：翻页、改面板宽度时重画
 
-export function PdfView({ data }: { data: Uint8Array }) {
+export function PdfView({
+  data,
+  openLabel,
+  onOpen,
+}: {
+  data: Uint8Array
+  openLabel: string
+  onOpen(): void
+}) {
   const [doc, setDoc] = useState<PDFDocumentProxy>()
   const [page, setPage] = useState(1)
   const [error, setError] = useState<string>()
@@ -16,6 +26,9 @@ export function PdfView({ data }: { data: Uint8Array }) {
   const canvas = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
+    setDoc(undefined)
+    setError(undefined)
+    setPage(1)
     let gone = false
     let opened: PDFDocumentProxy | undefined
     openPdf(data).then(
@@ -71,9 +84,13 @@ export function PdfView({ data }: { data: Uint8Array }) {
 
   if (error) {
     return (
-      <p className="m-0 p-6 text-center text-[0.929rem] text-danger">
-        {t('files.readError', { error })}
-      </p>
+      <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 p-6 text-center text-fg-muted">
+        <span className="font-medium text-fg">{t('files.pdfError')}</span>
+        <span className="max-w-[260px] text-[0.929rem]">{error}</span>
+        <Button className="mt-1 h-[30px] px-3 text-[0.929rem]" onClick={onOpen}>
+          {openLabel}
+        </Button>
+      </div>
     )
   }
   const pages = doc?.numPages ?? 0
@@ -81,8 +98,18 @@ export function PdfView({ data }: { data: Uint8Array }) {
     'flex h-6 w-6 cursor-pointer items-center justify-center rounded-[6px] text-fg-muted hover:bg-active hover:text-fg disabled:cursor-default disabled:opacity-30'
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div ref={box} className="min-h-0 flex-1 overflow-auto bg-muted p-4">
-        <canvas ref={canvas} data-testid="pdf-page" className="mx-auto block bg-white shadow-pop" />
+      <div ref={box} className="relative min-h-0 flex-1 overflow-auto bg-muted p-4">
+        {doc ? null : (
+          <div className="absolute inset-0 flex items-center justify-center gap-2 text-[0.929rem] text-fg-muted">
+            <Spinner />
+            {t('files.pdfLoading')}
+          </div>
+        )}
+        <canvas
+          ref={canvas}
+          data-testid="pdf-page"
+          className={doc ? 'mx-auto block bg-white shadow-pop' : 'hidden'}
+        />
       </div>
       {pages ? (
         <div className="flex h-9 shrink-0 items-center justify-center gap-2 border-line-soft border-t text-[0.929rem] text-fg-muted">

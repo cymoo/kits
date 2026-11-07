@@ -396,3 +396,46 @@ CI 的 `pnpm test` 通过，后面的 Windows E2E 能跑到。
 - 同一个文件一轮里改了几次时，按步骤显示的是几段 diff 接在一起，行号各按各的；Git 仓库里一轮结束后会换成合并好的一份。
 - Git 仓库里一轮改了又改回去时，内核的快照 diff 是空的，面板会显示步骤里的改动。
 - CodeAgent 的工具结果有没有同样的字段还没核对，没有就和以前一样只列路径。跟踪：[cymoo/kits#98](https://github.com/cymoo/kits/issues/98)。
+
+## 2026-11-07　PDF 打开时有加载状态，打不开时给原因和系统应用入口
+
+> PR：见本分支 `fix/workbench-pdf-loading`　作者：Claude Code
+
+### 原始需求
+
+[cymoo/kits#71](https://github.com/cymoo/kits/issues/71)：pdfjs 拿到现成的 worker 时不等它就绪，worker 脚本加载失败也不报错，`getDocument` 一直挂着，界面只剩一块空白；大 PDF 打开时也是空白，没有加载状态。
+
+做到什么程度算完：打开 PDF 时有加载状态；worker 起不来或超时，显示“读不了这个文件”，能用系统应用打开；有覆盖这条路径的测试。
+
+原型 `designs/app/session.html` 只画了 PDF 正常翻页的样子，这次补的两个状态按原型里已有的样式做（见“主要改动”）。
+
+### 怎么验收
+
+1. 工作目录里放一个正常的 PDF（可用 `apps/desktop/src/main/attachments/fixtures/spec.pdf`），会话面板 → 文件 → 点它：先看到“正在打开…”和转圈，随后出第一页和“第 1 页，共 N 页”。
+2. 工作目录里建一个假的 PDF：`printf '%%PDF-1.4\nnot really a pdf' > broken.pdf`，点它：显示“读不了这个文件”、pdfjs 给的原因，和“用系统应用打开”按钮，点按钮用系统应用打开。
+3. 消息里的 PDF 附件（点文件名弹窗）和上面一样。
+
+worker 起不来这条路径界面上不好造，由单元测试覆盖（见“测试”）。
+
+### 主要改动
+
+- `renderer/src/lib/pdf-worker.ts`（新）：`waitForWorker` 等 worker 发来第一条消息（pdfjs 的 worker 启动后先发 `ready`）才算起来了；先来 `error` 或 10 秒没动静就结束这个 worker 并报错（“PDF 组件没有启动” / “PDF 组件启动超时”）。
+- `renderer/src/lib/pdf.ts`：共用的 worker 先过 `waitForWorker` 再交给 pdfjs；起不来时清掉，下次打开 PDF 重新建。
+- `session/panels/PdfView.tsx`：没拿到文档时显示“正在打开…”，canvas 先藏起来（以前是一块白底的空画布）；出错时和“这种格式不能预览”同一个样子：标题“读不了这个文件”、原因、打开按钮。换文件时清掉上一份的页码和报错。
+- `FileBody.tsx` 把打开按钮的文字和回调传给 `PdfView`，文件页签和附件弹窗都用上。
+- 文案：`files.pdfLoading`、`files.pdfError`。
+- 原型没画加载和出错，加载用原型里已有的转圈样式（`Spinner`），出错沿用“不能预览”的空状态。配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`lib/pdf-worker.test.ts`（4 个：收到消息算就绪、加载失败报错并结束 worker、超时报错并结束 worker、就绪以后的 error 不管）。
+- E2E：`workbench.spec.ts` 的 `previews images, pdf and word files` 加了一步：打开解析不了的 `broken.pdf`，看到“读不了这个文件”和打开按钮。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 只管 worker 启动。worker 起来以后中途崩掉，`getDocument` 还是可能一直挂着，没有处理；没见过这种情况。
+- 出错时的原因是 pdfjs 的英文报错原文（比如 `Invalid PDF structure.`）。
