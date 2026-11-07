@@ -11,6 +11,8 @@ export const gatewayModelSchema = z.object({
   // 网关的模型列表带了就用它的（连接测试、刷新列表时取），没带默认 128K，设置页可改
   contextWindow: z.number().int().positive().default(DEFAULT_CONTEXT_WINDOW),
   toolCall: z.boolean().default(true),
+  // 能不能看图片。网关的模型列表报了就用它的，设置页可改；没报也没改过是 undefined，当作不能看
+  vision: z.boolean().optional(),
 })
 export type GatewayModel = z.infer<typeof gatewayModelSchema>
 
@@ -50,6 +52,20 @@ export function findModel(
   const gateway = gateways.find((g) => g.id === parsed.gateway && g.enabled)
   const model = gateway?.models.find((m) => m.id === parsed.model)
   return gateway && model ? { gateway, model } : undefined
+}
+
+// 这条消息现在能不能带图片。current 是最新设置，loaded 是还没重启的内核实际加载的那份（不用等重启时不传）：
+// 内核只认启动时写进配置的能力，刚打开开关的模型要等它重启，图片才真的发得到模型
+export type ImageSupport = 'yes' | 'no' | 'restarting'
+
+export function imageSupport(
+  current: Gateway[],
+  loaded: Gateway[] | undefined,
+  ref: string,
+): ImageSupport {
+  const sees = (list: Gateway[]) => findModel(list, ref)?.model.vision === true
+  if (!sees(current)) return 'no'
+  return !loaded || sees(loaded) ? 'yes' : 'restarting'
 }
 
 export function gatewaySecretKey(id: string): string {

@@ -1,7 +1,14 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { attachmentKind, extractText, MAX_CHARS, UnsupportedAttachmentError } from './extract'
+import {
+  attachmentKind,
+  extractText,
+  imageMime,
+  isImage,
+  MAX_CHARS,
+  UnsupportedAttachmentError,
+} from './extract'
 
 const fixture = (name: string) =>
   new Uint8Array(readFileSync(path.join(import.meta.dirname, 'fixtures', name)))
@@ -42,5 +49,30 @@ describe('extractText', () => {
     await expect(extractText('shot.png', 'image/png', new Uint8Array([1]))).rejects.toBeInstanceOf(
       UnsupportedAttachmentError,
     )
+  })
+})
+
+describe('imageMime', () => {
+  it.each([
+    ['image/png', [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]],
+    ['image/jpeg', [0xff, 0xd8, 0xff, 0xe0]],
+    ['image/gif', [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]],
+    ['image/webp', [0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]],
+  ])('recognises %s from the file header', (mime, bytes) => {
+    expect(imageMime(new Uint8Array(bytes))).toBe(mime)
+  })
+
+  it('does not take other files for images', () => {
+    expect(imageMime(new TextEncoder().encode('hello'))).toBeUndefined()
+    expect(imageMime(new Uint8Array())).toBeUndefined()
+  })
+})
+
+describe('isImage', () => {
+  it('goes by the extension or the type', () => {
+    expect(isImage('shot.PNG', '')).toBe(true)
+    expect(isImage('clipboard', 'image/webp')).toBe(true)
+    expect(isImage('notes.txt', 'text/plain')).toBe(false)
+    expect(isImage('logo.svg', 'image/svg+xml')).toBe(false)
   })
 })

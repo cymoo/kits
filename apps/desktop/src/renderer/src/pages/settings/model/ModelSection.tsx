@@ -72,7 +72,14 @@ function AddGatewayForm({ onDone }: { onDone(): void }) {
     }
     setResult(r)
     if (!r.ok) return
-    await add({ name, baseUrl, apiKey, models: r.models, contextWindows: r.contextWindows })
+    await add({
+      name,
+      baseUrl,
+      apiKey,
+      models: r.models,
+      contextWindows: r.contextWindows,
+      vision: r.vision,
+    })
     onDone()
   }
   return (
@@ -280,7 +287,8 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                     })
                     return
                   }
-                  if (r.ok) await refreshModels(gateway.id, r.models, r.contextWindows, sent)
+                  if (r.ok)
+                    await refreshModels(gateway.id, r.models, r.contextWindows, r.vision, sent)
                 }}
               >
                 {t('model.refresh')}
@@ -340,6 +348,18 @@ function GatewayCard({ gateway }: { gateway: Gateway }) {
                     />
                     <span>K</span>
                   </label>
+                  <span className="flex items-center gap-1.5 text-[0.929rem] text-fg-label">
+                    {t('model.vision')}
+                    <Switch
+                      checked={m.vision === true}
+                      label={t('model.visionOf', { model: m.id })}
+                      onCheckedChange={(vision) =>
+                        void patch(gateway.id, {
+                          models: gateway.models.map((x) => (x.id === m.id ? { ...x, vision } : x)),
+                        })
+                      }
+                    />
+                  </span>
                 </div>
               )
             })}

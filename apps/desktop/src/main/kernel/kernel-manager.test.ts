@@ -1,3 +1,4 @@
+import type { Gateway } from '@kits/core'
 import type { KernelRuntime } from '@kits/core/ipc'
 import type { AgentKernel, KernelExit } from '@kits/kernel'
 import { describe, expect, it, vi } from 'vitest'
@@ -22,7 +23,10 @@ function fakeKernel() {
 
 const ok: PrepareResult = { ok: true, cfg: { binary: 'b', configDir: 'c', dataDir: 'd', env: {} } }
 
-function setup(prepare: () => Promise<PrepareResult> = async () => ok) {
+function setup(
+  prepare: () => Promise<PrepareResult> = async () => ok,
+  readGateways?: () => Gateway[],
+) {
   const made: ReturnType<typeof fakeKernel>[] = []
   const states: KernelRuntime['state'][] = []
   const manager = new KernelManager({
@@ -32,6 +36,7 @@ function setup(prepare: () => Promise<PrepareResult> = async () => ok) {
       return k.kernel
     },
     prepare,
+    ...(readGateways ? { readGateways } : {}),
     onStatus: (s) => states.push(s.state),
   })
   return { manager, made, states }
@@ -87,6 +92,22 @@ describe('KernelManager', () => {
     manager.release('opencode')
     await vi.waitFor(() => expect(made).toHaveLength(2))
     await vi.waitFor(() => expect(manager.status('opencode').state).toBe('running'))
+  })
+
+  it('tells which gateways a kernel waiting to restart still runs on', async () => {
+    const gateway = (name: string) => ({ id: 'g', name, baseUrl: '', enabled: true, models: [] })
+    let current = gateway('old')
+    const { manager } = setup(undefined, () => [current])
+    await manager.acquire('opencode')
+    expect(manager.loadedGateways('opencode')).toBeUndefined()
+
+    current = gateway('new')
+    manager.configChanged()
+    expect(manager.loadedGateways('opencode')).toEqual([gateway('old')])
+
+    manager.release('opencode')
+    await vi.waitFor(() => expect(manager.status('opencode').state).toBe('running'))
+    expect(manager.loadedGateways('opencode')).toBeUndefined()
   })
 
   it('defers a manual restart until the running turns are released', async () => {

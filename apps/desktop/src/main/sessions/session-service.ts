@@ -8,6 +8,7 @@ import type {
   AttachmentInput,
   CreateSessionInput,
   FileDiffView,
+  ImageSupport,
   KernelEvent,
   KitsToolContext,
   MessageView,
@@ -21,15 +22,17 @@ import type {
   ToolCallRegistry,
 } from '@kits/core'
 import { effectiveLevel, type PermissionRule, skillPrompt, workdirKey } from '@kits/core'
+import type { KernelName } from '@kits/core/ipc'
 import {
   type AgentKernel,
   agentPermissions,
   agentSystemPrompt,
+  type KernelAttachment,
   type KernelSession,
   kernelAgentOf,
   skillDenies,
 } from '@kits/kernel'
-import { extractText } from '../attachments/extract'
+import { extractText, imageMime, isImage, MAX_IMAGE_BYTES } from '../attachments/extract'
 import type { KernelManager } from '../kernel/kernel-manager'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
 import { sessionMarkdown } from './export'
@@ -66,6 +69,8 @@ export interface SessionServiceDeps {
   enabledSkills?: (workdir: string) => string[]
   // 附件转文本，测试里可以换掉
   extractText?: (name: string, mime: string, data: Uint8Array) => Promise<string>
+  // 这个模型现在能不能收图片（`<网关 id>/<模型 id>`，空串是默认模型）；restarting：开关打开了，内核还没重启
+  imageSupport: (model: string, kernel: KernelName) => ImageSupport
   // 取改动、补轮次号读内核的截止时间：请求挂住也要收尾、释放内核
   readTimeoutMs?: number
 }
@@ -82,15 +87,32 @@ function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
 // 单个附件的大小上限
 export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 
-// 存好、转好文字的附件，等这一轮的用户消息建好再落库
+// 存好的附件，等这一轮的用户消息建好再落库。文档转好了文字，图片没有 text，发的时候读原文件
 interface StagedAttachment {
   id: string
   name: string
   mime: string
   size: number
   path: string
-  textPath: string
-  text: string
+  textPath?: string
+  text?: string
+}
+
+// 图片要发给哪个模型、走哪个内核
+interface ImageTarget {
+  model: string
+  kernel: KernelName
+}
+
+function imageUrl(mime: string, file: string): string {
+  return `data:${mime};base64,${readFileSync(file).toString('base64')}`
+}
+
+// 发给内核的形状：图片这时才读出来，排队期间不占内存
+function toKernel(a: StagedAttachment): KernelAttachment {
+  return a.text === undefined
+    ? { name: a.name, mime: a.mime, dataUrl: imageUrl(a.mime, a.path) }
+    : { name: a.name, text: a.text }
 }
 
 // 运行中发的一条消息，排队到这一轮结束
@@ -124,8 +146,8 @@ interface Running {
   // 这一轮的用户消息和轮次（改动对回本地轮次用）
   userMessageId: string
   turn: number
-  // 这一轮带的附件（已经转成文字），随消息发给内核
-  attachments: { name: string; text: string }[]
+  // 这一轮带的附件，随消息发给内核
+  attachments: KernelAttachment[]
   // 这一轮的消息进了内核：之后才能插话，插话要排在它后面
   submitted: boolean
   // Agent 的提示词，插话时一样带上
@@ -303,7 +325,7 @@ export class SessionService {
   async create(input: CreateSessionInput): Promise<SessionSummary> {
     const id = this.id()
     // 先存附件、转文字：读不了的文件直接报错，会话不建
-    const staged = await this.stage(id, input.attachments ?? [])
+    const staged = await this.stage(id, input.attachments ?? [], input)
     const at = this.now()
     const session: SessionSummary = {
       id,
@@ -331,7 +353,7 @@ export class SessionService {
     if (!this.deps.store.session(id)) throw new Error(`没有这个会话：${id}`)
     // 转附件期间点了停止：这条也作废（停止要连还没进队列的一起停）
     const gen = this.abortGen.get(id) ?? 0
-    const staged = await this.stage(id, attachments)
+    const staged = await this.stage(id, attachments, this.targetOf(id))
     if ((this.abortGen.get(id) ?? 0) !== gen) {
       this.unstage(staged)
       return
@@ -347,6 +369,18 @@ export class SessionService {
       return
     }
     this.startTurn(session, text, staged)
+  }
+
+  private targetOf(id: string): ImageTarget {
+    const session = this.deps.store.session(id)
+    return { model: session?.model ?? '', kernel: session?.kernel ?? 'opencode' }
+  }
+
+  // 图片附件的 data URL，给消息里的缩略图用
+  attachmentImage(id: string): string | null {
+    const file = this.deps.store.attachmentFile(id)
+    if (!file?.mime.startsWith('image/') || !existsSync(file.path)) return null
+    return imageUrl(file.mime, file.path)
   }
 
   // 拿走排队的消息，附件读回来放进草稿，磁盘上的副本删掉
@@ -396,14 +430,15 @@ export class SessionService {
     else await this.interjectQueued(id, this.takeQueued(id, input.queueId), stopped)
   }
 
-  // 输入框里的文字：发不出去就报错，文字还留在输入框；只有内核还没准备好时才排队
+  // 输入框里的文字：发不出去就报错，文字还留在输入框；内核还没准备好、这一轮的模型看不了图时才排队
   private async interjectText(
     id: string,
     text: string,
     attachments: AttachmentInput[],
     stopped: () => boolean,
   ): Promise<void> {
-    const item = { id: this.id(), text, attachments: await this.stage(id, attachments) }
+    const staged = await this.stage(id, attachments, this.targetOf(id))
+    const item = { id: this.id(), text, attachments: staged }
     let sent = false
     try {
       if (!stopped()) sent = await this.deliver(id, item, stopped)
@@ -451,21 +486,30 @@ export class SessionService {
     if (!this.running.has(id) && !this.compacting.has(id)) this.sendQueued(id)
   }
 
-  // 交给内核；这一轮还没进内核、已经结束、停止了，或者内核不支持时返回 false
+  // 交给内核；这一轮还没进内核、已经结束、停止了，或者内核不支持时返回 false。
+  // 插话走这一轮发起时的模型，换模型下一条才生效：它看不了图的话也返回 false，排到这一轮结束用新模型发
   private async deliver(id: string, item: Queued, stopped: () => boolean): Promise<boolean> {
     const run = this.running.get(id)
     const session = this.deps.store.session(id)
     if (!session || !run?.kernel || !run.ks || !run.submitted) return false
+    const hasImage = item.attachments.some((a) => a.text === undefined)
+    const support = this.deps.imageSupport(run.ks.model ?? '', session.kernel)
+    if (hasImage && support !== 'yes') return false
     const sent = skillPrompt(item.text, this.deps.enabledSkills?.(session.workdir) ?? [])
     const live = await run.kernel.interject(run.ks, {
       text: sent,
-      attachments: item.attachments.map((a) => ({ name: a.name, text: a.text })),
+      attachments: item.attachments.map(toKernel),
       ...(run.system ? { system: run.system } : {}),
     })
     // 停止后回来的：这条已经退给用户了，不再记
     if (!live || stopped()) return false
     this.saveAttachments(id, run.recorder.view.id, item.attachments)
-    const chips = item.attachments.map((a) => ({ name: a.name, size: a.size }))
+    const chips = item.attachments.map((a) => ({
+      id: a.id,
+      name: a.name,
+      size: a.size,
+      mime: a.mime,
+    }))
     const turn = this.deps.store.nextKernelTurn(id)
     this.commit(id, run.recorder.interject(item.id, item.text, chips, turn))
     return true
@@ -481,7 +525,7 @@ export class SessionService {
         mime: a.mime,
         size: a.size,
         path: a.path,
-        textPath: a.textPath,
+        textPath: a.textPath ?? null,
       })
     }
     if (staged.length) {
@@ -492,8 +536,13 @@ export class SessionService {
     }
   }
 
-  // 附件存到 {attachmentsDir}/<会话>/，原文件和转出来的文字各一份
-  private async stage(sessionId: string, inputs: AttachmentInput[]): Promise<StagedAttachment[]> {
+  // 附件存到 {attachmentsDir}/<会话>/，原文件和转出来的文字各一份；图片只有原文件。
+  // 输入框已经挡过模型看不了图的情况，这里兜底：排队期间、别的窗口改了设置也不把图发给看不了的模型
+  private async stage(
+    sessionId: string,
+    inputs: AttachmentInput[],
+    target: ImageTarget,
+  ): Promise<StagedAttachment[]> {
     if (!inputs.length) return []
     const extract = this.deps.extractText ?? extractText
     const dir = path.join(this.deps.attachmentsDir, sessionId)
@@ -505,20 +554,27 @@ export class SessionService {
         if (a.data.byteLength > MAX_ATTACHMENT_BYTES) {
           throw new Error(`${a.name} 超过 20 MB，先拆小一点再发`)
         }
-        const text = await extract(a.name, a.mime, a.data)
+        const image = isImage(a.name, a.mime)
+        const mime = image ? this.checkImage(a, target) : a.mime
+        const text = image ? undefined : await extract(a.name, a.mime, a.data)
         const id = this.id()
         const safe = a.name.replace(/[\\/:*?"<>|]+/g, '_')
         const file = path.join(dir, `${id}-${safe}`)
+        const size = a.data.byteLength
         mkdirSync(dir, { recursive: true })
         written.push(file)
         writeFileSync(file, a.data)
+        if (text === undefined) {
+          staged.push({ id, name: a.name, mime, size, path: file })
+          continue
+        }
         written.push(`${file}.txt`)
         writeFileSync(`${file}.txt`, text)
         staged.push({
           id,
           name: a.name,
-          mime: a.mime,
-          size: a.data.byteLength,
+          mime,
+          size,
           path: file,
           textPath: `${file}.txt`,
           text,
@@ -531,11 +587,26 @@ export class SessionService {
     return staged
   }
 
+  // 看得了、不太大、真是图片才收，返回按文件头认出来的类型
+  private checkImage(a: AttachmentInput, { model, kernel }: ImageTarget): string {
+    const support = this.deps.imageSupport(model, kernel)
+    if (support === 'no') {
+      throw new Error(`${a.name}：当前模型看不了图片，换一个支持图片的模型，或者去掉它`)
+    }
+    if (support === 'restarting') {
+      throw new Error(`${a.name}：图片开关要等正在跑的任务结束、内核重启后才生效，到时再发`)
+    }
+    if (a.data.byteLength > MAX_IMAGE_BYTES) throw new Error(`${a.name} 超过 5 MB，压缩一下再发`)
+    const mime = imageMime(a.data)
+    if (!mime) throw new Error(`${a.name}：不是有效的 PNG、JPEG、WebP 或 GIF 图片`)
+    return mime
+  }
+
   // 作废的附件（停止了、没发出去）删掉
   private unstage(staged: StagedAttachment[]): void {
     for (const a of staged) {
       rmSync(a.path, { force: true })
-      rmSync(a.textPath, { force: true })
+      if (a.textPath) rmSync(a.textPath, { force: true })
     }
   }
 
@@ -908,7 +979,7 @@ export class SessionService {
       cancelled: false,
       userMessageId: user.id,
       turn,
-      attachments: attachments.map((a) => ({ name: a.name, text: a.text })),
+      attachments: attachments.map(toKernel),
       submitted: false,
       system: '',
     }

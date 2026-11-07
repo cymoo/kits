@@ -27,6 +27,12 @@ const findingsSchema = {
 }
 
 // gate：内核启动卡住，直到调用 open（模拟真实内核冷启动）
+const VISION_MODEL = 'corp/vision'
+// 刚打开图片开关、内核还没重启的模型
+const RESTARTING_MODEL = 'corp/restarting'
+// 最小的 PNG 文件头，够认出类型
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
 function setup(
   scenario: MockScenarioName | 'broken',
   gate?: Promise<void>,
@@ -51,6 +57,8 @@ function setup(
   const registered: unknown[] = []
   service = new SessionService({
     store,
+    imageSupport: (model) =>
+      model === VISION_MODEL ? 'yes' : model === RESTARTING_MODEL ? 'restarting' : 'no',
     kernels: {
       acquire: async () => {
         await gate
@@ -942,6 +950,147 @@ describe('SessionService skills', () => {
   })
 })
 
+describe('SessionService image attachments', () => {
+  const image = { name: 'shot.png', mime: 'image/png', data: PNG }
+
+  it('hands the image to the kernel as a data url and keeps no text copy', async () => {
+    const { service, waitFor, kernel, store } = setup('done')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create({ ...input, model: VISION_MODEL, attachments: [image] })
+    await waitFor(s.id, ['done'])
+    expect(prompt.mock.calls[0]?.[1].attachments).toEqual([
+      { name: 'shot.png', mime: 'image/png', dataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+    ])
+    const saved = store.detail(s.id)?.attachments[0]
+    expect(saved).toMatchObject({ name: 'shot.png', mime: 'image/png', size: PNG.length })
+    expect(service.attachmentImage(saved?.id ?? '')).toBe('data:image/png;base64,iVBORw0KGgo=')
+  })
+
+  it('takes the type from the file header, not from the name', async () => {
+    const { service, waitFor, kernel } = setup('done')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const jpeg = { name: 'photo.png', mime: '', data: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]) }
+    const s = await service.create({ ...input, model: VISION_MODEL, attachments: [jpeg] })
+    await waitFor(s.id, ['done'])
+    expect(prompt.mock.calls[0]?.[1].attachments?.[0]).toMatchObject({ mime: 'image/jpeg' })
+  })
+
+  it('refuses an image when the model cannot see, and creates no session', async () => {
+    const { service, store } = setup('done')
+    await expect(service.create({ ...input, attachments: [image] })).rejects.toThrow(/看不了图片/)
+    expect(store.list()).toEqual([])
+  })
+
+  it('refuses an image until the kernel has restarted with the new switch', async () => {
+    const { service, store } = setup('done')
+    await expect(
+      service.create({ ...input, model: RESTARTING_MODEL, attachments: [image] }),
+    ).rejects.toThrow(/内核重启后才生效/)
+    expect(store.list()).toEqual([])
+  })
+
+  it('keeps the draft of an image interjected before the kernel has restarted', async () => {
+    const { service, s, interject } = await switchedMidTurn(RESTARTING_MODEL)
+    await expect(
+      service.interject({ id: s.id, text: '看这张图', attachments: [image] }),
+    ).rejects.toThrow(/内核重启后才生效/)
+    expect(interject).not.toHaveBeenCalled()
+    expect(service.get(s.id)?.session.queued ?? []).toEqual([])
+    await service.abort(s.id)
+  })
+
+  it('refuses an image sent to a session on a model that cannot see', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    await expect(service.prompt(s.id, '看图', [image])).rejects.toThrow(/看不了图片/)
+  })
+
+  it('refuses a file named like an image that is not one', async () => {
+    const { service } = setup('done')
+    const fake = { name: 'shot.png', mime: 'image/png', data: new Uint8Array([1, 2, 3, 4]) }
+    await expect(
+      service.create({ ...input, model: VISION_MODEL, attachments: [fake] }),
+    ).rejects.toThrow(/不是有效的/)
+  })
+
+  it('refuses an image over the size limit', async () => {
+    const { service } = setup('done')
+    const big = { ...image, data: new Uint8Array(5 * 1024 * 1024 + 1) }
+    await expect(
+      service.create({ ...input, model: VISION_MODEL, attachments: [big] }),
+    ).rejects.toThrow(/超过 5 MB/)
+  })
+
+  async function finish(
+    service: SessionService,
+    waitFor: (id: string, states: SessionStatus[]) => Promise<void>,
+    id: string,
+  ) {
+    await service.abort(id)
+    await waitFor(id, ['aborted'])
+  }
+
+  // 这一轮用的是发起时的模型，换模型下一条消息才生效
+  async function switchedMidTurn(model = VISION_MODEL) {
+    const ctx = setup('permission')
+    const interject = vi.spyOn(ctx.kernel, 'interject')
+    const prompt = vi.spyOn(ctx.kernel, 'prompt')
+    const s = await ctx.service.create(input)
+    await ctx.waitFor(s.id, ['waiting'])
+    await ctx.service.setModel(s.id, model)
+    return { ...ctx, s, interject, prompt }
+  }
+
+  it('queues an image interjected while the running model cannot see', async () => {
+    const { service, waitFor, s, interject } = await switchedMidTurn()
+    await service.interject({ id: s.id, text: '看这张图', attachments: [image] })
+    expect(interject).not.toHaveBeenCalled()
+    expect(service.get(s.id)?.session.queued?.map((q) => q.text)).toEqual(['看这张图'])
+    await finish(service, waitFor, s.id)
+  })
+
+  it('sends the queued image on the new model when the turn ends', async () => {
+    const { service, waitFor, s, prompt, store } = await switchedMidTurn()
+    await service.interject({ id: s.id, text: '看这张图', attachments: [image] })
+    const permission = store.detail(s.id)?.parts.find((p) => p.type === 'permission')
+    const payload = permission?.payload as { requestId: string }
+    await service.respondPermission({ id: s.id, requestId: payload.requestId, reply: 'once' })
+    await vi.waitFor(() => expect(prompt).toHaveBeenCalledTimes(2))
+    expect(prompt.mock.calls[1]?.[0].model).toBe(VISION_MODEL)
+    expect(prompt.mock.calls[1]?.[1].attachments?.[0]).toMatchObject({ mime: 'image/png' })
+    await finish(service, waitFor, s.id)
+  })
+
+  it('keeps a queued image for the next turn when interjected on such a model', async () => {
+    const { service, waitFor, s, interject } = await switchedMidTurn()
+    await service.prompt(s.id, '看这张图', [image])
+    await service.interject({ id: s.id })
+    expect(interject).not.toHaveBeenCalled()
+    expect(service.get(s.id)?.session.queued).toHaveLength(1)
+    await finish(service, waitFor, s.id)
+  })
+
+  it('still interjects text while the running model cannot see', async () => {
+    const { service, waitFor, s, interject } = await switchedMidTurn()
+    await service.interject({ id: s.id, text: '先别改测试' })
+    expect(interject).toHaveBeenCalledOnce()
+    await finish(service, waitFor, s.id)
+  })
+
+  it('has no image to show for a text attachment', async () => {
+    const { service, waitFor, store } = setup('done')
+    const file = {
+      name: '需求.md',
+      mime: 'text/markdown',
+      data: new TextEncoder().encode('# 需求'),
+    }
+    const s = await service.create({ ...input, attachments: [file] })
+    await waitFor(s.id, ['done'])
+    expect(service.attachmentImage(store.detail(s.id)?.attachments[0]?.id ?? '')).toBeNull()
+  })
+})
+
 describe('SessionService setPinned', () => {
   it('pins and unpins without counting as an update, and pushes the change', async () => {
     const { service, store, pushed, waitFor } = setup('done')
@@ -1228,6 +1377,7 @@ describe('SessionService kernel reads', () => {
     const release = vi.fn()
     const service = new SessionService({
       store,
+      imageSupport: () => 'no',
       kernels: { acquire: async () => kernel, release },
       resolveAgent: () => builtinAssistant,
       loadMcp: () => parseMcpFile({}),

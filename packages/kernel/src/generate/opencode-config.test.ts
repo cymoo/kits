@@ -116,6 +116,26 @@ describe('generateOpencodeConfig', () => {
     expect(plugin?.content).toContain("'tool.definition'")
   })
 
+  it('tells the kernel which models take images', () => {
+    const c = config({
+      settings: parseSettings({
+        gateways: [
+          {
+            id: 'corp',
+            baseUrl: 'https://gw.example.internal/v1',
+            models: [{ id: 'eye', vision: true }, { id: 'text' }],
+          },
+        ],
+        defaultModel: 'corp/eye',
+      }),
+    })
+    expect(c.provider.corp.models.eye).toMatchObject({
+      attachment: true,
+      modalities: { input: ['text', 'image'], output: ['text'] },
+    })
+    expect(c.provider.corp.models.text).not.toHaveProperty('modalities')
+  })
+
   it('keeps the output limit below the context window of a small model', () => {
     const c = config({
       settings: parseSettings({

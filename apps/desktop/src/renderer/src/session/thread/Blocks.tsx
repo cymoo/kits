@@ -1,16 +1,60 @@
 import type { PermissionMode } from '@kits/core/ipc'
+import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, ChevronDown, ChevronRight, FileText, Lightbulb } from 'lucide-react'
 import { useState } from 'react'
 import { t } from '../../app/i18n'
+import { kits } from '../../lib/kits'
 import { formatDuration, useNow } from '../../lib/use-now'
 import { cx } from '../../ui/cx'
+import { Dialog, DialogContent, DialogTrigger } from '../../ui/Dialog'
 import { Spinner } from '../../ui/Spinner'
 import { CopyReply } from './CopyReply'
-import type { Block } from './derive'
+import type { Block, MessageAttachment } from './derive'
 import { Markdown } from './Markdown'
 import { STEP_ACTION, STEP_ROW, StepChevron, StepRow } from './Steps'
 
 // 会话页的各种块（原型 session.html）。
+
+function FileChip({ name }: { name: string }) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1.5 rounded-[8px] border border-line px-2 py-0.5 text-[0.929rem] text-fg-muted [overflow-wrap:anywhere]">
+      <FileText size={12} className="shrink-0" />
+      {name}
+    </span>
+  )
+}
+
+// 图片附件：缩略图，点开看大图。原文件被清掉了就退回文件芯片
+function ImageAttachment({ id, name }: { id: string; name: string }) {
+  const image = useQuery({
+    queryKey: ['attachment-image', id],
+    queryFn: () => kits.session.attachmentImage(id),
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+  if (!image.data) return <FileChip name={name} />
+  return (
+    <Dialog>
+      <DialogTrigger
+        aria-label={t('session.viewImage', { name })}
+        title={name}
+        className="cursor-zoom-in overflow-hidden rounded-[8px] border border-line bg-transparent p-0 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      >
+        <img src={image.data} alt={name} className="block max-h-[120px] max-w-[200px]" />
+      </DialogTrigger>
+      <DialogContent label={name} className="w-auto max-w-[calc(100%-96px)]">
+        <img src={image.data} alt={name} className="block max-h-[80vh] max-w-full" />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function Attachment({ a }: { a: MessageAttachment }) {
+  return a.id && a.mime?.startsWith('image/') ? (
+    <ImageAttachment id={a.id} name={a.name} />
+  ) : (
+    <FileChip name={a.name} />
+  )
+}
 
 export function UserBlock({
   text,
@@ -18,7 +62,7 @@ export function UserBlock({
   pending = false,
 }: {
   text: string
-  attachments?: { name: string; size: number }[]
+  attachments?: MessageAttachment[]
   pending?: boolean
 }) {
   return (
@@ -41,14 +85,8 @@ export function UserBlock({
       {attachments.length ? (
         <div className="flex flex-wrap justify-end gap-1.5" data-testid="message-attachments">
           {attachments.map((a, i) => (
-            <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: 同名附件按位置区分
-              key={i}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-[8px] border border-line px-2 py-0.5 text-[0.929rem] text-fg-muted [overflow-wrap:anywhere]"
-            >
-              <FileText size={12} className="shrink-0" />
-              {a.name}
-            </span>
+            // biome-ignore lint/suspicious/noArrayIndexKey: 同名附件按位置区分
+            <Attachment key={i} a={a} />
           ))}
         </div>
       ) : null}

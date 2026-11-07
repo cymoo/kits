@@ -21,6 +21,9 @@ const binary = resolveKernelBinary('opencode', {
 
 const mcp = parseMcpFile({})
 const SUBAGENT_PROMPT = '建一个文件'
+// 1×1 透明 PNG
+const PIXEL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII='
 const GIT_CONFIG_PROMPT = '改 git 配置'
 
 describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
@@ -128,12 +131,14 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
         arguments: { command: 'wc -c $HOME/.ssh/config', description: 'Size' },
       },
     })
+    mocks.eye = await startMockModel()
+    mocks.blind = await startMockModel()
     const result = generateOpencodeConfig({
       settings: parseSettings({
         gateways: Object.entries(mocks).map(([id, m]) => ({
           id,
           baseUrl: m.baseUrl,
-          models: [{ id: MOCK_MODEL_ID }],
+          models: [{ id: MOCK_MODEL_ID, ...(id === 'eye' ? { vision: true } : {}) }],
         })),
         defaultModel: `ok/${MOCK_MODEL_ID}`,
       }),
@@ -162,6 +167,8 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
         force: 'k',
         skills: 'k',
         secret: 'k',
+        eye: 'k',
+        blind: 'k',
       },
       lookupVar: () => undefined,
     })
@@ -228,6 +235,29 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
 
   const joined = (events: KernelEvent[], type: 'text-delta' | 'reasoning-delta') =>
     events.flatMap((e) => (e.type === type ? [e.text] : [])).join('')
+
+  // 发一张图，返回网关这期间收到的全部请求
+  async function sendImage(gateway: string): Promise<string> {
+    const s = await session(gateway)
+    const input = {
+      text: '这张图里有什么',
+      attachments: [{ name: 'shot.png', mime: 'image/png', dataUrl: PIXEL }],
+    }
+    for await (const e of kernel.prompt(s, input)) {
+      if (e.type === 'permission-request') await kernel.respondPermission(s, e.requestId, 'reject')
+    }
+    return JSON.stringify((mocks[gateway] as MockModel).requests)
+  }
+
+  it('hands an image to a model that can see', async () => {
+    expect(await sendImage('eye')).toContain(PIXEL)
+  })
+
+  it('keeps an image away from a model that cannot see', async () => {
+    const sent = await sendImage('blind')
+    expect(sent).not.toContain(PIXEL)
+    expect(sent).toContain('这张图里有什么')
+  })
 
   it('streams a full turn through a permission request to done', async () => {
     const s = await session('ok')

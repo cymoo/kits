@@ -321,9 +321,17 @@ export class SessionStore {
     mime: string
     size: number
     path: string
-    textPath: string
+    textPath: string | null
   }): void {
     this.db.insert(attachments).values(row).run()
+  }
+
+  attachmentFile(id: string): { path: string; mime: string } | undefined {
+    return this.db
+      .select({ path: attachments.path, mime: attachments.mime })
+      .from(attachments)
+      .where(eq(attachments.id, id))
+      .get()
   }
 
   outputs(sessionId: string): OutputView[] {

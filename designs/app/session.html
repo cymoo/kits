@@ -184,6 +184,7 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
               <div class="k-msg" style="align-self: flex-end; max-width: 84%; display: flex; flex-direction: column; gap: 6px; align-items: flex-end">
                 <div style="max-width: 100%; box-sizing: border-box; background: #F6F6F4; border-radius: 16px 16px 4px 16px; padding: 10px 14px; font-size: 14px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere">{{b.text}}</div>
                 <sc-if value="{{b.note}}"><div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #84878E"><sc-if value="{{b.notePending}}"><span aria-hidden="true" style="width: 10px; height: 10px; border: 2px solid #DCDCD8; border-top-color: #3563E0; border-radius: 50%; animation: k-spin .8s linear infinite; box-sizing: border-box"></span></sc-if>{{b.note}}</div></sc-if>
+                <sc-if value="{{b.image}}"><div style="width: 160px; height: 100px; border: 1px solid #E8E8E5; border-radius: 8px; background: #E4E7EC" role="img" aria-label="{{b.image}}" title="点开看大图"></div></sc-if>
                 <sc-if value="{{b.attach}}"><div style="display: flex; gap: 6px; align-items: center"><span style="display: inline-flex; align-items: center; gap: 5px; border: 1px solid #E8E8E5; border-radius: 8px; padding: 2px 8px; font-size: 13px; color: #43464C"><svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"></path><path d="M9 2v3h3"></path></svg>{{b.attach}}</span><span class="k-act"><button type="button" class="k-small">编辑后重发</button></span></div></sc-if>
               </div>
             </sc-if>
@@ -970,7 +971,7 @@ class Component extends DCLogic {
       },
       question: {
         title: '排查订单退款超时', pill: scene === 'question' && s.answer === null ? ['wait', '等你回答'] : ['run', '运行中 · 1:30'], dir: 'order-svc',
-        blocks: [{ isUser: true, text: '昨晚 22 点以后退款接口大量超时，看一下原因。日志在 logs/ 下。', attach: 'logs/order-svc-2026-11-02.log · 48 MB' },
+        blocks: [{ isUser: true, text: '昨晚 22 点以后退款接口大量超时，看一下原因。日志在 logs/ 下。', attach: 'logs/order-svc-2026-11-02.log · 48 MB', image: '监控截图.png' },
           this.turn('t1', '1:04', 'done', [
             ['读取文件', 'logs/order-svc-2026-11-02.log', '只读了 22:00 后的 2.1 MB'], this.sh('数一下退款超时的次数', 'grep -c "refund.*timeout" logs/order-svc-2026-11-02.log', { time: '0.4 秒', how: '自动允许', out: '1284' }),
             this.sh('看 22 点后网关的日志', "awk '/22:0[0-9]/ && /gateway/' logs/order-svc-2026-11-02.log | head", { time: '0.6 秒', how: '自动允许', out: '22:00:03 WARN gateway refund status=429 retry=1\n22:00:03 WARN gateway refund status=429 retry=2\n22:00:04 WARN gateway refund status=429 retry=3\n22:00:33 ERROR refund timeout order=O-88213 after 30.0s' }),

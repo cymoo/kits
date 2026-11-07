@@ -68,8 +68,14 @@ export interface AppInfo {
 }
 
 export type GatewayTestResult =
-  // contextWindows：网关报了上下文窗口的模型，没报的不在里面
-  | { ok: true; latencyMs: number; models: string[]; contextWindows: Record<string, number> }
+  // contextWindows、vision：网关报了上下文窗口、图片输入的模型，没报的不在里面
+  | {
+      ok: true
+      latencyMs: number
+      models: string[]
+      contextWindows: Record<string, number>
+      vision: Record<string, boolean>
+    }
   | { ok: false; latencyMs: number; error: string }
 
 export interface GatewayTestInput {
@@ -159,6 +165,8 @@ export const ipcContract = {
     // 手动压缩上下文：等内核压完；失败抛错
     compact: method<string, void>(),
     prompt: method<{ id: string; text: string; attachments?: AttachmentInput[] }, void>(),
+    // 图片附件的 data URL（消息里的缩略图）；不是图片、文件没了时是 null
+    attachmentImage: method<string, string | null>(),
     // 停止；排队的消息退回来，放回输入框
     abort: method<string, QueuedDraft | null>(),
     // 从排队里拿走一条：编辑时放回输入框，删除时丢掉返回值

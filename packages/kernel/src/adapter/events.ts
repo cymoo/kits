@@ -113,10 +113,15 @@ function toolError(error: string | undefined): string {
   return error ?? 'tool failed'
 }
 
+// 内核解不开图片时把整段堆栈当错误，给人看的换成一句话。这条消息内核不留，下一条不受影响
+const IMAGE_DECODE_PREFIX = 'ImageDecodeError'
+const IMAGE_DECODE_TEXT = '图片解不开，可能文件坏了。换一张再发'
+
 function errorMessage(error: unknown): string {
   if (typeof error !== 'object' || error === null) return String(error ?? 'unknown error')
   const e = error as { name?: string; data?: { message?: string }; message?: string }
-  return e.data?.message ?? e.message ?? e.name ?? 'unknown error'
+  const message = e.data?.message ?? e.message ?? e.name ?? 'unknown error'
+  return message.startsWith(IMAGE_DECODE_PREFIX) ? IMAGE_DECODE_TEXT : message
 }
 
 export function createOpencodeEventMapper(sessionId: string): OpencodeEventMapper {

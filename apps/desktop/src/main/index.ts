@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import {
   defaultPermissions,
   gatewaySecretKey,
+  imageSupport,
   readonlyCommandPatterns,
   workdirKey,
 } from '@kits/core'
@@ -248,6 +249,10 @@ app.whenReady().then(() => {
     },
     exportsDir: path.join(platform.userDataDir, 'exports'),
     attachmentsDir: path.join(platform.userDataDir, 'attachments'),
+    imageSupport: (model, kernel) => {
+      const { gateways, defaultModel } = config.getSettings()
+      return imageSupport(gateways, kernels.loadedGateways(kernel), model || defaultModel)
+    },
     disabledSkills: () => config.getSettings().skillsDisabled,
     enabledSkills: (workdir) =>
       loadSkills(config, builtinFolder(), workdir)
@@ -340,6 +345,7 @@ app.whenReady().then(() => {
         setModel: ({ id, model }) => sessions.setModel(id, model),
         compact: (id) => sessions.compact(id),
         prompt: ({ id, text, attachments }) => sessions.prompt(id, text, attachments),
+        attachmentImage: (id) => sessions.attachmentImage(id),
         abort: (id) => sessions.abort(id),
         dequeue: ({ id, queueId }) => sessions.dequeue(id, queueId),
         interject: (input) => sessions.interject(input),

@@ -30,23 +30,49 @@ export function suggestGatewayId(baseUrl: string, taken: string[]): string {
 }
 
 // 刷新模型列表：网关新列出来的加进来，已有的保留备注，网关不再列出的去掉。
-// 上下文窗口：网关报了就用它的；已有模型只有还是默认值时才换，用户改过的不动
+// 上下文窗口：网关报了就用它的；已有模型只有还是默认值时才换，用户改过的不动。
+// 图片输入：已有模型还没定过时才用网关报的，手动开关过的不动
 export function mergeModels(
   current: GatewayModel[],
   listed: string[],
   windows: Record<string, number> = {},
+  vision: Record<string, boolean> = {},
 ): GatewayModel[] {
   const byId = new Map(current.map((m) => [m.id, m]))
   return listed.map((id) => {
     const reported = windows[id]
-    const m = byId.get(id)
-    if (!m) {
-      return { id, note: '', contextWindow: reported ?? DEFAULT_CONTEXT_WINDOW, toolCall: true }
+    const sees = vision[id]
+    const m: GatewayModel = byId.get(id) ?? {
+      id,
+      note: '',
+      contextWindow: DEFAULT_CONTEXT_WINDOW,
+      toolCall: true,
     }
-    return reported && m.contextWindow === DEFAULT_CONTEXT_WINDOW
-      ? { ...m, contextWindow: reported }
-      : m
+    return {
+      ...m,
+      ...(reported && m.contextWindow === DEFAULT_CONTEXT_WINDOW
+        ? { contextWindow: reported }
+        : {}),
+      ...(m.vision === undefined && sees !== undefined ? { vision: sees } : {}),
+    }
   })
+}
+
+// 模型引用（`<网关 id>/<模型 id>`）对应的模型能不能看图片
+export function supportsImages(gateways: Gateway[], ref: string): boolean {
+  const slash = ref.indexOf('/')
+  const gateway = gateways.find((g) => g.enabled && g.id === ref.slice(0, slash))
+  return gateway?.models.find((m) => m.id === ref.slice(slash + 1))?.vision === true
+}
+
+// 第一个能看图片的模型，输入框里一键换过去用
+export function firstImageModel(gateways: Gateway[]): string | undefined {
+  for (const g of gateways) {
+    if (!g.enabled) continue
+    const m = g.models.find((x) => x.vision)
+    if (m) return `${g.id}/${m.id}`
+  }
+  return undefined
 }
 
 export function newGateway(input: {
@@ -55,13 +81,14 @@ export function newGateway(input: {
   baseUrl: string
   models: string[]
   contextWindows?: Record<string, number>
+  vision?: Record<string, boolean>
 }): Gateway {
   return {
     id: input.id,
     name: input.name,
     baseUrl: input.baseUrl,
     enabled: true,
-    models: mergeModels([], input.models, input.contextWindows),
+    models: mergeModels([], input.models, input.contextWindows, input.vision),
   }
 }
 
