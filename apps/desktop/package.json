@@ -1,6 +1,6 @@
 {
   "name": "@kits/desktop",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "kits 桌面应用",
   "type": "module",

@@ -4,6 +4,14 @@ kits 的版本变化都记在这里，格式参照 [Keep a Changelog](https://ke
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-07
+
+### 变更
+
+- 更新提示的说明更简短：已下载、重启后生效、退出时自动安装，说法统一。
+- 设置里几处说明改得更好懂：去掉“以后再加”“这版不可改”这类开发备注，模型页底部的长说明缩短。
+- 读不了设置文件、网关没列出模型时的提示，说清楚接下来该做什么。
+
 ## [0.2.1] - 2026-11-07
 
 ### 变更
@@ -34,6 +42,7 @@ kits 的版本变化都记在这里，格式参照 [Keep a Changelog](https://ke
 - PDF 预览加载时没有提示，出错时看不懂原因。
 - 删掉会话或工作区后，内核里的会话还留着。
 
-[Unreleased]: https://github.com/cymoo/kits/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/cymoo/kits/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/cymoo/kits/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/cymoo/kits/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/cymoo/kits/releases/tag/v0.2.0

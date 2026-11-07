@@ -98,7 +98,7 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
         </section>
 
         <section class="k-card">
-          <div class="h"><b>快捷键</b><small>这版不可改</small></div>
+          <div class="h"><b>快捷键</b><small>暂不支持自定义</small></div>
           <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; padding: 8px 18px 12px">
             <sc-for list="{{keys}}" as="k"><div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #F9F9F8; font-size: 13px"><span style="flex: 1; color: #43464C">{{k.what}}</span><span class="k-mono" style="font-size: 12px; background: #F4F4F2; border-radius: 6px; padding: 1px 7px">{{k.key}}</span></div></sc-for>
           </div>
@@ -160,7 +160,7 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
               </sc-if>
             </div>
           </sc-for>
-          <p style="margin: 0 2px; font-size: 13px; color: #84878E">默认模型只能有一个；每个 Agent 可以单独指定任一网关下的模型。停用的网关下的模型在会话里选不到。</p>
+          <p style="margin: 0 2px; font-size: 13px; color: #84878E">默认模型只能选一个，每个 Agent 可以单独指定模型；停用的网关下的模型在会话里选不到。</p>
         </section>
 
         <section class="k-card">
@@ -223,7 +223,7 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
           </sc-for>
         </div>
         <section class="k-card" style="padding: 14px 16px; gap: 8px">
-          <div style="display: flex; align-items: center; gap: 10px"><b>kits 自带的工具</b><small style="font-size: 13px; color: #60646B">通过本机 MCP 提供给内核，两个内核行为一致，不能关</small></div>
+          <div style="display: flex; align-items: center; gap: 10px"><b>kits 自带的工具</b><small style="font-size: 13px; color: #60646B">kits 内置，两个内核都能用，不能关闭</small></div>
           <div style="display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 6px 12px; font-size: 13px"><span class="k-mono">ask_user</span><span style="color: #43464C">向你提问，可标记是否阻塞；不阻塞时 Agent 按假设先做</span><span class="k-mono">submit_output</span><span style="color: #43464C">提交结构化产出，按 Agent 的输出格式校验；只有设置了输出格式的 Agent 才有</span></div>
         </section>
       </div>
@@ -343,7 +343,7 @@ class Component extends DCLogic {
 
     // 版本与更新：检查失败不标红，内网偶尔连不上很正常，下次自动再试
     const updReady = s.update === 'ready' || s.update === 'busy';
-    const updNotes = { latest: '已经是最新版本 · 10 分钟前查过', downloading: '正在下载 0.2.1 · 42%', ready: '0.2.1 已经下载好，重启就能用；不重启的话退出时自动装上', busy: '0.2.1 已经下载好。有 1 个会话在运行，结束后再重启；不重启的话退出时自动装上', error: '检查失败：连不上更新地址，6 小时后自动再试' };
+    const updNotes = { latest: '已经是最新版本 · 10 分钟前查过', downloading: '正在下载 0.2.1 · 42%', ready: '0.2.1 已下载，重启后生效；不重启的话，退出时自动安装', busy: '0.2.1 已下载。还有 1 个会话在运行，结束后再重启；不重启的话，退出时自动安装', error: '检查失败：连不上更新地址，6 小时后自动再试' };
     const upd = {
       note: updNotes[s.update] || updNotes.latest,
       noteStyle: 'font-size: 13px; color: ' + (s.update === 'error' ? '#B4650A' : updReady ? '#2A4FBF' : '#60646B'),

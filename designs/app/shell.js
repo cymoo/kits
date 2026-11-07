@@ -605,8 +605,8 @@
       <p class="sub">当前 ${update.cur} · ${update.date}发布</p>
       <ul>${update.notes.map(([kind, text]) => `<li><i>${kind}</i><span>${esc(text)}</span></li>`).join('')}</ul>
       ${busy
-        ? `<p class="busy">有 ${running} 个会话在运行，现在重启会中断它。等它结束再重启，或者先放着，退出 kits 时自动装上。</p>`
-        : '<p class="hint">不重启也行，下次退出 kits 时自动装上。</p>'}
+        ? `<p class="busy">还有 ${running} 个会话在运行，现在重启会中断它们。可以等它们结束，或者退出 kits 时再自动安装。</p>`
+        : '<p class="hint">不重启也可以，退出 kits 时会自动安装。</p>'}
       <div class="ft"><button type="button" data-do="later">稍后</button><button type="button" class="primary" data-do="restart"${busy ? ' disabled' : ''}>重启并更新</button></div>`
     // 展开时在标签上方，侧栏收起时在图标右边
     const box = btn.getBoundingClientRect()
