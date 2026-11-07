@@ -396,6 +396,7 @@ test('previews images, pdf and word files', async () => {
     )
     copyFileSync(path.join(fixtures, 'spec.pdf'), path.join(workdir, 'spec.pdf'))
     copyFileSync(path.join(fixtures, 'requirement.docx'), path.join(workdir, 'requirement.docx'))
+    writeFileSync(path.join(workdir, 'broken.pdf'), '%PDF-1.4\nnot really a pdf')
     writeFileSync(
       path.join(workdir, 'dot.png'),
       Buffer.from(
@@ -437,6 +438,12 @@ test('previews images, pdf and word files', async () => {
       )
       .toBe(true)
     await page.screenshot({ path: 'test-results/files-pdf.png' })
+
+    // 解析失败：给出原因和系统应用的入口，不留一块空白
+    await tree.getByRole('button', { name: 'broken.pdf' }).click()
+    await expect(preview).toContainText('读不了这个文件')
+    // 工具栏的图标按钮也叫这个名字，这里找带字的那个
+    await expect(preview.getByRole('button').filter({ hasText: '用系统应用打开' })).toBeVisible()
   } finally {
     await close()
   }

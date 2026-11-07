@@ -159,7 +159,8 @@ export function FileBody({
       </div>
     )
   }
-  if (preview.kind === 'pdf') return <PdfView data={preview.data} />
+  if (preview.kind === 'pdf')
+    return <PdfView data={preview.data} openLabel={openLabel} onOpen={onOpen} />
   if (preview.kind === 'html') {
     return (
       // 文档内容不可信：空的 sandbox 不让脚本跑、不让跳转

@@ -517,6 +517,8 @@ const zhCN = {
   'files.prevPage': '上一页',
   'files.nextPage': '下一页',
   'files.readError': '读不了这个文件：{error}',
+  'files.pdfLoading': '正在打开…',
+  'files.pdfError': '读不了这个文件',
   'panel.closeOutput': '关闭产出页签',
   'panel.wide': '放大面板',
   'panel.narrow': '缩回面板',
