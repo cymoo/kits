@@ -119,6 +119,8 @@ export interface AgentKernel {
   summarize(session: KernelSession): Promise<CompactionResult>
   messages(session: KernelSession): Promise<KernelMessage[]>
   revert(session: KernelSession, messageId: string): Promise<void>
+  // 删内核里的会话和它的消息。内核里已经没有这个会话也算删掉了
+  deleteSession(session: Pick<KernelSession, 'id' | 'workdir'>): Promise<void>
   // 进程意外退出时通知；正在跑的轮次会先各自收到 done: error
   onExit(listener: (exit: KernelExit) => void): void
   dispose(): Promise<void>

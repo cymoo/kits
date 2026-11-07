@@ -304,7 +304,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
   }
 
   private async request<T>(
-    method: 'GET' | 'POST' | 'PATCH',
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     route: string,
     workdir: string,
     body?: unknown,
@@ -702,6 +702,15 @@ export class OpencodeFamilyKernel implements AgentKernel {
     await this.request('POST', `/session/${session.id}/revert`, session.workdir, {
       messageID: messageId,
     })
+  }
+
+  async deleteSession(session: Pick<KernelSession, 'id' | 'workdir'>): Promise<void> {
+    try {
+      await this.request('DELETE', `/session/${session.id}`, session.workdir)
+    } catch (e) {
+      if (e instanceof KernelHttpError && e.status === 404) return
+      throw e
+    }
   }
 
   async dispose(): Promise<void> {

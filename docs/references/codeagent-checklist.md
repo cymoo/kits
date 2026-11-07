@@ -48,6 +48,7 @@ CodeAgent 方言（`packages/kernel/src/dialects/codeagent.ts`）按 [codeagent-
 | 31 | 项目配置 | OpenCode 设 `OPENCODE_DISABLE_PROJECT_CONFIG=1`，不读工作目录的 `opencode.json` 和 `.opencode`（里面的插件在打开会话时就执行）；CodeAgent 现在没设对应的开关 | 工作目录放一个项目配置或插件：会被加载吗？有没有关掉的办法 | `dialects/codeagent.ts` 的启动环境 |
 | 32 | 智能档路径 | OpenCode：`edit` 的路径相对工作树，git 仓库里工作区外是 `../x`，非 git 工作区从根写起、开头没有 `/`；`external_directory` 的模式是目标目录；管道里的 `sh` 单独成一条子命令，`FOO=1 x` 带着前缀 | 这几种写法一样吗？工作区外写入有没有问、工作区内有没有被误问 | `permission.ts` 的 `editRules`、`RISKY_COMMANDS` |
 | 33 | 图片输入 | 能看图的模型配置写 `attachment: true`、`modalities.input: ['text','image']`；图片走 `prompt_async` 的 `{ type: 'file', mime, filename, url: 'data:…' }`。OpenCode 没这两项配置时不发图，给模型一句“读不了”的报错 | 发一张图：模型看得到吗？两项配置认不认，不认时怎么声明模型能看图 | `opencode-config.ts` 的模型配置、`opencode-family.ts` 的 `composeParts` |
+| 34 | 删会话 | `DELETE /session/{id}`，删了以后读消息报错；内核里已经没有这个会话时返回 404，kits 当作删掉了 | 删完数据目录里还有没有这个会话的文件？不存在的会话返回什么状态码 | `opencode-family.ts` 的 `deleteSession` |
 
 ## 跑完以后
 

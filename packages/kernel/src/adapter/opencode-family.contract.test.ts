@@ -674,6 +674,15 @@ export const P = async () => {
     expect(await kernel.diff(s)).toEqual([])
   }, 60_000)
 
+  it('deletes a session so its messages can no longer be read', async () => {
+    const s = await session('ok')
+    await run(s, '打印 hi', (e) => kernel.respondPermission(s, e.requestId, 'once'))
+    await kernel.deleteSession(s)
+    await expect(kernel.messages(s)).rejects.toThrow()
+    // 再删一次不报错
+    await kernel.deleteSession(s)
+  }, 60_000)
+
   it('compacts a session and returns the summary text', async () => {
     const s = await session('ok')
     await run(s, '打印 hi', (e) => kernel.respondPermission(s, e.requestId, 'once'))

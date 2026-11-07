@@ -77,6 +77,13 @@ export interface SessionServiceDeps {
   readTimeoutMs?: number
 }
 
+// 要删的内核会话：删 kits 记录前先记下，删完记录就查不到了
+interface KernelTarget {
+  kernel: KernelName
+  id: string
+  workdir: string
+}
+
 // 给读内核的请求加截止时间：超时就当失败，后面照常收尾
 function withDeadline<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -844,9 +851,11 @@ export class SessionService {
   remove(id: string): void {
     if (this.running.has(id) || this.queues.get(id)?.length)
       throw new Error('会话还在运行，先停止再删')
+    const target = this.kernelTarget(id)
     this.deps.store.remove(id)
     this.mcpOff.delete(id)
     rmSync(path.join(this.deps.attachmentsDir, id), { recursive: true, force: true })
+    void this.deleteKernelSessions(target ? [target] : [])
   }
 
   // 移除工作区：这个目录下的会话一起删。一个都没删之前先把运行中的挡回去
@@ -863,10 +872,41 @@ export class SessionService {
       )
     )
       throw new Error('这个工作区有会话在运行，先停止再移除')
+    const targets = ids.flatMap((id) => this.kernelTarget(id) ?? [])
     store.removeAll(ids)
     for (const id of ids) {
       this.mcpOff.delete(id)
       rmSync(path.join(attachmentsDir, id), { recursive: true, force: true })
+    }
+    void this.deleteKernelSessions(targets)
+  }
+
+  private kernelTarget(id: string): KernelTarget | undefined {
+    const session = this.deps.store.session(id)
+    const ksId = this.deps.store.kernelSessionId(id)
+    return session && ksId
+      ? { kernel: session.kernel, id: ksId, workdir: session.workdir }
+      : undefined
+  }
+
+  // 内核里的会话和消息也删掉：kits 的记录已经删了，这里尽力而为，内核起不来、请求失败都不再报给界面。
+  // 内核没在跑的话会为此启动一次
+  private async deleteKernelSessions(targets: KernelTarget[]): Promise<void> {
+    const { kernels } = this.deps
+    for (const name of new Set(targets.map((t) => t.kernel))) {
+      let kernel: AgentKernel
+      try {
+        kernel = await kernels.acquire(name)
+      } catch {
+        continue
+      }
+      try {
+        for (const t of targets.filter((t) => t.kernel === name)) {
+          await withDeadline(kernel.deleteSession(t), this.readTimeoutMs).catch(() => {})
+        }
+      } finally {
+        kernels.release(name)
+      }
     }
   }
 
