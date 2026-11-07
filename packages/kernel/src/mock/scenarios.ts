@@ -68,7 +68,6 @@ export const mockScenarioNames = [
   'command-failed',
   'plan',
   'subagent',
-  'plan',
   'empty-read',
 ] as const
 export type MockScenarioName = (typeof mockScenarioNames)[number]

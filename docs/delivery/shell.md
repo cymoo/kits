@@ -396,3 +396,65 @@
 
 无。
 
+
+## 2026-11-07　E2E 拖动不再被真实光标打断
+
+> PR：[#91](https://github.com/cymoo/kits/pull/91)　作者：Claude Code
+
+### 原始需求
+
+`e2e/tests/shell.spec.ts` 的 `resizes the sidebar by dragging, remembers it and resets on double click` 偶发失败，拖完宽度不是 308。要查清是测试时序问题还是侧栏拖动的 bug，然后修掉，重复 30 次全过。顺带去掉 `mockScenarioNames` 里重复的 `'plan'`。
+
+### 结论
+
+**不是产品 bug，也不是测试时序问题，是 E2E 的透明窗口漏进了真实鼠标事件。** 侧栏拖动的代码没有改。
+
+- 失败率：修之前 30 次失败 1 次，加埋点后 120 次里宽度不对 6 次（260、272、284、296 都出现过，正好是 5 步移动里断在第几步）。
+- 根因：`setIgnoreMouseEvents` 只挡点击。真实光标在透明窗口范围内移动时，macOS 上还会有 `mouseLeave` 和不带按键的 `mouseMove` 进到页面。Chromium 见到不带按键的鼠标事件就认为按键松开了，释放 pointer capture，手柄不再收到后面的移动。这时 Playwright 的鼠标还按着，宽度停在断开的那一步。
+- 证据：120 次里 7 次 capture 在 `pointerup` 之前丢失（其中 1 次已经是最后一步，宽度没错），触发事件的坐标都是小数，Playwright 发的是整数；再用系统光标位置比对，真实事件的屏幕坐标和光标差 0。
+- 排除的方向：中间事件没有丢，5 次移动全部到了 window，只是目标不再是手柄；宽度按“起始宽度 + 总位移”算，不是增量累加，不受 React 渲染时机影响。
+- 用户快速拖动没有这个问题：走真实输入通道、不留间隔地连发按下、8 次带按键移动、松开，150 次全部准确。真实拖动时事件都带按键，所以不会触发。不带按键时结束拖动本来就是对的，因此 `ResizeHandle.tsx` 不用动。
+
+### 怎么验收
+
+以下都在 macOS 上做，先 `pnpm -F @kits/desktop build`。
+
+1. 运行下面的命令，同时把光标放在屏幕中间来回移动。预期：60 条全部通过。
+
+   ```bash
+   pnpm -F @kits/e2e exec playwright test tests/shell.spec.ts -g "resizes the sidebar" --repeat-each=60
+   ```
+
+2. 运行下面的命令。预期：5 条全部通过，这条不依赖光标。
+
+   ```bash
+   pnpm -F @kits/e2e exec playwright test tests/shell.spec.ts -g "keeps a drag going" --repeat-each=5
+   ```
+
+3. 运行 `pnpm dev`，手动快速拖动侧栏再松手。预期：宽度停在松手的位置，和以前一样。
+
+### 主要改动
+
+- `apps/desktop/src/main/stray-mouse.ts`（新增）：判断哪些事件要挡。`mouseLeave` 一律挡；按键按着时，不带按键的 `mouseMove` 也挡。
+- `apps/desktop/src/main/index.ts`：只在 `KITS_HIDDEN_WINDOW=1` 时用 `before-mouse-event` 接上这个判断，正常运行的应用不受影响。
+- `packages/kernel/src/mock/scenarios.ts`：去掉 `mockScenarioNames` 里重复的 `'plan'`。
+
+配置项、数据库 schema 没有变化。界面没有改动，不涉及原型。
+
+### 测试
+
+- 单元测试：`stray-mouse.test.ts`，覆盖挡和放的各种情况。
+- E2E：新增 `keeps a drag going when the real cursor crosses the hidden test window`，拖到一半用 CDP 发一个不带按键的移动。去掉过滤时 5 次全失败（宽度 268），加上后 5 次全过。
+- 修完的结果：原用例重复 60 次全过；带埋点再跑 150 次全部 308，期间光标在动（采样 400 次有 128 个不同位置），拦下 35 个真实事件（33 个 `mouseLeave`、2 个 `mouseMove`），capture 没有再中途丢失。全量 E2E 93 条通过，`pnpm check` 通过。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 没按键时的真实 `mouseMove` 还会进页面：测试自己的悬停也长这样，分不出来源。它们不影响拖动，但理论上可能影响依赖悬停状态的用例，目前没见过。
+- 新用例发的是 `mouseMove`，CDP 发不了 `mouseLeave`，`sendInputEvent` 又不经过 `before-mouse-event`，所以 `mouseLeave` 只有单测覆盖，真实光标的验证在上面的 150 次里。
+- `E2E_HEADED=1` 时窗口是正常窗口，没有这层过滤，这时动鼠标仍然会干扰测试。
+- 过滤器靠 `mouseUp` 复位按键状态。Playwright 做 HTML5 拖放时不发 `mouseReleased`，状态会卡住，之后的悬停移动都被挡掉。现在应用里没有 `draggable`，走不到；以后加了要一起处理。
+- 只在 macOS 上验证过，这个泄漏也只在 macOS 上看到。Windows 上有没有同样的现象没有实测，CI 上没有真实光标，碰不到。
