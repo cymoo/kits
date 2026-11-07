@@ -335,6 +335,13 @@ export class MockKernel implements AgentKernel {
 
   async revert(): Promise<void> {}
 
+  // 测试看删了哪些内核会话
+  readonly deletedSessions: string[] = []
+
+  async deleteSession(session: Pick<KernelSession, 'id' | 'workdir'>): Promise<void> {
+    this.deletedSessions.push(session.id)
+  }
+
   onExit(listener: (exit: KernelExit) => void): void {
     this.exitListeners.push(listener)
   }

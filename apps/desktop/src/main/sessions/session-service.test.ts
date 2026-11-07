@@ -1193,6 +1193,26 @@ describe('SessionService search and remove', () => {
     service.remove(s.id)
     expect(store.session(s.id)).toBeUndefined()
   })
+
+  it('deletes the kernel session along with the kits record', async () => {
+    const { service, waitFor, store, kernel } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const ksId = store.kernelSessionId(s.id)
+    expect(ksId).toBeTruthy()
+    service.remove(s.id)
+    await vi.waitFor(() => expect(kernel.deletedSessions).toEqual([ksId]))
+  })
+
+  it('removes the kits record even when the kernel refuses to delete', async () => {
+    const { service, waitFor, store, kernel } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    const refuse = vi.spyOn(kernel, 'deleteSession').mockRejectedValue(new Error('boom'))
+    expect(() => service.remove(s.id)).not.toThrow()
+    expect(store.session(s.id)).toBeUndefined()
+    await vi.waitFor(() => expect(refuse).toHaveBeenCalledOnce())
+  })
 })
 
 describe('SessionService compact', () => {
@@ -1248,6 +1268,17 @@ describe('SessionService removeWorkdir', () => {
     service.removeWorkdir('/w')
     expect(store.list().map((s) => s.id)).toEqual([other.id])
     expect(store.detail(a.id)).toBeNull()
+  })
+
+  it('deletes the kernel sessions of the directory and leaves the others', async () => {
+    const { service, store, waitFor, kernel } = setup('done')
+    const a = await service.create(input)
+    const other = await service.create({ ...input, workdir: '/other' })
+    await waitFor(a.id, ['done'])
+    await waitFor(other.id, ['done'])
+    const ksId = store.kernelSessionId(a.id)
+    service.removeWorkdir('/w')
+    await vi.waitFor(() => expect(kernel.deletedSessions).toEqual([ksId]))
   })
 
   it('refuses while a session of the directory is running and removes nothing', async () => {

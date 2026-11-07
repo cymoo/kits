@@ -1262,3 +1262,45 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 - 用系统应用打开的是 kits 存的副本，文件名带 id 前缀，在外部改动后再发消息不会带上新内容。
 - 旧版本的插话记录没有附件 id，文件名仍然不能点。
 - 这次没有给输入框里还没发送的附件加预览，需求只提到用户消息下面的文件名。
+
+## 2026-11-07　删除会话、移除工作区时一起删掉内核里的会话
+
+> PR：见本分支 `fix/session-delete-kernel-session`　作者：Claude Code
+
+### 原始需求
+
+[cymoo/kits#72](https://github.com/cymoo/kits/issues/72)：删除会话和移除工作区只删 kits 自己的记录和附件，内核里的会话和消息还留在内核的数据目录。确认框写的是“对话记录和附件都会删掉，不能恢复”，和实际不一致；对话里可能有业务数据。
+
+issue 给了两条路：加 `AgentKernel.deleteSession` 真删，或者改文案。选了真删：两个内核都有 `DELETE /session/{id}`（OpenCode 实测，CodeAgent 见文档 `docs/references/codeagent-sdk.md` 的 `session.delete`），改动小，确认框的话也就成立了。
+
+做到什么程度算完：内核数据目录里查不到已删除的会话。
+
+### 怎么验收
+
+用 OpenCode 内核和真实网关（`.env`）。OpenCode 的数据在 `<userData>/kernel/opencode/data/opencode/opencode.db`（mac 上 `<userData>` 是 `~/Library/Application Support/kits`）。
+
+1. 新建会话发一条消息，等它完成。记下内核里的会话数：`sqlite3 -readonly <opencode.db> "select count(*) from session"`。
+2. 侧栏删掉这个会话。几秒内再查一次，少了一个；`message`、`part` 表里也没有它的行。
+3. 同一个工作目录再建两个会话，另一个目录建一个，然后移除第一个工作区：少了两个，另一个目录的还在。
+4. 设置里把模型网关全关掉（内核起不来），删一个会话：kits 这边照常删掉，不报错。
+
+### 主要改动
+
+- `packages/kernel`：`AgentKernel` 新增 `deleteSession({ id, workdir })`。OpenCode 系适配器发 `DELETE /session/{id}`（CodeAgent 带 `/api/v1` 前缀），内核返回 404 时当作已经删了。Mock 内核把删过的 id 记在 `deletedSessions`。
+- `apps/desktop/src/main/sessions/session-service.ts`：`remove`、`removeWorkdir` 删 kits 记录前记下内核会话，删完在后台按内核分组调 `deleteSession`。尽力而为：内核起不来、请求失败或超过 10 秒都不报给界面，不挡 kits 这边的删除。内核没在跑的话会为此启动一次。
+- 契约测试的假 CodeAgent 服务加了 `DELETE /session/{id}`；`docs/references/codeagent-checklist.md` 加第 34 项。
+- 配置项、数据库 schema 没有变化，界面没改。
+
+### 测试
+
+- 单元测试：`session-service.test.ts` 加 3 个（删会话时删内核会话、内核拒绝删除时 kits 记录照删、移除工作区只删这个目录的内核会话）。
+- 契约测试：真实 OpenCode 1.19.5 `deletes a session so its messages can no longer be read`（删完读消息报错、再删一次不报错）；假 CodeAgent 服务 `deletes a session under the api prefix and treats a missing one as deleted`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 内核起不来或请求失败时，内核里的会话留着，以后也不会再删；没有做重试队列。
+- CodeAgent 的删除没有实测，记在核对清单第 34 项。

@@ -64,6 +64,7 @@ const fakeState = async () =>
     prompts: { text: string; system?: string; agent?: string }[]
     replies: { id: string; reply: string }[]
     aborted: string[]
+    deleted: string[]
   }
 
 async function session(): Promise<KernelSession> {
@@ -113,6 +114,13 @@ describe('CodeAgent dialect against the fake service', () => {
     expect(state.prompts.at(-1)).toMatchObject({ system: '只读', agent: 'kits-assistant' })
     expect(state.replies.at(-1)?.reply).toBe('once')
   }, 20_000)
+
+  it('deletes a session under the api prefix and treats a missing one as deleted', async () => {
+    const s = await session()
+    await kernel.deleteSession(s)
+    expect((await fakeState()).deleted).toContain(s.id)
+    await expect(kernel.deleteSession(s)).resolves.toBeUndefined()
+  })
 
   it('maps session.next.retried to a retry', async () => {
     const s = await session()

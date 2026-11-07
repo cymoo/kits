@@ -11,7 +11,7 @@ const arg = (name) => {
   return i >= 0 ? args[i + 1] : undefined
 }
 const token = arg('--token') ?? 'fake-token'
-const state = { config: {}, patched: 0, prompts: [], replies: [], aborted: [] }
+const state = { config: {}, patched: 0, prompts: [], replies: [], aborted: [], deleted: [] }
 const streams = new Set()
 const sessions = new Map()
 const pending = new Map()
@@ -195,6 +195,13 @@ const server = createServer(async (req, res) => {
         error: { name: 'MessageAbortedError' },
       })
       send('session.idle', { sessionID: hit[1] })
+      return json(res, 200, true)
+    }
+    hit = m(/^\/session\/([^/]+)$/)
+    if (hit && req.method === 'DELETE') {
+      if (!sessions.delete(hit[1])) return json(res, 404, { error: 'no such session' })
+      state.deleted.push(hit[1])
+      send('session.deleted', { sessionID: hit[1], info: { id: hit[1] } })
       return json(res, 200, true)
     }
     hit = m(/^\/session\/([^/]+)\/message$/)
