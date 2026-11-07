@@ -82,6 +82,24 @@ test('shows what a subagent is doing and asks for its commands', async () => {
   }
 })
 
+test('lines up the numbers of a step that has nothing to expand', async () => {
+  const { page, configDir, close } = await launchApp(mock('empty-read'))
+  try {
+    await send(page, configDir, '看下这两个文件')
+    await expect(page.getByTestId('answer')).toContainText('文件是空的')
+    const turn = page.getByTestId('turn')
+    await turn.getByRole('button').first().click()
+    const meta = turn.getByTestId('step-meta')
+    await expect(meta).toHaveText(['86 行', '0 行'])
+    const [full, empty] = await meta.evaluateAll((els) =>
+      els.map((el) => el.getBoundingClientRect().right),
+    )
+    expect(empty).toBe(full)
+  } finally {
+    await close()
+  }
+})
+
 test('follows the plan above the composer and keeps each update in the steps', async () => {
   const { page, configDir, close } = await launchApp(mock('plan'))
   try {
