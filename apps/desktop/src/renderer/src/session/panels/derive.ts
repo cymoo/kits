@@ -10,7 +10,7 @@ export interface ChangedFile {
   additions: number
   deletions: number
   patch: string
-  // 覆盖写了一个已有文件（write）：内核不给旧内容，没有 diff
+  // 这一轮里覆盖写过这个文件（write）：内核不给旧内容，覆盖之前的改动看不到，diff 只有覆盖之后的
   rewrite?: boolean
 }
 
@@ -77,6 +77,8 @@ function stepTargets(
 function mergeStep(prev: ChangedFile | undefined, next: ChangedFile): ChangedFile | undefined {
   if (!prev) return next
   if (prev.badge === 'A' && next.badge === 'D') return undefined
+  // 覆盖写：之前的 diff 已经不是这个文件的样子了，作废；后面再改的照常接上，界面提示 diff 不完整
+  if (next.rewrite) return { ...next, badge: prev.badge === 'A' ? 'A' : 'M' }
   return {
     path: next.path,
     badge: prev.badge === 'A' ? 'A' : next.badge === 'D' ? 'D' : next.badge === 'A' ? 'A' : 'M',

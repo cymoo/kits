@@ -211,6 +211,40 @@ describe('deriveRounds without a kernel diff', () => {
     expect(rounds).toEqual([])
   })
 
+  it('drops the diff of an edit made before the file was overwritten', () => {
+    seq = 0
+    const rounds = deriveRounds(
+      detail(
+        [msg('a1', 1)],
+        [
+          edit('a1', 'x', [change('a.py', '@@ -1 +1 @@\n-a\n+b\n')]),
+          edit('a1', 'y', [{ ...change('a.py', ''), additions: 0, deletions: 0 }], 'write'),
+        ],
+      ),
+      [],
+    )
+    expect(rounds[0]?.files).toEqual([
+      expect.objectContaining({ badge: 'M', patch: '', additions: 0, deletions: 0, rewrite: true }),
+    ])
+  })
+
+  it('keeps the diff of an edit made after the file was overwritten and marks it partial', () => {
+    seq = 0
+    const rounds = deriveRounds(
+      detail(
+        [msg('a1', 1)],
+        [
+          edit('a1', 'x', [{ ...change('a.py', ''), additions: 0, deletions: 0 }], 'write'),
+          edit('a1', 'y', [change('a.py', '@@ -1 +1 @@\n-c\n+d\n')]),
+        ],
+      ),
+      [],
+    )
+    expect(rounds[0]?.files).toEqual([
+      expect.objectContaining({ patch: '@@ -1 +1 @@\n-c\n+d\n', rewrite: true }),
+    ])
+  })
+
   it('marks a file overwritten by write as rewritten without a diff', () => {
     seq = 0
     const rounds = deriveRounds(

@@ -356,7 +356,7 @@ CI 的 `pnpm test` 通过，后面的 Windows E2E 能跑到。
 
 1. 结束后列表还在：`src/points/redeem.py`（M，+6 −1）和 `README.md`（M）。
 2. 点 `redeem.py`：有 diff，带行号和高亮。
-3. 点 `README.md`：显示“整个文件被重写了，内核没有给出旧内容，看不到对比”，可以点“查看完整文件”。
+3. 点 `README.md`（先被 `write` 整个覆盖，又改了一行）：diff 只有后改的那一行，上面黄条提示“这一轮里整个文件被重写过，下面只有重写之后的改动”。只覆盖、没再改的文件显示“整个文件被重写了，内核没有给出旧内容，看不到对比”。
 
 真实网关（`.env`）：
 
@@ -374,13 +374,14 @@ CI 的 `pnpm test` 通过，后面的 Windows E2E 能跑到。
 - `apps/desktop/src/main/sessions/thread.ts`：把 `files` 存进工具 part（JSON 字段，数据库 schema 没变）。
 - `session/panels/derive.ts`：内核没给某一轮的快照 diff 时（还在跑，或者不是 Git 仓库），按这一轮改文件的步骤列出文件，带 diff。同一个文件改了几次就把 diff 首尾相接；先新建后删除的不列。内核的快照 diff 到了以后整轮换成它。以前只在这一轮还在跑时才按步骤列，而且只看最后一条回复。
 - `session/panels/patch.ts`：`parsePatch` 按分段头里的行数数完就出这一段。几份 patch 首尾相接时（上面的情况，还有主进程里插话后同一个文件的几份 diff 合在一起时），下一份的 `--- 路径` / `+++ 路径` 文件头以前会被当成一行删除、一行新增。
-- `Workbench.tsx`：步骤带了 diff 的，这一轮还在跑也先显示；覆盖写的文件显示“整个文件被重写了”。
+- `Workbench.tsx`：步骤带了 diff 的，这一轮还在跑也先显示；覆盖写的文件显示“整个文件被重写了”；覆盖之后又改过的，diff 上面提示不完整。
+- 同一轮里覆盖写之前的 diff 作废（已经不是这个文件的样子了），增删行数也从覆盖算起（review 发现：先改后覆盖时以前会显示覆盖前的 diff，也不提示）。
 - Mock：工具步骤可以带 `files`；新场景 `no-git`。
 - 配置项、数据库 schema 没有变化。原型没画“整个文件被重写了”这个状态，按现有空状态的样子补的。
 
 ### 测试
 
-- 单元测试：`events.test.ts` 的 `toolFiles`（8 个：edit、edit 新建、apply_patch、write 新建、write 覆盖、其他工具、空文件、失败的步骤不带）；`derive.test.ts` 的 `deriveRounds without a kernel diff`（5 个：结束后还在、内核的 diff 优先、同一个文件几次合并、先建后删不列、覆盖写）；`patch.test.ts` 补 2 个（首尾相接的 patch、分段头不带行数）。
+- 单元测试：`events.test.ts` 的 `toolFiles`（8 个：edit、edit 新建、apply_patch、write 新建、write 覆盖、其他工具、空文件、失败的步骤不带）；`derive.test.ts` 的 `deriveRounds without a kernel diff`（7 个：结束后还在、内核的 diff 优先、同一个文件几次合并、先建后删不列、覆盖写、先改后覆盖、先覆盖后改）；`patch.test.ts` 补 2 个（首尾相接的 patch、分段头不带行数）。
 - 契约测试（真实 OpenCode 1.19.5）：`carries the diffs of the steps in a workspace that is not a git repository`：非 Git 工作区里新建、修改各一个文件，工具结果带 diff，内核的 `diff()` 是空的。
 - E2E：`workbench.spec.ts` 的 `shows the diffs of the steps when the workspace is not a git repository`。
 
@@ -391,7 +392,7 @@ CI 的 `pnpm test` 通过，后面的 Windows E2E 能跑到。
 ### 已知问题
 
 - 不是 Git 仓库时，用命令改的文件（`sed -i`、脚本生成的文件）看不到，只有 `edit`、`write`、`apply_patch` 改的才有。
-- `write` 覆盖已有文件没有对比，只能看完整文件。
+- `write` 覆盖已有文件没有对比，只能看完整文件；覆盖之前的改动看不到。
 - 同一个文件一轮里改了几次时，按步骤显示的是几段 diff 接在一起，行号各按各的；Git 仓库里一轮结束后会换成合并好的一份。
 - Git 仓库里一轮改了又改回去时，内核的快照 diff 是空的，面板会显示步骤里的改动。
-- CodeAgent 的工具结果有没有同样的字段还没核对，没有就和以前一样只列路径。
+- CodeAgent 的工具结果有没有同样的字段还没核对，没有就和以前一样只列路径。跟踪：[cymoo/kits#98](https://github.com/cymoo/kits/issues/98)。

@@ -498,6 +498,12 @@ function DiffView({
           </button>
         )}
       </div>
+      {/* 覆盖写之后又改过：下面的 diff 只有覆盖之后的部分 */}
+      {file.rewrite && lines.length ? (
+        <p className="m-0 shrink-0 border-line-soft border-b bg-warn-soft px-3 py-1.5 text-[0.929rem] text-warn-strong">
+          {t('changes.rewritePartial')}
+        </p>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* 步骤结果里带了 diff 的，这一轮还在跑也先显示 */}
         {!lines.length ? (

@@ -164,9 +164,10 @@ test('shows the diffs of the steps when the workspace is not a git repository', 
     // 内核没给这一轮的 diff，结束后列表还在
     await expect(files.getByRole('button', { name: /src\/points\/redeem\.py/ })).toBeVisible()
     await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
-    // 覆盖写的文件没有旧内容可比
+    // 覆盖写之后又改了一处：显示后面这处改动，并提示 diff 不完整
     await files.getByRole('button', { name: /README\.md/ }).click()
-    await expect(panel.getByTestId('diff')).toContainText('整个文件被重写了')
+    await expect(panel.getByTestId('diff')).toContainText('# 积分模块')
+    await expect(panel.getByTestId('diff')).toContainText('整个文件被重写过')
   } finally {
     await close()
   }

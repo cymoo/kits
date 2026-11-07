@@ -635,6 +635,25 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
         output: 'Wrote file successfully.',
         files: [{ path: 'README.md', status: 'modified', additions: 0, deletions: 0, patch: '' }],
       },
+      // 覆盖写之后又改了一处：diff 只有覆盖之后的部分
+      {
+        delay: 200,
+        tool: 'edit',
+        callId: 'call_edit_readme',
+        input: { filePath: 'README.md', oldString: '# 积分', newString: '# 积分模块' },
+        output: 'Edit applied successfully.',
+        additions: 1,
+        deletions: 1,
+        files: [
+          {
+            path: 'README.md',
+            status: 'modified',
+            additions: 1,
+            deletions: 1,
+            patch: '--- a/README.md\n+++ b/README.md\n@@ -1 +1 @@\n-# 积分\n+# 积分模块\n',
+          },
+        ],
+      },
       { delay: 200, text: '改好了。', partId: 'prt_answer' },
       usage(8_000, 90),
     ],
