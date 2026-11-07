@@ -6,6 +6,18 @@
 // - status：内核报告的会话状态，界面用 busy 且一段时间没有新 part 来显示“正在…”。
 // - usage：一轮 LLM 调用一条；inputTokens 含缓存命中和写入，cache 两项单列方便算成本。
 
+// 一次改文件的工具调用（edit / write / apply_patch）改了哪些文件，从工具结果里取，内核给了才有。
+// 不靠内核的快照：工作区不是 Git 仓库时 OpenCode 不做快照，改动面板靠它显示 diff
+export interface ToolFileChange {
+  // 内核给的路径，一般是绝对路径
+  path: string
+  status: 'added' | 'modified' | 'deleted'
+  additions: number
+  deletions: number
+  // unified diff。覆盖写一个已有文件（write）时内核不给旧内容，为空
+  patch: string
+}
+
 export type KernelEvent =
   | { type: 'text-delta'; partId: string; text: string }
   | { type: 'reasoning-delta'; partId: string; text: string }
@@ -24,6 +36,7 @@ export type KernelEvent =
       additions?: number
       deletions?: number
       count?: number
+      files?: ToolFileChange[]
     }
   | {
       type: 'permission-request'

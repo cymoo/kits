@@ -10,6 +10,8 @@ export interface ChangedFile {
   additions: number
   deletions: number
   patch: string
+  // 覆盖写了一个已有文件（write）：内核不给旧内容，没有 diff
+  rewrite?: boolean
 }
 
 export interface Round {
@@ -19,7 +21,7 @@ export interface Round {
   files: ChangedFile[]
   additions: number
   deletions: number
-  // 这一轮还在跑：文件来自 Agent 的编辑步骤，diff 要等这一轮结束内核算出来
+  // 这一轮还在跑：文件来自 Agent 的编辑步骤，带了 diff 的先显示，内核的快照 diff 等这一轮结束再换上
   pending: boolean
 }
 
@@ -40,6 +42,67 @@ function relative(file: string, workdir: string): string {
   const base = `${slash(workdir).replace(/\/+$/, '')}/`
   const f = slash(file)
   return f.startsWith(base) ? f.slice(base.length) : f
+}
+
+// 一步改了哪些文件：工具结果里带了就用它（有 diff），没带（老数据、别的内核）按参数列出路径
+function stepTargets(
+  p: Extract<PartView['payload'], { type: 'tool' }>,
+  workdir: string,
+): ChangedFile[] {
+  if (p.files?.length) {
+    return p.files.map((f) => ({
+      path: relative(f.path, workdir),
+      badge: BADGE[f.status],
+      additions: f.additions,
+      deletions: f.deletions,
+      patch: f.patch,
+      ...(p.name === 'write' && f.status === 'modified' && !f.patch ? { rewrite: true } : {}),
+    }))
+  }
+  const blank = { additions: 0, deletions: 0, patch: '' }
+  // apply_patch 一次改好几个文件，参数是 patchText；edit / write 是 filePath
+  if (p.name === 'apply_patch') {
+    return patchOps(p.input, workdir).map((t) => ({
+      path: t.path,
+      badge: t.op === 'Add' ? 'A' : t.op === 'Delete' ? 'D' : 'M',
+      ...blank,
+    }))
+  }
+  const filePath = (p.input as { filePath?: unknown } | undefined)?.filePath
+  if (typeof filePath !== 'string') return []
+  return [{ path: relative(filePath, workdir), badge: p.name === 'write' ? 'A' : 'M', ...blank }]
+}
+
+// 同一轮里同一个文件改了几次合成一份：先新建后修改还是新建，新建后又删了就不算，diff 首尾相接
+function mergeStep(prev: ChangedFile | undefined, next: ChangedFile): ChangedFile | undefined {
+  if (!prev) return next
+  if (prev.badge === 'A' && next.badge === 'D') return undefined
+  return {
+    path: next.path,
+    badge: prev.badge === 'A' ? 'A' : next.badge === 'D' ? 'D' : next.badge === 'A' ? 'A' : 'M',
+    additions: prev.additions + next.additions,
+    deletions: prev.deletions + next.deletions,
+    patch: [prev.patch, next.patch].filter(Boolean).join('\n'),
+    ...(prev.rewrite || next.rewrite ? { rewrite: true } : {}),
+  }
+}
+
+// 每一轮里改文件的步骤（edit / write / apply_patch，做完了的）改了哪些文件
+export function stepFiles(detail: SessionDetail): Map<number, ChangedFile[]> {
+  const byTurn = new Map<number, Map<string, ChangedFile>>()
+  for (const { part, turn } of ordered(detail)) {
+    const p = part.payload
+    if (p.type !== 'tool' || part.status !== 'completed') continue
+    if (p.name !== 'edit' && p.name !== 'write' && p.name !== 'apply_patch') continue
+    const files = byTurn.get(turn) ?? new Map<string, ChangedFile>()
+    byTurn.set(turn, files)
+    for (const target of stepTargets(p, detail.session.workdir)) {
+      const merged = mergeStep(files.get(target.path), target)
+      if (merged) files.set(target.path, merged)
+      else files.delete(target.path)
+    }
+  }
+  return new Map([...byTurn].map(([turn, files]) => [turn, [...files.values()]]))
 }
 
 // 最新的一轮在最上面
@@ -69,54 +132,19 @@ export function deriveRounds(detail: SessionDetail, diffs: FileDiffView[]): Roun
     deletions: files.reduce((n, f) => n + f.deletions, 0),
     pending: false,
   }))
-  // 还在跑的一轮：先按编辑步骤列出改了哪些文件
+  // 内核没给快照 diff 的轮次（还在跑；或者工作区不是 Git 仓库，OpenCode 不做快照）：按改文件的步骤列出，
+  // 步骤结果里带了 diff 就显示。内核的快照 diff 到了以后整轮换成它，它还算上了命令改的文件
   const last = detail.messages.filter((m) => m.role === 'assistant').at(-1)
-  if (last && last.completedAt === null && !byTurn.has(last.turn)) {
-    const files = new Map<string, ChangedFile>()
-    for (const { part } of ordered(detail)) {
-      const p = part.payload
-      if (part.messageId !== last.id || p.type !== 'tool' || part.status !== 'completed') continue
-      if (p.name !== 'edit' && p.name !== 'write' && p.name !== 'apply_patch') continue
-      // apply_patch 一次改好几个文件，参数是 patchText；edit / write 是 filePath
-      const targets: { path: string; badge: ChangedFile['badge'] }[] =
-        p.name === 'apply_patch'
-          ? patchOps(p.input, detail.session.workdir).map((t) => ({
-              path: t.path,
-              badge: t.op === 'Add' ? 'A' : t.op === 'Delete' ? 'D' : 'M',
-            }))
-          : typeof (p.input as { filePath?: unknown } | undefined)?.filePath === 'string'
-            ? [
-                {
-                  path: relative(
-                    (p.input as { filePath: string }).filePath,
-                    detail.session.workdir,
-                  ),
-                  badge: p.name === 'write' ? 'A' : 'M',
-                },
-              ]
-            : []
-      for (const target of targets) {
-        const prev = files.get(target.path)
-        files.set(target.path, {
-          path: target.path,
-          // 同一轮里先新建后修改还是“新建”
-          badge: prev?.badge === 'A' ? 'A' : target.badge,
-          additions: 0,
-          deletions: 0,
-          patch: '',
-        })
-      }
-    }
-    if (files.size) {
-      rounds.push({
-        turn: last.turn,
-        title: titles.get(last.turn) ?? '',
-        files: [...files.values()],
-        additions: 0,
-        deletions: 0,
-        pending: true,
-      })
-    }
+  for (const [turn, files] of stepFiles(detail)) {
+    if (byTurn.has(turn) || !files.length) continue
+    rounds.push({
+      turn,
+      title: titles.get(turn) ?? '',
+      files,
+      additions: files.reduce((n, f) => n + f.additions, 0),
+      deletions: files.reduce((n, f) => n + f.deletions, 0),
+      pending: !!last && last.turn === turn && last.completedAt === null,
+    })
   }
   return rounds.sort((x, y) => y.turn - x.turn)
 }

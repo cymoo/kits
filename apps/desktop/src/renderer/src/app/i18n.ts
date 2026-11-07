@@ -534,6 +534,7 @@ const zhCN = {
   'changes.note': '改动已经写进工作区。\n要留就 Git 提交，不要就 Git 丢弃或让 Agent 改回。',
   'changes.reveal': '在文件夹中显示',
   'changes.binary': '没有可显示的文本差异',
+  'changes.rewrite': '整个文件被重写了，内核没有给出旧内容，看不到对比。可以查看完整文件。',
   'changes.viewFile': '查看完整文件',
   'changes.more': '还有 {n} 行没显示',
   'changes.showAll': '全部显示',

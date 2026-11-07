@@ -66,6 +66,17 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
     mocks.smartwrite = await startMockModel(write(path.join(outside, 'new.txt')))
     mocks.plainin = await startMockModel(write(path.join(plain, 'in.txt')))
     mocks.plainout = await startMockModel(write(path.join(outside, 'from-plain.txt')))
+    // 不是 Git 仓库的工作区里新建一个文件、改一个文件：内核不做快照，diff 只能从工具结果里取
+    writeFileSync(path.join(plain, 'old.txt'), 'old\n')
+    mocks.plaindiff = await startMockModel({
+      toolCalls: [
+        { name: 'write', arguments: { filePath: path.join(plain, 'fresh.txt'), content: 'hi\n' } },
+        {
+          name: 'edit',
+          arguments: { filePath: path.join(plain, 'old.txt'), oldString: 'old', newString: 'new' },
+        },
+      ],
+    })
     // 写一个新文件，用来看 diff 的映射
     mocks.writer = await startMockModel({
       toolCall: {
@@ -153,6 +164,7 @@ describe.skipIf(!binary)('OpencodeFamilyKernel against opencode serve', () => {
         slow: 'k',
         chain: 'k',
         writer: 'k',
+        plaindiff: 'k',
         subagent: 'k',
         parallel: 'k',
         smartcmd: 'k',
@@ -627,6 +639,31 @@ export const P = async () => {
       }),
     ])
     expect(diff[0]?.patch).toContain('+hi')
+  }, 60_000)
+
+  it('carries the diffs of the steps in a workspace that is not a git repository', async () => {
+    const s = await smartSession('plaindiff', plain)
+    const events = await run(s, '新建一个、改一个', (e) =>
+      kernel.respondPermission(s, e.requestId, 'once'),
+    )
+    const files = events.flatMap((e) => (e.type === 'tool-end' ? (e.files ?? []) : []))
+    expect(files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: path.join(plain, 'fresh.txt'),
+          status: 'added',
+          patch: expect.stringContaining('+hi'),
+        }),
+        expect.objectContaining({
+          path: path.join(plain, 'old.txt'),
+          status: 'modified',
+          patch: expect.stringMatching(/-old[\s\S]*\+new/),
+        }),
+      ]),
+    )
+    // 这就是要从步骤里取的原因：没有快照，内核给不出这一轮的 diff
+    await new Promise((r) => setTimeout(r, 2_000))
+    expect(await kernel.diff(s)).toEqual([])
   }, 60_000)
 
   it('reads back the session messages and an empty diff', async () => {

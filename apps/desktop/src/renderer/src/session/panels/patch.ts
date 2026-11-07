@@ -10,29 +10,41 @@ export interface DiffLine {
   text: string
 }
 
-const HUNK = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/
+const HUNK = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/
 
 export function parsePatch(patch: string): DiffLine[] {
   const out: DiffLine[] = []
   let a = 0
   let b = 0
-  let inHunk = false
+  // 这一段还剩几行旧的、几行新的。数完就出了这一段：几份 patch 首尾相接时，
+  // 下一份的 `--- 路径` / `+++ 路径` 文件头不能当成删除和新增
+  let leftA = 0
+  let leftB = 0
   for (const raw of patch.split('\n')) {
     const hunk = HUNK.exec(raw)
     if (hunk) {
       a = Number(hunk[1])
-      b = Number(hunk[2])
-      inHunk = true
+      b = Number(hunk[3])
+      leftA = hunk[2] === undefined ? 1 : Number(hunk[2])
+      leftB = hunk[4] === undefined ? 1 : Number(hunk[4])
       out.push({ kind: '@', text: raw })
       continue
     }
-    // 第一个分段之前都是文件头
-    if (!inHunk || raw.startsWith('\\')) continue
+    // 分段之外都是文件头
+    if ((leftA <= 0 && leftB <= 0) || raw.startsWith('\\')) continue
     const kind = raw[0]
     const text = raw.slice(1)
-    if (kind === '+') out.push({ kind: '+', b: b++, text })
-    else if (kind === '-') out.push({ kind: '-', a: a++, text })
-    else if (kind === ' ') out.push({ kind: ' ', a: a++, b: b++, text })
+    if (kind === '+') {
+      out.push({ kind: '+', b: b++, text })
+      leftB--
+    } else if (kind === '-') {
+      out.push({ kind: '-', a: a++, text })
+      leftA--
+    } else if (kind === ' ') {
+      out.push({ kind: ' ', a: a++, b: b++, text })
+      leftA--
+      leftB--
+    }
     // 末尾的空行（patch 以换行结尾）不算
   }
   return out

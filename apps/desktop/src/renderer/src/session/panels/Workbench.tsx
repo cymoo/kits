@@ -499,9 +499,14 @@ function DiffView({
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {pending || !lines.length ? (
+        {/* 步骤结果里带了 diff 的，这一轮还在跑也先显示 */}
+        {!lines.length ? (
           <p className="m-0 px-3 py-4 text-[0.929rem] text-fg-muted">
-            {pending ? t('changes.pendingDiff') : t('changes.binary')}
+            {file.rewrite
+              ? t('changes.rewrite')
+              : pending
+                ? t('changes.pendingDiff')
+                : t('changes.binary')}
           </p>
         ) : !rows ? (
           <div className="pb-4 font-mono text-[0.857rem] leading-[1.75]">
@@ -555,7 +560,7 @@ function DiffView({
             )}
           </div>
         )}
-        {hidden && !pending ? (
+        {hidden ? (
           <div className="flex items-center gap-2 px-3 pb-6 text-[0.929rem] text-fg-muted">
             <span>{t('changes.more', { n: hidden })}</span>
             <button

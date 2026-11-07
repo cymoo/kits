@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createOpencodeEventMapper } from './events'
+import { addedPatch, createOpencodeEventMapper, toolFiles } from './events'
 import { createSseParser } from './sse'
 
 // 样本取自 docs/references/model-poc.md 的录制事件流（字段原样，id 缩短）
@@ -573,6 +573,119 @@ describe('createOpencodeEventMapper', () => {
     const m = createOpencodeEventMapper(S)
     expect(m.finish('error', 'stuck')).toEqual([{ type: 'done', reason: 'error', error: 'stuck' }])
     expect(m.finish('completed')).toEqual([])
+  })
+})
+
+// 工具结果里的文件改动，字段照 OpenCode 1.19.5 源码里 edit / write / apply_patch 返回的 metadata
+describe('toolFiles', () => {
+  const patch = '@@ -1 +1 @@\n-a\n+b\n'
+
+  it('takes the diff of an edit from its filediff', () => {
+    const files = toolFiles(
+      'edit',
+      { filePath: '/w/a.py', oldString: 'a', newString: 'b' },
+      { filediff: { file: '/w/a.py', patch, additions: 1, deletions: 1 } },
+    )
+    expect(files).toEqual([
+      { path: '/w/a.py', status: 'modified', additions: 1, deletions: 1, patch },
+    ])
+  })
+
+  it('treats an edit with an empty oldString as a new file', () => {
+    const files = toolFiles(
+      'edit',
+      { filePath: '/w/a.py', oldString: '', newString: 'b' },
+      { filediff: { file: '/w/a.py', patch, additions: 1, deletions: 0 } },
+    )
+    expect(files[0]?.status).toBe('added')
+  })
+
+  it('lists every file of an apply_patch with its operation', () => {
+    const files = toolFiles(
+      'apply_patch',
+      {},
+      {
+        files: [
+          { filePath: '/w/new.py', type: 'add', patch, additions: 1, deletions: 0 },
+          {
+            filePath: '/w/old.py',
+            movePath: '/w/moved.py',
+            type: 'move',
+            patch,
+            additions: 1,
+            deletions: 1,
+          },
+          { filePath: '/w/gone.py', type: 'delete', patch, additions: 0, deletions: 3 },
+        ],
+      },
+    )
+    expect(files.map((f) => [f.path, f.status])).toEqual([
+      ['/w/new.py', 'added'],
+      ['/w/moved.py', 'modified'],
+      ['/w/gone.py', 'deleted'],
+    ])
+  })
+
+  it('builds an all-added diff for a file created by write', () => {
+    const files = toolFiles(
+      'write',
+      { filePath: '/w/a.txt', content: 'one\ntwo\n' },
+      { filepath: '/w/a.txt', exists: false },
+    )
+    expect(files).toEqual([
+      {
+        path: '/w/a.txt',
+        status: 'added',
+        additions: 2,
+        deletions: 0,
+        patch: '@@ -0,0 +1,2 @@\n+one\n+two\n',
+      },
+    ])
+  })
+
+  it('leaves the diff empty when write overwrites a file', () => {
+    const files = toolFiles(
+      'write',
+      { filePath: '/w/a.txt', content: 'x' },
+      { filepath: '/w/a.txt', exists: true },
+    )
+    expect(files).toEqual([
+      { path: '/w/a.txt', status: 'modified', additions: 0, deletions: 0, patch: '' },
+    ])
+  })
+
+  it('finds no files on other tools', () => {
+    expect(toolFiles('bash', { command: 'touch a' }, { exit: 0 })).toEqual([])
+  })
+
+  it('makes no diff for an empty new file', () => {
+    expect(addedPatch('')).toEqual({ patch: '', additions: 0 })
+  })
+
+  it('carries the files on a completed step only', () => {
+    const step = (status: string) =>
+      ev('message.part.updated', {
+        sessionID: S,
+        part: {
+          id: 'prt_E',
+          messageID: 'msg_a',
+          sessionID: S,
+          type: 'tool',
+          tool: 'edit',
+          callID: `call_${status}`,
+          state: {
+            status,
+            input: { filePath: '/w/a.py', oldString: 'a', newString: 'b' },
+            output: '',
+            ...(status === 'error' ? { error: 'boom' } : {}),
+            metadata: { filediff: { file: '/w/a.py', patch, additions: 1, deletions: 1 } },
+          },
+        },
+      })
+    const { out } = feed([assistant, step('completed'), step('error')])
+    const ends = out.filter((e) => e.type === 'tool-end')
+    expect(ends[0]).toMatchObject({ files: [{ path: '/w/a.py', patch }] })
+    expect(ends[1]).not.toHaveProperty('files')
   })
 })
 

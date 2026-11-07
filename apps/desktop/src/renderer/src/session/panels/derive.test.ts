@@ -127,6 +127,100 @@ describe('deriveRounds', () => {
   })
 })
 
+describe('deriveRounds without a kernel diff', () => {
+  const edit = (
+    messageId: string,
+    callId: string,
+    files: NonNullable<Extract<PartPayload, { type: 'tool' }>['files']>,
+    name = 'edit',
+  ) =>
+    part(
+      messageId,
+      { type: 'tool', callId, name, input: { filePath: files[0]?.path }, files },
+      'completed',
+    )
+  const change = (path: string, patch: string, status: 'added' | 'modified' = 'modified') => ({
+    path: `/repo/member-svc/${path}`,
+    status,
+    additions: 1,
+    deletions: 1,
+    patch,
+  })
+
+  it('keeps the files of a finished turn when the kernel gave no diff for it', () => {
+    seq = 0
+    const rounds = deriveRounds(
+      detail([msg('a1', 1)], [edit('a1', 'x', [change('a.py', '@@ -1 +1 @@\n-a\n+b\n')])]),
+      [],
+    )
+    expect(rounds).toEqual([
+      expect.objectContaining({
+        turn: 1,
+        pending: false,
+        additions: 1,
+        deletions: 1,
+        files: [
+          expect.objectContaining({ path: 'a.py', badge: 'M', patch: '@@ -1 +1 @@\n-a\n+b\n' }),
+        ],
+      }),
+    ])
+  })
+
+  it('prefers the kernel diff of a turn over the diffs of its steps', () => {
+    seq = 0
+    const rounds = deriveRounds(
+      detail([msg('a1', 1)], [edit('a1', 'x', [change('a.py', '@@ -1 +1 @@\n-a\n+b\n')])]),
+      [{ turn: 1, path: 'a.py', status: 'modified', additions: 2, deletions: 2, patch: 'kernel' }],
+    )
+    expect(rounds[0]?.files).toEqual([expect.objectContaining({ patch: 'kernel', additions: 2 })])
+  })
+
+  it('joins the diffs of several edits to one file in a turn', () => {
+    seq = 0
+    const rounds = deriveRounds(
+      detail(
+        [msg('a1', 1)],
+        [
+          edit('a1', 'x', [change('a.py', '@@ -1 +1 @@\n-a\n+b\n', 'added')]),
+          edit('a1', 'y', [change('a.py', '@@ -1 +1 @@\n-b\n+c\n')]),
+        ],
+      ),
+      [],
+    )
+    expect(rounds[0]?.files).toEqual([
+      expect.objectContaining({
+        badge: 'A',
+        additions: 2,
+        patch: '@@ -1 +1 @@\n-a\n+b\n\n@@ -1 +1 @@\n-b\n+c\n',
+      }),
+    ])
+  })
+
+  it('drops a file created and then deleted in the same turn', () => {
+    seq = 0
+    const rounds = deriveRounds(
+      detail(
+        [msg('a1', 1)],
+        [
+          edit('a1', 'x', [change('tmp.py', '', 'added')], 'write'),
+          edit('a1', 'y', [{ ...change('tmp.py', ''), status: 'deleted' }], 'apply_patch'),
+        ],
+      ),
+      [],
+    )
+    expect(rounds).toEqual([])
+  })
+
+  it('marks a file overwritten by write as rewritten without a diff', () => {
+    seq = 0
+    const rounds = deriveRounds(
+      detail([msg('a1', 1)], [edit('a1', 'x', [change('a.py', '')], 'write')]),
+      [],
+    )
+    expect(rounds[0]?.files).toEqual([expect.objectContaining({ badge: 'M', rewrite: true })])
+  })
+})
+
 describe('deriveRounds with apply_patch', () => {
   it('lists every file of a patch in a running turn with its operation', () => {
     seq = 0

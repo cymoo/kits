@@ -1,4 +1,4 @@
-import type { AskUserInput, KernelEvent } from '@kits/core'
+import type { AskUserInput, KernelEvent, ToolFileChange } from '@kits/core'
 import type { FileDiff } from '../kernel'
 
 // Mock 内核的场景（phase1-implementation 4.4 节），和原型 session.html 的 ?s= 一一对应。
@@ -24,6 +24,8 @@ export type MockStep =
       additions?: number
       deletions?: number
       count?: number
+      // 工具结果里带的文件改动（OpenCode 的 edit / write / apply_patch）
+      files?: ToolFileChange[]
     }
   // 权限请求：等 respondPermission，按回复走 allow 或 reject 分支
   | {
@@ -70,6 +72,7 @@ export const mockScenarioNames = [
   'subagent',
   'empty-read',
   'changes',
+  'no-git',
 ] as const
 export type MockScenarioName = (typeof mockScenarioNames)[number]
 
@@ -606,5 +609,34 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
       usage(12_000, 160),
     ],
     diff: [redeemDiff, ledgerDiff, configDiff, testDiff, legacyDiff],
+  },
+  // 工作区不是 Git 仓库：内核没有这一轮的快照 diff，改动只能从工具结果里取
+  'no-git': {
+    name: 'no-git',
+    steps: [
+      busy,
+      {
+        ...editRedeem,
+        files: [
+          {
+            path: 'src/points/redeem.py',
+            status: 'modified',
+            additions: 6,
+            deletions: 1,
+            patch: redeemDiff.patch,
+          },
+        ],
+      },
+      {
+        delay: 200,
+        tool: 'write',
+        callId: 'call_write',
+        input: { filePath: 'README.md', content: '# 积分\n' },
+        output: 'Wrote file successfully.',
+        files: [{ path: 'README.md', status: 'modified', additions: 0, deletions: 0, patch: '' }],
+      },
+      { delay: 200, text: '改好了。', partId: 'prt_answer' },
+      usage(8_000, 90),
+    ],
   },
 }

@@ -339,5 +339,59 @@ CI 的 `pnpm test` 通过，后面的 Windows E2E 能跑到。
 
 - 高亮按 diff 两侧各拼一段代码：分段之间断开的地方如果正好在多行字符串、块注释中间，后面几行颜色可能不对，内容不受影响。
 - 改动页签的计数还是按“轮 × 文件”算，同一个文件改了两轮算 2 个，和原型一致。
-- diff 来自内核每轮前后的快照，工作区不是 Git 仓库时 OpenCode 不做快照，这一轮结束后改动列表会变空（进行中时按编辑步骤列出的文件也随之消失）。这次没改，待定方案。
+- diff 来自内核每轮前后的快照，工作区不是 Git 仓库时 OpenCode 不做快照，这一轮结束后改动列表会变空。下一节修了。
 - 还没有“合并所有轮”的视图，也不能展开分段之间没显示的上下文（要读文件全文，下一步再看）。
+
+## 2026-11-07　工作区不是 Git 仓库时也能看改动
+
+> PR：分支 `fix/workbench-diff-without-git`　作者：Claude Code
+
+### 原始需求
+
+改动面板的 diff 来自 OpenCode 每轮前后的快照，而 OpenCode 只在 Git 仓库里做快照。很多测试同学的工作目录不是 Git 仓库：一轮跑着时列表里能看到改了哪些文件，一结束就变空，显示“还没有改文件”，像是 Agent 什么都没改。
+
+### 怎么验收
+
+用 Mock 内核：`KITS_KERNEL=mock KITS_MOCK_SCENARIO=no-git pnpm dev`，首页发任意一句话，等完成，点“改动”。
+
+1. 结束后列表还在：`src/points/redeem.py`（M，+6 −1）和 `README.md`（M）。
+2. 点 `redeem.py`：有 diff，带行号和高亮。
+3. 点 `README.md`：显示“整个文件被重写了，内核没有给出旧内容，看不到对比”，可以点“查看完整文件”。
+
+真实网关（`.env`）：
+
+4. 找一个不是 Git 仓库的文件夹当工作目录，让 Agent 新建一个文件、改一个已有文件。这一轮还在跑时，改过的文件已经能看 diff；结束后还在。
+5. 在 Git 仓库里做同样的事：结束后一两秒换成内核快照算的 diff，用命令（比如 `sed -i`）改的文件也会出现。
+
+### 主要改动
+
+- `packages/core`：新类型 `ToolFileChange`（路径、新增 / 修改 / 删除、增删行数、patch）；`tool-end` 事件和工具 part 多了 `files`。
+- `packages/kernel/src/adapter/events.ts`：`toolFiles` 从工具结果里取改动，字段照 OpenCode 1.19.5 源码：
+  - `edit`：`metadata.filediff` 有 patch；`oldString` 为空是新建。
+  - `apply_patch`：`metadata.files` 每个文件一份 patch；移动算修改，路径取新路径。
+  - `write`：结果里只有 `exists`。新建时内容在参数里，拼成全是新增的 patch；覆盖已有文件没有旧内容，patch 为空。
+  - 只有成功的步骤带 `files`。
+- `apps/desktop/src/main/sessions/thread.ts`：把 `files` 存进工具 part（JSON 字段，数据库 schema 没变）。
+- `session/panels/derive.ts`：内核没给某一轮的快照 diff 时（还在跑，或者不是 Git 仓库），按这一轮改文件的步骤列出文件，带 diff。同一个文件改了几次就把 diff 首尾相接；先新建后删除的不列。内核的快照 diff 到了以后整轮换成它。以前只在这一轮还在跑时才按步骤列，而且只看最后一条回复。
+- `session/panels/patch.ts`：`parsePatch` 按分段头里的行数数完就出这一段。几份 patch 首尾相接时（上面的情况，还有主进程里插话后同一个文件的几份 diff 合在一起时），下一份的 `--- 路径` / `+++ 路径` 文件头以前会被当成一行删除、一行新增。
+- `Workbench.tsx`：步骤带了 diff 的，这一轮还在跑也先显示；覆盖写的文件显示“整个文件被重写了”。
+- Mock：工具步骤可以带 `files`；新场景 `no-git`。
+- 配置项、数据库 schema 没有变化。原型没画“整个文件被重写了”这个状态，按现有空状态的样子补的。
+
+### 测试
+
+- 单元测试：`events.test.ts` 的 `toolFiles`（8 个：edit、edit 新建、apply_patch、write 新建、write 覆盖、其他工具、空文件、失败的步骤不带）；`derive.test.ts` 的 `deriveRounds without a kernel diff`（5 个：结束后还在、内核的 diff 优先、同一个文件几次合并、先建后删不列、覆盖写）；`patch.test.ts` 补 2 个（首尾相接的 patch、分段头不带行数）。
+- 契约测试（真实 OpenCode 1.19.5）：`carries the diffs of the steps in a workspace that is not a git repository`：非 Git 工作区里新建、修改各一个文件，工具结果带 diff，内核的 `diff()` 是空的。
+- E2E：`workbench.spec.ts` 的 `shows the diffs of the steps when the workspace is not a git repository`。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 不是 Git 仓库时，用命令改的文件（`sed -i`、脚本生成的文件）看不到，只有 `edit`、`write`、`apply_patch` 改的才有。
+- `write` 覆盖已有文件没有对比，只能看完整文件。
+- 同一个文件一轮里改了几次时，按步骤显示的是几段 diff 接在一起，行号各按各的；Git 仓库里一轮结束后会换成合并好的一份。
+- Git 仓库里一轮改了又改回去时，内核的快照 diff 是空的，面板会显示步骤里的改动。
+- CodeAgent 的工具结果有没有同样的字段还没核对，没有就和以前一样只列路径。
