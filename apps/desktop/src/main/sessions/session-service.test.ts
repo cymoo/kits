@@ -28,6 +28,8 @@ const findingsSchema = {
 
 // gate：内核启动卡住，直到调用 open（模拟真实内核冷启动）
 const VISION_MODEL = 'corp/vision'
+// 刚打开图片开关、内核还没重启的模型
+const RESTARTING_MODEL = 'corp/restarting'
 // 最小的 PNG 文件头，够认出类型
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
@@ -55,7 +57,8 @@ function setup(
   const registered: unknown[] = []
   service = new SessionService({
     store,
-    modelSupportsImages: (model) => model === VISION_MODEL,
+    imageSupport: (model) =>
+      model === VISION_MODEL ? 'yes' : model === RESTARTING_MODEL ? 'restarting' : 'no',
     kernels: {
       acquire: async () => {
         await gate
@@ -978,6 +981,24 @@ describe('SessionService image attachments', () => {
     expect(store.list()).toEqual([])
   })
 
+  it('refuses an image until the kernel has restarted with the new switch', async () => {
+    const { service, store } = setup('done')
+    await expect(
+      service.create({ ...input, model: RESTARTING_MODEL, attachments: [image] }),
+    ).rejects.toThrow(/内核重启后才生效/)
+    expect(store.list()).toEqual([])
+  })
+
+  it('keeps the draft of an image interjected before the kernel has restarted', async () => {
+    const { service, s, interject } = await switchedMidTurn(RESTARTING_MODEL)
+    await expect(
+      service.interject({ id: s.id, text: '看这张图', attachments: [image] }),
+    ).rejects.toThrow(/内核重启后才生效/)
+    expect(interject).not.toHaveBeenCalled()
+    expect(service.get(s.id)?.session.queued ?? []).toEqual([])
+    await service.abort(s.id)
+  })
+
   it('refuses an image sent to a session on a model that cannot see', async () => {
     const { service, waitFor } = setup('done')
     const s = await service.create(input)
@@ -1011,13 +1032,13 @@ describe('SessionService image attachments', () => {
   }
 
   // 这一轮用的是发起时的模型，换模型下一条消息才生效
-  async function switchedMidTurn() {
+  async function switchedMidTurn(model = VISION_MODEL) {
     const ctx = setup('permission')
     const interject = vi.spyOn(ctx.kernel, 'interject')
     const prompt = vi.spyOn(ctx.kernel, 'prompt')
     const s = await ctx.service.create(input)
     await ctx.waitFor(s.id, ['waiting'])
-    await ctx.service.setModel(s.id, VISION_MODEL)
+    await ctx.service.setModel(s.id, model)
     return { ...ctx, s, interject, prompt }
   }
 
@@ -1356,7 +1377,7 @@ describe('SessionService kernel reads', () => {
     const release = vi.fn()
     const service = new SessionService({
       store,
-      modelSupportsImages: () => false,
+      imageSupport: () => 'no',
       kernels: { acquire: async () => kernel, release },
       resolveAgent: () => builtinAssistant,
       loadMcp: () => parseMcpFile({}),

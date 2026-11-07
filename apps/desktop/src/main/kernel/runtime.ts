@@ -100,6 +100,7 @@ export function createKernelManager(deps: KernelRuntimeDeps): KernelManager {
   return new KernelManager({
     create,
     prepare,
+    readGateways: () => deps.config.getSettings().gateways,
     ...(deps.onStatus ? { onStatus: deps.onStatus } : {}),
   })
 }

@@ -54,6 +54,20 @@ export function findModel(
   return gateway && model ? { gateway, model } : undefined
 }
 
+// 这条消息现在能不能带图片。current 是最新设置，loaded 是还没重启的内核实际加载的那份（不用等重启时不传）：
+// 内核只认启动时写进配置的能力，刚打开开关的模型要等它重启，图片才真的发得到模型
+export type ImageSupport = 'yes' | 'no' | 'restarting'
+
+export function imageSupport(
+  current: Gateway[],
+  loaded: Gateway[] | undefined,
+  ref: string,
+): ImageSupport {
+  const sees = (list: Gateway[]) => findModel(list, ref)?.model.vision === true
+  if (!sees(current)) return 'no'
+  return !loaded || sees(loaded) ? 'yes' : 'restarting'
+}
+
 export function gatewaySecretKey(id: string): string {
   return `gateway:${id}`
 }

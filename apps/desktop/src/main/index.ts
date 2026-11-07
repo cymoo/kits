@@ -4,8 +4,8 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
   defaultPermissions,
-  findModel,
   gatewaySecretKey,
+  imageSupport,
   readonlyCommandPatterns,
   workdirKey,
 } from '@kits/core'
@@ -249,9 +249,9 @@ app.whenReady().then(() => {
     },
     exportsDir: path.join(platform.userDataDir, 'exports'),
     attachmentsDir: path.join(platform.userDataDir, 'attachments'),
-    modelSupportsImages: (model) => {
+    imageSupport: (model, kernel) => {
       const { gateways, defaultModel } = config.getSettings()
-      return findModel(gateways, model || defaultModel)?.model.vision === true
+      return imageSupport(gateways, kernels.loadedGateways(kernel), model || defaultModel)
     },
     disabledSkills: () => config.getSettings().skillsDisabled,
     enabledSkills: (workdir) =>

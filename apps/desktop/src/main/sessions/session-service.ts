@@ -8,6 +8,7 @@ import type {
   AttachmentInput,
   CreateSessionInput,
   FileDiffView,
+  ImageSupport,
   KernelEvent,
   KitsToolContext,
   MessageView,
@@ -21,6 +22,7 @@ import type {
   ToolCallRegistry,
 } from '@kits/core'
 import { effectiveLevel, type PermissionRule, skillPrompt, workdirKey } from '@kits/core'
+import type { KernelName } from '@kits/core/ipc'
 import {
   type AgentKernel,
   agentPermissions,
@@ -67,8 +69,8 @@ export interface SessionServiceDeps {
   enabledSkills?: (workdir: string) => string[]
   // 附件转文本，测试里可以换掉
   extractText?: (name: string, mime: string, data: Uint8Array) => Promise<string>
-  // 这个模型能不能看图片（`<网关 id>/<模型 id>`，空串是默认模型）
-  modelSupportsImages: (model: string) => boolean
+  // 这个模型现在能不能收图片（`<网关 id>/<模型 id>`，空串是默认模型）；restarting：开关打开了，内核还没重启
+  imageSupport: (model: string, kernel: KernelName) => ImageSupport
   // 取改动、补轮次号读内核的截止时间：请求挂住也要收尾、释放内核
   readTimeoutMs?: number
 }
@@ -94,6 +96,12 @@ interface StagedAttachment {
   path: string
   textPath?: string
   text?: string
+}
+
+// 图片要发给哪个模型、走哪个内核
+interface ImageTarget {
+  model: string
+  kernel: KernelName
 }
 
 function imageUrl(mime: string, file: string): string {
@@ -317,7 +325,7 @@ export class SessionService {
   async create(input: CreateSessionInput): Promise<SessionSummary> {
     const id = this.id()
     // 先存附件、转文字：读不了的文件直接报错，会话不建
-    const staged = await this.stage(id, input.attachments ?? [], input.model)
+    const staged = await this.stage(id, input.attachments ?? [], input)
     const at = this.now()
     const session: SessionSummary = {
       id,
@@ -345,7 +353,7 @@ export class SessionService {
     if (!this.deps.store.session(id)) throw new Error(`没有这个会话：${id}`)
     // 转附件期间点了停止：这条也作废（停止要连还没进队列的一起停）
     const gen = this.abortGen.get(id) ?? 0
-    const staged = await this.stage(id, attachments, this.modelOf(id))
+    const staged = await this.stage(id, attachments, this.targetOf(id))
     if ((this.abortGen.get(id) ?? 0) !== gen) {
       this.unstage(staged)
       return
@@ -363,8 +371,9 @@ export class SessionService {
     this.startTurn(session, text, staged)
   }
 
-  private modelOf(id: string): string {
-    return this.deps.store.session(id)?.model ?? ''
+  private targetOf(id: string): ImageTarget {
+    const session = this.deps.store.session(id)
+    return { model: session?.model ?? '', kernel: session?.kernel ?? 'opencode' }
   }
 
   // 图片附件的 data URL，给消息里的缩略图用
@@ -428,7 +437,7 @@ export class SessionService {
     attachments: AttachmentInput[],
     stopped: () => boolean,
   ): Promise<void> {
-    const staged = await this.stage(id, attachments, this.modelOf(id))
+    const staged = await this.stage(id, attachments, this.targetOf(id))
     const item = { id: this.id(), text, attachments: staged }
     let sent = false
     try {
@@ -484,7 +493,8 @@ export class SessionService {
     const session = this.deps.store.session(id)
     if (!session || !run?.kernel || !run.ks || !run.submitted) return false
     const hasImage = item.attachments.some((a) => a.text === undefined)
-    if (hasImage && !this.deps.modelSupportsImages(run.ks.model ?? '')) return false
+    const support = this.deps.imageSupport(run.ks.model ?? '', session.kernel)
+    if (hasImage && support !== 'yes') return false
     const sent = skillPrompt(item.text, this.deps.enabledSkills?.(session.workdir) ?? [])
     const live = await run.kernel.interject(run.ks, {
       text: sent,
@@ -531,7 +541,7 @@ export class SessionService {
   private async stage(
     sessionId: string,
     inputs: AttachmentInput[],
-    model: string,
+    target: ImageTarget,
   ): Promise<StagedAttachment[]> {
     if (!inputs.length) return []
     const extract = this.deps.extractText ?? extractText
@@ -545,7 +555,7 @@ export class SessionService {
           throw new Error(`${a.name} 超过 20 MB，先拆小一点再发`)
         }
         const image = isImage(a.name, a.mime)
-        const mime = image ? this.checkImage(a, model) : a.mime
+        const mime = image ? this.checkImage(a, target) : a.mime
         const text = image ? undefined : await extract(a.name, a.mime, a.data)
         const id = this.id()
         const safe = a.name.replace(/[\\/:*?"<>|]+/g, '_')
@@ -578,9 +588,13 @@ export class SessionService {
   }
 
   // 看得了、不太大、真是图片才收，返回按文件头认出来的类型
-  private checkImage(a: AttachmentInput, model: string): string {
-    if (!this.deps.modelSupportsImages(model)) {
+  private checkImage(a: AttachmentInput, { model, kernel }: ImageTarget): string {
+    const support = this.deps.imageSupport(model, kernel)
+    if (support === 'no') {
       throw new Error(`${a.name}：当前模型看不了图片，换一个支持图片的模型，或者去掉它`)
+    }
+    if (support === 'restarting') {
+      throw new Error(`${a.name}：图片开关要等正在跑的任务结束、内核重启后才生效，到时再发`)
     }
     if (a.data.byteLength > MAX_IMAGE_BYTES) throw new Error(`${a.name} 超过 5 MB，压缩一下再发`)
     const mime = imageMime(a.data)

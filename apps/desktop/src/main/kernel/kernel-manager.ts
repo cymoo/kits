@@ -1,3 +1,4 @@
+import type { Gateway } from '@kits/core'
 import type { KernelName, KernelRuntime } from '@kits/core/ipc'
 import type { AgentKernel, ConfigProblem, KernelConfig } from '@kits/kernel'
 
@@ -16,6 +17,8 @@ export interface KernelManagerOptions {
   create(id: KernelName): AgentKernel
   // 生成并写配置，返回启动参数；配置不全时返回问题，不启动
   prepare(id: KernelName): Promise<PrepareResult>
+  // 启动时记下网关配置：改了设置、还在等重启时，要知道内核实际按哪份在跑
+  readGateways?(): Gateway[]
   onStatus?(status: KernelRuntime): void
 }
 
@@ -38,6 +41,8 @@ interface Slot {
   // 排在队列里、还没完成的那次取实例：同一批并发的 acquire 共用它（成功、失败都共用），
   // 启动失败不会被同一批请求串行重试 N 次
   pending: Promise<AgentKernel> | undefined
+  // 这个进程启动时的网关配置
+  gateways: Gateway[] | undefined
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -59,6 +64,7 @@ export class KernelManager {
         runs: 0,
         status: { id, state: 'stopped', error: null, problems: [] },
         pending: undefined,
+        gateways: undefined,
       }
       this.slots.set(id, slot)
     }
@@ -79,6 +85,12 @@ export class KernelManager {
 
   status(id: KernelName): KernelRuntime {
     return this.slot(id).status
+  }
+
+  // 等重启的内核实际加载的网关配置；不用等重启时是 undefined，以最新设置为准
+  loadedGateways(id: KernelName): Gateway[] | undefined {
+    const slot = this.slot(id)
+    return slot.status.state === 'restart-pending' ? slot.gateways : undefined
   }
 
   // 拿到一个已启动的内核，并记一轮在跑；这一轮结束时调 release
@@ -121,6 +133,8 @@ export class KernelManager {
     slot.dirty = false
     this.setStatus(slot, { state: 'starting', error: null, problems: [] })
     try {
+      // 在写配置之前读：途中又改了的话 dirty 会让它重启，这里宁可旧一点
+      const gateways = this.options.readGateways?.()
       const prepared = await this.options.prepare(id)
       if (!prepared.ok) {
         this.setStatus(slot, { state: 'error', error: '配置不完整', problems: prepared.problems })
@@ -146,6 +160,7 @@ export class KernelManager {
         throw new Error('应用正在退出')
       }
       slot.kernel = kernel
+      slot.gateways = gateways
       this.setStatus(slot, { state: 'running', error: null, problems: [] })
       // 启动途中配置又变了：现在用的是旧配置，按“有轮次在跑就等”的规则重启
       if (slot.dirty) this.markChanged(id, slot)

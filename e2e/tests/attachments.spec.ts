@@ -175,6 +175,41 @@ test('holds an image back when the model cannot see and offers a way out', async
   }
 })
 
+test('holds an image until the kernel has restarted with the new switch', async () => {
+  const { page, configDir, close } = await launchApp({ ...mock, KITS_MOCK_SCENARIO: 'permission' })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('跑一下')
+    await box.press('Enter')
+    await expect(page.getByTestId('permission-card')).toBeVisible()
+
+    // 任务还在跑时打开图片开关：设置已经是新的，内核还是旧配置
+    await page.evaluate(async () => {
+      const { gateways } = await window.kits.settings.get()
+      await window.kits.settings.update({
+        gateways: gateways.map((g) => ({
+          ...g,
+          models: g.models.map((m) => ({ ...m, vision: true })),
+        })),
+      })
+    })
+    await page.getByTestId('file-input').setInputFiles({
+      name: 'shot.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(PIXEL),
+    })
+    await box.fill('看这张图')
+    await box.press('Enter')
+    await expect(page.getByRole('alert')).toContainText('内核重启后才生效')
+    await expect(box).toHaveValue('看这张图')
+    await expect(page.getByTestId('attachments')).toContainText('shot.png')
+  } finally {
+    await close()
+  }
+})
+
 test('refuses a damaged image and keeps the draft', async () => {
   const { page, configDir, close } = await launchApp(mock)
   try {
