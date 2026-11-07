@@ -36,7 +36,7 @@ E2E 的窗口默认全透明，跑测试时不影响用电脑。要看窗口就�
 
 ## 打包和发布
 
-安装包在本机架构上打（内核二进制按架构来）：先把内核拷到 `vendor/`，再打包，产物在 `apps/desktop/release/`。`vendor/` 里没有目标平台的内核时打包会直接失败，所以 Windows 包要在 Windows 上打，不能在 mac 上交叉打。
+先把内核拷到 `vendor/`，再打包，产物在 `apps/desktop/release/`。`vendor:kernel` 只拷本机平台和架构的内核，所以一般在目标平台上打；`vendor/` 里没有目标平台的内核时打包会直接失败。
 
 ```bash
 pnpm vendor:kernel && pnpm --filter @kits/desktop package
@@ -44,17 +44,15 @@ pnpm vendor:kernel && pnpm --filter @kits/desktop package
 
 - 带上 CodeAgent：打包前设 `KITS_CODEAGENT_BIN` 指到 CodeAgent 的可执行文件，`vendor:kernel` 会一起拷进去；不设的话安装包里只有 OpenCode，设置页显示 CodeAgent“未安装”。
 - 只想看一眼打出来的应用、不要 dmg / 安装程序：`pnpm --filter @kits/desktop package:dir`。
-- Windows 便携版（单个 exe，双击运行，不用安装）：在 Windows 上先跑 `pnpm vendor:kernel`，再跑 `pnpm --filter @kits/desktop package:portable`，产物是 `apps/desktop/release/kits-<版本>-win-x64-portable.exe`。这个脚本直接用 `node_modules` 里的 Electron，打包时不用连 GitHub，只能在 Windows x64 上跑。每次启动都要先解压，比安装版慢；配置和数据不放在 exe 旁边，还是 `%USERPROFILE%\.kits` 和系统的用户数据目录；自动更新只按安装版做，便携版不要配 `updateUrl`。发版流水线不出便携版。
-- 发版：推一个 `v*` 的 tag，`.github/workflows/release.yml` 在 mac（arm64、x64 各一台）和 Windows（x64）上打包，产物挂到一个草稿 release 上。
-- 签名：现在 mac 是 ad-hoc 签名（没有 Developer ID，从网上下载后 Gatekeeper 会拦，到“系统设置 → 隐私与安全性”点“仍要打开”，或者运行 `xattr -dr com.apple.quarantine /Applications/kits.app`），Windows 未签名（会有 SmartScreen 提示）。证书到位后要的是：
+- Windows 便携版（单个 exe，不用安装）：在 Windows x64 上先跑 `pnpm vendor:kernel`，再跑 `pnpm --filter @kits/desktop package:portable`，产物是 `apps/desktop/release/kits-<版本>-win-x64-portable.exe`。直接用 `node_modules` 里的 Electron，打包不连 GitHub。便携版不做自动更新。
+- 发版：版本号和更新日志的规则见 AGENTS.md“版本和发版”。推一个 `v*` 的 tag，`.github/workflows/release.yml` 在 mac（arm64、x64 各一台）和 Windows（x64）上打包，产物挂到一个草稿 release 上。
+- 签名：现在 mac 是 ad-hoc 签名，Windows 未签名。证书到位后要的是：
   - mac：Developer ID Application 证书（`.p12`），放进仓库 Secrets 的 `CSC_LINK`（base64）和 `CSC_KEY_PASSWORD`；公证再加 `APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`。`apps/desktop/electron-builder.yml` 里删掉 `mac.identity`，`mac.hardenedRuntime` 和 `mac.notarize` 改成 `true`。
   - Windows：代码签名证书（`.pfx`），同样放 `CSC_LINK` / `CSC_KEY_PASSWORD`（Windows 那台 runner 用）。
-- 自动更新：electron-updater 的 generic provider，内网放一个静态目录就行（Jenkins 的 `userContent` 也可以）。
-  - 默认地址打进安装包：打包时加 `-c.publish.url=<地址>`（写进安装包的 `app-update.yml`），用户装上就会检查；仓库里的 `electron-builder.yml` 是占位地址，内网地址不写进仓库。用户可以在 `~/.kits/settings.json` 里写 `"updateUrl"` 换地址、写 `"off"` 关掉；环境变量 `KITS_UPDATE_URL` 优先级最高。
-  - 发布：把 `apps/desktop/release/` 里的安装包、`.blockmap` 拷到这个目录，最后拷 `latest.yml`（先有安装包客户端才看得到新版本）。只在版本号变了的时候发布；版本号按 SemVer 在 `apps/desktop/package.json` 里改，CI 不改版本号。
-  - 更新内容：打包时 `beforePack` 从仓库根目录 `CHANGELOG.md` 取出这个版本的一节（`## [x.y.z]` 下面的 `### 新增`、`### 修复`…）放进 `latest.yml`，客户端在侧栏的新版本标签里显示。
-  - 启动 30 秒后查一次，之后每 30 分钟查一次，切回 kits 窗口时离上次超过 10 分钟也会查。新版本在后台下载，下载好了侧栏底部出一个标签，点开能看更新内容、重启更新；不点的话退出 kits 时自动装上。设置 · 通用的“版本与更新”能看状态、手动查一次。
-  - 没提示更新时看日志：`{userData}/logs/updater.log`（Windows 是 `%APPDATA%\kits\logs\updater.log`），每次检查用的地址、查到的版本、下载和出错都在里面。
+- 自动更新：electron-updater 的 generic provider，更新地址是一个静态目录，里面要有 `latest.yml` 和它引用的安装包（`.blockmap` 可选，有了能增量下载）。
+  - 默认地址在打包时用 `-c.publish.url=<地址>` 打进安装包；仓库里的 `electron-builder.yml` 是占位地址，等于没配。运行时 `KITS_UPDATE_URL` 优先，其次是 `~/.kits/settings.json` 的 `updateUrl`，写 `"off"` 关掉。
+  - 更新说明来自 `CHANGELOG.md` 里这个版本的一节，打包时自动带上。
+  - 排查看 `{userData}/logs/updater.log`（Windows 是 `%APPDATA%\kits\logs\updater.log`）。
 
 ## 目录
 
