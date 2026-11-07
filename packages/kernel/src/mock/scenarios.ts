@@ -69,6 +69,7 @@ export const mockScenarioNames = [
   'plan',
   'subagent',
   'empty-read',
+  'changes',
 ] as const
 export type MockScenarioName = (typeof mockScenarioNames)[number]
 
@@ -166,6 +167,78 @@ const failedTests: MockStep = {
   ].join('\n'),
   exitCode: 1,
   durationMs: 900,
+}
+
+// 改动面板的边界情况：长路径、四位数行号、超长行、新建和删除
+const ledgerDiff: FileDiff = {
+  path: 'src/points/ledger/service/ledger_service.py',
+  status: 'modified',
+  additions: 3,
+  deletions: 2,
+  patch: [
+    '--- a/src/points/ledger/service/ledger_service.py',
+    '+++ b/src/points/ledger/service/ledger_service.py',
+    '@@ -9998,6 +9998,7 @@ class LedgerService:',
+    '     def append(self, entry):',
+    '-        self._rows.append(entry)',
+    '-        return entry',
+    '+        if entry.request_id in self._seen:',
+    '+            return self._seen[entry.request_id]',
+    '+        self._rows.append(entry)',
+    '         ',
+    '     def total(self, user_id):',
+    '         return sum(r.amount for r in self._rows if r.user_id == user_id)',
+    '',
+  ].join('\n'),
+}
+
+const configDiff: FileDiff = {
+  path: 'config/points.yaml',
+  status: 'modified',
+  additions: 1,
+  deletions: 1,
+  patch: [
+    '--- a/config/points.yaml',
+    '+++ b/config/points.yaml',
+    '@@ -1,3 +1,3 @@',
+    ' points:',
+    `-  rules: "${'expire_days=365;'.repeat(12)}"`,
+    `+  rules: "${'expire_days=366;'.repeat(12)}"`,
+    '   ttl: 86400',
+    '',
+  ].join('\n'),
+}
+
+const testDiff: FileDiff = {
+  path: 'tests/points/test_idempotent.py',
+  status: 'added',
+  additions: 4,
+  deletions: 0,
+  patch: [
+    '--- /dev/null',
+    '+++ b/tests/points/test_idempotent.py',
+    '@@ -0,0 +1,4 @@',
+    '+def test_same_request_id_returns_first_result():',
+    '+    first = redeem(request_id="r-1", user_id=1, coupon_id=2)',
+    '+    second = redeem(request_id="r-1", user_id=1, coupon_id=2)',
+    '+    assert first == second',
+    '',
+  ].join('\n'),
+}
+
+const legacyDiff: FileDiff = {
+  path: 'src/points/legacy_cache.py',
+  status: 'deleted',
+  additions: 0,
+  deletions: 2,
+  patch: [
+    '--- a/src/points/legacy_cache.py',
+    '+++ /dev/null',
+    '@@ -1,2 +0,0 @@',
+    '-_cache = {}',
+    '-TTL = 3600',
+    '',
+  ].join('\n'),
 }
 
 export const mockScenarios: Record<MockScenarioName, MockScenario> = {
@@ -521,5 +594,17 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
       { delay: 200, text: '找到 2 处不一致，1 处严重，已提交。', partId: 'prt_answer' },
       usage(24_000, 410),
     ],
+  },
+  // 一轮改好几个文件，改动面板的边界情况都在里面
+  changes: {
+    name: 'changes',
+    steps: [
+      busy,
+      readRedeem,
+      editRedeem,
+      { delay: 200, text: '改了 5 个文件。', partId: 'prt_answer' },
+      usage(12_000, 160),
+    ],
+    diff: [redeemDiff, ledgerDiff, configDiff, testDiff, legacyDiff],
   },
 }

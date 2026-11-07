@@ -62,7 +62,7 @@ test('shows the JSON submitted by an agent with an output format and exports it'
     await expect(output).toContainText('"api": "POST /points/redeem"')
     await panel.getByRole('button', { name: '关闭产出页签' }).click()
     await expect(panel.getByRole('tab', { name: '产出' })).toHaveCount(0)
-    await expect(panel.getByRole('tab', { name: /改动/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(panel.getByRole('tab', { name: '文件' })).toHaveAttribute('aria-selected', 'true')
 
     // 点提交产出的步骤也能打开
     const turn = page.getByTestId('turn')

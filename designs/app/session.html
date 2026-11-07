@@ -92,6 +92,8 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
 .k-file{display:flex;align-items:center;gap:8px;height:30px;padding:0 6px;border:0;border-radius:8px;background:transparent;font:inherit;color:#16171A;cursor:pointer;text-align:left;width:100%}
 .k-file:hover{background:#F6F6F4}
 .k-file[aria-pressed="true"]{background:#EFEFEC}
+.k-dtool{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:0;border-radius:6px;background:transparent;color:#60646B;cursor:pointer;flex:0 0 auto}
+.k-dtool:hover{background:#EFEFEC;color:#16171A}
 .k-badge{flex:0 0 auto;font-size:11px;font-weight:600;border-radius:4px;padding:0 5px}
 .k-jump{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);width:32px;height:32px;border:1px solid #E8E8E5;border-radius:50%;background:#FFFFFF;color:#60646B;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .k-jump:hover{background:#F1F1EE;color:#16171A}
@@ -469,16 +471,16 @@ Error: upstream request failed after 5 retries: ECONNRESET
               <div data-keep-scroll="files" style="{{filesStyle}}">
                 <sc-for list="{{rounds}}" as="r">
                   <div style="display: flex; flex-direction: column; gap: 2px; padding-bottom: 6px">
-                    <div style="display: flex; align-items: center; gap: 6px; padding: 6px 6px 2px; font-size: 12px; color: #84878E; font-weight: 500"><span title="{{r.title}}" style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.title}}</span><span style="font-weight: 400">{{r.stat}}</span></div>
-                    <sc-for list="{{r.files}}" as="f"><button type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" class="k-file"><span class="k-badge" style="{{f.badgeStyle}}">{{f.badge}}</span><span style="flex: 1; min-width: 0; font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{f.path}}</span><span style="font-size: 12px; color: #1E7F43">{{f.add}}</span><span style="font-size: 12px; color: #B42318">{{f.del}}</span></button></sc-for>
+                    <div style="display: flex; align-items: center; gap: 6px; padding: 6px 6px 2px; font-size: 12px; color: #84878E; font-weight: 500"><span title="{{r.title}}" style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{r.title}}</span><sc-if value="{{r.state}}"><span style="flex: 0 0 auto">· {{r.state}}</span></sc-if><span style="font-weight: 400">{{r.stat}}</span></div>
+                    <sc-for list="{{r.files}}" as="f"><button type="button" onClick="{{f.pick}}" aria-pressed="{{f.on}}" class="k-file"><span class="k-badge" style="{{f.badgeStyle}}">{{f.badge}}</span><span title="{{f.path}}" style="flex: 1; min-width: 0; display: flex; font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 13px; white-space: nowrap"><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #84878E">{{f.dir}}</span><span style="flex: 0 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis">{{f.name}}</span></span><span style="font-size: 12px; color: #1E7F43">{{f.add}}</span><span style="font-size: 12px; color: #B42318">{{f.del}}</span></button></sc-for>
                   </div>
                 </sc-for>
-                <p style="margin: 6px 6px 0; font-size: 13px; color: #84878E; line-height: 1.6">改动直接在工作区里。要留就 Git 提交，不要就 Git 丢弃，或者让 Agent 改回来；这版不做回滚。</p>
+                <p style="margin: 6px 6px 0; font-size: 13px; color: #84878E; line-height: 1.6">改动已经写进工作区。<br>要留就 Git 提交，不要就 Git 丢弃或让 Agent 改回。</p>
               </div>
               <div data-keep-scroll="diff" style="flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column">
-                <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; color: #60646B; position: sticky; top: 0; background: #FBFBFA; border-bottom: 1px solid #EFEFEC; z-index: 1"><span style="font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; color: #16171A; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{selPath}}</span><span>{{selStat}}</span><button type="button" class="k-link">在编辑器打开</button></div>
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; color: #60646B; position: sticky; top: 0; background: #FBFBFA; border-bottom: 1px solid #EFEFEC; z-index: 1"><span title="{{selPath}}" style="flex: 1; min-width: 0; display: flex; font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-weight: 500; white-space: nowrap"><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #84878E; font-weight: 400">{{selDir}}</span><span style="flex: 0 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; color: #16171A">{{selName}}</span></span><span>{{selStat}}</span><button type="button" class="k-dtool" aria-label="在对话里引用" title="在对话里引用"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.5"></circle><path d="M10.5 8v1a2 2 0 0 0 4 0V8a6.5 6.5 0 1 0-2.6 5.2"></path></svg></button><button type="button" class="k-dtool" aria-label="查看完整文件" title="查看完整文件"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.5H4a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5V6Z"></path><path d="M9 1.5V6h4.5M5.5 9h5M5.5 11.5h3"></path></svg></button><button type="button" class="k-dtool" aria-label="在文件夹中显示" title="在文件夹中显示"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 4.5A1.5 1.5 0 0 1 3 3h3l1.5 1.5H13A1.5 1.5 0 0 1 14.5 6v6A1.5 1.5 0 0 1 13 13.5H3A1.5 1.5 0 0 1 1.5 12Z"></path></svg></button></div>
                 <div style="font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 12px; line-height: 1.75; padding-bottom: 16px">
-                  <sc-for list="{{lines}}" as="ln"><div style="{{ln.style}}"><span style="display: inline-block; width: 28px; color: #B4B6BB; text-align: right; margin-right: 4px; user-select: none">{{ln.a}}</span><span style="display: inline-block; width: 28px; color: #B4B6BB; text-align: right; margin-right: 12px; user-select: none">{{ln.b}}</span>{{ln.text}}</div></sc-for>
+                  <sc-for list="{{lines}}" as="ln"><div style="{{ln.style}}"><span style="flex: 0 0 auto; min-width: 2ch; color: #B4B6BB; text-align: right; margin-right: 8px; user-select: none">{{ln.a}}</span><span style="flex: 0 0 auto; min-width: 2ch; color: #B4B6BB; text-align: right; margin-right: 12px; user-select: none">{{ln.b}}</span><span style="min-width: 0; white-space: pre-wrap; word-break: break-all">{{ln.text}}</span></div></sc-for>
                 </div>
               </div>
             </div>
@@ -645,12 +647,13 @@ class Component extends DCLogic {
     super(props);
     const scene = new URLSearchParams(location.search).get('s') || 'streaming';
     const query = new URLSearchParams(location.search);
-    const tabDefault = { output: 'output', files: 'files', 'files-wide': 'files' };
+    // 文件用得最多（很多工作目录不是 Git 仓库，没有改动可看），默认先开文件
+    const tabDefault = { output: 'output', changes: 'changes' };
     this.scene = scene;
     this.state = {
       open: { think: true }, stepOpen: {}, stepAll: {}, copied: null, planOpen: true,
       perm: 'pending', answer: null, retry: 'retry', retryOpen: true, ctx: 'near', summaryOpen: true,
-      tab: tabDefault[scene] || 'changes', sel: null, outputTab: scene === 'output', menuOpen: false, ctxOpen: query.get('open') === 'context', attOpen: query.get('open') === 'attachment',
+      tab: tabDefault[scene] || 'files', sel: null, outputTab: scene === 'output', menuOpen: false, ctxOpen: query.get('open') === 'context', attOpen: query.get('open') === 'attachment',
       fileSel: query.get('f') || (scene === 'files-wide' ? 'docs/api/points.md' : null), fileQuery: '', fileView: 'rendered', dirsOpen: ['docs', 'docs/api', 'docs/requirements', 'src', 'src/points', 'tests', 'tests/fixtures'], notices: [], view: 'unified', vote: null, tags: [],
       itemOpen: 1, filter: 'all', exportOpen: scene === 'output', removed: [6], edited: [2],
       queue: scene === 'queued' ? ['退款的幂等 key 要带上商户号，别只用请求号', '顺便看下缓存过期时间是不是配置项'] : [], queueOpen: true, notes: []
@@ -1051,23 +1054,29 @@ class Component extends DCLogic {
     // ---------- 右侧面板：改动 ----------
     const mkFile = (path, badge, add, del) => {
       const on = (s.sel || defaultSel) === path;
-      return { path, badge, add, del, on, pick: () => this.setState({ sel: path }),
+      // 文件名放后面不截断，长路径先截目录
+      const cut = path.lastIndexOf('/') + 1;
+      return { path, dir: path.slice(0, cut), name: path.slice(cut), badge, add, del, on, pick: () => this.setState({ sel: path }),
         badgeStyle: badge === 'A' ? 'color: #1E7F43; background: #E3F3E9' : 'color: #8A5A00; background: #FBF0D9' };
     };
     const roundDefs = {
       both: [['退款接口也一起改了，用同一套请求号规则。', '+62 −10', [['src/points/idempotency.py', 'M', '+21', '−9'], ['src/points/refund.py', 'M', '+3', '−1'], ['tests/points/test_refund.py', 'M', '+38', '']]], ['给积分兑换接口加上重复提交校验：同一个请求号只处理一次。', '+60 −3', [['src/points/redeem.py', 'M', '+18', '−3'], ['src/points/idempotency.py', 'A', '+42', '']]]],
-      round1: [['给积分兑换接口加上重复提交校验… · 进行中', '+60 −3', [['src/points/redeem.py', 'M', '+18', '−3'], ['src/points/idempotency.py', 'A', '+42', '']]]],
+      round1: [['给积分兑换接口加上重复提交校验：同一个请求号只处理一次。 · 进行中', '+60 −3', [['src/points/redeem.py', 'M', '+18', '−3'], ['src/points/idempotency.py', 'A', '+42', '']]]],
       doc: [['生成积分模块接口文档 · ' + (s.retry === 'retry' ? '进行中' : '中断，改动已保留'), '+212', [['docs/api/points.md', 'A', '+212', '']]]],
       none: []
     };
     const rd = roundDefs[sc.changes];
     const defaultSel = rd.length ? rd[0][2][0][0] : '';
-    const rounds = rd.map(([title, stat, files]) => ({ title, stat, files: files.map((f) => mkFile(...f)) }));
+    // 进行中 / 中断单独放，标题再长也不会被截掉
+    const rounds = rd.map(([full, stat, files]) => {
+      const [title, state] = full.split(' · ');
+      return { title, state: state || '', stat, files: files.map((f) => mkFile(...f)) };
+    });
     const sel = s.sel || defaultSel;
     const line = (k, a, b, t) => {
       const bg = k === '+' ? '#EEF8F1' : k === '-' ? '#FDF1EF' : k === '@' ? '#F6F6F4' : 'transparent';
       const color = k === '+' ? '#15613A' : k === '-' ? '#9A2C1F' : k === '@' ? '#60646B' : '#43464C';
-      return { a, b, text: (k === '@' ? '' : k + ' ') + t, style: 'white-space: pre; padding: 0 12px; background: ' + bg + '; color: ' + color };
+      return { a, b, text: (k === '@' ? '' : k + ' ') + t, style: 'display: flex; padding: 0 12px; background: ' + bg + '; color: ' + color };
     };
     const diffs = {
       'src/points/idempotency.py': sc.changes === 'round1'
@@ -1127,9 +1136,9 @@ class Component extends DCLogic {
     const segBar = (w, c) => 'width: ' + w + '%; height: 100%; background: ' + c;
 
     // ---------- 页签 ----------
-    const tabDefs = [['changes', '改动', fileCount ? String(fileCount) : ''], ['files', '文件', '']].concat(s.outputTab ? [['output', '产出', String(7 - removedN)]] : []);
+    const tabDefs = [['files', '文件', ''], ['changes', '改动', fileCount ? String(fileCount) : '']].concat(s.outputTab ? [['output', '产出', String(7 - removedN)]] : []);
     const tabs = tabDefs.map(([k, label, count]) => ({ label, count, on: s.tab === k, pick: () => this.setState({ tab: k }), cntStyle: s.tab === k ? 'color: #16171A' : '',
-      close: k === 'output' ? () => this.setState({ outputTab: false, tab: s.tab === 'output' ? 'changes' : s.tab }) : null }));
+      close: k === 'output' ? () => this.setState({ outputTab: false, tab: s.tab === 'output' ? 'files' : s.tab }) : null }));
 
     // ---------- 右侧面板：文件 ----------
     const files = this.fileView(wide);
@@ -1197,7 +1206,7 @@ class Component extends DCLogic {
       // 面板
       tabs, isChanges: s.tab === 'changes', isOutput: s.tab === 'output', isFiles: s.tab === 'files', ...files,
       showDiffView: wide && s.tab === 'changes', unified: s.view === 'unified', split: s.view === 'split', setUnified: () => this.setState({ view: 'unified' }), setSplit: () => this.setState({ view: 'split' }),
-      noChanges: !rounds.length, hasChanges: !!rounds.length, rounds, selPath: sel, selStat: stats[sel] || '', lines: (diffs[sel] || []).map(([k, a, b, t]) => line(k, a, b, t)),
+      noChanges: !rounds.length, hasChanges: !!rounds.length, rounds, selPath: sel, selDir: sel.slice(0, sel.lastIndexOf('/') + 1), selName: sel.slice(sel.lastIndexOf('/') + 1), selStat: stats[sel] || '', lines: (diffs[sel] || []).map(([k, a, b, t]) => line(k, a, b, t)),
       changesLayout: 'flex: 1; min-height: 0; display: flex; flex-direction: ' + (wide ? 'row' : 'column'),
       filesStyle: wide ? 'flex: 0 0 280px; border-right: 1px solid #EFEFEC; overflow-y: auto; display: flex; flex-direction: column; padding: 8px; gap: 2px' : 'flex: 0 0 auto; max-height: 42%; overflow-y: auto; display: flex; flex-direction: column; padding: 8px 8px 6px; gap: 2px; border-bottom: 1px solid #EFEFEC',
       outputItems: sc.output === 'items', items, filters, kept: String(7 - removedN - editedN), edited: String(editedN), removed: String(removedN),

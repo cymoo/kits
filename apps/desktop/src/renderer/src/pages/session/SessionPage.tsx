@@ -171,7 +171,8 @@ export function SessionPage() {
   const widths = useUi((u) => u.widths)
   const panel = useUi((u) => u.panel)
   const setPanel = useUi((u) => u.setPanel)
-  const [tab, setTab] = useState<PanelTab>('changes')
+  // 文件用得最多（很多工作目录不是 Git 仓库，没有改动可看），默认先开文件；点改文件的步骤才跳到改动
+  const [tab, setTab] = useState<PanelTab>('files')
   const [picked, setPicked] = useState<PickedFile>()
   const [outputOpen, setOutputOpen] = useState(false)
   const [pickedOutput, setPickedOutput] = useState<string>()
@@ -182,7 +183,7 @@ export function SessionPage() {
   // 这些都跟着当前会话，换会话时收起
   // biome-ignore lint/correctness/useExhaustiveDependencies: id 变了才收
   useEffect(() => {
-    setTab('changes')
+    setTab('files')
     setOutputOpen(false)
     setPickedOutput(undefined)
     setRenaming(false)
@@ -515,7 +516,7 @@ export function SessionPage() {
               outputOpen={outputOpen}
               onCloseOutput={() => {
                 setOutputOpen(false)
-                setTab('changes')
+                setTab('files')
               }}
               pickedOutput={pickedOutput}
               onPickOutput={setPickedOutput}

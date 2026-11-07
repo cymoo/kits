@@ -319,7 +319,7 @@ html[data-resizing] * {
   padding-left: 12px;
   color: var(--k-fg-muted);
 }
-/* 文件预览的代码：一行一个块，行号不进选区；颜色在 token 上，深色取 --shiki-dark */
+/* 文件预览的代码：一行一个块，行号不进选区；颜色在 token 上，深色取 --shiki-dark。改动面板 diff 的 token 是 .k-tok */
 .k-src {
   font-family: var(--k-mono);
   font-size: var(--k-code-size);
@@ -339,7 +339,8 @@ html[data-resizing] * {
   color: var(--k-fg-subtle);
   user-select: none;
 }
-:root[data-theme="dark"] .k-src span[style] {
+:root[data-theme="dark"] .k-src span[style],
+:root[data-theme="dark"] .k-tok {
   color: var(--shiki-dark) !important;
 }
 /* CSV 预览 */
