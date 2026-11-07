@@ -286,3 +286,69 @@ Windows 上测试时，grep、glob 工具报 `ripgrep execution failed`，PATH �
 - 这次只防打包漏带。那台 Windows 机器上的报错是不是这个原因，还要按定位结论在机器上确认；如果是 PATH 没传到内核或 `rg.exe` 被拦截，这个检查管不到。
 - mac 不随包带 ripgrep，内网的 mac 用户仍然依赖本机的 `rg`。
 
+
+## 2026-11-07　默认更新地址、侧栏新版本提示、更新说明
+
+> 日期：2026-11-07　PR：见本分支 `feat/updater-default-url-and-badge`　作者：Claude Code
+
+### 原始需求
+
+内网用 Jenkins 打包，安装包放在 Jenkins 的归档页，每次发布都要用户自己去下载，不友好。要做到：
+
+- 自动更新复用 Jenkins（`userContent` 静态目录），不另搭服务器。
+- 客户端不用手配更新地址：安装包自带默认地址，用户可以在 `settings.json` 里改或关掉。
+- 有新版本时给一个显著但不打扰的提示，能看到这个版本改了什么；版本号按 SemVer，更新内容来自 CHANGELOG。
+
+原型：`designs/app/shell.js`（侧栏底部的新版本标签和浮层，`?update=ready` / `?update=busy`）、`designs/app/settings.html#general`（“版本与更新”卡片，`?update=latest|downloading|ready|busy|error`）。评审结论：
+
+- 只在下载好之后提示；下载中、检查失败只在设置里看得到，检查失败不标红。
+- 不弹窗、不发系统通知、不自动重启；标签一直留在侧栏，退出 kits 时自动装上。
+- 有会话在运行、等确认或有排队消息时，“重启并更新”不可点，说明为什么。
+- 浮层里直接列出这个版本的全部更新内容（多了可以滚动），不再链到别处。
+
+### 怎么验收
+
+不连更新服务器也能看界面（E2E 用的假更新）：
+
+1. `pnpm build`，然后 `cd e2e && pnpm exec playwright test tests/update.spec.ts`。预期 2 个用例通过，截图在 `e2e/test-results/update-popover.png`、`update-busy.png`、`update-settings.png`。
+2. 或者手动：`KITS_UPDATE_MOCK=ready pnpm dev`，半秒后侧栏底部出现“新版本 0.1.1”，点开是三条更新内容和“重启并更新”。`KITS_UPDATE_MOCK` 换成 `downloading`、`latest`、`error` 看设置 · 通用里“版本与更新”的其他状态。
+
+真实更新（Windows，Jenkins 按 README“自动更新”一节配好之后）：
+
+3. 打一个 0.2.0 的包装上。设置 · 通用 · 版本与更新：更新地址是 Jenkins 的 `userContent/kits`，标“安装包自带”；30 秒后显示“已经是最新版本”。
+4. 仓库里版本号升到 0.2.1、CHANGELOG 加 `## [0.2.1]` 一节，合入后 Jenkins 打包并发布。预期 `userContent/kits/latest.yml` 的 `releaseNotes` 是这一节的内容。
+5. 在 0.2.0 上点“检查更新”。预期显示下载进度，下载完侧栏底部出现“新版本 0.2.1”，点开的更新内容和 CHANGELOG 一致。
+6. 有会话在等确认时点开标签：“重启并更新”不可点，有黄色说明。会话结束后点“重启并更新”：kits 退出、静默安装、重新打开，版本是 0.2.1。
+7. 再验一次不重启的路径：下载好后直接退出 kits（托盘或菜单里的“退出 kits”），再打开。预期已经是新版本。
+8. `~/.kits/settings.json` 写 `"updateUrl": "off"`。预期卡片显示“自动更新已关闭”，地址显示“已关闭”，不再检查。
+
+### 主要改动
+
+- `apps/desktop/src/main/updater.ts`：地址按 `KITS_UPDATE_URL` → `settings.json` 的 `updateUrl` → 安装包自带（`resources/app-update.yml`）取，任一处写 `off` 关闭；占位地址 `updates.invalid` 当作没配。状态机 idle / checking / latest / downloading / ready / error 推给界面（`app.update`）；下载好后不再被后续检查或出错覆盖。去掉 `checkForUpdatesAndNotify` 的系统通知。`latest.yml` 的 `releaseNotes` 解析成“分类 + 一句话”的列表。“重启并更新”调 `quitAndInstall(true, true)`：静默安装后重新打开。运行中改了更新地址或写了 `off`：旧地址正在下的取消、下好的作废，“退出时自动装上”只在接受了当前地址下好的版本时打开；换成新地址后先等旧的检查和下载结束，再马上查一次。顺带接住了 `downloadPromise` 的 reject（以前下载失败会留下未处理的 Promise 拒绝）。
+- `apps/desktop/src/main/updater-mock.ts`：`KITS_UPDATE_MOCK` 的假更新，只给 E2E 和界面开发用，和 `KITS_KERNEL=mock` 一样。
+- `packages/core/src/ipc.ts`：`app.updateStatus`、`app.checkForUpdates`（改为返回完整状态）、`app.installUpdate`、`app.openSettingsFile`，推送 `app.update`。
+- 打包：`beforePack` 换成 `apps/desktop/scripts/before-pack.mjs`，先做原来的内核和 ripgrep 检查，再用 `release-notes.mjs` 从仓库根目录的 `CHANGELOG.md` 取出这个版本的一节写成 `apps/desktop/resources/release-notes.md`（已加进 `.gitignore`），electron-builder 放进 `latest.yml`。没有 CHANGELOG 或没有这个版本的一节就不带说明。Jenkins 直接调 electron-builder 也会走这个钩子。
+- `electron-builder.yml`：`publish.url` 的注释写明它是客户端默认地址，内网打包用 `-c.publish.url=` 覆盖，内网地址不进仓库。
+- 界面：`shell/UpdateBadge.tsx`（侧栏标签和浮层）、`shell/UpdateNotes.tsx`、设置 · 通用的“版本与更新”卡片重写，卡片放在快捷键下面（和原型一致）；`ui/Popover.tsx` 支持从右边弹出和 `aria-label`。
+- 原型按评审结论去掉了浮层里的“完整的更新说明”链接，改成列表可滚动。
+- 原型里“已经是最新版本 · 10 分钟前查过”的时间写法，实现成：一小时内写“N 分钟前”，当天写时刻，更早写日期。
+
+`settings.json` 的 schema 没变（`updateUrl` 多了 `off` 这个取值），数据库 schema 没变。
+
+### 测试
+
+- 单元测试：`updater.test.ts`（地址优先级和 off、读 app-update.yml 和占位地址、更新说明解析、状态流转、下载好后不被出错覆盖、只取错误第一行、下载好之前不能安装；关掉更新后退出不再安装、换地址后丢掉旧地址的更新并查新地址、下载中关掉会取消且之后的事件不算数——这四条放到改之前的代码上会失败）；`scripts/release-notes.test.ts`（取版本一节、去掉链接定义、0.2.10 不算 0.2.1、没有一节时删掉旧文件）；`lib/update-labels.test.ts`（哪些会话算忙、发布日期、检查时间）。`pnpm check` 全过。
+- E2E：`e2e/tests/update.spec.ts` 两条：下载好后侧栏出标签、浮层里有更新内容、会话等确认时不能重启；设置页显示“已是最新”和地址来源，写 `off` 后关闭。另跑了 settings-general、shell、smoke、desktop，全过。
+- 在 mac 上用 scratch 工程跑 `electron-builder --win --x64`（`-c.extraMetadata.version=0.2.1 -c.publish.url=...`，带一份 CHANGELOG）：`latest.yml` 带上了这一节的 `releaseNotes`，`app-update.yml` 的 `url` 是传进去的地址。
+- 在本机 Electron 45 上确认：kits 的 `will-quit` 拦下退出、清理完 `app.exit(0)` 之后，electron-updater 监听的 `quit` 事件照样触发，所以“退出时自动装上”能走到。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 真实的下载和安装（验收第 3～7 步）没有在 Windows 上走过，要在内网机器上确认，特别是静默安装后能不能自动重新打开。
+- mac 的自动更新没有验证：Squirrel.Mac 要求正式签名，现在是 ad-hoc 签名，大概率装不上。内网主要是 Windows，这次不处理。
+- 已经装了 0.1.x 的人没有默认地址，要手动装一次带默认地址的新包，之后才能自动更新。
+- 便携版不该自动更新。打便携版时如果也传了 `-c.publish.url`、包里也带了 `app-update.yml`，它会去检查（没验证便携版会不会生成这个文件）；便携版用户可以在 `settings.json` 里写 `"updateUrl": "off"`。发版流水线不出便携版，这次不单独处理。

@@ -3,8 +3,12 @@ import { Check, ChevronDown } from 'lucide-react'
 import { type ReactNode, useMemo, useState } from 'react'
 import { type MessageKey, t } from '../../../app/i18n'
 import { CODE_FONTS, installedFonts, UI_FONTS } from '../../../lib/fonts'
-import { kits, useAppInfo, useSettings, useUpdateSettings } from '../../../lib/kits'
+import { kits, useSettings, useUpdateSettings } from '../../../lib/kits'
 import { modLabel, shortcuts } from '../../../lib/shortcuts'
+import { useBusySessionCount, useCheckUpdate, useUpdate } from '../../../lib/update'
+import { checkedLabel, releaseDay } from '../../../lib/update-labels'
+import { useNow } from '../../../lib/use-now'
+import { UpdateNotes } from '../../../shell/UpdateNotes'
 import { Button } from '../../../ui/Button'
 import { cx } from '../../../ui/cx'
 import { Menu, MenuContent, MenuRadioGroup, MenuRadioItem, MenuTrigger } from '../../../ui/Menu'
@@ -308,8 +312,6 @@ export function GeneralSection() {
         ))}
       </Card>
 
-      <UpdateCard />
-
       <Card title={t('general.keys')} hint={t('general.keysHint')}>
         <div className="grid grid-cols-2 gap-x-6 px-[18px] pt-2 pb-3">
           {KEYS.map(([what, key]) => (
@@ -325,45 +327,117 @@ export function GeneralSection() {
           ))}
         </div>
       </Card>
+
+      <UpdateCard />
     </div>
   )
 }
 
-// 版本与更新：没配更新地址时说明怎么配；配了能手动查一次
+// 版本与更新（原型 settings.html 通用页）：当前版本和更新状态、下载好了能看更新内容和重启，
+// 下面一行是正在用的更新地址和它从哪来。检查失败不标红：内网偶尔连不上很正常，下次自动再试
 function UpdateCard() {
-  const info = useAppInfo()
-  const settings = useSettings()
-  const [result, setResult] = useState<Awaited<ReturnType<typeof kits.app.checkForUpdates>>>()
-  const [checking, setChecking] = useState(false)
-  const url = settings.data?.updateUrl ?? ''
-  const check = async () => {
-    setChecking(true)
-    try {
-      setResult(await kits.app.checkForUpdates())
-    } finally {
-      setChecking(false)
-    }
-  }
-  const text = !result
-    ? url
-      ? t('general.updateUrl', { url })
-      : t('general.updateNoUrl')
-    : result.status === 'available'
-      ? t('general.updateAvailable', { version: result.version })
-      : result.status === 'latest'
-        ? t('general.updateLatest')
-        : result.status === 'error'
-          ? t('general.updateError', { message: result.message })
-          : result.reason === 'dev'
-            ? t('general.updateDev')
-            : t('general.updateNoUrl')
+  const view = useUpdate().data
+  const check = useCheckUpdate()
+  const busy = useBusySessionCount()
+  const now = useNow(60_000)
+  const [notesOpen, setNotesOpen] = useState(false)
+  if (!view) return null
+  const s = view.state
+  const ready = s.status === 'ready'
+  const note =
+    s.status === 'disabled'
+      ? t(s.reason === 'dev' ? 'update.dev' : s.reason === 'off' ? 'update.off' : 'update.noUrl')
+      : s.status === 'idle'
+        ? t('update.idle')
+        : s.status === 'checking'
+          ? t('update.checking')
+          : s.status === 'latest'
+            ? t('update.latest', { when: checkedLabel(s.checkedAt, now) })
+            : s.status === 'downloading'
+              ? t('update.downloading', { version: s.version, percent: s.percent })
+              : s.status === 'ready'
+                ? busy
+                  ? t('update.readyBusy', { version: s.version, count: busy })
+                  : t('update.ready', { version: s.version })
+                : t('update.error')
+  const canCheck =
+    s.status === 'idle' || s.status === 'latest' || s.status === 'error' || s.status === 'checking'
+  const urlText =
+    view.url ||
+    t(s.status === 'disabled' && s.reason === 'off' ? 'update.urlOff' : 'update.urlNone')
   return (
-    <Card title={t('general.update')}>
-      <Row label={`kits ${info.data?.version ?? ''}`} note={text}>
-        <Button disabled={checking} onClick={() => void check()}>
-          {checking ? t('general.updateChecking') : t('general.updateCheck')}
+    <Card title={t('general.update')} hint={t('general.updateHint')}>
+      <div className="flex items-center gap-3 border-line-soft border-b px-[18px] py-3">
+        <span className="flex min-w-0 flex-1 flex-col gap-px">
+          <span className="font-medium">kits {view.current}</span>
+          <span
+            title={s.status === 'error' ? s.message : undefined}
+            className={cx(
+              'text-[0.929rem]',
+              s.status === 'error' ? 'text-warn' : ready ? 'text-accent-fg' : 'text-fg-muted',
+            )}
+          >
+            {note}
+          </span>
+          {s.status === 'downloading' ? (
+            <span
+              role="progressbar"
+              aria-label={t('update.downloading', { version: s.version, percent: s.percent })}
+              aria-valuenow={s.percent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="mt-1.5 block h-1 overflow-hidden rounded-[2px] bg-active"
+            >
+              <span className="block h-full bg-accent" style={{ width: `${s.percent}%` }} />
+            </span>
+          ) : null}
+        </span>
+        {ready ? (
+          <>
+            <Button aria-expanded={notesOpen} onClick={() => setNotesOpen((o) => !o)}>
+              {t('update.notes')}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={busy > 0}
+              onClick={() => void kits.app.installUpdate()}
+            >
+              {t('update.restart')}
+            </Button>
+          </>
+        ) : canCheck ? (
+          <Button disabled={s.status === 'checking'} onClick={() => check.mutate()}>
+            {s.status === 'checking' ? t('update.checking') : t('update.check')}
+          </Button>
+        ) : null}
+      </div>
+      {ready && notesOpen ? (
+        <div className="flex flex-col gap-1.5 border-line-soft border-b bg-muted/40 px-[18px] py-3 text-[0.929rem]">
+          <span className="font-medium">
+            {[s.version, releaseDay(s.releaseDate)].filter(Boolean).join(' · ')}
+          </span>
+          <UpdateNotes notes={s.notes} />
+        </div>
+      ) : null}
+      <div className="flex items-center gap-3 px-[18px] py-3">
+        <span className="flex min-w-0 flex-1 flex-col gap-px">
+          <span className="flex items-center gap-2">
+            <span className="font-medium">{t('update.url')}</span>
+            {view.source ? (
+              <span className="rounded-[6px] bg-muted px-1.5 text-[0.857rem] text-fg-muted">
+                {t(`update.source.${view.source}`)}
+              </span>
+            ) : null}
+          </span>
+          <span className="truncate font-mono text-[0.929rem] text-fg-label" title={view.url}>
+            {urlText}
+          </span>
+          <span className="text-[0.929rem] text-fg-subtle">{t('update.urlHint')}</span>
+        </span>
+        <Button variant="link" onClick={() => void kits.app.openSettingsFile()}>
+          {t('update.openSettings')}
         </Button>
-      </Row>
+      </div>
     </Card>
   )
 }

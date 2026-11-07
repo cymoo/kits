@@ -53,7 +53,7 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
     </sc-for>
     <span style="flex: 1"></span>
     <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px"><span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 50%; background: #3563E0; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; flex: 0 0 auto">林</span><span style="display: flex; flex-direction: column; min-width: 0"><span style="font-weight: 500">林晓</span><span style="font-size: 12px; color: #60646B; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">lin.xiao@corp.example</span></span></div>
-    <span style="font-size: 12px; color: #84878E; padding: 4px 10px 0">kits 0.1.0 · 配置文件在 ~/.kits/</span>
+    <span style="font-size: 12px; color: #84878E; padding: 4px 10px 0">kits 0.2.0 · 配置文件在 ~/.kits/</span>
   </nav>
 
   <main data-keep-scroll="main" style="flex: 1; min-width: 0; overflow-y: auto; padding: 28px 40px 48px; box-sizing: border-box">
@@ -101,6 +101,30 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
           <div class="h"><b>快捷键</b><small>这版不可改</small></div>
           <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; padding: 8px 18px 12px">
             <sc-for list="{{keys}}" as="k"><div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #F9F9F8; font-size: 13px"><span style="flex: 1; color: #43464C">{{k.what}}</span><span class="k-mono" style="font-size: 12px; background: #F4F4F2; border-radius: 6px; padding: 1px 7px">{{k.key}}</span></div></sc-for>
+          </div>
+        </section>
+
+        <section class="k-card">
+          <div class="h"><b>版本与更新</b><small>后台每 6 小时查一次，下载好了在侧栏底部提示</small></div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid #F9F9F8">
+            <span style="display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0"><span style="font-weight: 500">kits 0.2.0</span><span style="{{upd.noteStyle}}">{{upd.note}}</span>
+              <sc-if value="{{upd.downloading}}"><span role="progressbar" aria-label="下载进度" aria-valuenow="42" aria-valuemin="0" aria-valuemax="100" style="display: block; height: 4px; margin-top: 6px; border-radius: 2px; background: #EFEFEC; overflow: hidden"><span style="display: block; width: 42%; height: 100%; background: #3563E0"></span></span></sc-if>
+            </span>
+            <sc-if value="{{upd.ready}}">
+              <button type="button" onClick="{{upd.toggleNotes}}" aria-expanded="{{upd.notesOpen}}" class="k-btn">更新内容</button>
+              <button type="button" class="k-primary" disabled="{{upd.busy}}" style="{{upd.restartStyle}}">重启并更新</button>
+            </sc-if>
+            <sc-if value="{{upd.canCheck}}"><button type="button" class="k-btn">检查更新</button></sc-if>
+          </div>
+          <sc-if value="{{upd.notesShown}}">
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 18px; border-bottom: 1px solid #F9F9F8; background: #FBFBFA; font-size: 13px">
+              <span style="font-weight: 500">0.2.1 · 11 月 7 日</span>
+              <sc-for list="{{upd.notes}}" as="n"><span style="display: flex; align-items: baseline; gap: 8px; color: #43464C"><span style="flex: 0 0 auto; padding: 0 6px; border-radius: 6px; background: #EFEFEC; font-size: 12px; color: #60646B">{{n.kind}}</span><span>{{n.text}}</span></span></sc-for>
+            </div>
+          </sc-if>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 18px">
+            <span style="display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0"><span style="display: flex; align-items: center; gap: 8px"><span style="font-weight: 500">更新地址</span><span style="font-size: 12px; color: #60646B; background: #F4F4F2; border-radius: 6px; padding: 0 6px">安装包自带</span></span><span class="k-mono" style="font-size: 13px; color: #43464C; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">http://ci.corp.example:8080/userContent/kits</span><span style="font-size: 13px; color: #84878E">要换地址，在 ~/.kits/settings.json 里写 updateUrl；写 "off" 关掉自动更新</span></span>
+            <button type="button" class="k-link">打开 settings.json</button>
           </div>
         </section>
       </div>
@@ -281,7 +305,9 @@ class Component extends DCLogic {
       skillOff: ['doc-zh'], memScope: 'project', memRemoved: [],
       agent: 'api-reviewer', agentPerms: {},
       // 内核进程的演示状态由 ?proc= 决定：stopped / starting / running / restart-pending / error
-      proc: new URLSearchParams(location.search).get('proc') || 'running'
+      proc: new URLSearchParams(location.search).get('proc') || 'running',
+      // 版本与更新的演示状态由 ?update= 决定：latest（默认）/ downloading / ready / busy（有会话在运行）/ error，和侧栏的标签一致
+      update: new URLSearchParams(location.search).get('update') || 'latest', notesOpen: false
     };
     addEventListener('hashchange', () => this.setState({}));
   }
@@ -314,6 +340,18 @@ class Component extends DCLogic {
     const codeSizes = ['11', '12', '13', '14'].map((id) => ({ label: id + ' px', on: s.code === id, pick: () => this.setState({ code: id }) }));
     const toggles = [['notifyWait', '需要我处理时发系统通知', '命令等确认、Agent 提问、出错；窗口在前台时不发'], ['notifyDone', '会话完成时发系统通知', '只在窗口不在前台时发'], ['keepRunning', '关闭窗口后继续运行', '关到菜单栏 / 托盘，运行中的会话不中断；彻底退出用菜单栏 / 托盘里的“退出 kits”']].map(([id, label, note]) => ({ label, note, on: s.on[id], flip: () => this.setState({ on: { ...s.on, [id]: !s.on[id] } }) }));
     const keys = [['新会话', '⌘N'], ['搜索与跳转', '⌘K'], ['设置', '⌘,'], ['停止 Agent', '⌘.'], ['允许这条命令', '⌘↵'], ['拒绝这条命令', 'Esc'], ['发送 / 换行', '↵ / ⇧↵'], ['折叠侧栏', '⌘B']].map(([what, key]) => ({ what, key }));
+
+    // 版本与更新：检查失败不标红，内网偶尔连不上很正常，下次自动再试
+    const updReady = s.update === 'ready' || s.update === 'busy';
+    const updNotes = { latest: '已经是最新版本 · 10 分钟前查过', downloading: '正在下载 0.2.1 · 42%', ready: '0.2.1 已经下载好，重启就能用；不重启的话退出时自动装上', busy: '0.2.1 已经下载好。有 1 个会话在运行，结束后再重启；不重启的话退出时自动装上', error: '检查失败：连不上更新地址，6 小时后自动再试' };
+    const upd = {
+      note: updNotes[s.update] || updNotes.latest,
+      noteStyle: 'font-size: 13px; color: ' + (s.update === 'error' ? '#B4650A' : updReady ? '#2A4FBF' : '#60646B'),
+      downloading: s.update === 'downloading', ready: updReady, busy: s.update === 'busy', canCheck: !updReady && s.update !== 'downloading',
+      restartStyle: s.update === 'busy' ? 'opacity: .4; cursor: default' : '',
+      notesOpen: s.notesOpen, notesShown: updReady && s.notesOpen, toggleNotes: () => this.setState({ notesOpen: !s.notesOpen }),
+      notes: [['新增', '有新版本时侧栏底部提示，点开能看更新内容'], ['修复', 'Windows 上 grep、glob 报找不到 ripgrep'], ['修复', '删掉会话时，内核里的会话也一起删掉']].map(([kind, text]) => ({ kind, text }))
+    };
 
     // 内核与模型
     const mkModel = ([id, note, ctx]) => {
@@ -404,7 +442,7 @@ class Component extends DCLogic {
       sections,
       isGeneral: section === 'general', isModel: section === 'model', isMcp: section === 'mcp', isSkills: section === 'skills', isAgent: section === 'agent',
       isStub: !!stubs[section], stubTitle: (stubs[section] || [])[0], stubNote: (stubs[section] || [])[1],
-      themes, sizes, codeSizes, toggles, keys, sizeNote: s.size === 's' ? '13px 基准，信息更密' : s.size === 'l' ? '15px 基准，看着更松' : '14px 基准',
+      themes, sizes, codeSizes, toggles, keys, upd, sizeNote: s.size === 's' ? '13px 基准，信息更密' : s.size === 'l' ? '15px 基准，看着更松' : '14px 基准',
       gateways, kernels, procText, procButton, procAction, procError: s.proc === 'error', addingGw: s.addingGw, toggleAddGw: () => this.setState({ addingGw: !s.addingGw }),
       servers, addingMcp: s.addingMcp, toggleAddMcp: () => this.setState({ addingMcp: !s.addingMcp }),
       skillGroups, memories, isProject: s.memScope === 'project', isPersonal: s.memScope === 'personal', setProject: () => this.setState({ memScope: 'project' }), setPersonal: () => this.setState({ memScope: 'personal' }),

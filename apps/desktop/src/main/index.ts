@@ -32,7 +32,8 @@ import { SessionService } from './sessions/session-service'
 import { SessionStore } from './sessions/session-store'
 import { createStrayMouseFilter } from './stray-mouse'
 import { KitsToolHost } from './tools/kits-tool-host'
-import { createUpdater, updateUrl } from './updater'
+import { createUpdater, readBuiltinUrl, resolveUpdateUrl } from './updater'
+import { MOCK_UPDATE_URL, mockUpdater } from './updater-mock'
 import { inspectWorkdir } from './workdir/inspect'
 
 // 主进程入口：读配置、打开数据库、注册 IPC、开窗口。会话、内核等按模块往里加。
@@ -170,6 +171,8 @@ app.whenReady().then(() => {
   let onConfigChanged = () => {}
   // “关闭窗口后继续运行”关掉时收起托盘
   let onBackgroundChanged = () => {}
+  // settings.json 的 updateUrl 改了：版本与更新跟着换地址
+  let onUpdateUrlChanged = () => {}
   // 只有进内核配置的字段变了才重启：最近目录、外观这些改了不动内核，免得新建会话时撞上重启
   let kernelInputs: string | undefined
   const config = new ConfigService({
@@ -177,6 +180,7 @@ app.whenReady().then(() => {
     onSettingsChanged: (settings) => {
       push('settings.changed', settings)
       onBackgroundChanged()
+      onUpdateUrlChanged()
       const next = kernelSettingsKey(settings)
       if (next === kernelInputs) return
       kernelInputs = next
@@ -211,11 +215,30 @@ app.whenReady().then(() => {
     trash: (file) => platform.trashPath(file),
     openPath: (file) => platform.openPath(file),
   })
+  // 安装包自带的更新地址：打包时 -c.publish.url 写进 resources/app-update.yml。
+  // KITS_UPDATE_MOCK（E2E）：当成已打包、用假地址和假更新，不连网
+  const updateMock = process.env.KITS_UPDATE_MOCK
+  const builtinUpdateUrl = updateMock
+    ? MOCK_UPDATE_URL
+    : platform.isPackaged
+      ? readBuiltinUrl(path.join(process.resourcesPath, 'app-update.yml'))
+      : ''
   const updater = createUpdater({
-    isPackaged: platform.isPackaged,
+    isPackaged: platform.isPackaged || !!updateMock,
     version: platform.version,
-    url: () => updateUrl(config.getSettings().updateUrl),
+    url: () => resolveUpdateUrl(config.getSettings().updateUrl, builtinUpdateUrl),
+    onChange: (view) => push('app.update', view),
+    ...(updateMock
+      ? { load: () => mockUpdater(updateMock, platform.version), firstCheckMs: 500 }
+      : {}),
   })
+  let lastUpdateUrl = updater.view().url
+  onUpdateUrlChanged = () => {
+    const url = updater.view().url
+    if (url === lastUpdateUrl) return
+    lastUpdateUrl = url
+    void updater.notify()
+  }
   updater.start()
   const store = new SessionStore(db)
   // 系统通知：窗口不在前台时，等确认、提问、出错、完成各发一次；点了打开那个会话
@@ -298,7 +321,14 @@ app.whenReady().then(() => {
   registerIpc(
     {
       app: {
+        updateStatus: () => updater.view(),
         checkForUpdates: () => updater.check(),
+        installUpdate: () => updater.install(),
+        openSettingsFile: async () => {
+          // 没改过设置时文件还不存在：按默认值写一份再打开
+          if (!existsSync(config.paths.settings)) config.updateSettings({})
+          await platform.openPath(config.paths.settings)
+        },
         info: () => ({
           version: platform.version,
           os: platform.os,

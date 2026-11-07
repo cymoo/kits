@@ -11,11 +11,14 @@ export function PopoverContent({
   className,
   side = 'top',
   align = 'start',
+  label,
 }: {
   children: ReactNode
   className?: string
-  side?: 'top' | 'bottom'
+  side?: 'top' | 'bottom' | 'right'
   align?: 'start' | 'end'
+  // 内容是一块说明（不是菜单）时给读屏的名字
+  label?: string
 }) {
   return (
     <P.Portal>
@@ -23,6 +26,7 @@ export function PopoverContent({
         side={side}
         align={align}
         sideOffset={8}
+        aria-label={label}
         onOpenAutoFocus={(e) => e.preventDefault()}
         className={cx(
           'z-50 rounded-[12px] border border-line bg-raised p-1.5 text-fg shadow-pop',

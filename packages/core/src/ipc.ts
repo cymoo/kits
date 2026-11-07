@@ -68,6 +68,34 @@ export interface AppInfo {
   defaultWorkdir: string
 }
 
+// 自动更新（设置 · 通用的“版本与更新”、侧栏底部的新版本标签）。
+// 地址按 KITS_UPDATE_URL → settings.json 的 updateUrl → 安装包自带的顺序取，任一处写 "off" 就关掉
+export type UpdateSource = 'env' | 'settings' | 'builtin'
+
+// 一条更新说明：kind 是 CHANGELOG 里的分类（新增、修复…），没有分类时为空串
+export interface UpdateNote {
+  kind: string
+  text: string
+}
+
+export type UpdateState =
+  | { status: 'disabled'; reason: 'dev' | 'no-url' | 'off' }
+  // 已打包、有地址，还没查过（启动 30 秒后第一次查）
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'latest'; checkedAt: number }
+  | { status: 'downloading'; version: string; percent: number }
+  | { status: 'ready'; version: string; releaseDate: string | null; notes: UpdateNote[] }
+  | { status: 'error'; message: string; checkedAt: number }
+
+export interface UpdateView {
+  current: string
+  // 正在用的更新地址和它的来源；关掉或没配时 url 为空串、source 为 null
+  url: string
+  source: UpdateSource | null
+  state: UpdateState
+}
+
 export type GatewayTestResult =
   // contextWindows、vision：网关报了上下文窗口、图片输入的模型，没报的不在里面
   | {
@@ -113,14 +141,12 @@ export type SettingsPatch = Partial<Omit<Settings, 'version' | 'general'>> & {
 export const ipcContract = {
   app: {
     info: method<undefined, AppInfo>(),
-    // 检查更新（设置 · 通用的“版本与更新”）；没配更新地址或开发时返回 disabled
-    checkForUpdates: method<
-      undefined,
-      | { status: 'disabled'; reason: 'dev' | 'no-url' }
-      | { status: 'latest'; version: string }
-      | { status: 'available'; version: string }
-      | { status: 'error'; message: string }
-    >(),
+    // 自动更新：当前状态、手动查一次（查完返回新状态，过程也会推 app.update）、重启装上下载好的版本
+    updateStatus: method<undefined, UpdateView>(),
+    checkForUpdates: method<undefined, UpdateView>(),
+    installUpdate: method<undefined, void>(),
+    // 用系统默认程序打开 ~/.kits/settings.json（不存在先按默认值写一份）
+    openSettingsFile: method<undefined, void>(),
     // 设置 · 权限页的说明：默认权限（每次确认模式下）和只读命令白名单
     permissionDefaults: method<
       undefined,
@@ -322,6 +348,8 @@ export interface PushEvents {
   'session.attachments': { sessionId: string; attachments: AttachmentView[] }
   // 点了系统通知：界面跳到这个路由（#/s/<id>）
   'app.navigate': string
+  // 自动更新的状态变了（开始查、下载进度、下载好、出错）
+  'app.update': UpdateView
 }
 export type PushChannel = keyof PushEvents
 export const pushChannels: PushChannel[] = [
@@ -335,6 +363,7 @@ export const pushChannels: PushChannel[] = [
   'session.output',
   'session.attachments',
   'app.navigate',
+  'app.update',
 ]
 
 export function channelName(domain: string, method: string): string {
