@@ -11,6 +11,8 @@ export const gatewayModelSchema = z.object({
   // 网关的模型列表带了就用它的（连接测试、刷新列表时取），没带默认 128K，设置页可改
   contextWindow: z.number().int().positive().default(DEFAULT_CONTEXT_WINDOW),
   toolCall: z.boolean().default(true),
+  // 能不能看图片。网关的模型列表报了就用它的，设置页可改；没报也没改过是 undefined，当作不能看
+  vision: z.boolean().optional(),
 })
 export type GatewayModel = z.infer<typeof gatewayModelSchema>
 

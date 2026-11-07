@@ -49,6 +49,49 @@ describe('testGateway', () => {
     expect(r.ok && Object.keys(r.contextWindows)).toHaveLength(3)
   })
 
+  it('reads image input under the field names gateways use', async () => {
+    const baseUrl = await serve((_req, res) => {
+      res.end(
+        JSON.stringify({
+          data: [
+            { id: 'list', input_modalities: ['text', 'image'], context_window: 1 },
+            { id: 'text-only', input_modalities: ['text'], context_window: 1 },
+            { id: 'openrouter', architecture: { input_modalities: ['image'] }, context_length: 1 },
+            { id: 'modelsdev', modalities: { input: ['image'] }, context_length: 1 },
+            { id: 'litellm', supports_vision: true, context_length: 1 },
+            { id: 'caps', capabilities: { vision: false }, context_length: 1 },
+            { id: 'caps-list', capabilities: ['tools', 'vision'], context_length: 1 },
+            { id: 'unknown', context_length: 1 },
+          ],
+        }),
+      )
+    })
+    const r = await testGateway({ baseUrl })
+    expect(r.ok && r.vision).toEqual({
+      list: true,
+      'text-only': false,
+      openrouter: true,
+      modelsdev: true,
+      litellm: true,
+      caps: false,
+      'caps-list': true,
+    })
+  })
+
+  it('takes image input from the model detail when it looks one up', async () => {
+    const baseUrl = await serve((req, res) => {
+      res.end(
+        JSON.stringify(
+          req.url === '/v1/models/m'
+            ? { id: 'm', context_length: 8_000, input_modalities: ['text', 'image'] }
+            : { data: [{ id: 'm' }] },
+        ),
+      )
+    })
+    const r = await testGateway({ baseUrl })
+    expect(r.ok && r.vision).toEqual({ m: true })
+  })
+
   it('reads string values and the anthropic max_input_tokens field', async () => {
     const baseUrl = await serve((_req, res) => {
       res.end(

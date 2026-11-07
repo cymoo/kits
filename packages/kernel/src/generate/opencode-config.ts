@@ -318,7 +318,15 @@ export function generateOpencodeConfig(input: OpencodeConfigInput): GenerateResu
       models: Object.fromEntries(
         gw.models.map((m) => [
           m.id,
-          { name: m.id, tool_call: m.toolCall, limit: modelLimit(m.contextWindow) },
+          {
+            name: m.id,
+            tool_call: m.toolCall,
+            limit: modelLimit(m.contextWindow),
+            // 不写这两项内核不把图片发给模型，换成一句“读不了”的报错给模型（实测）
+            ...(m.vision
+              ? { attachment: true, modalities: { input: ['text', 'image'], output: ['text'] } }
+              : {}),
+          },
         ]),
       ),
     }

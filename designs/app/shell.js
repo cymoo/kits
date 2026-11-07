@@ -96,6 +96,12 @@
 .kc textarea{display:block;width:100%;box-sizing:border-box;border:0;resize:none;padding:14px 16px 4px;font:inherit;font-size:14px;line-height:22px;color:#16171A;background:transparent;outline:none;max-height:220px}
 .kc.big textarea{padding:16px 18px 8px;font-size:14px}
 .kc textarea::placeholder{color:#A1A1AA}
+.kc-files{display:flex;flex-wrap:wrap;gap:6px;padding:14px 18px 0}
+.kc-file{display:inline-flex;align-items:center;gap:6px;height:28px;max-width:260px;border:1px solid #E8E8E5;border-radius:8px;padding:0 4px 0 4px;font-size:13px;background:#FAFAF9}
+.kc-file img,.kc-file .ph{width:20px;height:20px;border-radius:4px;object-fit:cover;background:#E4E7EC}
+.kc-file small{color:#A0A3A9;font-size:13px}
+.kc-warn{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:8px 18px 0;padding:6px 10px;border-radius:8px;background:#FEF6E7;color:#8A5A00;font-size:13px}
+.kc-warn button{border:0;background:none;padding:0;font:inherit;color:#2A4FBF;cursor:pointer}
 .kc-bar{display:flex;align-items:center;gap:2px;padding:4px 10px 10px}
 .kc.big .kc-bar{padding:6px 10px 10px}
 .kc-chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 8px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:13px;color:#60646B;cursor:pointer;white-space:nowrap}
@@ -695,12 +701,21 @@
   // ---------- 输入框 ----------
   // <k-composer key="home" placeholder="…" rows="3" big> ；发送时在 document 上派发 kits-send 事件
   const composers = {}
+  // 图片附件（?image=1 正常，?image=blocked 当前模型不支持看图：发送键灰掉，给换模型和去掉图片）
+  function imageDemo() {
+    const mode = new URLSearchParams(location.search).get('image')
+    if (!mode) return ''
+    const chip = `<div class="kc-files"><span class="kc-file"><span class="ph"></span><span>截图 2026-11-07.png</span><small>812 KB</small><span style="width:20px;text-align:center;color:#A0A3A9">×</span></span></div>`
+    if (mode !== 'blocked') return chip
+    return chip + `<div class="kc-warn" role="status"><span>deepseek-v4-pro 看不了图片</span><button type="button">换成 deepseek-flash</button><button type="button">去掉图片</button></div>`
+  }
   function buildComposer(key, placeholder, rows, big, session) {
     const box = document.createElement('div')
     box.className = 'kc' + (big ? ' big' : '')
     box.dataset.session = String(!!session)
     box.innerHTML = `
       <div class="kc-menu" role="listbox" hidden></div>
+      ${imageDemo()}
       <label style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)" for="kc-${key}">给 Agent 发消息</label>
       <textarea id="kc-${key}" rows="${rows}" placeholder="${esc(placeholder)}"></textarea>
       <div class="kc-bar">

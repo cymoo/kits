@@ -28,6 +28,14 @@ export type StepIcon =
   | 'note'
   | 'tool'
 
+// 用户消息下面的附件；id、mime 用来取图片缩略图
+export interface MessageAttachment {
+  name: string
+  size: number
+  id?: string
+  mime?: string
+}
+
 // todowrite 写下的计划的一项
 export interface TodoItem {
   text: string
@@ -78,7 +86,7 @@ export type Block =
       kind: 'user'
       id: string
       text: string
-      attachments: { name: string; size: number }[]
+      attachments: MessageAttachment[]
       // 插话：模型还没看到
       pending?: boolean
     }
@@ -552,7 +560,7 @@ export function deriveBlocks(
         text: m.text,
         attachments: (detail.attachments ?? [])
           .filter((a) => a.messageId === m.id)
-          .map((a) => ({ name: a.name, size: a.size })),
+          .map((a) => ({ id: a.id, name: a.name, size: a.size, mime: a.mime })),
       })
       lastUserText = m.text
       continue

@@ -98,7 +98,8 @@ export type PartPayload =
   | {
       type: 'interject'
       text: string
-      attachments: { name: string; size: number }[]
+      // id、mime：图片要显示缩略图，这两项之前的旧会话没有
+      attachments: { name: string; size: number; id?: string; mime?: string }[]
       kernelTurn: number
     }
   | { type: 'retry'; attempt: number; message: string; nextAt: number }
@@ -127,7 +128,7 @@ export interface SessionDetail {
   attachments: AttachmentView[]
 }
 
-// 发消息时带的附件：渲染进程读成字节发过来，主进程存到 {userData}/attachments/<会话>/ 并转成文本
+// 发消息时带的附件：渲染进程读成字节发过来，主进程存到 {userData}/attachments/<会话>/，文档转成文本，图片原样交给内核
 export interface AttachmentInput {
   name: string
   mime: string

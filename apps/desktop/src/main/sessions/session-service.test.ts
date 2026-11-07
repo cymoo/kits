@@ -27,6 +27,10 @@ const findingsSchema = {
 }
 
 // gate：内核启动卡住，直到调用 open（模拟真实内核冷启动）
+const VISION_MODEL = 'corp/vision'
+// 最小的 PNG 文件头，够认出类型
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+
 function setup(
   scenario: MockScenarioName | 'broken',
   gate?: Promise<void>,
@@ -51,6 +55,7 @@ function setup(
   const registered: unknown[] = []
   service = new SessionService({
     store,
+    modelSupportsImages: (model) => model === VISION_MODEL,
     kernels: {
       acquire: async () => {
         await gate
@@ -942,6 +947,73 @@ describe('SessionService skills', () => {
   })
 })
 
+describe('SessionService image attachments', () => {
+  const image = { name: 'shot.png', mime: 'image/png', data: PNG }
+
+  it('hands the image to the kernel as a data url and keeps no text copy', async () => {
+    const { service, waitFor, kernel, store } = setup('done')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const s = await service.create({ ...input, model: VISION_MODEL, attachments: [image] })
+    await waitFor(s.id, ['done'])
+    expect(prompt.mock.calls[0]?.[1].attachments).toEqual([
+      { name: 'shot.png', mime: 'image/png', dataUrl: 'data:image/png;base64,iVBORw0KGgo=' },
+    ])
+    const saved = store.detail(s.id)?.attachments[0]
+    expect(saved).toMatchObject({ name: 'shot.png', mime: 'image/png', size: PNG.length })
+    expect(service.attachmentImage(saved?.id ?? '')).toBe('data:image/png;base64,iVBORw0KGgo=')
+  })
+
+  it('takes the type from the file header, not from the name', async () => {
+    const { service, waitFor, kernel } = setup('done')
+    const prompt = vi.spyOn(kernel, 'prompt')
+    const jpeg = { name: 'photo.png', mime: '', data: new Uint8Array([0xff, 0xd8, 0xff, 0xe0]) }
+    const s = await service.create({ ...input, model: VISION_MODEL, attachments: [jpeg] })
+    await waitFor(s.id, ['done'])
+    expect(prompt.mock.calls[0]?.[1].attachments?.[0]).toMatchObject({ mime: 'image/jpeg' })
+  })
+
+  it('refuses an image when the model cannot see, and creates no session', async () => {
+    const { service, store } = setup('done')
+    await expect(service.create({ ...input, attachments: [image] })).rejects.toThrow(/看不了图片/)
+    expect(store.list()).toEqual([])
+  })
+
+  it('refuses an image sent to a session on a model that cannot see', async () => {
+    const { service, waitFor } = setup('done')
+    const s = await service.create(input)
+    await waitFor(s.id, ['done'])
+    await expect(service.prompt(s.id, '看图', [image])).rejects.toThrow(/看不了图片/)
+  })
+
+  it('refuses a file named like an image that is not one', async () => {
+    const { service } = setup('done')
+    const fake = { name: 'shot.png', mime: 'image/png', data: new Uint8Array([1, 2, 3, 4]) }
+    await expect(
+      service.create({ ...input, model: VISION_MODEL, attachments: [fake] }),
+    ).rejects.toThrow(/不是有效的/)
+  })
+
+  it('refuses an image over the size limit', async () => {
+    const { service } = setup('done')
+    const big = { ...image, data: new Uint8Array(5 * 1024 * 1024 + 1) }
+    await expect(
+      service.create({ ...input, model: VISION_MODEL, attachments: [big] }),
+    ).rejects.toThrow(/超过 5 MB/)
+  })
+
+  it('has no image to show for a text attachment', async () => {
+    const { service, waitFor, store } = setup('done')
+    const file = {
+      name: '需求.md',
+      mime: 'text/markdown',
+      data: new TextEncoder().encode('# 需求'),
+    }
+    const s = await service.create({ ...input, attachments: [file] })
+    await waitFor(s.id, ['done'])
+    expect(service.attachmentImage(store.detail(s.id)?.attachments[0]?.id ?? '')).toBeNull()
+  })
+})
+
 describe('SessionService setPinned', () => {
   it('pins and unpins without counting as an update, and pushes the change', async () => {
     const { service, store, pushed, waitFor } = setup('done')
@@ -1228,6 +1300,7 @@ describe('SessionService kernel reads', () => {
     const release = vi.fn()
     const service = new SessionService({
       store,
+      modelSupportsImages: () => false,
       kernels: { acquire: async () => kernel, release },
       resolveAgent: () => builtinAssistant,
       loadMcp: () => parseMcpFile({}),

@@ -49,6 +49,7 @@ export function useGateways() {
       apiKey: string
       models: string[]
       contextWindows: Record<string, number>
+      vision: Record<string, boolean>
     }) {
       const latest = await kits.settings.get()
       const id = suggestGatewayId(
@@ -62,6 +63,7 @@ export function useGateways() {
         baseUrl: input.baseUrl,
         models: input.models,
         contextWindows: input.contextWindows,
+        vision: input.vision,
       })
       return save((list) => [...list, gw])
     },
@@ -76,10 +78,13 @@ export function useGateways() {
       id: string,
       listed: string[],
       contextWindows: Record<string, number>,
+      vision: Record<string, boolean>,
       baseUrl: string,
     ) {
       return patchOne(id, (g) =>
-        g.baseUrl === baseUrl ? { ...g, models: mergeModels(g.models, listed, contextWindows) } : g,
+        g.baseUrl === baseUrl
+          ? { ...g, models: mergeModels(g.models, listed, contextWindows, vision) }
+          : g,
       )
     },
     // 先把网关从设置里删掉，成功了再删密钥：设置写失败时网关还在，密钥也还能用

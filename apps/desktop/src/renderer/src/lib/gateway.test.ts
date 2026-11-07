@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { fixDefaultModel, mergeModels, newGateway, suggestGatewayId } from './gateway'
+import {
+  firstImageModel,
+  fixDefaultModel,
+  mergeModels,
+  newGateway,
+  suggestGatewayId,
+  supportsImages,
+} from './gateway'
 
 describe('suggestGatewayId', () => {
   it('takes a meaningful label from the host name', () => {
@@ -17,7 +24,47 @@ describe('suggestGatewayId', () => {
   })
 })
 
+describe('supportsImages', () => {
+  const model = { note: '', contextWindow: 128_000, toolCall: true }
+  const gw = (id: string, enabled: boolean, models: { id: string; vision?: boolean }[]) => ({
+    id,
+    name: id,
+    baseUrl: '',
+    enabled,
+    models: models.map((m) => ({ ...model, ...m })),
+  })
+  const gateways = [
+    gw('off', false, [{ id: 'eye', vision: true }]),
+    gw('corp', true, [{ id: 'text' }, { id: 'org/eye', vision: true }]),
+  ]
+
+  it('is true only for a model marked as seeing, on an enabled gateway', () => {
+    expect(supportsImages(gateways, 'corp/org/eye')).toBe(true)
+    expect(supportsImages(gateways, 'corp/text')).toBe(false)
+    expect(supportsImages(gateways, 'off/eye')).toBe(false)
+    expect(supportsImages(gateways, '')).toBe(false)
+  })
+
+  it('finds the first seeing model on an enabled gateway', () => {
+    expect(firstImageModel(gateways)).toBe('corp/org/eye')
+    expect(firstImageModel([gateways[0] as (typeof gateways)[0]])).toBeUndefined()
+  })
+})
+
 describe('mergeModels', () => {
+  it('takes what the gateway reports about images for models not decided yet', () => {
+    const current = [{ id: 'a', note: '', contextWindow: 64_000, toolCall: true }]
+    expect(mergeModels(current, ['a', 'b'], {}, { a: true, b: false })).toMatchObject([
+      { id: 'a', vision: true },
+      { id: 'b', vision: false },
+    ])
+  })
+
+  it('keeps an image switch that was already set', () => {
+    const current = [{ id: 'a', note: '', contextWindow: 64_000, toolCall: true, vision: true }]
+    expect(mergeModels(current, ['a'], {}, { a: false })[0]?.vision).toBe(true)
+  })
+
   it('keeps notes and context windows of models still listed', () => {
     const current = [{ id: 'a', note: '主力', contextWindow: 64_000, toolCall: true }]
     expect(mergeModels(current, ['a', 'b'])).toEqual([

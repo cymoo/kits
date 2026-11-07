@@ -8,6 +8,7 @@ import {
   FileText,
   Folder,
   FolderOpen,
+  Image as ImageIcon,
   Paperclip,
   Plus,
   Shield,
@@ -28,6 +29,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { t } from '../app/i18n'
 import { basename, resolvePrefs, usePrefs } from '../lib/composer-prefs'
 import { errorText } from '../lib/errors'
+import { firstImageModel, supportsImages } from '../lib/gateway'
 import { kits, useSettings } from '../lib/kits'
 import { isMac, shortcuts } from '../lib/shortcuts'
 import { useUi } from '../lib/ui-store'
@@ -47,6 +49,7 @@ import {
 } from '../ui/Menu'
 import { type AtQuery, atQuery, formatSize, insertAt } from './composer-at'
 import { draftAfterSend } from './composer-draft'
+import { brokenImage, isImageFile, MAX_IMAGE_BYTES, pastedImages } from './composer-image'
 import { MENU_MAX_HEIGHT, type MenuPlacement, placeMenu } from './composer-menu'
 
 // 菜单和输入框的间距；窗口顶部留的地方，macOS 上要避开隐藏标题栏后的拖动区
@@ -55,12 +58,13 @@ const MENU_TOP_INSET = isMac ? 40 : 12
 
 // 输入框（原型 shell.js 的 <k-composer>）：文本区自动长高；目录、Agent、权限、内核与模型四个浮层；↵ 发送、⇧↵ 换行。
 // 首页（big）发送时新建会话；会话页发送时在当前会话里接着说。
-// `+` 上传附件、引用文件；附件也能直接拖进来；打 @ 弹出工作目录里的文件。`/` 技能菜单在 PR13。
+// `+` 上传附件、引用文件；附件也能直接拖进来，截图能直接粘贴；打 @ 弹出工作目录里的文件。`/` 技能菜单在 PR13。
+// 当前模型看不了图片时不发，提示换模型或去掉图片。
 
 // 渲染进程这边先挡一下，主进程还会再查
 const MAX_BYTES = 20 * 1024 * 1024
 const ACCEPT =
-  '.docx,.pdf,.md,.markdown,.txt,.log,.csv,.tsv,.json,.jsonl,.yaml,.yml,.xml,.html,.sql,.py,.js,.ts,.tsx,.java,.go,.kt,.rs,.sh'
+  '.docx,.pdf,.md,.markdown,.txt,.log,.csv,.tsv,.json,.jsonl,.yaml,.yml,.xml,.html,.sql,.py,.js,.ts,.tsx,.java,.go,.kt,.rs,.sh,.png,.jpg,.jpeg,.webp,.gif'
 
 // “每次确认”收在设置页，这里只在当前就是它的时候列出来，不然菜单里没有选中项
 const PERMS = ['smart', 'read', 'auto'] as const satisfies readonly PermissionMode[]
@@ -114,6 +118,22 @@ function ContextRing({ used, window, onOpen }: { used: number; window: number; o
       </svg>
       {window ? <span className="@max-[420px]:hidden">{Math.round(pct)}%</span> : null}
     </button>
+  )
+}
+
+// 附件上的图片缩略图。CSP 不放行 blob:，读成 data URL
+function ImageThumb({ file }: { file: File }) {
+  const [url, setUrl] = useState<string>()
+  useEffect(() => {
+    const reader = new FileReader()
+    reader.onload = () => setUrl(reader.result as string)
+    reader.readAsDataURL(file)
+    return () => reader.abort()
+  }, [file])
+  return url ? (
+    <img src={url} alt="" className="h-5 w-5 shrink-0 rounded-[4px] object-cover" />
+  ) : (
+    <span className="h-5 w-5 shrink-0 rounded-[4px] bg-active" />
   )
 }
 
@@ -239,9 +259,12 @@ export function Composer({
 
   const addFiles = (list: FileList | File[]) => {
     const next = [...list]
-    const big = next.find((f) => f.size > MAX_BYTES)
-    if (big) setError(t('composer.tooBig', { name: big.name }))
-    setFiles((cur) => [...cur, ...next.filter((f) => f.size <= MAX_BYTES)])
+    const tooBig = (f: File) => f.size > (isImageFile(f) ? MAX_IMAGE_BYTES : MAX_BYTES)
+    const big = next.find(tooBig)
+    if (big) {
+      setError(t(isImageFile(big) ? 'composer.imageTooBig' : 'composer.tooBig', { name: big.name }))
+    }
+    setFiles((cur) => [...cur, ...next.filter((f) => !tooBig(f))])
   }
   const updateAt = (value: string, caret: number) => {
     const q = atQuery(value, caret)
@@ -329,7 +352,13 @@ export function Composer({
       : !resolved.model
         ? 'model'
         : undefined
-  const canSend = !!text.trim() && !missing && !disabled && !sending
+  const gatewayList = settings.data?.gateways ?? []
+  const model = lockedAs?.model ?? resolved.model
+  // 附件里有图片、模型又看不了：发了也是白发，先挡住
+  const blockedImages =
+    files.some(isImageFile) && !!settings.data && !supportsImages(gatewayList, model ?? '')
+  const imageModel = blockedImages ? firstImageModel(gatewayList) : undefined
+  const canSend = !!text.trim() && !missing && !disabled && !sending && !blockedImages
   // 运行中发的消息排到这一轮结束
   const sendLabel = t(onStop ? 'composer.queue' : 'composer.send')
 
@@ -351,6 +380,11 @@ export function Composer({
     try {
       // 等待期间又加的附件不在这次发送里，发完只去掉这次发出去的
       const sending = files
+      const broken = await brokenImage(sending)
+      if (broken) {
+        setError(t('composer.badImage', { name: broken.name }))
+        return
+      }
       const attachments = await Promise.all(
         sending.map(async (f) => ({
           name: f.name,
@@ -449,12 +483,16 @@ export function Composer({
   // 侧栏改过名字的工作区这里也用改过的
   const workdirName = (dir: string) =>
     settings.data?.workdirs.find((w) => w.path === dir)?.label ?? basename(dir)
-  const gateways = (settings.data?.gateways ?? []).filter((g) => g.enabled && g.models.length > 0)
-  const model = lockedAs?.model ?? resolved.model
-  const modelLabel = model ? model.slice(model.indexOf('/') + 1) : t('composer.noModel')
+  const gateways = gatewayList.filter((g) => g.enabled && g.models.length > 0)
+  const shortName = (ref: string) => ref.slice(ref.indexOf('/') + 1)
+  const modelLabel = model ? shortName(model) : t('composer.noModel')
   const permission = lockedAs?.permissionMode ?? resolved.permissionMode
   const change = (task: Promise<void> | void) => {
     void Promise.resolve(task).catch((e) => setError(errorText(e)))
+  }
+  const pickModel = (ref: string) => {
+    if (locked) change(onModel?.(ref))
+    else prefs.set({ model: ref })
   }
   const permissionMenu = (
     <Menu>
@@ -630,9 +668,16 @@ export function Composer({
             <span
               // biome-ignore lint/suspicious/noArrayIndexKey: 同名文件可以加两次，按位置
               key={`${f.name}:${i}`}
-              className="inline-flex h-7 max-w-[260px] items-center gap-1.5 rounded-[8px] border border-line bg-bg pr-1 pl-2 text-[0.929rem]"
+              className={cx(
+                'inline-flex h-7 max-w-[260px] items-center gap-1.5 rounded-[8px] border border-line bg-bg pr-1 text-[0.929rem]',
+                isImageFile(f) ? 'pl-1' : 'pl-2',
+              )}
             >
-              <Paperclip size={12} className="shrink-0 text-fg-muted" />
+              {isImageFile(f) ? (
+                <ImageThumb file={f} />
+              ) : (
+                <Paperclip size={12} className="shrink-0 text-fg-muted" />
+              )}
               <span className="min-w-0 truncate" title={f.name}>
                 {f.name}
               </span>
@@ -647,6 +692,44 @@ export function Composer({
               </button>
             </span>
           ))}
+        </div>
+      ) : null}
+      {blockedImages ? (
+        <div
+          role="status"
+          data-testid="image-warning"
+          className={cx(
+            'mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-[8px] bg-warn-bg px-2.5 py-1.5 text-[0.929rem] text-warn',
+            big ? 'mx-[18px]' : 'mx-3',
+          )}
+        >
+          <span>
+            {imageModel ? t('composer.noVision', { model: modelLabel }) : t('composer.noVisionAny')}
+          </span>
+          {imageModel ? (
+            <button
+              type="button"
+              onClick={() => pickModel(imageModel)}
+              className="cursor-pointer text-accent"
+            >
+              {t('composer.switchModel', { model: shortName(imageModel) })}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => navigate('/settings/model')}
+              className="cursor-pointer text-accent"
+            >
+              {t('composer.openModelSettings')}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setFiles((cur) => cur.filter((f) => !isImageFile(f)))}
+            className="cursor-pointer text-accent"
+          >
+            {t('composer.dropImages')}
+          </button>
         </div>
       ) : null}
       <input
@@ -691,6 +774,12 @@ export function Composer({
               : undefined
         }
         onKeyDown={onKeyDown}
+        onPaste={(e) => {
+          const images = pastedImages(e.clipboardData)
+          if (!images.length) return
+          e.preventDefault()
+          addFiles(images)
+        }}
         placeholder={placeholder}
         className={cx(
           'block max-h-[220px] w-full resize-none border-0 bg-transparent text-[1rem] text-fg leading-[1.571] outline-none placeholder:text-fg-subtle',
@@ -857,18 +946,21 @@ export function Composer({
               <p className="m-0 px-2 py-2 text-fg-muted">{t('composer.noGateway')}</p>
             ) : null}
             {gateways.map((g) => (
-              <MenuRadioGroup
-                key={g.id}
-                value={model}
-                onValueChange={(v) => {
-                  if (locked) change(onModel?.(v))
-                  else prefs.set({ model: v })
-                }}
-              >
+              <MenuRadioGroup key={g.id} value={model} onValueChange={pickModel}>
                 <MenuLabel>{g.name || g.id}</MenuLabel>
                 {g.models.map((m) => (
                   <MenuRadioItem key={m.id} value={`${g.id}/${m.id}`}>
-                    <span className="font-mono text-[0.929rem]">{m.id}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="font-mono text-[0.929rem]">{m.id}</span>
+                      {m.vision ? (
+                        <ImageIcon
+                          size={12}
+                          className="shrink-0 text-fg-subtle"
+                          role="img"
+                          aria-label={t('composer.visionTag')}
+                        />
+                      ) : null}
+                    </span>
                   </MenuRadioItem>
                 ))}
               </MenuRadioGroup>
@@ -894,7 +986,13 @@ export function Composer({
           <button
             type="button"
             aria-label={sendLabel}
-            title={missing ? t(`composer.missing.${missing}`) : `${sendLabel} ↵`}
+            title={
+              missing
+                ? t(`composer.missing.${missing}`)
+                : blockedImages
+                  ? t('composer.noVision', { model: modelLabel })
+                  : `${sendLabel} ↵`
+            }
             disabled={!canSend}
             onClick={() => void submit()}
             className={sendButton}

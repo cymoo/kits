@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net'
 import type { KernelEvent } from '@kits/core'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { KernelDialect, KernelExit, KernelSession } from '../kernel'
-import { OpencodeFamilyKernel, type OpencodeFamilyOptions } from './opencode-family'
+import { composeParts, OpencodeFamilyKernel, type OpencodeFamilyOptions } from './opencode-family'
 
 // 用一个最小的假内核测适配器自己的逻辑：session.idle 丢了靠轮询收尾、事件流断了重连并补齐、卡死判定。
 // 真实内核的行为由 opencode-family.contract.test.ts 覆盖。
@@ -617,5 +617,28 @@ describe('OpencodeFamilyKernel', () => {
       },
     ]
     expect(await kernel.summarize(s)).toEqual({ summary: '## 任务\n加幂等校验', tokens: 900 })
+  })
+})
+
+describe('composeParts', () => {
+  it('sends text attachments as text and images as file parts', () => {
+    expect(
+      composeParts({
+        text: '看这个',
+        attachments: [
+          { name: '需求.md', text: '# 需求' },
+          { name: 'shot.png', mime: 'image/png', dataUrl: 'data:image/png;base64,AA==' },
+        ],
+      }),
+    ).toEqual([
+      { type: 'text', text: '看这个' },
+      { type: 'text', text: '<attachment name="需求.md">\n# 需求\n</attachment>' },
+      {
+        type: 'file',
+        mime: 'image/png',
+        filename: 'shot.png',
+        url: 'data:image/png;base64,AA==',
+      },
+    ])
   })
 })

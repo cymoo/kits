@@ -208,10 +208,18 @@ const CONTEXT_TOO_SMALL =
 
 // 手动压缩：内核调一次模型把前面的对话压成摘要，长会话要一两分钟
 const SUMMARIZE_TIMEOUT_MS = 5 * 60_000
-function composeText(input: UserInput): { type: 'text'; text: string }[] {
-  const parts = [{ type: 'text' as const, text: input.text }]
+type PromptPart =
+  | { type: 'text'; text: string }
+  | { type: 'file'; mime: string; filename: string; url: string }
+
+export function composeParts(input: UserInput): PromptPart[] {
+  const parts: PromptPart[] = [{ type: 'text', text: input.text }]
   for (const a of input.attachments ?? []) {
-    parts.push({ type: 'text', text: `<attachment name="${a.name}">\n${a.text}\n</attachment>` })
+    parts.push(
+      'dataUrl' in a
+        ? { type: 'file', mime: a.mime, filename: a.name, url: a.dataUrl }
+        : { type: 'text', text: `<attachment name="${a.name}">\n${a.text}\n</attachment>` },
+    )
   }
   return parts
 }
@@ -532,7 +540,7 @@ export class OpencodeFamilyKernel implements AgentKernel {
         agent: opencodeAgentName(session.agent),
         ...(model ? { model: { providerID: model.gateway, modelID: model.model } } : {}),
         ...(input.system ? { system: input.system } : {}),
-        parts: composeText(input),
+        parts: composeParts(input),
       },
       this.setupTimeout,
       signal,

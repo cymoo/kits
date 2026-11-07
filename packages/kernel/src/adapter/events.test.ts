@@ -489,6 +489,22 @@ describe('createOpencodeEventMapper', () => {
     ])
   })
 
+  it('replaces the stack of an image the kernel cannot decode with one line', () => {
+    const m = createOpencodeEventMapper(S)
+    const out = m.map(
+      ev('session.error', {
+        sessionID: S,
+        error: {
+          name: 'UnknownError',
+          data: { message: 'ImageDecodeError: Image could not be decoded\n    at catch (/$bunfs)' },
+        },
+      }),
+    )
+    expect(out).toEqual([
+      { type: 'done', reason: 'error', error: '图片解不开，可能文件坏了。换一张再发' },
+    ])
+  })
+
   it('maps MessageAbortedError to aborted', () => {
     const { out } = feed([
       ev('session.error', { sessionID: S, error: { name: 'MessageAbortedError' } }),

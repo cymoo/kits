@@ -77,7 +77,14 @@ function GatewaySection() {
     setResult(r)
     // 测通了就保存，默认模型先取列表第一个，下面可以改
     if (r.ok && !added) {
-      await add({ name: '', baseUrl, apiKey, models: r.models, contextWindows: r.contextWindows })
+      await add({
+        name: '',
+        baseUrl,
+        apiKey,
+        models: r.models,
+        contextWindows: r.contextWindows,
+        vision: r.vision,
+      })
     }
   }
 
