@@ -82,6 +82,24 @@
 .kn-dlg button.danger{border-color:#B42318;background:#B42318;color:#FFFFFF;font-weight:500}
 @keyframes kn-pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .kn-foot{display:flex;flex-direction:column;gap:4px;padding-top:6px;border-top:1px solid #E8E8E5}
+.kn-upd{color:#2A4FBF;background:#EEF2FF}
+.kn-upd:hover,.kn-upd[aria-expanded="true"]{background:#D5DCF7}
+.kn-upd .kn-st{background:#3563E0}
+.kn[data-collapsed="true"] .kn-upd .kn-st{display:none}
+.kn-upop{position:fixed;z-index:60;box-sizing:border-box;width:320px;padding:14px 16px;border:1px solid #E8E8E5;border-radius:12px;background:#FFFFFF;box-shadow:0 2px 4px rgba(0,0,0,.04),0 16px 40px rgba(0,0,0,.12);font-size:13px;line-height:20px;color:#16171A;outline:none}
+.kn-upop h3{margin:0;font-size:14px;font-weight:600}
+.kn-upop .sub{margin:2px 0 10px;font-size:12px;color:#84878E}
+.kn-upop ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto}
+.kn-upop li{display:flex;align-items:baseline;gap:8px;color:#43464C}
+.kn-upop li i{flex:0 0 auto;padding:0 6px;border-radius:6px;background:#F4F4F2;font-style:normal;font-size:12px;color:#60646B}
+.kn-upop .hint{margin:12px 0 0;font-size:12px;line-height:18px;color:#84878E}
+.kn-upop .busy{margin:12px 0 0;padding:8px 10px;border-radius:8px;background:#FBF0D9;font-size:12px;line-height:18px;color:#8A5A00}
+.kn-upop .ft{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.kn-upop button{height:30px;padding:0 12px;border:1px solid #E8E8E5;border-radius:8px;background:#FFFFFF;font:inherit;color:#16171A;cursor:pointer}
+.kn-upop button:hover:not(:disabled){background:#F6F6F4}
+.kn-upop button.primary{border-color:#16171A;background:#16171A;color:#FFFFFF;font-weight:500}
+.kn-upop button.primary:hover:not(:disabled){background:#16171A;opacity:.88}
+.kn-upop button:disabled{cursor:default;opacity:.4}
 .kn[data-collapsed="true"]{flex-basis:56px;padding:12px 8px 8px;align-items:center}
 .kn[data-collapsed="true"] .kn-label,.kn[data-collapsed="true"] .kn-kbd,.kn[data-collapsed="true"] .kn-list,.kn[data-collapsed="true"] .kn-brand{display:none}
 .kn[data-collapsed="true"] .kn-top{flex-direction:column;height:auto;gap:8px;padding:0}
@@ -189,6 +207,7 @@
     at: '<circle cx="8" cy="8" r="2.5"/><path d="M10.5 8v1a1.8 1.8 0 0 0 3.5 0V8a6 6 0 1 0-2.4 4.8"/>',
     check: '<path d="m3.5 8.5 3 3 6-7"/>',
     up: '<path d="M8 13V3M4 7l4-4 4 4"/>',
+    install: '<path d="M8 2.5v7.5M5 7l3 3 3-3"/><path d="M3 11.5v2h10v-2"/>',
     stop: '<rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" stroke="none"/>',
     file: '<path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3"/>',
     agent: '<path d="M3 13V4.2l2.6 2.2h4.8L13 4.2V13z"/><circle cx="6.3" cy="9.3" r=".7" fill="currentColor" stroke="none"/><circle cx="9.7" cy="9.3" r=".7" fill="currentColor" stroke="none"/>'
@@ -217,6 +236,13 @@
   ]
   // 每个工作区默认显示几个会话，多的折起来
   const WS_LIMIT = 5
+  // 新版本：后台下载好了才在侧栏底部出现，下载中、检查失败只在设置 · 通用里看得到。
+  // ?update=ready 下载好了；?update=busy 下载好了但有会话在运行，不能马上重启。更新内容来自 CHANGELOG 里这个版本的一节
+  const updateMode = new URLSearchParams(location.search).get('update')
+  const update = {
+    ver: '0.2.1', cur: '0.2.0', date: '11 月 7 日',
+    notes: [['新增', '有新版本时侧栏底部提示，点开能看更新内容'], ['修复', 'Windows 上 grep、glob 报找不到 ripgrep'], ['修复', '删掉会话时，内核里的会话也一起删掉']]
+  }
   const prefs = {
     dir: '~/repo/member-svc', agent: 'assistant', kernel: 'codeagent', model: 'coder-main', perm: 'smart',
     mcp: { 'req-platform': true, wiki: true, gitlab: true, 'defect-tracker': false }
@@ -520,6 +546,7 @@
         ${workspaces.map(([name, path]) => wsHtml(name, path, here)).join('')}
       </div>
       <div class="kn-foot">
+        ${updateMode === 'ready' || updateMode === 'busy' ? `<button type="button" class="kn-item kn-upd" data-act="update" aria-haspopup="dialog" aria-expanded="false" title="新版本 ${update.ver} 已经下载好">${svg('install', 15)}<span class="kn-label">新版本 ${update.ver}</span><span class="kn-st"></span></button>` : ''}
         <a class="kn-item${active === 'settings' ? ' on' : ''}" href="settings.html" title="设置 ⌘,">${svg('sliders', 15)}<span class="kn-label">设置</span><span class="kn-kbd">⌘,</span></a>
       </div>
       <div class="k-rz" data-w="nav" title="拖动改宽度，双击恢复"></div>`
@@ -530,6 +557,7 @@
       if (t.dataset.act === 'search') openPalette()
       if (t.dataset.act === 'more') openRowMenu(t)
       if (t.dataset.act === 'ws-more') openWsMenu(t)
+      if (t.dataset.act === 'update') openUpdate(t)
       if (t.dataset.act === 'ws-toggle') {
         const ws = t.closest('.kn-ws')
         const open = ws.dataset.open !== 'true'
@@ -557,6 +585,60 @@
     })
     setCollapseTitle()
     return nav
+  }
+
+  // ---------- 新版本：侧栏底部的标签点开是更新内容和重启按钮 ----------
+  // 不弹窗、不自动重启：不点就一直安静地留在侧栏，退出 kits 时自动装上
+  let closeUpdate = () => {}
+  function openUpdate(btn) {
+    if (btn.getAttribute('aria-expanded') === 'true') return closeUpdate()
+    closeRowMenu()
+    const busy = updateMode === 'busy'
+    const running = convs.filter((c) => c[2] === 'run').length || 1
+    const pop = document.createElement('div')
+    pop.className = 'kn-upop'
+    pop.setAttribute('role', 'dialog')
+    pop.setAttribute('aria-label', `新版本 ${update.ver}`)
+    pop.tabIndex = -1
+    pop.innerHTML = `
+      <h3>kits ${update.ver} 已经下载好</h3>
+      <p class="sub">当前 ${update.cur} · ${update.date}发布</p>
+      <ul>${update.notes.map(([kind, text]) => `<li><i>${kind}</i><span>${esc(text)}</span></li>`).join('')}</ul>
+      ${busy
+        ? `<p class="busy">有 ${running} 个会话在运行，现在重启会中断它。等它结束再重启，或者先放着，退出 kits 时自动装上。</p>`
+        : '<p class="hint">不重启也行，下次退出 kits 时自动装上。</p>'}
+      <div class="ft"><button type="button" data-do="later">稍后</button><button type="button" class="primary" data-do="restart"${busy ? ' disabled' : ''}>重启并更新</button></div>`
+    // 展开时在标签上方，侧栏收起时在图标右边
+    const box = btn.getBoundingClientRect()
+    if (nav.dataset.collapsed === 'true') {
+      pop.style.left = box.right + 8 + 'px'
+      pop.style.bottom = innerHeight - box.bottom + 'px'
+    } else {
+      pop.style.left = box.left + 'px'
+      pop.style.bottom = innerHeight - box.top + 8 + 'px'
+    }
+    document.body.appendChild(pop)
+    btn.setAttribute('aria-expanded', 'true')
+    pop.focus()
+    const outside = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) closeUpdate() }
+    closeUpdate = () => {
+      pop.remove()
+      btn.setAttribute('aria-expanded', 'false')
+      document.removeEventListener('click', outside)
+      closeUpdate = () => {}
+    }
+    setTimeout(() => document.addEventListener('click', outside))
+    pop.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return
+      closeUpdate()
+      btn.focus()
+    })
+    pop.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-do]')?.dataset.do
+      if (act === 'later') closeUpdate()
+      // 原型里只演示到“重启了”：标签消失
+      if (act === 'restart') { closeUpdate(); btn.remove() }
+    })
   }
 
   // ---------- 侧栏会话的菜单：置顶、重命名、删除 ----------

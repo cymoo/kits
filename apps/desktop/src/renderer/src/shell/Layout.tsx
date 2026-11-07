@@ -6,6 +6,7 @@ import { kits, useAppInfo, useSettings, useSettingsSync } from '../lib/kits'
 import { useSessionListSync, useSessions } from '../lib/sessions'
 import { isMac, useShortcuts } from '../lib/shortcuts'
 import { useUi } from '../lib/ui-store'
+import { useUpdateSync } from '../lib/update'
 import { ResizeHandle } from '../ui/ResizeHandle'
 import { Nav } from './Nav'
 import { Palette } from './Palette'
@@ -25,6 +26,7 @@ export function Layout() {
   const settings = useSettings()
   useSettingsSync()
   useSessionListSync()
+  useUpdateSync()
 
   useAppearance()
   const sessions = useSessions()

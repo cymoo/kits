@@ -31,8 +31,9 @@ extraResources:
   - from: resources/tray
     to: tray
 asar: true
-# vendor/ 里没有目标平台的内核时直接失败，不打出没有内核的包
-beforePack: ./scripts/check-kernel.mjs
+# vendor/ 里没有目标平台的内核时直接失败，不打出没有内核的包；
+# 再从 CHANGELOG.md 取出这个版本的一节写成 resources/release-notes.md，electron-builder 放进 latest.yml 的 releaseNotes
+beforePack: ./scripts/before-pack.mjs
 mac:
   category: public.app-category.developer-tools
   # 架构由命令行定（--arm64 / --x64，不给就是本机的）：每个架构的内核要在对应的机器上 vendor，CI 里两种 mac 各跑一台
@@ -63,7 +64,9 @@ portable:
   # 文档写的是 false，但 electron-builder 26 的代码里只有 true 才走这条路
   unpackDirName: true
 publish:
-  # 内网更新：放一个静态目录即可。运行时的地址以 settings.json 的 updateUrl 或 KITS_UPDATE_URL 为准（main/updater.ts），
-  # 这里只决定 latest.yml 等元数据文件怎么生成；CI 打包用 --publish never，不往这个地址传
+  # 内网更新：放一个静态目录即可（Jenkins 的 userContent 也行）。这里的 url 会写进安装包的 app-update.yml，
+  # 是客户端的默认更新地址：内网 CI 打包时用 -c.publish.url=<地址> 换成真实地址，内网地址不写进仓库。
+  # 运行时 KITS_UPDATE_URL、settings.json 的 updateUrl 优先（main/updater.ts）；占位地址 updates.invalid 当作没配。
+  # CI 打包用 --publish never，electron-builder 不往这个地址传，发布由 CI 自己拷文件
   provider: generic
   url: https://updates.invalid/kits

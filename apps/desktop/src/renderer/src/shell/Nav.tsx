@@ -7,6 +7,7 @@ import { useUi } from '../lib/ui-store'
 import { cx } from '../ui/cx'
 import { Kbd } from '../ui/Kbd'
 import { SessionList } from './SessionList'
+import { UpdateBadge } from './UpdateBadge'
 
 // 侧栏（原型 shell.js 的 <k-nav>）：新会话、搜索、全部会话、按时间分组的会话列表、设置；⌘B 折叠成图标栏。
 
@@ -136,6 +137,7 @@ export function Nav({ collapsed, onToggle }: { collapsed: boolean; onToggle: () 
           collapsed && 'w-full items-center border-t-0',
         )}
       >
+        <UpdateBadge collapsed={collapsed} />
         <NavItem
           to="/settings"
           icon={<SlidersHorizontal size={15} />}

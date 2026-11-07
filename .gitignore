@@ -15,3 +15,4 @@ vendor/
 
 .idea/
 .vscode/
+apps/desktop/resources/release-notes.md
