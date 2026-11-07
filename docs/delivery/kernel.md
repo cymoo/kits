@@ -378,7 +378,7 @@ phase1-implementation PR19（4.3 节）：CodeAgent 方言和配置转换、假�
 
 ### 怎么验收
 
-1. 运行 `pnpm -F @kits/kernel test`。预期：通过。
+1. 在仓库根目录运行 `pnpm test --project kernel`。预期：通过。
 2. 看 PR 的 Windows CI。预期：`opencode-family.contract.test.ts` 通过。
 
 ### 主要改动
