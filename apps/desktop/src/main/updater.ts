@@ -103,10 +103,18 @@ function shortMessage(e: unknown): string {
 // electron-updater 里用到的部分，测试里换成假的
 export interface AutoUpdaterLike {
   autoDownload: boolean
+  // 退出 kits 时装上已下载的版本。只在接受了当前地址下好的版本时打开，地址换了、关掉了就收回
+  autoInstallOnAppQuit: boolean
   setFeedURL(options: { provider: 'generic'; url: string }): void
   checkForUpdates(): Promise<unknown>
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
   on(event: string, listener: (arg: unknown) => void): unknown
+}
+
+// checkForUpdates 的结果里用到的部分：下载在后台继续，能取消
+interface CheckResultLike {
+  downloadPromise?: Promise<unknown> | null
+  cancellationToken?: { cancel(): void }
 }
 
 interface UpdateInfoLike {
@@ -132,7 +140,14 @@ export function createUpdater(deps: {
   const now = deps.now ?? Date.now
   let state: UpdateState = { status: 'idle' }
   let updater: AutoUpdaterLike | undefined
+  // 最近一次 setFeedURL 的地址
   let feed = ''
+  // 这一轮检查和下载属于哪个地址；地址换了、关掉了就清空，之后回来的事件都不算数
+  let round = ''
+  // 后台还在下的那次下载：换地址时取消它，等它结束再查新地址（electron-updater 会复用没结束的下载）
+  let inflight: { done: Promise<unknown>; cancel(): void } | undefined
+  // 还没返回的 checkForUpdates（只用来等它结束）
+  let pending: Promise<void> = Promise.resolve()
 
   const view = (): UpdateView => {
     const u = deps.url()
@@ -153,25 +168,38 @@ export function createUpdater(deps: {
   const status = (): UpdateState['status'] => state.status
   // 下载好了就不再变：之后的检查、出错都不把“可以装了”盖掉
   const settled = () => status() === 'ready'
+  // 事件是不是这一轮的：作废之后旧下载回来的事件不改状态
+  const current = () => round !== ''
+
+  // 地址换了或关掉了：旧地址的下载取消，下好的也不装（退出时也不装），回到还没查过
+  const invalidate = () => {
+    round = ''
+    inflight?.cancel()
+    if (updater) updater.autoInstallOnAppQuit = false
+    state = { status: 'idle' }
+  }
 
   const ensure = (): AutoUpdaterLike => {
     if (updater) return updater
     const u = load()
     u.autoDownload = true
+    u.autoInstallOnAppQuit = false
     u.on('update-available', (arg) => {
       const info = arg as UpdateInfoLike
-      if (!settled()) set({ status: 'downloading', version: info.version, percent: 0 })
+      if (current() && !settled()) set({ status: 'downloading', version: info.version, percent: 0 })
     })
     u.on('download-progress', (arg) => {
-      if (state.status !== 'downloading') return
+      if (!current() || state.status !== 'downloading') return
       const percent = Math.floor((arg as { percent: number }).percent)
       if (percent !== state.percent) set({ ...state, percent })
     })
     u.on('update-not-available', () => {
-      if (!settled()) set({ status: 'latest', checkedAt: now() })
+      if (current() && !settled()) set({ status: 'latest', checkedAt: now() })
     })
     u.on('update-downloaded', (arg) => {
+      if (!current()) return
       const info = arg as UpdateInfoLike
+      u.autoInstallOnAppQuit = true
       set({
         status: 'ready',
         version: info.version,
@@ -180,7 +208,8 @@ export function createUpdater(deps: {
       })
     })
     u.on('error', (e) => {
-      if (!settled()) set({ status: 'error', message: shortMessage(e), checkedAt: now() })
+      if (current() && !settled())
+        set({ status: 'error', message: shortMessage(e), checkedAt: now() })
     })
     updater = u
     return u
@@ -198,18 +227,41 @@ export function createUpdater(deps: {
       set({ status: 'error', message: shortMessage(e), checkedAt: now() })
       return view()
     }
+    set({ status: 'checking' })
+    // 旧地址的检查和下载要先结束：electron-updater 会把没结束的那次直接当成这次的结果
+    await pending
+    if (inflight) await inflight.done
+    if (deps.url().url !== u.url || status() !== 'checking') return view()
     if (u.url !== feed) {
       up.setFeedURL({ provider: 'generic', url: u.url })
       feed = u.url
     }
-    set({ status: 'checking' })
+    round = u.url
+    // 这一轮在等结果期间可能已经作废（地址换了、关掉了）
+    const live = () => round === u.url
+    const call = up.checkForUpdates() as Promise<CheckResultLike | null>
+    pending = call.then(
+      () => {},
+      () => {},
+    )
     try {
-      await up.checkForUpdates()
+      const result = await call
+      const download = result?.downloadPromise
+      if (download) {
+        // 下载失败已经由 error 事件报了，这里只接住 reject；取消时 electron-updater 发 update-cancelled
+        const done = download.catch(() => {})
+        const task = { done, cancel: () => result?.cancellationToken?.cancel() }
+        inflight = task
+        void done.then(() => {
+          if (inflight === task) inflight = undefined
+        })
+        if (!live()) task.cancel()
+      }
     } catch (e) {
-      if (!settled()) set({ status: 'error', message: shortMessage(e), checkedAt: now() })
+      if (live() && !settled()) set({ status: 'error', message: shortMessage(e), checkedAt: now() })
     }
     // 没有任何事件回来（electron-updater 判断不需要检查）时也别停在“正在检查”
-    if (status() === 'checking') set({ status: 'latest', checkedAt: now() })
+    if (live() && status() === 'checking') set({ status: 'latest', checkedAt: now() })
     return view()
   }
 
@@ -221,9 +273,11 @@ export function createUpdater(deps: {
       if (!settled() || !updater) return
       updater.quitAndInstall(true, true)
     },
-    // 设置改了（updateUrl）：地址和“没配 / 关掉”的状态跟着变
-    notify() {
+    // 设置改了（updateUrl）：地址换了或关掉了，旧地址的更新作废；换成新地址马上查一次
+    async notify() {
+      if (deps.url().url !== round) invalidate()
       deps.onChange?.(view())
+      if (deps.url().url) await check()
     },
     // 启动后过一会儿查一次，之后每 6 小时查一次；查不到（内网没开、地址错）不打扰人
     start() {

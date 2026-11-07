@@ -26,6 +26,7 @@ export function mockUpdater(mode: string, current: string): AutoUpdaterLike {
   const emitter = new EventEmitter()
   return {
     autoDownload: true,
+    autoInstallOnAppQuit: false,
     setFeedURL() {},
     async checkForUpdates() {
       if (mode === 'error') throw new Error('net::ERR_CONNECTION_REFUSED (mock)')

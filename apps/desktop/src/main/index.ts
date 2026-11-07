@@ -237,7 +237,7 @@ app.whenReady().then(() => {
     const url = updater.view().url
     if (url === lastUpdateUrl) return
     lastUpdateUrl = url
-    updater.notify()
+    void updater.notify()
   }
   updater.start()
   const store = new SessionStore(db)

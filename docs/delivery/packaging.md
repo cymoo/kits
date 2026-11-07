@@ -324,7 +324,7 @@ Windows 上测试时，grep、glob 工具报 `ripgrep execution failed`，PATH �
 
 ### 主要改动
 
-- `apps/desktop/src/main/updater.ts`：地址按 `KITS_UPDATE_URL` → `settings.json` 的 `updateUrl` → 安装包自带（`resources/app-update.yml`）取，任一处写 `off` 关闭；占位地址 `updates.invalid` 当作没配。状态机 idle / checking / latest / downloading / ready / error 推给界面（`app.update`）；下载好后不再被后续检查或出错覆盖。去掉 `checkForUpdatesAndNotify` 的系统通知。`latest.yml` 的 `releaseNotes` 解析成“分类 + 一句话”的列表。“重启并更新”调 `quitAndInstall(true, true)`：静默安装后重新打开。
+- `apps/desktop/src/main/updater.ts`：地址按 `KITS_UPDATE_URL` → `settings.json` 的 `updateUrl` → 安装包自带（`resources/app-update.yml`）取，任一处写 `off` 关闭；占位地址 `updates.invalid` 当作没配。状态机 idle / checking / latest / downloading / ready / error 推给界面（`app.update`）；下载好后不再被后续检查或出错覆盖。去掉 `checkForUpdatesAndNotify` 的系统通知。`latest.yml` 的 `releaseNotes` 解析成“分类 + 一句话”的列表。“重启并更新”调 `quitAndInstall(true, true)`：静默安装后重新打开。运行中改了更新地址或写了 `off`：旧地址正在下的取消、下好的作废，“退出时自动装上”只在接受了当前地址下好的版本时打开；换成新地址后先等旧的检查和下载结束，再马上查一次。顺带接住了 `downloadPromise` 的 reject（以前下载失败会留下未处理的 Promise 拒绝）。
 - `apps/desktop/src/main/updater-mock.ts`：`KITS_UPDATE_MOCK` 的假更新，只给 E2E 和界面开发用，和 `KITS_KERNEL=mock` 一样。
 - `packages/core/src/ipc.ts`：`app.updateStatus`、`app.checkForUpdates`（改为返回完整状态）、`app.installUpdate`、`app.openSettingsFile`，推送 `app.update`。
 - 打包：`beforePack` 换成 `apps/desktop/scripts/before-pack.mjs`，先做原来的内核和 ripgrep 检查，再用 `release-notes.mjs` 从仓库根目录的 `CHANGELOG.md` 取出这个版本的一节写成 `apps/desktop/resources/release-notes.md`（已加进 `.gitignore`），electron-builder 放进 `latest.yml`。没有 CHANGELOG 或没有这个版本的一节就不带说明。Jenkins 直接调 electron-builder 也会走这个钩子。
@@ -337,7 +337,7 @@ Windows 上测试时，grep、glob 工具报 `ripgrep execution failed`，PATH �
 
 ### 测试
 
-- 单元测试：`updater.test.ts`（地址优先级和 off、读 app-update.yml 和占位地址、更新说明解析、状态流转、下载好后不被出错覆盖、只取错误第一行、下载好之前不能安装）；`scripts/release-notes.test.ts`（取版本一节、去掉链接定义、0.2.10 不算 0.2.1、没有一节时删掉旧文件）；`lib/update-labels.test.ts`（哪些会话算忙、发布日期、检查时间）。`pnpm check` 全过。
+- 单元测试：`updater.test.ts`（地址优先级和 off、读 app-update.yml 和占位地址、更新说明解析、状态流转、下载好后不被出错覆盖、只取错误第一行、下载好之前不能安装；关掉更新后退出不再安装、换地址后丢掉旧地址的更新并查新地址、下载中关掉会取消且之后的事件不算数——这四条放到改之前的代码上会失败）；`scripts/release-notes.test.ts`（取版本一节、去掉链接定义、0.2.10 不算 0.2.1、没有一节时删掉旧文件）；`lib/update-labels.test.ts`（哪些会话算忙、发布日期、检查时间）。`pnpm check` 全过。
 - E2E：`e2e/tests/update.spec.ts` 两条：下载好后侧栏出标签、浮层里有更新内容、会话等确认时不能重启；设置页显示“已是最新”和地址来源，写 `off` 后关闭。另跑了 settings-general、shell、smoke、desktop，全过。
 - 在 mac 上用 scratch 工程跑 `electron-builder --win --x64`（`-c.extraMetadata.version=0.2.1 -c.publish.url=...`，带一份 CHANGELOG）：`latest.yml` 带上了这一节的 `releaseNotes`，`app-update.yml` 的 `url` 是传进去的地址。
 - 在本机 Electron 45 上确认：kits 的 `will-quit` 拦下退出、清理完 `app.exit(0)` 之后，electron-updater 监听的 `quit` 事件照样触发，所以“退出时自动装上”能走到。

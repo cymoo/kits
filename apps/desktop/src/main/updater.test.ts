@@ -25,7 +25,10 @@ const URL_SET: ResolvedUrl = { url: 'http://ci/kits', source: 'builtin', off: fa
 
 class FakeUpdater extends EventEmitter implements AutoUpdaterLike {
   autoDownload = false
+  autoInstallOnAppQuit = true
   feeds: string[] = []
+  // checkForUpdates 的返回值（带 downloadPromise、cancellationToken 时模拟后台下载）
+  result: unknown = null
   installed: [boolean | undefined, boolean | undefined][] = []
   onCheck: () => void = () => {}
   setFeedURL(options: { url: string }) {
@@ -33,7 +36,7 @@ class FakeUpdater extends EventEmitter implements AutoUpdaterLike {
   }
   async checkForUpdates() {
     this.onCheck()
-    return null
+    return this.result
   }
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean) {
     this.installed.push([isSilent, isForceRunAfter])
@@ -209,6 +212,78 @@ describe('createUpdater', () => {
       message: 'HttpError: 404',
       checkedAt: 1000,
     })
+  })
+
+  it('turns off installing on quit until an update is downloaded', async () => {
+    const fake = new FakeUpdater()
+    fake.onCheck = () => fake.emit('update-not-available', {})
+    const { updater } = packaged(fake)
+    await updater.check()
+    expect(fake.autoInstallOnAppQuit).toBe(false)
+    fake.emit('update-downloaded', { version: '0.2.1' })
+    expect(fake.autoInstallOnAppQuit).toBe(true)
+  })
+
+  it('stops installing on quit when updates are turned off after a download', async () => {
+    let url = URL_SET
+    const fake = new FakeUpdater()
+    fake.onCheck = () => fake.emit('update-downloaded', { version: '0.2.1' })
+    const { updater } = packaged(fake, () => url)
+    await updater.check()
+    url = { url: '', source: null, off: true }
+    await updater.notify()
+    expect(fake.autoInstallOnAppQuit).toBe(false)
+    expect(updater.view().state).toEqual({ status: 'disabled', reason: 'off' })
+    updater.install()
+    expect(fake.installed).toEqual([])
+  })
+
+  it('forgets the update from the old address and checks the new one', async () => {
+    let url = URL_SET
+    const fake = new FakeUpdater()
+    fake.onCheck = () => fake.emit('update-downloaded', { version: '0.2.1' })
+    const { updater } = packaged(fake, () => url)
+    await updater.check()
+    url = { url: 'http://other/kits', source: 'settings', off: false }
+    fake.onCheck = () => fake.emit('update-not-available', {})
+    await updater.notify()
+    expect(fake.feeds).toEqual(['http://ci/kits', 'http://other/kits'])
+    expect(updater.view().state).toEqual({ status: 'latest', checkedAt: 1000 })
+    expect(fake.autoInstallOnAppQuit).toBe(false)
+  })
+
+  it('cancels a download from an address that was turned off and ignores what it reports later', async () => {
+    let url = URL_SET
+    const fake = new FakeUpdater()
+    const cancel = vi.fn()
+    let finish = () => {}
+    fake.result = {
+      downloadPromise: new Promise((resolve) => {
+        finish = () => resolve([])
+      }),
+      cancellationToken: {
+        cancel: () => {
+          cancel()
+          finish()
+        },
+      },
+    }
+    fake.onCheck = () => fake.emit('update-available', { version: '0.2.1' })
+    const { updater } = packaged(fake, () => url)
+    expect((await updater.check()).state.status).toBe('downloading')
+
+    url = { url: '', source: null, off: true }
+    await updater.notify()
+    expect(cancel).toHaveBeenCalledOnce()
+    fake.emit('update-downloaded', { version: '0.2.1' })
+    expect(fake.autoInstallOnAppQuit).toBe(false)
+
+    // 再打开：旧下载结束后重新查
+    url = URL_SET
+    fake.result = null
+    fake.onCheck = () => fake.emit('update-not-available', {})
+    await updater.notify()
+    expect(updater.view().state).toEqual({ status: 'latest', checkedAt: 1000 })
   })
 
   it('installs silently and reopens kits only after the update is downloaded', async () => {
