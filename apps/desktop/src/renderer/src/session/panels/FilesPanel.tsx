@@ -1,4 +1,4 @@
-import type { FileEntry, FilePreview } from '@kits/core/ipc'
+import type { FileEntry } from '@kits/core/ipc'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AtSign,
@@ -15,37 +15,24 @@ import {
   type LucideIcon,
   RefreshCw,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import type { ThemedToken } from 'shiki/core'
+import { useEffect, useState } from 'react'
 import { t } from '../../app/i18n'
-import { CSV_ROWS, parseTable } from '../../lib/csv'
 import { errorText } from '../../lib/errors'
 import { type FileKind, fileKind } from '../../lib/file-kind'
-import { languageOf, tokenize } from '../../lib/highlight'
 import { kits } from '../../lib/kits'
-import { Button } from '../../ui/Button'
 import { cx } from '../../ui/cx'
 import { Segmented } from '../../ui/Segmented'
-import { Markdown } from '../thread/Markdown'
 import type { ChangedFile } from './derive'
-import { PdfView } from './PdfView'
+import { FileBody, isMarkdownFile } from './FileBody'
 
 // 文件页签（原型 session.html 的 isFiles）：目录树一层层懒加载，这个会话改过的文件标 A / M；
 // 窄栏点文件进预览，放大后左树右预览。只读。
-
-// 高亮和行号都按行渲染：太长的文件退回纯文本，不卡界面
-const HIGHLIGHT_LINES = 5_000
-const HIGHLIGHT_CHARS = 300_000
-const NUMBERED_LINES = 20_000
 
 const BADGE = {
   A: 'bg-ok-bg text-ok',
   M: 'bg-warn-bg text-warn-strong',
   D: 'bg-danger-bg text-danger',
 } as const
-
-const DOC_STYLE =
-  'body{margin:0 auto;max-width:720px;padding:20px 24px 32px;color:#16171a;font:14px/24px -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}table{border-collapse:collapse}td,th{border:1px solid #e8e8e5;padding:5px 10px}img{max-width:100%}'
 
 export type Changes = ReadonlyMap<string, ChangedFile['badge']>
 
@@ -304,113 +291,6 @@ function Tree({
   )
 }
 
-function CodeView({ path, text }: { path: string; text: string }) {
-  const lines = useMemo(() => text.replace(/\n$/, '').split('\n'), [text])
-  const lang = languageOf(path)
-  const [tokens, setTokens] = useState<ThemedToken[][]>()
-  const canHighlight = !!lang && lines.length <= HIGHLIGHT_LINES && text.length <= HIGHLIGHT_CHARS
-  useEffect(() => {
-    setTokens(undefined)
-    if (!canHighlight || !lang) return
-    let gone = false
-    // 高亮失败时留着纯文本
-    void tokenize(text, lang).then(
-      (t) => {
-        if (!gone) setTokens(t)
-      },
-      () => {},
-    )
-    return () => {
-      gone = true
-    }
-  }, [text, lang, canHighlight])
-  if (lines.length > NUMBERED_LINES) {
-    return (
-      <pre data-testid="file-code" className="k-src m-0 px-4 py-3">
-        {text}
-      </pre>
-    )
-  }
-  return (
-    <pre data-testid="file-code" className="k-src m-0 min-w-fit py-3">
-      {lines.map((line, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: 行号就是这一行的身份
-        <span key={i} className="k-src-line">
-          <span aria-hidden="true" className="k-src-no">
-            {i + 1}
-          </span>
-          {tokens?.[i]
-            ? tokens[i].map((token, j) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: 同一行的 token 不会重排
-                <span key={j} style={token.htmlStyle as React.CSSProperties}>
-                  {token.content}
-                </span>
-              ))
-            : line}
-        </span>
-      ))}
-    </pre>
-  )
-}
-
-function TableView({ text, sep }: { text: string; sep: ',' | '\t' }) {
-  const rows = useMemo(() => parseTable(text, sep), [text, sep])
-  const [head, ...body] = rows
-  return (
-    <>
-      <table data-testid="file-table" className="k-sheet">
-        <thead>
-          <tr>
-            {head?.map((cell, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: 表头可能重名，按列位置
-              <th key={i}>{cell}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {body.map((r, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: 只读表格，行不会重排
-            <tr key={i}>
-              {r.map((cell, j) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: 同上
-                <td key={j}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {rows.length >= CSV_ROWS ? (
-        <p className="m-0 px-3 py-2 text-[0.929rem] text-fg-label">
-          {t('files.rowLimit', { n: CSV_ROWS })}
-        </p>
-      ) : null}
-    </>
-  )
-}
-
-function Blocked({
-  preview,
-  onOpen,
-}: {
-  preview: Extract<FilePreview, { kind: 'unsupported' }>
-  onOpen(): void
-}) {
-  const large = preview.reason === 'large'
-  return (
-    <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 p-6 text-center text-fg-muted">
-      <span className="font-medium text-fg">
-        {t(large ? 'files.tooLarge' : 'files.unsupported')}
-      </span>
-      <span className="max-w-[260px] text-[0.929rem]">
-        {t(large ? 'files.tooLargeNote' : 'files.unsupportedNote')}
-      </span>
-      <Button className="mt-1 h-[30px] px-3 text-[0.929rem]" onClick={onOpen}>
-        {t('files.open')}
-      </Button>
-    </div>
-  )
-}
-
 function FileView({
   workdir,
   path,
@@ -430,14 +310,11 @@ function FileView({
   })
   const [source, setSource] = useState(false)
   const [openError, setOpenError] = useState<string>()
-  const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
-  const isMarkdown = ext === 'md' || ext === 'markdown'
   const data = preview.data
   const open = () => {
     setOpenError(undefined)
     kits.files.open({ workdir, path }).catch((e) => setOpenError(errorText(e)))
   }
-  const text = data?.kind === 'text' ? data.text : ''
   const tool =
     'flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-[6px] text-fg-muted hover:bg-active hover:text-fg'
   return (
@@ -457,7 +334,7 @@ function FileView({
         <span className="min-w-0 flex-1 truncate pl-1 font-mono text-[0.929rem]" title={path}>
           {path}
         </span>
-        {isMarkdown && data?.kind === 'text' ? (
+        {isMarkdownFile(path) && data?.kind === 'text' ? (
           <Segmented
             label={t('panel.view')}
             value={source ? 'source' : 'rendered'}
@@ -503,33 +380,7 @@ function FileView({
             {t('files.readError', { error: errorText(preview.error) })}
           </p>
         ) : null}
-        {data?.kind === 'unsupported' ? <Blocked preview={data} onOpen={open} /> : null}
-        {data?.kind === 'image' ? (
-          <div className="flex justify-center p-4">
-            <img src={data.dataUrl} alt={path} className="max-w-full" />
-          </div>
-        ) : null}
-        {data?.kind === 'pdf' ? <PdfView data={data.data} /> : null}
-        {data?.kind === 'html' ? (
-          // 文档内容不可信：空的 sandbox 不让脚本跑、不让跳转
-          <iframe
-            title={path}
-            sandbox=""
-            srcDoc={`<!doctype html><meta charset="utf-8"><style>${DOC_STYLE}</style>${data.html}`}
-            className="block h-full w-full border-0 bg-white"
-          />
-        ) : null}
-        {data?.kind === 'text' ? (
-          isMarkdown && !source ? (
-            <div className="mx-auto max-w-[720px] px-6 pt-5 pb-8">
-              <Markdown text={text} />
-            </div>
-          ) : ext === 'csv' || ext === 'tsv' ? (
-            <TableView text={text} sep={ext === 'csv' ? ',' : '\t'} />
-          ) : (
-            <CodeView path={path} text={text} />
-          )
-        ) : null}
+        {data ? <FileBody name={path} preview={data} source={source} onOpen={open} /> : null}
       </div>
     </div>
   )

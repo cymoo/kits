@@ -1089,6 +1089,39 @@ describe('SessionService image attachments', () => {
     await waitFor(s.id, ['done'])
     expect(service.attachmentImage(store.detail(s.id)?.attachments[0]?.id ?? '')).toBeNull()
   })
+
+  it('previews a sent document from its original file', async () => {
+    const { service, waitFor, store } = setup('done')
+    const file = {
+      name: '需求.md',
+      mime: 'text/markdown',
+      data: new TextEncoder().encode('# 需求'),
+    }
+    const s = await service.create({ ...input, attachments: [file] })
+    await waitFor(s.id, ['done'])
+    const id = store.detail(s.id)?.attachments[0]?.id ?? ''
+    expect(await service.attachmentPreview(id)).toMatchObject({ kind: 'text', text: '# 需求' })
+  })
+
+  it('has no preview once the original file is gone', async () => {
+    const { service, waitFor, store } = setup('done')
+    const file = {
+      name: '需求.md',
+      mime: 'text/markdown',
+      data: new TextEncoder().encode('# 需求'),
+    }
+    const s = await service.create({ ...input, attachments: [file] })
+    await waitFor(s.id, ['done'])
+    const id = store.detail(s.id)?.attachments[0]?.id ?? ''
+    rmSync(service.attachmentPath(id) ?? '')
+    expect(service.attachmentPath(id)).toBeUndefined()
+    expect(await service.attachmentPreview(id)).toBeNull()
+  })
+
+  it('has no preview for an unknown attachment', async () => {
+    const { service } = setup('done')
+    expect(await service.attachmentPreview('nope')).toBeNull()
+  })
 })
 
 describe('SessionService setPinned', () => {

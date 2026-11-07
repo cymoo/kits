@@ -8,6 +8,7 @@ import type {
   AttachmentInput,
   CreateSessionInput,
   FileDiffView,
+  FilePreview,
   ImageSupport,
   KernelEvent,
   KitsToolContext,
@@ -33,6 +34,7 @@ import {
   skillDenies,
 } from '@kits/kernel'
 import { extractText, imageMime, isImage, MAX_IMAGE_BYTES } from '../attachments/extract'
+import { previewFile } from '../files/browse'
 import type { KernelManager } from '../kernel/kernel-manager'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
 import { sessionMarkdown } from './export'
@@ -381,6 +383,17 @@ export class SessionService {
     const file = this.deps.store.attachmentFile(id)
     if (!file?.mime.startsWith('image/') || !existsSync(file.path)) return null
     return imageUrl(file.mime, file.path)
+  }
+
+  // 附件原文件的路径；记录或文件没了时是 undefined
+  attachmentPath(id: string): string | undefined {
+    const file = this.deps.store.attachmentFile(id)
+    return file && existsSync(file.path) ? file.path : undefined
+  }
+
+  async attachmentPreview(id: string): Promise<FilePreview | null> {
+    const file = this.attachmentPath(id)
+    return file ? previewFile(file) : null
   }
 
   // 拿走排队的消息，附件读回来放进草稿，磁盘上的副本删掉

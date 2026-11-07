@@ -1177,3 +1177,48 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 - 排队中的图片消息，如果排队期间换成了看不了图的模型，这条不会被拦下，模型会回复说看不了。
 - 换到看不了图的模型后，历史里的图片模型也看不到。
 - 不压缩图片，超过 5 MB 要用户自己压。`@` 引用工作区里的图片还是只给路径。
+
+## 2026-11-07　点消息里的文件名预览附件
+
+> PR：[#95](https://github.com/cymoo/kits/pull/95)　作者：Claude Code
+
+### 原始需求
+
+上传文件后，用户消息下面的文件名（比如 `xxx.pdf`）点不了。评审结论：点击后在应用内弹窗预览，和图片点开看大图一致；弹窗里能用系统应用打开。
+
+原型：`designs/app/session.html?s=done&open=attachment`。
+
+### 怎么验收
+
+1. 运行 `pnpm dev`，上传一个 PDF、一个 Word、一个 Markdown 和一个 CSV，发送。
+2. 依次点用户消息下面的文件名。预期：弹窗分别显示 PDF 页面（能翻页）、Word 正文、渲染后的 Markdown（能切源码）、表格。
+3. 按 Esc 或点右上角的关闭。预期：弹窗关闭，再点还能打开。
+4. 点弹窗里的“用系统应用打开”。预期：用默认应用打开这个文件。
+5. 上传 `run.sh` 或 `run.js` 并发送，打开预览。预期：按钮是“在文件夹中显示”，只选中文件，不运行。
+6. 退出应用，删掉 `{userData}/attachments/<会话>/` 里的某个文件，再点它的文件名。预期：弹窗显示“文件已经不在了”，没有打开按钮。
+
+### 主要改动
+
+- `session.attachmentPreview`、`session.attachmentOpen`：新增 IPC，都只接收附件 id，路径由主进程查库得到。
+- `files/browse.ts`：拆出 `previewFile(file)`，工作区文件和附件共用。
+- `@kits/core` 新增 `canOpenAttachment`：只放行文档、数据和图片类型。脚本和网页只在文件夹里选中，避免 Windows 上 `.js` 这类文件打开即执行。
+- `session/panels/FileBody.tsx`（新增）：从 `FilesPanel.tsx` 抽出预览内容，文件页签和附件弹窗共用。
+- `session/thread/AttachmentPreview.tsx`（新增）、`Blocks.tsx`：文件名改成按钮，点开弹窗。弹窗打开时才读文件，关闭后不留缓存。
+- 原型：附件芯片可点，新增附件预览对话框。
+
+配置项、数据库 schema 没有变化。
+
+### 测试
+
+- 单元测试：`attachment.test.ts` 覆盖能打开和不能打开的类型；`session-service.test.ts` 覆盖预览、原文件没了、id 不存在。
+- E2E：`attachments.spec.ts` 新增 `previews sent documents from the file name in the message`，覆盖 Markdown、PDF 重复打开、Word、脚本、原文件被删，并断言系统应用的调用。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+- 用系统应用打开的是 kits 存的副本，文件名带 id 前缀，在外部改动后再发消息不会带上新内容。
+- 旧版本的插话记录没有附件 id，文件名仍然不能点。
+- 这次没有给输入框里还没发送的附件加预览，需求只提到用户消息下面的文件名。

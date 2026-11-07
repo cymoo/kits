@@ -129,6 +129,8 @@ const zhCN = {
   'session.thread': '对话',
   'session.more': '更多操作',
   'session.viewImage': '看大图：{name}',
+  'session.viewFile': '预览：{name}',
+  'session.attachmentGone': '文件已经不在了',
   'session.viewContext': '查看上下文',
   'session.exportMarkdown': '导出 Markdown',
   'session.exportJson': '导出 JSON',

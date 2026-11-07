@@ -8,6 +8,7 @@ import { formatDuration, useNow } from '../../lib/use-now'
 import { cx } from '../../ui/cx'
 import { Dialog, DialogContent, DialogTrigger } from '../../ui/Dialog'
 import { Spinner } from '../../ui/Spinner'
+import { AttachmentPreview } from './AttachmentPreview'
 import { CopyReply } from './CopyReply'
 import type { Block, MessageAttachment } from './derive'
 import { Markdown } from './Markdown'
@@ -15,12 +16,40 @@ import { STEP_ACTION, STEP_ROW, StepChevron, StepRow } from './Steps'
 
 // 会话页的各种块（原型 session.html）。
 
+const CHIP =
+  'inline-flex max-w-full items-center gap-1.5 rounded-[8px] border border-line bg-transparent px-2 py-0.5 text-[0.929rem] text-fg-muted [overflow-wrap:anywhere]'
+
 function FileChip({ name }: { name: string }) {
   return (
-    <span className="inline-flex max-w-full items-center gap-1.5 rounded-[8px] border border-line px-2 py-0.5 text-[0.929rem] text-fg-muted [overflow-wrap:anywhere]">
+    <span className={CHIP}>
       <FileText size={12} className="shrink-0" />
       {name}
     </span>
+  )
+}
+
+// 文档附件：点文件名弹窗预览。弹窗打开时才读文件
+function FileAttachment({ id, name }: { id: string; name: string }) {
+  return (
+    <Dialog>
+      <DialogTrigger
+        aria-label={t('session.viewFile', { name })}
+        title={name}
+        className={cx(
+          CHIP,
+          'cursor-pointer outline-none hover:bg-active hover:text-fg focus-visible:ring-2 focus-visible:ring-accent/40',
+        )}
+      >
+        <FileText size={12} className="shrink-0" />
+        {name}
+      </DialogTrigger>
+      <DialogContent
+        label={name}
+        className="flex h-[80vh] w-[880px] max-w-[calc(100%-96px)] flex-col"
+      >
+        <AttachmentPreview id={id} name={name} />
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -49,10 +78,12 @@ function ImageAttachment({ id, name }: { id: string; name: string }) {
 }
 
 function Attachment({ a }: { a: MessageAttachment }) {
-  return a.id && a.mime?.startsWith('image/') ? (
+  // 旧的插话记录没有 id，取不到文件
+  if (!a.id) return <FileChip name={a.name} />
+  return a.mime?.startsWith('image/') ? (
     <ImageAttachment id={a.id} name={a.name} />
   ) : (
-    <FileChip name={a.name} />
+    <FileAttachment id={a.id} name={a.name} />
   )
 }
 

@@ -9,7 +9,7 @@ import {
   readonlyCommandPatterns,
   workdirKey,
 } from '@kits/core'
-import type { KernelName } from '@kits/core/ipc'
+import { canOpenAttachment, type KernelName } from '@kits/core/ipc'
 import { app, BrowserWindow, Notification, shell } from 'electron'
 import { AgentService } from './agents/agent-service'
 import { ConfigService } from './config/config-service'
@@ -351,6 +351,13 @@ app.whenReady().then(() => {
         compact: (id) => sessions.compact(id),
         prompt: ({ id, text, attachments }) => sessions.prompt(id, text, attachments),
         attachmentImage: (id) => sessions.attachmentImage(id),
+        attachmentPreview: (id) => sessions.attachmentPreview(id),
+        attachmentOpen: async (id) => {
+          const file = sessions.attachmentPath(id)
+          if (!file) throw new Error('附件已经不在了')
+          if (canOpenAttachment(file)) await platform.openPath(file)
+          else platform.revealPath(file)
+        },
         abort: (id) => sessions.abort(id),
         dequeue: ({ id, queueId }) => sessions.dequeue(id, queueId),
         interject: (input) => sessions.interject(input),
