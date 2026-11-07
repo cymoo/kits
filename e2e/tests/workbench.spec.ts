@@ -123,6 +123,8 @@ test('walks through several changed files and jumps from a diff to the file', as
     const files = panel.getByTestId('changed-files')
     const diff = panel.getByTestId('diff')
 
+    // 一轮刚结束时先按步骤列出（只有 redeem.py），内核的快照 diff 稍后整轮换上：等 5 个文件都到了再操作
+    await expect(files.getByRole('button')).toHaveCount(5)
     // 五位数的行号、长行都在；方向键在文件之间换
     await files.getByRole('button', { name: /src\/points\/redeem\.py/ }).focus()
     await page.keyboard.press('ArrowDown')
@@ -148,6 +150,26 @@ test('walks through several changed files and jumps from a diff to the file', as
     await expect(panel.getByRole('tab', { name: '文件' })).toHaveAttribute('aria-selected', 'true')
     await expect(panel.getByTestId('file-preview')).toContainText('def test_same_request_id')
     await page.screenshot({ path: 'test-results/workbench-diff-view-file.png' })
+  } finally {
+    await close()
+  }
+})
+
+test('shows the diffs of the steps when the workspace is not a git repository', async () => {
+  const { page, configDir, close } = await launchApp(mock('no-git'))
+  try {
+    await send(page, configDir, '给兑换接口加幂等校验')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    const panel = page.getByRole('complementary', { name: '会话面板' })
+    await panel.getByRole('tab', { name: /改动/ }).click()
+    const files = panel.getByTestId('changed-files')
+    // 内核没给这一轮的 diff，结束后列表还在
+    await expect(files.getByRole('button', { name: /src\/points\/redeem\.py/ })).toBeVisible()
+    await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
+    // 覆盖写之后又改了一处：显示后面这处改动，并提示 diff 不完整
+    await files.getByRole('button', { name: /README\.md/ }).click()
+    await expect(panel.getByTestId('diff')).toContainText('# 积分模块')
+    await expect(panel.getByTestId('diff')).toContainText('整个文件被重写过')
   } finally {
     await close()
   }

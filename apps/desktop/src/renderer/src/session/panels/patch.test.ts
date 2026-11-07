@@ -36,6 +36,25 @@ describe('parsePatch', () => {
     ])
   })
 
+  it('skips the file header of a patch that follows another one', () => {
+    const twice = `${patch}\n${patch.replace('return 1', 'return 2')}`
+    const lines = parsePatch(twice)
+    expect(lines.filter((l) => l.kind === '@')).toHaveLength(2)
+    expect(lines.some((l) => l.text.includes('src/a.py'))).toBe(false)
+    expect(lines.filter((l) => l.kind === '-').map((l) => l.text)).toEqual([
+      '    return 1',
+      '    return 2',
+    ])
+  })
+
+  it('reads a hunk header without line counts as one line on each side', () => {
+    expect(parsePatch('@@ -3 +3 @@\n-a\n+b\n--- not a deletion\n')).toEqual([
+      { kind: '@', text: '@@ -3 +3 @@' },
+      { kind: '-', a: 3, text: 'a' },
+      { kind: '+', b: 3, text: 'b' },
+    ])
+  })
+
   it('returns nothing for an empty patch', () => {
     expect(parsePatch('')).toEqual([])
   })

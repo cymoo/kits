@@ -1,4 +1,10 @@
-import { alwaysScope, type DoneReason, type KernelEvent, type PermissionReply } from '@kits/core'
+import {
+  alwaysScope,
+  type DoneReason,
+  type KernelEvent,
+  type PermissionReply,
+  type ToolFileChange,
+} from '@kits/core'
 
 // OpenCode 系 SSE 事件 → KernelEvent（映射表见 docs/references/model-poc.md“对 KernelEvent 映射和适配器的启示”）。
 // 一轮 prompt 一个映射器，按 sessionID 过滤。有状态：
@@ -82,6 +88,69 @@ function toolStats(metadata: Record<string, unknown> | undefined): {
     ...(typeof diff?.deletions === 'number' ? { deletions: diff.deletions } : {}),
     ...(typeof count === 'number' ? { count } : {}),
   }
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
+
+// 新建文件的内容拼成一份全是新增的 patch
+export function addedPatch(content: string): { patch: string; additions: number } {
+  const lines = content.replace(/\r?\n$/, '').split(/\r?\n/)
+  if (!content) return { patch: '', additions: 0 }
+  return {
+    patch: [`@@ -0,0 +1,${lines.length} @@`, ...lines.map((l) => `+${l}`), ''].join('\n'),
+    additions: lines.length,
+  }
+}
+
+// 改文件的工具在结果里带的改动（OpenCode 1.19.5 源码）。工作区不是 Git 仓库时内核不做快照，改动面板靠这个显示 diff：
+// - edit：metadata.filediff 是 { file, patch, additions, deletions }；oldString 为空是新建
+// - apply_patch：metadata.files 是 [{ filePath, movePath?, type: add / update / move / delete, patch, additions, deletions }]
+// - write：只有 metadata.exists。新建时内容在参数里，自己拼 patch；覆盖已有文件没有旧内容，patch 留空
+export function toolFiles(
+  name: string | undefined,
+  input: unknown,
+  metadata: Record<string, unknown> | undefined,
+): ToolFileChange[] {
+  const args = (input ?? {}) as Record<string, unknown>
+  if (name === 'edit') {
+    const d = metadata?.filediff as Record<string, unknown> | undefined
+    const path = str(d?.file) ?? str(args.filePath)
+    if (!d || !path) return []
+    return [
+      {
+        path,
+        status: args.oldString === '' ? 'added' : 'modified',
+        additions: num(d.additions),
+        deletions: num(d.deletions),
+        patch: str(d.patch) ?? '',
+      },
+    ]
+  }
+  if (name === 'apply_patch' && Array.isArray(metadata?.files)) {
+    return (metadata.files as Record<string, unknown>[]).flatMap((f) => {
+      const path = str(f.movePath) ?? str(f.filePath)
+      if (!path) return []
+      const status = f.type === 'add' ? 'added' : f.type === 'delete' ? 'deleted' : 'modified'
+      return [
+        {
+          path,
+          status,
+          additions: num(f.additions),
+          deletions: num(f.deletions),
+          patch: str(f.patch) ?? '',
+        } satisfies ToolFileChange,
+      ]
+    })
+  }
+  if (name === 'write' && typeof metadata?.exists === 'boolean') {
+    const path = str(metadata.filepath) ?? str(args.filePath)
+    const content = str(args.content)
+    if (!path || content === undefined) return []
+    if (metadata.exists)
+      return [{ path, status: 'modified', additions: 0, deletions: 0, patch: '' }]
+    return [{ path, status: 'added', deletions: 0, ...addedPatch(content) }]
+  }
+  return []
 }
 
 export interface OpencodeEventMapper {
@@ -169,6 +238,12 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
     subsessions.set(id, subsessions.get(part.sessionID ?? '') ?? part.callID)
   }
 
+  function filesOf(part: RawPart, status: string): { files?: ToolFileChange[] } {
+    if (status !== 'completed') return {}
+    const files = toolFiles(part.tool, part.state?.input, part.state?.metadata)
+    return files.length ? { files } : {}
+  }
+
   function toolEvents(part: RawPart, callId: string, parentCallId?: string): KernelEvent[] {
     const status = part.state?.status
     if (status !== 'running' && status !== 'completed' && status !== 'error') return []
@@ -199,6 +274,7 @@ export function createOpencodeEventMapper(sessionId: string): OpencodeEventMappe
           ? { durationMs: part.state.time.end - part.state.time.start }
           : {}),
         ...toolStats(part.state?.metadata),
+        ...filesOf(part, status),
       })
     }
     return out

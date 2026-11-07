@@ -177,6 +177,7 @@ export class MockKernel implements AgentKernel {
             ...(step.additions !== undefined ? { additions: step.additions } : {}),
             ...(step.deletions !== undefined ? { deletions: step.deletions } : {}),
             ...(step.count !== undefined ? { count: step.count } : {}),
+            ...(step.files ? { files: step.files } : {}),
           }
         } else if ('permission' in step) {
           nextRequest += 1

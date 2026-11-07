@@ -215,6 +215,7 @@ export class TurnRecorder {
                 ...(event.additions !== undefined ? { additions: event.additions } : {}),
                 ...(event.deletions !== undefined ? { deletions: event.deletions } : {}),
                 ...(event.count !== undefined ? { count: event.count } : {}),
+                ...(event.files?.length ? { files: event.files } : {}),
               }),
               event.error ? 'error' : 'completed',
             ),

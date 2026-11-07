@@ -1,5 +1,5 @@
 import type { PermissionMode, PermissionRisk } from './config/permission'
-import type { PermissionReply } from './events'
+import type { PermissionReply, ToolFileChange } from './events'
 
 // 会话在主进程和界面之间的形状（phase1-implementation 5.2、6.4 节）。数据库行转成这个再推给界面。
 // 只有类型，渲染进程经 ipc.ts 引用。
@@ -69,6 +69,8 @@ export type PartPayload =
       additions?: number
       deletions?: number
       count?: number
+      // 这一步改了哪些文件，带 diff；改动面板在内核没给这一轮的快照 diff 时用它
+      files?: ToolFileChange[]
     }
   | {
       type: 'permission'
