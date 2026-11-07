@@ -30,6 +30,7 @@ import { MemoryService } from './memory/memory-service'
 import { createElectronPlatform } from './platform'
 import { SessionService } from './sessions/session-service'
 import { SessionStore } from './sessions/session-store'
+import { createStrayMouseFilter } from './stray-mouse'
 import { KitsToolHost } from './tools/kits-tool-host'
 import { createUpdater, updateUrl } from './updater'
 import { inspectWorkdir } from './workdir/inspect'
@@ -138,6 +139,10 @@ function createWindow(onFocus: () => void): BrowserWindow {
   if (hiddenWindow) {
     win.setOpacity(0)
     win.setIgnoreMouseEvents(true)
+    const isStray = createStrayMouseFilter()
+    win.webContents.on('before-mouse-event', (event, mouse) => {
+      if (isStray(mouse)) event.preventDefault()
+    })
     win.showInactive()
   }
   // 窗口只显示应用自己的页面：站外链接交给系统浏览器，不在窗口里打开、不让页面跳走

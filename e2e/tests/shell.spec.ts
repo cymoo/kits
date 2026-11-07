@@ -174,6 +174,35 @@ test('resizes the sidebar by dragging, remembers it and resets on double click',
   }
 })
 
+// 测试窗口是透明的，真实光标经过时还会漏进不带按键的事件。这里用 CDP 发一个一样的，不依赖谁在动鼠标；
+// sendInputEvent 不经过 before-mouse-event，模拟不了
+test('keeps a drag going when the real cursor crosses the hidden test window', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    const nav = page.getByRole('navigation', { name: '主导航' })
+    const handle = page.getByRole('separator', { name: '调整侧栏宽度' })
+    const box = await handle.boundingBox()
+    if (!box) throw new Error('没有手柄')
+    const cdp = await page.context().newCDPSession(page)
+    await page.mouse.move(box.x + 4, box.y + 300)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 24, box.y + 300, { steps: 2 })
+    await cdp.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: 900,
+      y: 400,
+      button: 'none',
+      buttons: 0,
+    })
+    await page.mouse.move(box.x + 64, box.y + 300, { steps: 3 })
+    await page.mouse.up()
+    await expect.poll(async () => (await nav.boundingBox())?.width).toBe(308)
+  } finally {
+    await close()
+  }
+})
+
 test('clears the drag state when the sidebar collapses in the middle of a drag', async () => {
   const { page, close } = await launchApp()
   try {
