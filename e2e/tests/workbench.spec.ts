@@ -4,7 +4,7 @@ import { expect, type Page, test } from '@playwright/test'
 import { launchApp, mod } from './app'
 import { prepare } from './session'
 
-// 会话页右侧的面板：改动（按轮、diff 统一 / 并排、放大）；顶栏菜单和上下文对话框；对话里点开步骤看工具结果；完成时的总结卡片。内核用 Mock。
+// 会话页右侧的面板：文件在前、默认打开；改动（按轮、diff 统一 / 并排、放大）；顶栏菜单和上下文对话框；对话里点开步骤看工具结果；完成时的总结卡片。内核用 Mock。
 
 const mock = (scenario: string) => ({
   KITS_KERNEL: 'mock',
@@ -28,15 +28,19 @@ test('shows the changed files, commands and usage of a finished turn', async () 
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     const panel = page.getByRole('complementary', { name: '会话面板' })
 
+    // 默认开着文件页签，改动在后面，带计数
+    await expect(panel.getByRole('tab')).toHaveText(['文件', /改动/])
+    await expect(panel.getByRole('tab', { name: '文件' })).toHaveAttribute('aria-selected', 'true')
+    await expect(panel.getByRole('tab', { name: /改动/ })).toContainText('1')
+    await panel.getByRole('tab', { name: /改动/ }).click()
+
     // 改动：一轮结束后内核算出 diff，按轮列出
     const files = panel.getByTestId('changed-files')
     await expect(files).toContainText('给兑换接口加幂等校验')
     await expect(files.getByRole('button', { name: /src\/points\/redeem\.py/ })).toBeVisible()
     await expect(panel.getByTestId('diff')).toContainText('@idempotent(key="request_id")')
-    await expect(panel.getByRole('tab', { name: /改动/ })).toContainText('1')
 
     await page.screenshot({ path: 'test-results/workbench-changes.png' })
-    await expect(panel.getByRole('tab')).toHaveText([/改动/, '文件'])
 
     // 命令的结果在对话里就地看：标题是模型写的描述，点开是命令、输出和允许方式
     const turn = page.getByTestId('turn')
@@ -84,6 +88,7 @@ test('widens the panel with the shortcut and shows the diff side by side', async
     await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
     await page.keyboard.press(`${mod}+Backslash`)
     const panel = page.getByRole('complementary', { name: '会话面板' })
+    await panel.getByRole('tab', { name: /改动/ }).click()
     await panel.getByRole('radio', { name: '并排' }).click()
     await expect(panel.getByRole('radio', { name: '并排' })).toHaveAttribute('aria-checked', 'true')
     await expect(panel.getByTestId('diff')).toContainText(
@@ -96,6 +101,53 @@ test('widens the panel with the shortcut and shows the diff side by side', async
     await expect(panel).toBeHidden()
     await page.getByRole('button', { name: '显示面板' }).click()
     await expect(panel).toBeVisible()
+  } finally {
+    await close()
+  }
+})
+
+test('walks through several changed files and jumps from a diff to the file', async () => {
+  const { page, configDir, close } = await launchApp(mock('changes'))
+  try {
+    await send(page, configDir, '给兑换接口加幂等校验')
+    await expect(page.getByTestId('session-status')).toHaveText(/已完成/)
+    const workdir = path.join(path.dirname(configDir), 'member-svc')
+    mkdirSync(path.join(workdir, 'tests', 'points'), { recursive: true })
+    writeFileSync(
+      path.join(workdir, 'tests', 'points', 'test_idempotent.py'),
+      'def test_same_request_id_returns_first_result():\n    pass\n',
+    )
+    await page.keyboard.press(`${mod}+Backslash`)
+    const panel = page.getByRole('complementary', { name: '会话面板' })
+    await panel.getByRole('tab', { name: /改动/ }).click()
+    const files = panel.getByTestId('changed-files')
+    const diff = panel.getByTestId('diff')
+
+    // 五位数的行号、长行都在；方向键在文件之间换
+    await files.getByRole('button', { name: /src\/points\/redeem\.py/ }).focus()
+    await page.keyboard.press('ArrowDown')
+    await expect(diff).toContainText('ledger_service.py')
+    await expect(diff).toContainText('10001')
+    await expect(files.getByRole('button', { name: /ledger_service\.py/ })).toBeFocused()
+    await page.keyboard.press('ArrowDown')
+    await expect(diff).toContainText(`${'expire_days=366;'.repeat(12)}`)
+
+    // 删除的文件不能看、不能在文件夹里选中，只能引用
+    await files.getByRole('button', { name: /legacy_cache\.py/ }).click()
+    await expect(diff.getByRole('button', { name: '在对话里引用' })).toBeVisible()
+    await expect(diff.getByRole('button', { name: '查看完整文件' })).toHaveCount(0)
+    await expect(diff.getByRole('button', { name: '在文件夹中显示' })).toHaveCount(0)
+
+    // 引用填进输入框；查看完整文件切到文件页签
+    await files.getByRole('button', { name: /test_idempotent\.py/ }).click()
+    await diff.getByRole('button', { name: '在对话里引用' }).click()
+    await expect(page.getByLabel('给 Agent 发消息')).toHaveValue(
+      '@tests/points/test_idempotent.py ',
+    )
+    await diff.getByRole('button', { name: '查看完整文件' }).click()
+    await expect(panel.getByRole('tab', { name: '文件' })).toHaveAttribute('aria-selected', 'true')
+    await expect(panel.getByTestId('file-preview')).toContainText('def test_same_request_id')
+    await page.screenshot({ path: 'test-results/workbench-diff-view-file.png' })
   } finally {
     await close()
   }

@@ -74,3 +74,53 @@ export function splitRows(lines: DiffLine[]): SplitRow[] {
   flush()
   return rows
 }
+
+// 行号栏的宽度（字符数）：按最大的行号算，五位数的行号也不挤在一起
+export function gutterChars(lines: DiffLine[]): number {
+  let max = 0
+  for (const l of lines) max = Math.max(max, l.a ?? 0, l.b ?? 0)
+  return Math.max(2, String(max).length)
+}
+
+// 只有新增或只有删除（新建、删除的文件）：并排时另一半全空，直接按统一视图显示
+export function oneSided(lines: DiffLine[]): boolean {
+  return (
+    !lines.some((l) => l.kind === ' ') &&
+    !(lines.some((l) => l.kind === '+') && lines.some((l) => l.kind === '-'))
+  )
+}
+
+export interface HighlightSource {
+  // 旧文件、新文件里出现在 diff 中的行，按顺序拼起来交给高亮
+  old: string
+  new: string
+  // 每一行 diff 在哪一侧的第几行；分段头没有。上下文行取新文件那一侧
+  rows: ({ side: 'old' | 'new'; row: number } | undefined)[]
+}
+
+// 高亮按两侧各拼一段代码：分段之间断开的地方可能有跨行的字符串、注释接不上，只影响颜色
+export function highlightSource(lines: DiffLine[]): HighlightSource {
+  const old: string[] = []
+  const neu: string[] = []
+  const rows: HighlightSource['rows'] = []
+  for (const l of lines) {
+    if (l.kind === '@') {
+      rows.push(undefined)
+      continue
+    }
+    if (l.kind === '-' || l.kind === ' ') old.push(l.text)
+    if (l.kind === '-') {
+      rows.push({ side: 'old', row: old.length - 1 })
+      continue
+    }
+    neu.push(l.text)
+    rows.push({ side: 'new', row: neu.length - 1 })
+  }
+  return { old: old.join('\n'), new: neu.join('\n'), rows }
+}
+
+// 路径拆成目录和文件名：列表里文件名放后面不截断，长路径先截目录
+export function splitPath(path: string): { dir: string; name: string } {
+  const cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')) + 1
+  return { dir: path.slice(0, cut), name: path.slice(cut) }
+}

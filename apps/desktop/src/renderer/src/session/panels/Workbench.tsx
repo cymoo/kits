@@ -1,19 +1,29 @@
 import type { OutputView, SessionDetail } from '@kits/core/ipc'
-import { X } from 'lucide-react'
+import { AtSign, FileText, FolderOpen, X } from 'lucide-react'
 import { Tabs as T } from 'radix-ui'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react'
+import type { ThemedToken } from 'shiki/core'
 import { t } from '../../app/i18n'
+import { languageOf, tokenize } from '../../lib/highlight'
 import { kits } from '../../lib/kits'
-import { Button } from '../../ui/Button'
+import { useUi } from '../../lib/ui-store'
 import { cx } from '../../ui/cx'
 import { Segmented } from '../../ui/Segmented'
 import type { ChangedFile, Round } from './derive'
 import { FilesPanel } from './FilesPanel'
 import { OutputPanel } from './OutputPanel'
-import { type DiffLine, parsePatch, splitRows } from './patch'
+import {
+  type DiffLine,
+  gutterChars,
+  highlightSource,
+  oneSided,
+  parsePatch,
+  splitPath,
+  splitRows,
+} from './patch'
 
-// 会话页右侧的面板（原型 session.html 的 aside）：改动是常驻页签；对话里打开产出时多一个可关闭的页签。工具结果在对话里点开步骤看。
-// 放大模式下改动是左右两栏（文件列表 + diff），diff 可以切并排。
+// 会话页右侧的面板（原型 session.html 的 aside）：文件、改动是常驻页签，文件在前；对话里打开产出时多一个可关闭的页签。工具结果在对话里点开步骤看。
+// 放大模式下改动是左右两栏（文件列表 + diff），diff 可以切并排，选择记在 localStorage。
 
 export type PanelTab = 'changes' | 'files' | 'output'
 
@@ -70,7 +80,8 @@ function Empty({ title, note }: { title: string; note: string }) {
 
 export function Workbench(props: WorkbenchProps) {
   const { rounds, wide, tab, onTab } = props
-  const [view, setView] = useState<'unified' | 'split'>('unified')
+  const view = useUi((s) => s.diffView)
+  const setView = useUi((s) => s.setDiffView)
   const files = rounds.reduce((n, r) => n + r.files.length, 0)
   // 切页签时文件页签会卸载，看到哪、展开了什么留在这里
   const [file, setFile] = useState<string>()
@@ -81,6 +92,17 @@ export function Workbench(props: WorkbenchProps) {
     for (const r of rounds) for (const f of r.files) if (!map.has(f.path)) map.set(f.path, f.badge)
     return map
   }, [rounds])
+  // 改动里的“查看完整文件”：切到文件页签，展开它所在的目录
+  const viewFile = (path: string) => {
+    const parts = path.replace(/\\/g, '/').split('/')
+    setFile(parts.join('/'))
+    setOpenDirs((set) => {
+      const next = new Set(set)
+      for (let i = 1; i < parts.length; i++) next.add(parts.slice(0, i).join('/'))
+      return next
+    })
+    onTab('files')
+  }
   const { session, parts } = props.detail
   const tick = `${session.status}:${parts.filter((p) => p.type === 'tool' && p.status === 'completed').length}`
   return (
@@ -91,12 +113,12 @@ export function Workbench(props: WorkbenchProps) {
     >
       <div className="flex shrink-0 items-center gap-0.5 border-line-soft border-b px-2.5 pt-2">
         <T.List aria-label={t('panel.tabs')} className="flex items-center gap-0.5">
+          <T.Trigger value="files" className={TAB}>
+            {t('panel.files')}
+          </T.Trigger>
           <T.Trigger value="changes" className={TAB}>
             {t('panel.changes')}
             <Count n={files} on={tab === 'changes'} />
-          </T.Trigger>
-          <T.Trigger value="files" className={TAB}>
-            {t('panel.files')}
           </T.Trigger>
           {props.outputOpen ? (
             <>
@@ -130,7 +152,7 @@ export function Workbench(props: WorkbenchProps) {
         ) : null}
       </div>
       <T.Content value="changes" className="flex min-h-0 flex-1 flex-col outline-none">
-        <ChangesPanel {...props} view={wide ? view : 'unified'} />
+        <ChangesPanel {...props} view={wide ? view : 'unified'} onViewFile={viewFile} />
       </T.Content>
       <T.Content value="files" className="flex min-h-0 flex-1 flex-col outline-none">
         <FilesPanel
@@ -171,6 +193,18 @@ const BADGE_TONE = {
   D: 'bg-danger-bg text-danger',
 } as const
 
+// 一个文件先渲染这么多行，再多的点“全部显示”：几万行的 diff（生成的文档、锁文件）一次铺开会卡
+const LINE_LIMIT = 2_000
+// 和文件预览一样，太大的不高亮
+const HIGHLIGHT_LINES = 5_000
+const HIGHLIGHT_CHARS = 300_000
+
+const TOOL =
+  'flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-[6px] text-fg-muted hover:bg-active hover:text-fg'
+
+// 长行折行。pre-wrap 保留行首缩进；break-all 先把一行填满再折，缩进后面的长 token 不会整个掉到下一行行首
+const CODE = 'min-w-0 flex-1 whitespace-pre-wrap break-all'
+
 function stat(additions: number, deletions: number) {
   return (
     <>
@@ -181,6 +215,26 @@ function stat(additions: number, deletions: number) {
   )
 }
 
+// 目录在前、文件名在后，空间不够先截目录，文件名尽量完整。
+// 两段是 flex 子项，读屏和按名字找按钮时中间会多出空格，所以另放一份完整路径给读屏
+function PathLabel({ path, className }: { path: string; className?: string }) {
+  const { dir, name } = splitPath(path)
+  return (
+    <span className={cx('flex min-w-0 flex-1 whitespace-nowrap font-mono', className)} title={path}>
+      <span className="sr-only">{path}</span>
+      {dir ? (
+        <span aria-hidden="true" className="min-w-0 truncate text-fg-label">
+          {dir}
+        </span>
+      ) : null}
+      {/* 文件名不参与收缩（哪怕只缩零点几像素也会出省略号），只有比整栏还长时才截 */}
+      <span aria-hidden="true" className="max-w-full shrink-0 truncate">
+        {name}
+      </span>
+    </span>
+  )
+}
+
 function ChangesPanel({
   detail,
   rounds,
@@ -188,7 +242,9 @@ function ChangesPanel({
   view,
   picked,
   onPick,
-}: WorkbenchProps & { view: 'unified' | 'split' }) {
+  onQuote,
+  onViewFile,
+}: WorkbenchProps & { view: 'unified' | 'split'; onViewFile(path: string): void }) {
   const first = rounds[0]?.files[0]
   // 选中的文件没了（新一轮的改动替换了列表）就回到第一个。这一轮的 diff 里没有时（内核没算出来）找别的轮
   const selected = useMemo(() => {
@@ -204,19 +260,31 @@ function ChangesPanel({
       (first && rounds[0] ? { round: rounds[0], file: first } : undefined)
     )
   }, [rounds, picked, first])
-  // 从对话跳过来时，选中的文件可能在列表下面
+  const list = useRef<HTMLDivElement>(null)
+  // 从对话跳过来时，选中的文件可能在列表下面；用方向键换文件时焦点跟着走
   const pickedRow = useRef<HTMLButtonElement>(null)
   // biome-ignore lint/correctness/useExhaustiveDependencies: picked 变了才滚动，列表自己刷新时不动
   useEffect(() => {
     pickedRow.current?.scrollIntoView({ block: 'nearest' })
+    if (list.current?.contains(document.activeElement)) pickedRow.current?.focus()
   }, [picked])
 
   if (!rounds.length) {
     return <Empty title={t('changes.empty')} note={t('changes.emptyNote')} />
   }
+  // ↑ ↓ 在所有轮的文件里上下换
+  const step = (by: number) => {
+    const flat = rounds.flatMap((r) => r.files.map((f) => ({ turn: r.turn, path: f.path })))
+    const at = flat.findIndex(
+      (x) => x.turn === selected?.round.turn && x.path === selected?.file.path,
+    )
+    const next = flat[Math.min(flat.length - 1, Math.max(0, at + by))]
+    if (next && next !== flat[at]) onPick(next)
+  }
   return (
     <div className={cx('flex min-h-0 flex-1', wide ? 'flex-row' : 'flex-col')}>
       <div
+        ref={list}
         data-testid="changed-files"
         className={cx(
           'flex flex-col gap-0.5 overflow-y-auto p-2',
@@ -230,9 +298,12 @@ function ChangesPanel({
             <div className="flex items-center gap-1.5 px-1.5 pt-1.5 pb-0.5 font-medium text-[0.857rem] text-fg-label">
               <span className="min-w-0 flex-1 truncate" title={r.title}>
                 {r.title || t('changes.untitled')}
-                {r.pending ? ` · ${t('changes.running')}` : ''}
               </span>
-              <span className="font-normal">{stat(r.additions, r.deletions)}</span>
+              {/* 标题再长也不能把“进行中”截掉 */}
+              {r.pending ? (
+                <span className="shrink-0 text-warn-strong">{t('changes.running')}</span>
+              ) : null}
+              <span className="shrink-0 font-normal">{stat(r.additions, r.deletions)}</span>
             </div>
             {r.files.map((f) => {
               const on = selected?.round.turn === r.turn && selected.file.path === f.path
@@ -243,8 +314,13 @@ function ChangesPanel({
                   ref={on ? pickedRow : undefined}
                   aria-pressed={on}
                   onClick={() => onPick({ turn: r.turn, path: f.path })}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+                    e.preventDefault()
+                    step(e.key === 'ArrowDown' ? 1 : -1)
+                  }}
                   className={cx(
-                    'flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-[8px] px-1.5 text-left',
+                    'flex h-[30px] w-full shrink-0 cursor-pointer items-center gap-2 rounded-[8px] px-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-inset',
                     on ? 'bg-hover' : 'hover:bg-active',
                   )}
                 >
@@ -256,28 +332,27 @@ function ChangesPanel({
                   >
                     {f.badge}
                   </span>
-                  <span
-                    className="min-w-0 flex-1 truncate font-mono text-[0.929rem]"
-                    title={f.path}
-                  >
-                    {f.path}
-                  </span>
+                  <PathLabel path={f.path} className="text-[0.929rem]" />
                   <span className="shrink-0 text-[0.857rem]">{stat(f.additions, f.deletions)}</span>
                 </button>
               )
             })}
           </div>
         ))}
-        <p className="mx-1.5 mt-1.5 mb-0 text-[0.929rem] text-fg-label leading-[1.6]">
+        <p className="mx-1.5 mt-1.5 mb-0 whitespace-pre-line text-[0.929rem] text-fg-label leading-[1.6]">
           {t('changes.note')}
         </p>
       </div>
       {selected ? (
         <DiffView
+          // 换文件时从头看，不留上一个文件的滚动位置
+          key={`${selected.round.turn}:${selected.file.path}`}
           file={selected.file}
           pending={selected.round.pending}
           workdir={detail.session.workdir}
           view={view}
+          onQuote={onQuote}
+          onViewFile={onViewFile}
         />
       ) : null}
     </div>
@@ -293,12 +368,64 @@ function lineTone(kind: DiffLine['kind']) {
   }[kind]
 }
 
-function Num({ n }: { n: number | undefined }) {
+function Num({ n, chars }: { n: number | undefined; chars: number }) {
   return (
-    <span className="inline-block w-7 shrink-0 select-none text-right text-fg-subtle">
+    <span
+      className="shrink-0 select-none text-right text-fg-subtle"
+      style={{ width: `${chars}ch` }}
+    >
       {n ?? ''}
     </span>
   )
+}
+
+// 加减号不进选区，复制出来的就是代码
+function Mark({ kind }: { kind: DiffLine['kind'] }) {
+  return <span className="w-[2ch] shrink-0 select-none">{kind === ' ' ? '' : kind}</span>
+}
+
+function Code({ line, tokens }: { line: DiffLine; tokens: ThemedToken[] | undefined }) {
+  return (
+    <span className={CODE}>
+      {tokens
+        ? tokens.map((token, j) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: 同一行的 token 不会重排
+            <span key={j} className="k-tok" style={token.htmlStyle as CSSProperties}>
+              {token.content}
+            </span>
+          ))
+        : line.text}
+    </span>
+  )
+}
+
+// 两侧各高亮一次，按行取回；没有语言、太大或者高亮失败就是纯色
+function useTokens(path: string, lines: DiffLine[]) {
+  const lang = languageOf(path.replace(/\\/g, '/'))
+  const source = useMemo(() => highlightSource(lines), [lines])
+  const can =
+    !!lang &&
+    lines.length <= HIGHLIGHT_LINES &&
+    source.old.length + source.new.length <= HIGHLIGHT_CHARS
+  const [tokens, setTokens] = useState<{ old: ThemedToken[][]; new: ThemedToken[][] }>()
+  useEffect(() => {
+    if (!can || !lang) return
+    let gone = false
+    const side = (code: string) => (code ? tokenize(code, lang) : Promise.resolve([]))
+    void Promise.all([side(source.old), side(source.new)]).then(
+      ([o, n]) => {
+        if (!gone) setTokens({ old: o, new: n })
+      },
+      () => {},
+    )
+    return () => {
+      gone = true
+    }
+  }, [source, lang, can])
+  return (i: number): ThemedToken[] | undefined => {
+    const at = source.rows[i]
+    return at ? tokens?.[at.side][at.row] : undefined
+  }
 }
 
 function DiffView({
@@ -306,78 +433,141 @@ function DiffView({
   pending,
   workdir,
   view,
+  onQuote,
+  onViewFile,
 }: {
   file: ChangedFile
   pending: boolean
   workdir: string
   view: 'unified' | 'split'
+  onQuote(path: string): void
+  onViewFile(path: string): void
 }) {
   const lines = useMemo(() => parsePatch(file.patch), [file.patch])
+  const tokensAt = useTokens(file.path, lines)
+  const index = useMemo(() => new Map(lines.map((l, i) => [l, i])), [lines])
+  const chars = gutterChars(lines)
+  const [all, setAll] = useState(false)
   const sep = workdir.includes('\\') && !workdir.includes('/') ? '\\' : '/'
   // 工作目录外的文件保留的是绝对路径，直接用
   const absolute = /^(\/|[A-Za-z]:[\\/]|\\\\)/.test(file.path)
   const full = absolute ? file.path : `${workdir.replace(/[\\/]+$/, '')}${sep}${file.path}`
+  const deleted = file.badge === 'D'
+  // 新建、删除的文件只有一侧，并排没意义
+  const split = view === 'split' && !oneSided(lines)
+  const rows = split ? splitRows(lines) : undefined
+  const total = rows ? rows.length : lines.length
+  const hidden = all ? 0 : Math.max(0, total - LINE_LIMIT)
+  const tokensOf = (l: DiffLine) => tokensAt(index.get(l) ?? -1)
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="diff">
-      <div className="sticky top-0 z-[1] flex items-center gap-2 border-line-soft border-b bg-muted px-3 py-2 text-[0.929rem] text-fg-muted">
-        <span className="min-w-0 flex-1 truncate font-medium font-mono text-fg">{file.path}</span>
-        <span>{stat(file.additions, file.deletions)}</span>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="diff">
+      <div className="flex min-h-10 shrink-0 items-center gap-1 border-line-soft border-b bg-muted py-1 pr-2 pl-3 text-[0.929rem] text-fg-muted">
+        <PathLabel path={file.path} className="font-medium text-fg" />
+        <span className="mr-1 shrink-0">{stat(file.additions, file.deletions)}</span>
+        <button
+          type="button"
+          aria-label={t('files.quote')}
+          title={t('files.quote')}
+          onClick={() => onQuote(file.path)}
+          className={TOOL}
+        >
+          <AtSign size={14} />
+        </button>
+        {/* 删掉的文件没得看、也没得选中；工作目录外的文件文件页签打不开 */}
+        {deleted || absolute ? null : (
+          <button
+            type="button"
+            aria-label={t('changes.viewFile')}
+            title={t('changes.viewFile')}
+            onClick={() => onViewFile(file.path)}
+            className={TOOL}
+          >
+            <FileText size={14} />
+          </button>
+        )}
         {/* 只在文件夹里选中，不交给系统默认程序打开：Agent 改的可能是 .bat / .exe，打开就执行了 */}
-        <Button variant="link" onClick={() => void kits.app.revealPath(full)}>
-          {t('changes.reveal')}
-        </Button>
+        {deleted ? null : (
+          <button
+            type="button"
+            aria-label={t('changes.reveal')}
+            title={t('changes.reveal')}
+            onClick={() => void kits.app.revealPath(full)}
+            className={TOOL}
+          >
+            <FolderOpen size={14} />
+          </button>
+        )}
       </div>
-      {pending || !lines.length ? (
-        <p className="m-0 px-3 py-4 text-[0.929rem] text-fg-muted">
-          {pending ? t('changes.pendingDiff') : t('changes.binary')}
-        </p>
-      ) : view === 'unified' ? (
-        // 行比面板宽时横向滚动，底色要铺满整行
-        <div className="w-max min-w-full pb-4 font-mono text-[0.857rem] leading-[1.75]">
-          {lines.map((l, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: diff 行没有稳定 id，按位置
-            <div key={i} className={cx('flex whitespace-pre px-3', lineTone(l.kind))}>
-              <Num n={l.a} />
-              <span className="mr-3 ml-1">
-                <Num n={l.b} />
-              </span>
-              <span>{l.kind === '@' ? l.text : `${l.kind} ${l.text}`}</span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="pb-4 font-mono text-[0.857rem] leading-[1.75]">
-          {splitRows(lines).map((row, i) =>
-            row.hunk ? (
-              // biome-ignore lint/suspicious/noArrayIndexKey: 按位置
-              <div key={i} className={cx('whitespace-pre px-3', lineTone('@'))}>
-                {row.hunk.text}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {pending || !lines.length ? (
+          <p className="m-0 px-3 py-4 text-[0.929rem] text-fg-muted">
+            {pending ? t('changes.pendingDiff') : t('changes.binary')}
+          </p>
+        ) : !rows ? (
+          <div className="pb-4 font-mono text-[0.857rem] leading-[1.75]">
+            {lines.slice(0, total - hidden).map((l, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: diff 行没有稳定 id，按位置
+              <div key={i} className={cx('flex min-h-[1.75em] px-3', lineTone(l.kind))}>
+                <Num n={l.a} chars={chars} />
+                <span className="mr-3 ml-2 flex shrink-0">
+                  <Num n={l.b} chars={chars} />
+                </span>
+                {l.kind === '@' ? (
+                  <span className={CODE}>{l.text}</span>
+                ) : (
+                  <>
+                    <Mark kind={l.kind} />
+                    <Code line={l} tokens={tokensAt(i)} />
+                  </>
+                )}
               </div>
-            ) : (
-              // biome-ignore lint/suspicious/noArrayIndexKey: 按位置
-              <div key={i} className="grid grid-cols-2">
-                {[row.left, row.right].map((l, side) => (
-                  <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: 左右两格
-                    key={side}
-                    className={cx(
-                      'flex min-w-0 px-3',
-                      side === 0 && 'border-line-soft border-r',
-                      l ? (l.kind === ' ' ? lineTone(' ') : lineTone(l.kind)) : 'bg-muted',
-                    )}
-                  >
-                    <span className="mr-3">
-                      <Num n={side === 0 ? l?.a : l?.b} />
-                    </span>
-                    {/* 长行折行显示，pre-wrap 保留行首缩进，不截断 */}
-                    <span className="min-w-0 whitespace-pre-wrap break-all">{l ? l.text : ''}</span>
-                  </div>
-                ))}
-              </div>
-            ),
-          )}
-        </div>
-      )}
+            ))}
+          </div>
+        ) : (
+          <div className="pb-4 font-mono text-[0.857rem] leading-[1.75]">
+            {rows.slice(0, total - hidden).map((row, i) =>
+              row.hunk ? (
+                // biome-ignore lint/suspicious/noArrayIndexKey: 按位置
+                <div key={i} className={cx(CODE, 'block px-3', lineTone('@'))}>
+                  {row.hunk.text}
+                </div>
+              ) : (
+                // biome-ignore lint/suspicious/noArrayIndexKey: 按位置
+                <div key={i} className="grid grid-cols-2">
+                  {[row.left, row.right].map((l, side) => (
+                    <div
+                      // biome-ignore lint/suspicious/noArrayIndexKey: 左右两格
+                      key={side}
+                      className={cx(
+                        'flex min-h-[1.75em] min-w-0 px-3',
+                        side === 0 && 'border-line-soft border-r',
+                        l ? lineTone(l.kind) : 'bg-muted',
+                      )}
+                    >
+                      <span className="mr-3 flex shrink-0">
+                        <Num n={side === 0 ? l?.a : l?.b} chars={chars} />
+                      </span>
+                      {l ? <Code line={l} tokens={tokensOf(l)} /> : null}
+                    </div>
+                  ))}
+                </div>
+              ),
+            )}
+          </div>
+        )}
+        {hidden && !pending ? (
+          <div className="flex items-center gap-2 px-3 pb-6 text-[0.929rem] text-fg-muted">
+            <span>{t('changes.more', { n: hidden })}</span>
+            <button
+              type="button"
+              onClick={() => setAll(true)}
+              className="cursor-pointer text-accent hover:underline"
+            >
+              {t('changes.showAll')}
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

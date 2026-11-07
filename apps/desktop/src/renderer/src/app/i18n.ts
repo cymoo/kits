@@ -530,10 +530,13 @@ const zhCN = {
   'changes.untitled': '这一轮的改动',
   'changes.running': '进行中',
   'changes.pendingDiff': '这一轮结束后显示 diff',
-  'changes.note':
-    '改动直接在工作区里。要留就 Git 提交，不要就 Git 丢弃，或者让 Agent 改回来；这版不做回滚。',
+  // 一句一行
+  'changes.note': '改动已经写进工作区。\n要留就 Git 提交，不要就 Git 丢弃或让 Agent 改回。',
   'changes.reveal': '在文件夹中显示',
   'changes.binary': '没有可显示的文本差异',
+  'changes.viewFile': '查看完整文件',
+  'changes.more': '还有 {n} 行没显示',
+  'changes.showAll': '全部显示',
   'output.card': '结构化产出',
   'output.cardCount': '{agent} · {n} 条',
   'output.open': '查看',
