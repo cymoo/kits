@@ -1200,7 +1200,7 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 ### 主要改动
 
 - `session.attachmentPreview`、`session.attachmentOpen`：新增 IPC，都只接收附件 id，路径由主进程查库得到。
-- `files/browse.ts`：拆出 `previewFile(file)`，工作区文件和附件共用。
+- `files/browse.ts`：拆出 `previewFile(file, name)`，工作区文件和附件共用。格式按 `name` 判断，工作区传用户选的相对路径，所以 `report.pdf → objects/12345` 这样的软链接仍按 PDF 预览。
 - `@kits/core` 新增 `canOpenAttachment`：只放行文档、数据和图片类型。脚本和网页只在文件夹里选中，避免 Windows 上 `.js` 这类文件打开即执行。
 - `session/panels/FileBody.tsx`（新增）：从 `FilesPanel.tsx` 抽出预览内容，文件页签和附件弹窗共用。
 - `session/thread/AttachmentPreview.tsx`（新增）、`Blocks.tsx`：文件名改成按钮，点开弹窗。弹窗打开时才读文件，关闭后不留缓存。

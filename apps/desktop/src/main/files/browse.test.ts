@@ -86,6 +86,13 @@ describe('readPreview', () => {
     })
   })
 
+  it('picks the format from the link name, not from its target', async () => {
+    mkdirSync(path.join(work, 'objects'))
+    writeFileSync(path.join(work, 'objects', '12345'), Buffer.from([37, 80]))
+    symlinkSync(path.join(work, 'objects', '12345'), path.join(work, 'report.pdf'))
+    expect(await readPreview(work, 'report.pdf')).toMatchObject({ kind: 'pdf' })
+  })
+
   it('gives a pdf as bytes', async () => {
     writeFileSync(path.join(work, 'a.pdf'), Buffer.from([37, 80]))
     const preview = await readPreview(work, 'a.pdf')

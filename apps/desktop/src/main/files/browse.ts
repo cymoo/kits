@@ -57,14 +57,14 @@ export async function listDir(workdir: string, dir: string): Promise<FileEntry[]
 }
 
 export async function readPreview(workdir: string, rel: string): Promise<FilePreview> {
-  return previewFile(await resolveInside(workdir, rel))
+  return previewFile(await resolveInside(workdir, rel), rel)
 }
 
-// 按扩展名取预览。路径由调用方把关
-export async function previewFile(file: string): Promise<FilePreview> {
+// 取预览，路径由调用方把关。格式看 name：软链接解析后的真实路径可能没有扩展名
+export async function previewFile(file: string, name = file): Promise<FilePreview> {
   const { size } = await stat(file)
   if (size > FILE_LIMIT) return { kind: 'unsupported', reason: 'large', size }
-  const ext = path.extname(file).slice(1).toLowerCase()
+  const ext = path.extname(name).slice(1).toLowerCase()
   const image = IMAGES[ext]
   if (image) {
     const data = await readFile(file)
