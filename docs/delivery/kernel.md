@@ -367,3 +367,34 @@ phase1-implementation PR19（4.3 节）：CodeAgent 方言和配置转换、假�
 
 - OpenCode 的会话规则只追加不替换，频繁切换会变长，数量很小，暂不处理。
 - 留痕在运行中排在这一轮下面，这一轮后面的内容仍在它上面。
+
+## 2026-11-07　图片契约用例不再因默认超时偶发失败
+
+> PR：[#94](https://github.com/cymoo/kits/pull/94)　作者：Claude Code
+
+### 原始需求
+
+[#92](https://github.com/cymoo/kits/pull/92) 的 Windows CI 里，`hands an image to a model that can see` 超过 5 秒失败。这条用例和界面改动无关。
+
+### 怎么验收
+
+1. 运行 `pnpm -F @kits/kernel test`。预期：通过。
+2. 看 PR 的 Windows CI。预期：`opencode-family.contract.test.ts` 通过。
+
+### 主要改动
+
+- `opencode-family.contract.test.ts`：两条图片用例的超时设为 60 秒，和同文件其他走内核的用例一致。它们用的是默认的 5 秒，又排在最前面，要等内核第一次响应。
+
+只改测试。配置项、数据库 schema、界面没有变化。
+
+### 测试
+
+- 改的就是测试，见上。
+
+### 新增依赖
+
+无。
+
+### 已知问题
+
+无。
