@@ -54,6 +54,7 @@ const zhCN = {
   'composer.tooBig': '{name} 超过 20 MB，先拆小一点再发',
   'composer.imageTooBig': '{name} 超过 5 MB，压缩一下再发',
   'composer.badImage': '{name} 打不开，可能文件坏了',
+  'composer.noFolder': '{name} 是文件夹，不能作为附件，选里面的文件',
   'composer.noVision': '{model} 看不了图片',
   'composer.noVisionAny': '还没有能看图片的模型，到模型设置里打开',
   'composer.switchModel': '换成 {model}',

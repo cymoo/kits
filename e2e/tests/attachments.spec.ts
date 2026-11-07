@@ -97,6 +97,36 @@ test('adds a file dropped on the composer and refuses one it cannot read', async
   }
 })
 
+test('attaches pasted files and keeps text copied with a rendered image as text', async () => {
+  const { page, configDir, close } = await launchApp(mock)
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.click()
+    await box.evaluate((el) => {
+      const dt = new DataTransfer()
+      dt.items.add(new File(['# 需求'], '需求.md', { type: 'text/markdown' }))
+      dt.items.add(new File(['%PDF-1.4'], '接口.pdf', { type: 'application/pdf' }))
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    const chips = page.getByTestId('attachments')
+    await expect(chips).toContainText('需求.md')
+    await expect(chips).toContainText('接口.pdf')
+
+    // Word 复制内容时带的渲染图不当附件
+    await box.evaluate((el, bytes) => {
+      const dt = new DataTransfer()
+      dt.setData('text/plain', '一段文字')
+      dt.items.add(new File([new Uint8Array(bytes)], 'image.png', { type: 'image/png' }))
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    }, PIXEL)
+    await expect(chips).not.toContainText('image.png')
+  } finally {
+    await close()
+  }
+})
+
 test('sends a pasted screenshot and shows it in the message', async () => {
   const { page, configDir, userDataDir, close } = await launchApp(mock)
   try {
