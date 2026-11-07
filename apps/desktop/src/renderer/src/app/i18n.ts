@@ -45,7 +45,7 @@ const zhCN = {
   'composer.modelSettings': '内核与模型设置',
   'composer.add': '添加文件和引用',
   'composer.upload': '上传文件',
-  'composer.uploadNote': 'Word、PDF、Markdown、文本、图片',
+  'composer.uploadNote': 'Word、PDF、Markdown、图片',
   'composer.reference': '引用工作区里的文件',
   'composer.platforms': '本次会话可用的平台',
   'composer.manageMcp': '管理 MCP 服务',

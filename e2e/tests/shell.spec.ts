@@ -334,3 +334,49 @@ test('keeps each permission note on one line', async () => {
     await close()
   }
 })
+
+test('keeps a long model list inside the window and reachable', async () => {
+  const { page, configDir, close } = await launchApp()
+  try {
+    const models = Array.from({ length: 60 }, (_, i) => ({ id: `model-${i}` }))
+    models.push({ id: `a-very-long-model-id-from-the-gateway/${'x'.repeat(80)}` })
+    await prepare(page, configDir, models)
+    await page.getByTitle('内核与模型').click()
+
+    const menu = page.getByRole('menu')
+    await expect(menu.getByRole('menuitemradio', { name: 'model-0' })).toBeVisible()
+    await page.screenshot({ path: 'test-results/composer-long-models.png' })
+    const box = await menu.boundingBox()
+    const view = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }))
+    expect(box?.y).toBeGreaterThanOrEqual(0)
+    expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(view.h)
+
+    // 内核切换和设置入口钉在两头，列表自己滚；最后一个模型能滚到
+    await expect(menu.getByRole('menuitem', { name: '内核与模型设置' })).toBeInViewport()
+    await expect(menu.getByRole('menuitemradio', { name: 'OpenCode' })).toBeInViewport()
+    const last = menu.getByRole('menuitemradio', { name: /a-very-long-model-id/ })
+    await last.scrollIntoViewIfNeeded()
+    await expect(last).toBeInViewport()
+    const lastBox = await last.boundingBox()
+    expect((lastBox?.x ?? 0) + (lastBox?.width ?? 0)).toBeLessThanOrEqual(
+      (box?.x ?? 0) + (box?.width ?? 0),
+    )
+  } finally {
+    await close()
+  }
+})
+
+test('keeps the upload entry in the composer menu on one line', async () => {
+  const { page, close } = await launchApp()
+  try {
+    await page.getByRole('button', { name: '添加文件和引用' }).click()
+    const upload = page.getByRole('menuitem', { name: /上传文件/ })
+    await expect(upload).toBeVisible()
+    const label = upload.getByText('上传文件', { exact: true })
+    const height = await label.evaluate((el) => el.getBoundingClientRect().height)
+    const line = await label.evaluate((el) => Number.parseFloat(getComputedStyle(el).lineHeight))
+    expect(height).toBeLessThan(line * 1.5)
+  } finally {
+    await close()
+  }
+})

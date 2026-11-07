@@ -42,6 +42,7 @@ import {
   MenuLabel,
   MenuRadioGroup,
   MenuRadioItem,
+  MenuScroll,
   MenuSegmented,
   MenuSeparator,
   MenuSwitchItem,
@@ -812,8 +813,10 @@ export function Composer({
           <MenuContent>
             <MenuItem onSelect={() => picker.current?.click()}>
               <Paperclip size={14} className="text-fg-muted" />
-              <span className="flex-1">{t('composer.upload')}</span>
-              <small className="text-[0.857rem] text-fg-label">{t('composer.uploadNote')}</small>
+              <span className="flex-1 whitespace-nowrap">{t('composer.upload')}</span>
+              <small className="min-w-0 truncate text-[0.857rem] text-fg-label">
+                {t('composer.uploadNote')}
+              </small>
             </MenuItem>
             <MenuItem onSelect={() => setTimeout(startReference, 0)}>
               <AtSign size={14} className="text-fg-muted" />
@@ -945,26 +948,30 @@ export function Composer({
             {gateways.length === 0 ? (
               <p className="m-0 px-2 py-2 text-fg-muted">{t('composer.noGateway')}</p>
             ) : null}
-            {gateways.map((g) => (
-              <MenuRadioGroup key={g.id} value={model} onValueChange={pickModel}>
-                <MenuLabel>{g.name || g.id}</MenuLabel>
-                {g.models.map((m) => (
-                  <MenuRadioItem key={m.id} value={`${g.id}/${m.id}`}>
-                    <span className="flex items-center gap-1.5">
-                      <span className="font-mono text-[0.929rem]">{m.id}</span>
-                      {m.vision ? (
-                        <ImageIcon
-                          size={12}
-                          className="shrink-0 text-fg-subtle"
-                          role="img"
-                          aria-label={t('composer.visionTag')}
-                        />
-                      ) : null}
-                    </span>
-                  </MenuRadioItem>
-                ))}
-              </MenuRadioGroup>
-            ))}
+            <MenuScroll>
+              {gateways.map((g) => (
+                <MenuRadioGroup key={g.id} value={model} onValueChange={pickModel}>
+                  <MenuLabel>{g.name || g.id}</MenuLabel>
+                  {g.models.map((m) => (
+                    <MenuRadioItem key={m.id} value={`${g.id}/${m.id}`}>
+                      <span className="flex items-center gap-1.5">
+                        <span className="min-w-0 truncate font-mono text-[0.929rem]" title={m.id}>
+                          {m.id}
+                        </span>
+                        {m.vision ? (
+                          <ImageIcon
+                            size={12}
+                            className="shrink-0 text-fg-subtle"
+                            role="img"
+                            aria-label={t('composer.visionTag')}
+                          />
+                        ) : null}
+                      </span>
+                    </MenuRadioItem>
+                  ))}
+                </MenuRadioGroup>
+              ))}
+            </MenuScroll>
             <MenuSeparator />
             <MenuItem onSelect={() => navigate('/settings/model')}>
               <SlidersHorizontal size={14} className="text-fg-muted" />
