@@ -1139,14 +1139,15 @@ Agent 运行中发的消息只能等这一轮结束，发错了也改不了。�
 6. 把一个文本文件改名成 `broken.png` 发送。预期：提示 `broken.png 打不开`，没有发出去。
 7. 选一张超过 5 MB 的图片。预期：提示超过 5 MB，不加进附件。
 8. 带图聊过的会话换到 `deepseek-v4-pro` 接着说话。预期：正常回复，不报错。
+9. 用 `deepseek-v4-pro` 发一个要跑一会儿的任务，运行中换成 `deepseek-flash`，粘贴一张图按 ⌘↵ 插话。预期：这条进排队，这一轮结束后用 `deepseek-flash` 发出，回复说得出图里的文字。换模型下一条才生效，这一轮的模型看不了图，所以不插话。
 
 ### 主要改动
 
 - 模型配置：`GatewayModel` 新增可选的 `vision`（在 `settings.json` 里）。没写过是“不知道”，按看不了处理。旧配置不用迁移，刷新一次模型列表或手动打开开关就行。
-- `gateway-client.ts`：从模型列表和详情里读能不能看图，认 `input_modalities`、`architecture.input_modalities`、`modalities.input`、`supports_vision`、`capabilities`。刷新只填还没定过的模型，手动开关过的不动。
+- `gateway-client.ts`：从模型列表和详情里读能不能看图，认 `input_modalities`、`architecture.input_modalities`、`modalities.input`、`supports_vision`、`capabilities`。列表缺上下文或图片信息时都查详情，两者冲突时以列表为准，超时和并发限制不变。列表不报图片能力的网关，测试连接时会多查一轮详情，总共最多多等 8 秒，显示的延迟不算这部分。刷新只填还没定过的模型，手动开关过的不动。
 - `opencode-config.ts`：能看图的模型写 `attachment` 和 `modalities`。不写的话内核不发图，只告诉模型读不了。
 - `opencode-family.ts`：图片作为 `file` part 发给内核。`events.ts`：内核解不开图片时，把堆栈换成一句话。
-- `session-service.ts`：图片存原文件，不转文字，按文件头认类型，发的时候才读成 data URL。输入框挡过之后这里再查一遍模型、大小和类型。新增 `session.attachmentImage` 取缩略图。
+- `session-service.ts`：图片存原文件，不转文字，按文件头认类型，发的时候才读成 data URL。输入框挡过之后这里再查一遍模型、大小和类型。插话时按这一轮实际用的模型判断，看不了图就排队到这一轮结束。新增 `session.attachmentImage` 取缩略图。
 - `Composer.tsx`、`composer-image.ts`：粘贴、缩略图、看不了图的提示和一键换模型、发之前解一遍图片。模型菜单里能看图的模型带图标。
 - `Blocks.tsx`：消息里的缩略图和大图。`ModelSection.tsx`：模型行的“图片”开关。
 - `codeagent-checklist.md`：新增第 33 项。

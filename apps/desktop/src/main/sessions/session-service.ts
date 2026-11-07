@@ -421,7 +421,7 @@ export class SessionService {
     else await this.interjectQueued(id, this.takeQueued(id, input.queueId), stopped)
   }
 
-  // 输入框里的文字：发不出去就报错，文字还留在输入框；只有内核还没准备好时才排队
+  // 输入框里的文字：发不出去就报错，文字还留在输入框；内核还没准备好、这一轮的模型看不了图时才排队
   private async interjectText(
     id: string,
     text: string,
@@ -477,11 +477,14 @@ export class SessionService {
     if (!this.running.has(id) && !this.compacting.has(id)) this.sendQueued(id)
   }
 
-  // 交给内核；这一轮还没进内核、已经结束、停止了，或者内核不支持时返回 false
+  // 交给内核；这一轮还没进内核、已经结束、停止了，或者内核不支持时返回 false。
+  // 插话走这一轮发起时的模型，换模型下一条才生效：它看不了图的话也返回 false，排到这一轮结束用新模型发
   private async deliver(id: string, item: Queued, stopped: () => boolean): Promise<boolean> {
     const run = this.running.get(id)
     const session = this.deps.store.session(id)
     if (!session || !run?.kernel || !run.ks || !run.submitted) return false
+    const hasImage = item.attachments.some((a) => a.text === undefined)
+    if (hasImage && !this.deps.modelSupportsImages(run.ks.model ?? '')) return false
     const sent = skillPrompt(item.text, this.deps.enabledSkills?.(session.workdir) ?? [])
     const live = await run.kernel.interject(run.ks, {
       text: sent,

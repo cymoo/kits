@@ -1001,6 +1001,62 @@ describe('SessionService image attachments', () => {
     ).rejects.toThrow(/超过 5 MB/)
   })
 
+  async function finish(
+    service: SessionService,
+    waitFor: (id: string, states: SessionStatus[]) => Promise<void>,
+    id: string,
+  ) {
+    await service.abort(id)
+    await waitFor(id, ['aborted'])
+  }
+
+  // 这一轮用的是发起时的模型，换模型下一条消息才生效
+  async function switchedMidTurn() {
+    const ctx = setup('permission')
+    const interject = vi.spyOn(ctx.kernel, 'interject')
+    const prompt = vi.spyOn(ctx.kernel, 'prompt')
+    const s = await ctx.service.create(input)
+    await ctx.waitFor(s.id, ['waiting'])
+    await ctx.service.setModel(s.id, VISION_MODEL)
+    return { ...ctx, s, interject, prompt }
+  }
+
+  it('queues an image interjected while the running model cannot see', async () => {
+    const { service, waitFor, s, interject } = await switchedMidTurn()
+    await service.interject({ id: s.id, text: '看这张图', attachments: [image] })
+    expect(interject).not.toHaveBeenCalled()
+    expect(service.get(s.id)?.session.queued?.map((q) => q.text)).toEqual(['看这张图'])
+    await finish(service, waitFor, s.id)
+  })
+
+  it('sends the queued image on the new model when the turn ends', async () => {
+    const { service, waitFor, s, prompt, store } = await switchedMidTurn()
+    await service.interject({ id: s.id, text: '看这张图', attachments: [image] })
+    const permission = store.detail(s.id)?.parts.find((p) => p.type === 'permission')
+    const payload = permission?.payload as { requestId: string }
+    await service.respondPermission({ id: s.id, requestId: payload.requestId, reply: 'once' })
+    await vi.waitFor(() => expect(prompt).toHaveBeenCalledTimes(2))
+    expect(prompt.mock.calls[1]?.[0].model).toBe(VISION_MODEL)
+    expect(prompt.mock.calls[1]?.[1].attachments?.[0]).toMatchObject({ mime: 'image/png' })
+    await finish(service, waitFor, s.id)
+  })
+
+  it('keeps a queued image for the next turn when interjected on such a model', async () => {
+    const { service, waitFor, s, interject } = await switchedMidTurn()
+    await service.prompt(s.id, '看这张图', [image])
+    await service.interject({ id: s.id })
+    expect(interject).not.toHaveBeenCalled()
+    expect(service.get(s.id)?.session.queued).toHaveLength(1)
+    await finish(service, waitFor, s.id)
+  })
+
+  it('still interjects text while the running model cannot see', async () => {
+    const { service, waitFor, s, interject } = await switchedMidTurn()
+    await service.interject({ id: s.id, text: '先别改测试' })
+    expect(interject).toHaveBeenCalledOnce()
+    await finish(service, waitFor, s.id)
+  })
+
   it('has no image to show for a text attachment', async () => {
     const { service, waitFor, store } = setup('done')
     const file = {

@@ -87,7 +87,7 @@ async function fetchDetail(
   }
 }
 
-// 列表里没报上下文的模型逐个查详情，总预算用尽后剩余模型按“取不到”处理
+// 列表里缺上下文或图片输入的模型逐个查详情，列表报过的以列表为准；总预算用尽后剩余模型按“取不到”处理
 async function fillFromDetails(
   baseUrl: string,
   apiKey: string | undefined,
@@ -96,7 +96,9 @@ async function fillFromDetails(
   vision: Record<string, boolean>,
   fetchImpl: typeof fetch,
 ): Promise<void> {
-  const pending = models.filter((id) => contextWindows[id] === undefined)
+  const pending = models.filter(
+    (id) => contextWindows[id] === undefined || vision[id] === undefined,
+  )
   if (pending.length === 0) return
   const deadline = Date.now() + DETAIL_BUDGET_MS
   let next = 0
@@ -109,7 +111,7 @@ async function fillFromDetails(
       const detail = await fetchDetail(baseUrl, apiKey, model, fetchImpl)
       if (!detail) continue
       const window = contextWindowOf(detail)
-      if (window !== undefined) contextWindows[model] = window
+      if (window !== undefined) contextWindows[model] ??= window
       const sees = visionOf(detail)
       if (sees !== undefined) vision[model] ??= sees
     }
