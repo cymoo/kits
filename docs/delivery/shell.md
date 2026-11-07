@@ -399,7 +399,7 @@
 
 ## 2026-11-07　E2E 拖动不再被真实光标打断
 
-> PR：分支 `fix/shell-stray-mouse`　作者：Claude Code
+> PR：[#91](https://github.com/cymoo/kits/pull/91)　作者：Claude Code
 
 ### 原始需求
 
@@ -456,4 +456,5 @@
 - 没按键时的真实 `mouseMove` 还会进页面：测试自己的悬停也长这样，分不出来源。它们不影响拖动，但理论上可能影响依赖悬停状态的用例，目前没见过。
 - 新用例发的是 `mouseMove`，CDP 发不了 `mouseLeave`，`sendInputEvent` 又不经过 `before-mouse-event`，所以 `mouseLeave` 只有单测覆盖，真实光标的验证在上面的 150 次里。
 - `E2E_HEADED=1` 时窗口是正常窗口，没有这层过滤，这时动鼠标仍然会干扰测试。
+- 过滤器靠 `mouseUp` 复位按键状态。Playwright 做 HTML5 拖放时不发 `mouseReleased`，状态会卡住，之后的悬停移动都被挡掉。现在应用里没有 `draggable`，走不到；以后加了要一起处理。
 - 只在 macOS 上验证过，这个泄漏也只在 macOS 上看到。Windows 上有没有同样的现象没有实测，CI 上没有真实光标，碰不到。
