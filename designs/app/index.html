@@ -24,10 +24,9 @@ a{color:#3563E0}a:hover{color:#2A4FBF}
     <div style="width: 100%; max-width: 760px; display: flex; flex-direction: column; gap: 28px; margin: auto 0; padding: 48px 0 12vh; box-sizing: border-box">
       <div style="display: flex; flex-direction: column; gap: 6px; align-items: center">
         <h1 style="margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.015em">要做什么？</h1>
-        <p style="margin: 0; color: #60646B">在 <span style="font-family: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: 13px; color: #16171A">member-svc</span> 里干活。输入 / 用命令，@ 引用文件、需求或用例。</p>
       </div>
 
-      <k-composer key="home" rows="3" big placeholder="描述任务。例如：给积分兑换接口加幂等校验，改完跑 tests/points 下的测试"></k-composer>
+      <k-composer key="home" rows="3" big placeholder="发消息或创建测试任务，/ 调用指令，@ 引用文件"></k-composer>
 
       <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center">
         <sc-for list="{{suggestions}}" as="g">

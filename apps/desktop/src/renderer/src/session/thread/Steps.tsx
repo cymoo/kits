@@ -44,9 +44,10 @@ const ICONS: Record<StepIcon, ComponentType<{ size?: number; strokeWidth?: numbe
   tool: Wrench,
 }
 
+// 行尾图标的位置：点不开的行也留着，右边的数字才和别的行对齐
+const HINT_SLOT = 'flex h-5 w-3.5 shrink-0 items-center justify-center'
 // 悬浮或聚焦时才显示的展开、跳转图标；已展开的一直显示
-const HINT =
-  'flex h-5 w-3.5 shrink-0 items-center justify-center text-fg-muted opacity-0 group-hover/step:opacity-100 group-focus-visible/step:opacity-100'
+const HINT = `${HINT_SLOT} text-fg-muted opacity-0 group-hover/step:opacity-100 group-focus-visible/step:opacity-100`
 
 export const STEP_ROW =
   'group/step flex w-full items-start gap-2 rounded-[8px] px-2 py-[3px] text-left text-[0.929rem] outline-none'
@@ -283,6 +284,7 @@ export function StepRow({
       </span>
       {meta ? (
         <span
+          data-testid="step-meta"
           className={cx(
             'shrink-0 text-[0.929rem] tabular-nums leading-5',
             step.state === 'error' ? 'text-danger' : step.isStat ? 'text-ok' : 'text-fg-muted',
@@ -297,6 +299,7 @@ export function StepRow({
           <ArrowUpRight size={12} />
         </span>
       ) : null}
+      {expandable || file || toOutput ? null : <span aria-hidden="true" className={HINT_SLOT} />}
     </>
   )
   return (

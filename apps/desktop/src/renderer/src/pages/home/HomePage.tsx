@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router'
 import { t } from '../../app/i18n'
-import { basename, resolvePrefs, usePrefs } from '../../lib/composer-prefs'
-import { kits, useSettings } from '../../lib/kits'
+import { kits } from '../../lib/kits'
 import { useUi } from '../../lib/ui-store'
 import { Composer } from '../../shell/Composer'
 
@@ -21,31 +20,13 @@ const SUGGESTIONS: [kind: string, label: string, text: string][] = [
 
 export function HomePage() {
   const navigate = useNavigate()
-  const settings = useSettings()
-  const prefs = usePrefs()
   const fillHome = useUi((s) => s.fillHome)
-  const workdir = resolvePrefs(prefs, settings.data).workdir
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-8">
       <div className="my-auto flex w-full max-w-[760px] flex-col gap-7 pt-12 pb-[12vh]">
-        <div className="flex flex-col items-center gap-1.5">
-          <h1 className="m-0 font-semibold text-[2.143rem] tracking-[-0.015em]">
-            {t('home.title')}
-          </h1>
-          <p className="m-0 text-fg-muted">
-            {workdir ? (
-              <>
-                在{' '}
-                <span className="font-mono text-[0.929rem] text-fg">
-                  {settings.data?.workdirs.find((w) => w.path === workdir)?.label ??
-                    basename(workdir)}
-                </span>{' '}
-                里干活。
-              </>
-            ) : null}
-            {t('home.subtitle')}
-          </p>
-        </div>
+        <h1 className="m-0 text-center font-semibold text-[2.143rem] tracking-[-0.015em]">
+          {t('home.title')}
+        </h1>
         <Composer
           big
           placeholder={t('home.placeholder')}

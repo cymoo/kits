@@ -69,6 +69,7 @@ export const mockScenarioNames = [
   'plan',
   'subagent',
   'plan',
+  'empty-read',
 ] as const
 export type MockScenarioName = (typeof mockScenarioNames)[number]
 
@@ -395,6 +396,24 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
       },
       { delay: 200, text: '都做完了。', partId: 'prt_answer' },
       usage(9_000, 120),
+    ],
+  },
+  // 读到一个空文件：这一步没有结果可展开，右边的行数还要和别的步骤对齐
+  'empty-read': {
+    name: 'empty-read',
+    steps: [
+      busy,
+      readRedeem,
+      {
+        delay: 100,
+        tool: 'read',
+        callId: 'call_read_empty',
+        input: { filePath: 'README.md' },
+        output: '<content>\n\n\n(End of file - total 0 lines)\n</content>',
+        count: 0,
+      },
+      { delay: 100, text: '文件是空的。', partId: 'prt_answer' },
+      usage(2_000, 20),
     ],
   },
   // 子任务里跑一条要确认的命令（真内核里这条请求来自子会话）

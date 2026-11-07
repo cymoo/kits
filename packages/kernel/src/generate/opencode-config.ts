@@ -110,9 +110,18 @@ export function kernelAgentOf(agent: Pick<AgentProfile, 'name' | 'source'>): str
   return agent.source === 'project' ? PROJECT_BASE_AGENT : agent.name
 }
 
-// 每条消息随 system 带上的提示词：正文 + 输出格式说明，接在内核自带的系统提示词后面
+// 计划卡片只显示模型写进 todowrite 的状态。实测不提醒时模型常常攒到最后一起更新，界面就一直停在第一项
+export const PLAN_RULE =
+  '用 todowrite 列了计划的话，要让它实时反映进度：开始做某一项时把它标成 in_progress，这一项一做完就立刻调 todowrite 标成 completed，再开始下一项。不要把几项攒到一起更新。'
+
+// 每条消息随 system 带上的提示词：正文 + 输出格式说明 + 计划规则，接在内核自带的系统提示词后面
 export function agentSystemPrompt(agent: AgentProfile): string {
-  return [agent.prompt, agent.outputSchema ? outputSection(agent.outputSchema) : '']
+  const plans = !agent.tools || agent.tools.includes('todowrite')
+  return [
+    agent.prompt,
+    agent.outputSchema ? outputSection(agent.outputSchema) : '',
+    plans ? PLAN_RULE : '',
+  ]
     .filter(Boolean)
     .join('\n\n')
 }
