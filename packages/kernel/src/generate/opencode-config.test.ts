@@ -16,6 +16,7 @@ import {
   generateOpencodeConfig,
   kernelAgentOf,
   type OpencodeConfigInput,
+  PLAN_RULE,
   PROJECT_BASE_AGENT,
   skillDenies,
 } from './opencode-config'
@@ -467,5 +468,14 @@ describe('agent prompts and project agents', () => {
     expect(system.startsWith('对照文档找不一致\n\n## 输出格式')).toBe(true)
     expect(system).toContain('kits_submit_output')
     expect(system).toContain('"type": "object"')
+  })
+
+  it('asks the model to keep the plan up to date', () => {
+    expect(agentSystemPrompt(agent({ name: 'r', prompt: '' }))).toBe(PLAN_RULE)
+    expect(agentSystemPrompt(agent({ name: 'r', tools: ['read', 'todowrite'] }))).toBe(PLAN_RULE)
+  })
+
+  it('leaves the plan rule out for an agent without todowrite', () => {
+    expect(agentSystemPrompt(agent({ name: 'r', prompt: '只读', tools: ['read'] }))).toBe('只读')
   })
 })

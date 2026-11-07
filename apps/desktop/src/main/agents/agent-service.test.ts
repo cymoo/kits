@@ -131,7 +131,7 @@ describe('AgentService', () => {
       service.preview({ source: 'project', draft: draft({ mcp: [] }) }),
     ) as { agent: string; system: string; permission: { permission: string; action: string }[] }
     expect(preview.agent).toBe('kits-_project')
-    expect(preview.system).toBe('不改代码。')
+    expect(preview.system.startsWith('不改代码。')).toBe(true)
     expect(preview.permission).toContainEqual({
       permission: 'wiki_*',
       pattern: '*',

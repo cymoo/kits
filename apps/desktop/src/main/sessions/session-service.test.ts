@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import os from 'node:os'
 import path from 'node:path'
 import { builtinAssistant, type PushEvents, parseMcpFile, type SessionStatus } from '@kits/core'
-import { MockKernel, type MockScenarioName } from '@kits/kernel'
+import { MockKernel, type MockScenarioName, PLAN_RULE } from '@kits/kernel'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openDatabase } from '../db'
 import { ConfigProblemsError } from '../kernel/kernel-manager'
@@ -834,6 +834,7 @@ describe('SessionService attachments', () => {
     expect(prompt.mock.calls[0]?.[1]).toEqual({
       text: input.text,
       attachments: [{ name: '需求.md', text: '# 积分兑换\n同一个请求号只兑换一次' }],
+      system: PLAN_RULE,
     })
     const detail = store.detail(s.id)
     const user = detail?.messages.find((m) => m.role === 'user')
@@ -937,7 +938,7 @@ describe('SessionService skills', () => {
     const s = await service.create({ ...input, agent: 'reviewer' })
     await waitFor(s.id, ['done'])
     expect(create.mock.calls[0]?.[0].agent).toBe('_project')
-    expect(prompt.mock.calls[0]?.[1].system).toBe('只读，不改文件')
+    expect(prompt.mock.calls[0]?.[1].system).toBe(`只读，不改文件\n\n${PLAN_RULE}`)
   })
 })
 
