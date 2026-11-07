@@ -134,6 +134,7 @@
 .kp[hidden]{display:none}
 .kp-h{font-size:12px;color:#84878E;padding:6px 8px 4px;font-weight:500}
 .kp-sep{height:1px;background:#EFEFEC;margin:5px 2px}
+.kp-list{max-height:320px;overflow-y:auto}
 .kp-opt{display:flex;align-items:center;gap:10px;width:100%;min-height:34px;padding:5px 8px;border:0;border-radius:8px;background:transparent;font:inherit;color:#16171A;cursor:pointer;text-align:left;text-decoration:none}
 .kp-opt:hover{background:#F6F6F4}
 .kp-opt small{display:block;font-size:13px;color:#60646B;white-space:nowrap}
@@ -287,7 +288,9 @@
       return (inSession ? `<div class="kp-h">模型 · 下一条消息起生效</div>` : `<div class="kp-seg" role="radiogroup" aria-label="内核">` +
         Object.keys(kernelDefs).map((k) => `<button type="button" role="radio" aria-checked="${prefs.kernel === k}" data-set="kernel" data-val="${k}">${kernelDefs[k]}</button>`).join('') +
         `</div>`) +
+        `<div class="kp-list">` +
         gatewayDefs.map(([g, models]) => `<div class="kp-h">${g}</div>` + models.map((m) => radio(prefs.model === m, 'model', m, `<span style="font-family:${MONO};font-size:13px">${m}</span>`)).join('')).join('') +
+        `</div>` +
         `<div class="kp-sep"></div><a class="kp-opt" href="settings.html#model" style="color:#60646B">${svg('sliders', 14)}内核与模型设置</a>`
     }
     return ''
