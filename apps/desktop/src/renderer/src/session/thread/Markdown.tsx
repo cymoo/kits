@@ -21,6 +21,12 @@ export const Markdown = memo(function Markdown({
               {children}
             </a>
           ),
+          // 宽表格在自己的框里横向滚动：对话里的块会裁掉超出边界的内容（index.css 的 k-thread-item）
+          table: ({ children }) => (
+            <div className="k-md-table">
+              <table>{children}</table>
+            </div>
+          ),
         }}
       >
         {text}

@@ -234,6 +234,21 @@ html[data-resizing] * {
 }
 
 /* 回复正文的排版（原型 session.html 的正文：14px、行高 24px、行内代码浅灰底） */
+/*
+ * 对话里的每一块。content-visibility: auto 让屏幕外的块跳过布局和绘制，上千轮的会话流式回复时不卡；
+ * 没画过的块先按 120px 占位，画过一次就记住真实高度。它自带绘制裁剪，所以四周留 8px 内边距、
+ * 再用等量的负外边距抵掉：焦点环、卡片阴影、往外挪几像素的按钮都落在内边距里，不会被裁。
+ * 里面的块仍是纵向 flex 的子项，self-end、百分比宽度和原来一样。
+ */
+.k-thread-item {
+  display: flex;
+  flex-direction: column;
+  margin: -8px;
+  padding: 8px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
 .k-md {
   font-size: 1rem;
   line-height: 1.714;
@@ -249,7 +264,7 @@ html[data-resizing] * {
 .k-md ul,
 .k-md ol,
 .k-md pre,
-.k-md table,
+.k-md .k-md-table,
 .k-md blockquote {
   margin: 0 0 0.6em;
 }
@@ -300,9 +315,16 @@ html[data-resizing] * {
   background: none;
   padding: 0;
 }
+.k-md .k-md-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
 .k-md table {
   border-collapse: collapse;
   font-size: 0.929rem;
+}
+.k-md img {
+  max-width: 100%;
 }
 .k-md th,
 .k-md td {

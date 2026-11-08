@@ -1,4 +1,5 @@
 import type {
+  MessageView,
   PartPayload,
   PartView,
   PermissionRisk,
@@ -534,6 +535,19 @@ function noteBlock(p: PartView, payload: InterjectPayload, pending = false): Blo
   }
 }
 
+// 每条消息上次算出的块。键是消息对象本身：推送合并时没变的消息和 part 保留原对象，换了就是新对象，
+// 所以按引用比就知道要不要重算；会话关掉、快照丢掉后跟着被回收
+const messageBlocks = new WeakMap<MessageView, { deps: unknown[]; blocks: Block[] }>()
+
+function reuse(m: MessageView, deps: unknown[], build: () => Block[]): Block[] {
+  const hit = messageBlocks.get(m)
+  if (hit && hit.deps.length === deps.length && hit.deps.every((d, i) => d === deps[i]))
+    return hit.blocks
+  const blocks = build()
+  messageBlocks.set(m, { deps, blocks })
+  return blocks
+}
+
 export function deriveBlocks(
   detail: SessionDetail,
   activity?: SessionActivity,
@@ -554,264 +568,285 @@ export function deriveBlocks(
   let lastUserText = ''
   for (const m of messages) {
     if (m.role === 'user') {
-      blocks.push({
-        kind: 'user',
-        id: m.id,
-        text: m.text,
-        attachments: (detail.attachments ?? [])
-          .filter((a) => a.messageId === m.id)
-          .map((a) => ({ id: a.id, name: a.name, size: a.size, mime: a.mime })),
-      })
+      blocks.push(
+        ...reuse(m, [detail.attachments], () => [
+          {
+            kind: 'user',
+            id: m.id,
+            text: m.text,
+            attachments: (detail.attachments ?? [])
+              .filter((a) => a.messageId === m.id)
+              .map((a) => ({ id: a.id, name: a.name, size: a.size, mime: a.mime })),
+          },
+        ]),
+      )
       lastUserText = m.text
       continue
     }
     if (m.role === 'notice') {
-      const at = m.text.indexOf(':')
-      blocks.push({
-        kind: 'notice',
-        id: m.id,
-        setting: m.text.slice(0, at) === 'model' ? 'model' : 'permission',
-        value: m.text.slice(at + 1),
-      })
+      blocks.push(
+        ...reuse(m, [], () => {
+          const at = m.text.indexOf(':')
+          return [
+            {
+              kind: 'notice',
+              id: m.id,
+              setting: m.text.slice(0, at) === 'model' ? 'model' : 'permission',
+              value: m.text.slice(at + 1),
+            },
+          ]
+        }),
+      )
       continue
     }
     const all = (byMessage.get(m.id) ?? []).sort((a, b) => a.seq - b.seq)
     const open = m.completedAt === null
-    for (const p of all) {
-      if (p.payload.type !== 'compaction') continue
-      blocks.push({
-        kind: 'compaction',
-        id: p.id,
-        state:
-          p.status === 'pending' && open
-            ? 'running'
-            : p.status === 'error' || p.status === 'expired'
-              ? 'failed'
-              : 'done',
-        summary: p.payload.summary,
-        at: p.updatedAt,
-      })
-    }
-    if (all.length > 0 && all.every((p) => p.payload.type === 'compaction')) continue
-    // 模型还没看到的插话排在最后，看到时才有位置
-    const waitingNotes = all.filter((p) => p.type === 'interject' && p.status === 'pending')
-    const placed = all.filter((p) => !waitingNotes.includes(p))
-    const segments = splitAtInterjects(placed)
-    // 回复过的权限请求标在对应的工具步骤上
-    const replies = new Map<string, string>()
-    const asking = new Set<string>()
-    for (const p of all) {
-      if (p.payload.type !== 'permission' || !p.payload.callId || !p.status) continue
-      if (p.status === 'pending') asking.add(p.payload.callId)
-      else replies.set(p.payload.callId, p.status)
-    }
-    segments.forEach(({ parts, note }, si) => {
-      const isLast = si === segments.length - 1
-      const running = open && isLast
-      const startedAt = segments[si - 1]?.note?.updatedAt ?? m.createdAt
-      const suffix = si === 0 ? '' : `:${si}`
-      const lastTool = parts.map((p) => p.type).lastIndexOf('tool')
-      const steps: Step[] = []
-      // 这条消息里的子任务：callId → 步骤
-      const tasks = new Map<string, Step>()
-      const reasoning: string[] = []
-      const answer: string[] = []
-      const files = new Set<string>()
-      const cards: Block[] = []
-      const finishes: (() => void)[] = []
-      let error: string | undefined
-      parts.forEach((p, i) => {
-        const payload = p.payload
-        if (payload.type === 'reasoning') reasoning.push(payload.text)
-        else if (payload.type === 'text') {
-          if (!running && i > lastTool) answer.push(payload.text)
-          else if (payload.text.trim() && running) {
-            steps.push({
-              id: p.id,
-              kind: '说明',
-              verb: '',
-              icon: 'note',
-              detail: '',
-              state: 'done',
-              live: { text: payload.text.trim(), caret: i > lastTool },
-            })
-          } else if (payload.text.trim()) {
-            const said = payload.text.trim()
-            const line = said.split('\n')[0] ?? ''
-            steps.push({
-              id: p.id,
-              kind: '说明',
-              verb: '',
-              icon: 'note',
-              detail: '',
-              desc: line,
-              state: 'done',
-              ...(said === line ? {} : { output: said }),
-            })
-          }
-        } else if (payload.type === 'tool') {
-          if (EDIT_TOOLS.has(payload.name) && p.status === 'completed') {
-            for (const f of editedFiles(payload, session.workdir)) files.add(f)
-          }
-          // 提问在对话里有自己的卡片
-          if (payload.name === 'kits_ask_user') return
-          const step = toolStep(
-            p,
-            payload,
-            session.workdir,
-            running,
-            replies.get(payload.callId),
-            open && asking.has(payload.callId),
-          )
-          const task = payload.parentCallId ? tasks.get(payload.parentCallId) : undefined
-          if (task) task.subSteps?.push(step)
-          else steps.push(step)
-          if (payload.name === 'task' && !payload.parentCallId) {
-            tasks.set(payload.callId, step)
-            finishes.push(() => finishTask(step, payload.durationMs))
-          }
-        } else if (payload.type === 'permission') {
-          const subject = permissionSubject(
-            payload.tool,
-            payload.input,
-            session.workdir,
-            payload.patterns,
-          )
-          // 卡片排在插话前面也要显示：内核在等它
-          if (p.status === 'pending' && open) {
-            const subtask = payload.subagent
-              ? tasks.get(payload.callId?.split('/')[0] ?? '')?.detail
-              : undefined
-            cards.push({
-              kind: 'permission',
-              id: p.id,
-              requestId: payload.requestId,
-              tool: payload.tool,
-              subject,
-              always: payload.always,
-              ...(payload.risk ? { risk: payload.risk } : {}),
-              ...(subtask ? { subtask } : {}),
-            })
-          } else if (
-            !payload.callId ||
-            !all.some((x) => x.payload.type === 'tool' && x.payload.callId === payload.callId)
-          ) {
-            // 没有对应工具步骤的（拒绝后工具没跑、过期的）单独记一步
-            steps.push({
-              id: p.id,
-              ...describeTool(
-                { type: 'tool', callId: '', name: payload.tool, input: payload.input },
-                session.workdir,
-              ),
-              detail: subject,
-              state: p.status === 'reject' ? 'error' : 'done',
-              meta: REPLY_META[p.status ?? ''] ?? '没有确认',
-            })
-          }
-        } else if (payload.type === 'question') {
-          cards.push({
-            kind: 'question',
-            id: p.id,
-            questionId: payload.questionId,
-            question: payload.question,
-            options: payload.options,
-            ...(payload.assumption ? { assumption: payload.assumption } : {}),
-            blocking: payload.blocking,
-            // 不阻塞的提问轮次结束（甚至应用退出）后还能回答，不显示成过期
-            state:
-              payload.answer !== undefined
-                ? 'answered'
-                : p.status === 'expired' && payload.blocking
-                  ? 'expired'
-                  : 'pending',
-            ...(payload.answer !== undefined ? { answer: payload.answer } : {}),
-          })
-        } else if (payload.type === 'error') error = payload.message
-      })
-      for (const finish of finishes) finish()
-      const hasWork = steps.length > 0 || reasoning.length > 0
-      if (hasWork) {
+    const build = (): Block[] => {
+      const blocks: Block[] = []
+      for (const p of all) {
+        if (p.payload.type !== 'compaction') continue
         blocks.push({
-          kind: 'turn',
-          id: `${m.id}:turn${suffix}`,
-          turn: m.turn,
-          state: !isLast
-            ? 'done'
-            : running
+          kind: 'compaction',
+          id: p.id,
+          state:
+            p.status === 'pending' && open
               ? 'running'
-              : m.finishReason === 'completed'
-                ? 'done'
-                : 'failed',
-          steps,
-          reasoning: reasoning.join(''),
-          startedAt,
-          endedAt: note?.updatedAt ?? m.completedAt,
-          filesChanged: files.size,
-          summary: {
-            tasks: tasks.size,
-            reads: new Set(steps.filter((s) => s.icon === 'read').map((s) => s.detail)).size,
-            searches: steps.filter((s) => s.icon === 'search').length,
-            commands: steps.filter((s) => s.command).length,
-            calls: steps.filter((s) => s.icon === 'platform').length,
-          },
-          failed: steps.filter((s) => s.failed).length,
+              : p.status === 'error' || p.status === 'expired'
+                ? 'failed'
+                : 'done',
+          summary: p.payload.summary,
+          at: p.updatedAt,
         })
       }
-      blocks.push(...cards)
-      // 重试条：最近更新的 part 是重试，说明还没恢复。按更新时间看，不按 seq：
-      // 重试后接着写的正文复用原来的 part，seq 还在重试之前
-      // 确认和提问的更新是本地回复造成的，不代表内核恢复了：它们只看出现的时间
-      const kernelAt = (p: PartView) =>
-        p.type === 'question' || p.type === 'permission' ? p.createdAt : p.updatedAt
-      const lastPart = parts.reduce<PartView | undefined>(
-        (a, p) => (!a || kernelAt(p) >= kernelAt(a) ? p : a),
-        undefined,
-      )
-      const retrying = running && lastPart?.payload.type === 'retry'
-      if (retrying && lastPart?.payload.type === 'retry') {
-        const { attempt, message, nextAt } = lastPart.payload
-        blocks.push({ kind: 'retry', id: lastPart.id, attempt, message, nextAt })
+      if (all.length > 0 && all.every((p) => p.payload.type === 'compaction')) return blocks
+      // 模型还没看到的插话排在最后，看到时才有位置
+      const waitingNotes = all.filter((p) => p.type === 'interject' && p.status === 'pending')
+      const placed = all.filter((p) => !waitingNotes.includes(p))
+      const segments = splitAtInterjects(placed)
+      // 回复过的权限请求标在对应的工具步骤上
+      const replies = new Map<string, string>()
+      const asking = new Set<string>()
+      for (const p of all) {
+        if (p.payload.type !== 'permission' || !p.payload.callId || !p.status) continue
+        if (p.status === 'pending') asking.add(p.payload.callId)
+        else replies.set(p.payload.callId, p.status)
       }
-      const text = answer.join('')
-      if (text) blocks.push({ kind: 'text', id: `${m.id}:text${suffix}`, text })
-      if (note?.payload.type === 'interject') blocks.push(noteBlock(note, note.payload))
-      if (!isLast) return
-      for (const p of waitingNotes) {
-        if (p.payload.type === 'interject') blocks.push(noteBlock(p, p.payload, open))
-      }
-      if (error) {
-        blocks.push({
-          kind: 'error',
-          id: `${m.id}:error`,
-          message: error,
-          last: m.id === lastAssistant,
-          ...(parts.every((p) => p.type === 'error') ? { resend: lastUserText } : {}),
+      segments.forEach(({ parts, note }, si) => {
+        const isLast = si === segments.length - 1
+        const running = open && isLast
+        const startedAt = segments[si - 1]?.note?.updatedAt ?? m.createdAt
+        const suffix = si === 0 ? '' : `:${si}`
+        const lastTool = parts.map((p) => p.type).lastIndexOf('tool')
+        const steps: Step[] = []
+        // 这条消息里的子任务：callId → 步骤
+        const tasks = new Map<string, Step>()
+        const reasoning: string[] = []
+        const answer: string[] = []
+        const files = new Set<string>()
+        const cards: Block[] = []
+        const finishes: (() => void)[] = []
+        let error: string | undefined
+        parts.forEach((p, i) => {
+          const payload = p.payload
+          if (payload.type === 'reasoning') reasoning.push(payload.text)
+          else if (payload.type === 'text') {
+            if (!running && i > lastTool) answer.push(payload.text)
+            else if (payload.text.trim() && running) {
+              steps.push({
+                id: p.id,
+                kind: '说明',
+                verb: '',
+                icon: 'note',
+                detail: '',
+                state: 'done',
+                live: { text: payload.text.trim(), caret: i > lastTool },
+              })
+            } else if (payload.text.trim()) {
+              const said = payload.text.trim()
+              const line = said.split('\n')[0] ?? ''
+              steps.push({
+                id: p.id,
+                kind: '说明',
+                verb: '',
+                icon: 'note',
+                detail: '',
+                desc: line,
+                state: 'done',
+                ...(said === line ? {} : { output: said }),
+              })
+            }
+          } else if (payload.type === 'tool') {
+            if (EDIT_TOOLS.has(payload.name) && p.status === 'completed') {
+              for (const f of editedFiles(payload, session.workdir)) files.add(f)
+            }
+            // 提问在对话里有自己的卡片
+            if (payload.name === 'kits_ask_user') return
+            const step = toolStep(
+              p,
+              payload,
+              session.workdir,
+              running,
+              replies.get(payload.callId),
+              open && asking.has(payload.callId),
+            )
+            const task = payload.parentCallId ? tasks.get(payload.parentCallId) : undefined
+            if (task) task.subSteps?.push(step)
+            else steps.push(step)
+            if (payload.name === 'task' && !payload.parentCallId) {
+              tasks.set(payload.callId, step)
+              finishes.push(() => finishTask(step, payload.durationMs))
+            }
+          } else if (payload.type === 'permission') {
+            const subject = permissionSubject(
+              payload.tool,
+              payload.input,
+              session.workdir,
+              payload.patterns,
+            )
+            // 卡片排在插话前面也要显示：内核在等它
+            if (p.status === 'pending' && open) {
+              const subtask = payload.subagent
+                ? tasks.get(payload.callId?.split('/')[0] ?? '')?.detail
+                : undefined
+              cards.push({
+                kind: 'permission',
+                id: p.id,
+                requestId: payload.requestId,
+                tool: payload.tool,
+                subject,
+                always: payload.always,
+                ...(payload.risk ? { risk: payload.risk } : {}),
+                ...(subtask ? { subtask } : {}),
+              })
+            } else if (
+              !payload.callId ||
+              !all.some((x) => x.payload.type === 'tool' && x.payload.callId === payload.callId)
+            ) {
+              // 没有对应工具步骤的（拒绝后工具没跑、过期的）单独记一步
+              steps.push({
+                id: p.id,
+                ...describeTool(
+                  { type: 'tool', callId: '', name: payload.tool, input: payload.input },
+                  session.workdir,
+                ),
+                detail: subject,
+                state: p.status === 'reject' ? 'error' : 'done',
+                meta: REPLY_META[p.status ?? ''] ?? '没有确认',
+              })
+            }
+          } else if (payload.type === 'question') {
+            cards.push({
+              kind: 'question',
+              id: p.id,
+              questionId: payload.questionId,
+              question: payload.question,
+              options: payload.options,
+              ...(payload.assumption ? { assumption: payload.assumption } : {}),
+              blocking: payload.blocking,
+              // 不阻塞的提问轮次结束（甚至应用退出）后还能回答，不显示成过期
+              state:
+                payload.answer !== undefined
+                  ? 'answered'
+                  : p.status === 'expired' && payload.blocking
+                    ? 'expired'
+                    : 'pending',
+              ...(payload.answer !== undefined ? { answer: payload.answer } : {}),
+            })
+          } else if (payload.type === 'error') error = payload.message
         })
-      }
-      // 状态行：这一轮跑着就一直在，只换文字，不然每隔 2 秒没新内容就多一行、来了内容又少一行，对话会跳；
-      // 在等你确认 / 回答、在重试时不显示
-      const waiting =
-        all.some((p) => p.type === 'permission' && p.status === 'pending') ||
-        cards.some((c) => c.kind === 'question' && c.blocking && c.state === 'pending')
-      if (running && !waiting && !retrying) {
-        const last = Math.max(m.createdAt, ...parts.map((p) => p.updatedAt))
-        const runningStep = steps.find((s) => s.state === 'running')
-        const stepTitle = runningStep?.desc || runningStep?.detail
-        // 子任务在跑时写到它正在做的那一步
-        const inner = runningStep?.subSteps?.findLast((s) => s.state === 'running')
-        const innerTitle = inner ? ` · ${inner.verb} ${inner.desc || inner.detail}` : ''
-        const idle = now - last > 2_000 || parts.length === 0
-        const text =
-          idle && activity?.state === 'retry'
-            ? '模型网关断开，正在重试'
-            : runningStep
-              ? `正在${runningStep.kind}${stepTitle ? `：${stepTitle}` : ''}${innerTitle}`
-              : idle
-                ? '等待模型回复'
-                : '正在回复'
-        blocks.push({ kind: 'status', id: `${m.id}:status`, text, since: last })
-      }
-    })
+        for (const finish of finishes) finish()
+        const hasWork = steps.length > 0 || reasoning.length > 0
+        if (hasWork) {
+          blocks.push({
+            kind: 'turn',
+            id: `${m.id}:turn${suffix}`,
+            turn: m.turn,
+            state: !isLast
+              ? 'done'
+              : running
+                ? 'running'
+                : m.finishReason === 'completed'
+                  ? 'done'
+                  : 'failed',
+            steps,
+            reasoning: reasoning.join(''),
+            startedAt,
+            endedAt: note?.updatedAt ?? m.completedAt,
+            filesChanged: files.size,
+            summary: {
+              tasks: tasks.size,
+              reads: new Set(steps.filter((s) => s.icon === 'read').map((s) => s.detail)).size,
+              searches: steps.filter((s) => s.icon === 'search').length,
+              commands: steps.filter((s) => s.command).length,
+              calls: steps.filter((s) => s.icon === 'platform').length,
+            },
+            failed: steps.filter((s) => s.failed).length,
+          })
+        }
+        blocks.push(...cards)
+        // 重试条：最近更新的 part 是重试，说明还没恢复。按更新时间看，不按 seq：
+        // 重试后接着写的正文复用原来的 part，seq 还在重试之前
+        // 确认和提问的更新是本地回复造成的，不代表内核恢复了：它们只看出现的时间
+        const kernelAt = (p: PartView) =>
+          p.type === 'question' || p.type === 'permission' ? p.createdAt : p.updatedAt
+        const lastPart = parts.reduce<PartView | undefined>(
+          (a, p) => (!a || kernelAt(p) >= kernelAt(a) ? p : a),
+          undefined,
+        )
+        const retrying = running && lastPart?.payload.type === 'retry'
+        if (retrying && lastPart?.payload.type === 'retry') {
+          const { attempt, message, nextAt } = lastPart.payload
+          blocks.push({ kind: 'retry', id: lastPart.id, attempt, message, nextAt })
+        }
+        const text = answer.join('')
+        if (text) blocks.push({ kind: 'text', id: `${m.id}:text${suffix}`, text })
+        if (note?.payload.type === 'interject') blocks.push(noteBlock(note, note.payload))
+        if (!isLast) return
+        for (const p of waitingNotes) {
+          if (p.payload.type === 'interject') blocks.push(noteBlock(p, p.payload, open))
+        }
+        if (error) {
+          blocks.push({
+            kind: 'error',
+            id: `${m.id}:error`,
+            message: error,
+            last: m.id === lastAssistant,
+            ...(parts.every((p) => p.type === 'error') ? { resend: lastUserText } : {}),
+          })
+        }
+        // 状态行：这一轮跑着就一直在，只换文字，不然每隔 2 秒没新内容就多一行、来了内容又少一行，对话会跳；
+        // 在等你确认 / 回答、在重试时不显示
+        const waiting =
+          all.some((p) => p.type === 'permission' && p.status === 'pending') ||
+          cards.some((c) => c.kind === 'question' && c.blocking && c.state === 'pending')
+        if (running && !waiting && !retrying) {
+          const last = Math.max(m.createdAt, ...parts.map((p) => p.updatedAt))
+          const runningStep = steps.find((s) => s.state === 'running')
+          const stepTitle = runningStep?.desc || runningStep?.detail
+          // 子任务在跑时写到它正在做的那一步
+          const inner = runningStep?.subSteps?.findLast((s) => s.state === 'running')
+          const innerTitle = inner ? ` · ${inner.verb} ${inner.desc || inner.detail}` : ''
+          const idle = now - last > 2_000 || parts.length === 0
+          const text =
+            idle && activity?.state === 'retry'
+              ? '模型网关断开，正在重试'
+              : runningStep
+                ? `正在${runningStep.kind}${stepTitle ? `：${stepTitle}` : ''}${innerTitle}`
+                : idle
+                  ? '等待模型回复'
+                  : '正在回复'
+          blocks.push({ kind: 'status', id: `${m.id}:status`, text, since: last })
+        }
+      })
+      return blocks
+    }
+    // 结束了的消息只看自己的 parts 和下面几样；都没变就复用上次的块（同一批对象），界面上的 memo 才不用整列重画。
+    // 还在跑的那条每次都重算：它还看 now 和 activity
+    blocks.push(
+      ...(open
+        ? build()
+        : reuse(m, [session.workdir, m.id === lastAssistant, lastUserText, ...all], build)),
+    )
   }
   return blocks
 }

@@ -409,3 +409,41 @@ test('reaches the context from the ring when the model window is unknown', async
     await close()
   }
 })
+
+test('scrolls a wide table in its own box instead of cutting off the right columns', async () => {
+  const { page, configDir, close } = await launchApp({
+    KITS_KERNEL: 'mock',
+    KITS_MOCK_SCENARIO: 'wide-table',
+    KITS_MOCK_SPEED: '0.2',
+  })
+  try {
+    await expect(page.getByRole('heading', { name: '要做什么？' })).toBeVisible()
+    await prepare(page, configDir)
+    const box = page.getByLabel('给 Agent 发消息')
+    await box.fill('跑一下回归')
+    await box.press('Enter')
+    const answer = page.getByTestId('answer')
+    await expect(answer).toContainText('都过了')
+
+    // 表格比对话栏宽：滚动框自己不超出这一块，多出来的列在框里滚
+    const frame = answer.getByRole('table').locator('..')
+    const fit = await frame.evaluate((el) => ({
+      scrolls: el.scrollWidth > el.clientWidth,
+      inside:
+        el.getBoundingClientRect().right <=
+        (el.closest('.k-thread-item') as HTMLElement).getBoundingClientRect().right,
+    }))
+    expect(fit).toEqual({ scrolls: true, inside: true })
+
+    // 滚到最右，最后一列完整露出来
+    await frame.evaluate((el) => {
+      el.scrollLeft = el.scrollWidth
+    })
+    const last = await answer.getByRole('columnheader', { name: '用例24' }).boundingBox()
+    const view = await frame.boundingBox()
+    if (!last || !view) throw new Error('table is not on screen')
+    expect(last.x + last.width).toBeLessThanOrEqual(view.x + view.width + 1)
+  } finally {
+    await close()
+  }
+})
