@@ -9,7 +9,7 @@ import {
   PanelRightOpen,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { t } from '../../app/i18n'
 import { usePrefs } from '../../lib/composer-prefs'
@@ -195,6 +195,17 @@ export function SessionPage() {
     setTab('output')
     if (panel === 'hidden') setPanel('side')
   }
+  // 传给对话里各块的回调保持同一个函数，块的 memo 才有用；调用时读最新的面板状态和产出
+  const latest = useRef({ panel, setPanel, openOutput, outputs: outputs.data })
+  latest.current = { panel, setPanel, openOutput, outputs: outputs.data }
+  const openTurnFile = useCallback((turn: number, path: string) => {
+    setPicked({ turn, path })
+    setTab('changes')
+    if (latest.current.panel === 'hidden') latest.current.setPanel('side')
+  }, [])
+  const openTurnOutput = useCallback(() => {
+    if (latest.current.outputs?.length) latest.current.openOutput()
+  }, [])
   const exportOutput = async (outputId: string) => {
     try {
       const { path } = await kits.output.export({ id: outputId, format: 'json' })
@@ -258,6 +269,61 @@ export function SessionPage() {
   const answering =
     !firstPermission &&
     blocks.some((b) => b.kind === 'question' && b.blocking && b.state === 'pending')
+
+  // 对话里的一块；外面套的 k-thread-item 让屏幕外的块跳过布局和绘制（index.css）
+  const renderBlock = (b: (typeof threadBlocks)[number]) => {
+    switch (b.kind) {
+      case 'output':
+        return (
+          <OutputCard
+            key={b.id}
+            output={b.output}
+            agent={session.agent}
+            onOpen={() => openOutput(b.output.id)}
+            onExport={() => void exportOutput(b.output.id)}
+          />
+        )
+      case 'user':
+        return (
+          <UserBlock
+            key={b.id}
+            text={b.text}
+            attachments={b.attachments}
+            {...(b.pending ? { pending: true } : {})}
+          />
+        )
+      case 'turn':
+        return (
+          <TurnBlock key={b.id} block={b} onOpenFile={openTurnFile} onOpenOutput={openTurnOutput} />
+        )
+      case 'text':
+        return <TextBlock key={b.id} block={b} quiet={running || b.id !== lastAnswer} />
+      case 'status':
+        return <StatusLine key={b.id} block={b} />
+      case 'permission':
+        return (
+          <PermissionCard
+            key={b.id}
+            block={b}
+            sessionId={session.id}
+            workdir={session.workdir}
+            active={b.id === firstPermission}
+          />
+        )
+      case 'question':
+        return <QuestionCard key={b.id} block={b} sessionId={session.id} />
+      case 'retry':
+        return <RetryBar key={b.id} block={b} sessionId={session.id} />
+      case 'compaction':
+        return <CompactionDivider key={b.id} block={b} />
+      case 'notice':
+        return <NoticeLine key={b.id} block={b} />
+      case 'error':
+        return <ErrorCard key={b.id} block={b} session={session} canContinue={b.last && !running} />
+      default:
+        return null
+    }
+  }
 
   const key = workdirKey(session.workdir)
   const workspace =
@@ -348,77 +414,11 @@ export function SessionPage() {
           style={panel === 'wide' ? { width: widths.chat } : undefined}
         >
           <div className="mx-auto flex w-full max-w-[760px] flex-1 flex-col gap-[18px] pb-4">
-            {threadBlocks.map((b) => {
-              switch (b.kind) {
-                case 'output':
-                  return (
-                    <OutputCard
-                      key={b.id}
-                      output={b.output}
-                      agent={session.agent}
-                      onOpen={() => openOutput(b.output.id)}
-                      onExport={() => void exportOutput(b.output.id)}
-                    />
-                  )
-                case 'user':
-                  return (
-                    <UserBlock
-                      key={b.id}
-                      text={b.text}
-                      attachments={b.attachments}
-                      {...(b.pending ? { pending: true } : {})}
-                    />
-                  )
-                case 'turn':
-                  return (
-                    <TurnBlock
-                      key={b.id}
-                      block={b}
-                      onOpenFile={(turn, path) => {
-                        setPicked({ turn, path })
-                        setTab('changes')
-                        if (panel === 'hidden') setPanel('side')
-                      }}
-                      onOpenOutput={() => {
-                        if (outputs.data?.length) openOutput()
-                      }}
-                    />
-                  )
-                case 'text':
-                  return <TextBlock key={b.id} block={b} quiet={running || b.id !== lastAnswer} />
-                case 'status':
-                  return <StatusLine key={b.id} block={b} />
-                case 'permission':
-                  return (
-                    <PermissionCard
-                      key={b.id}
-                      block={b}
-                      sessionId={session.id}
-                      workdir={session.workdir}
-                      active={b.id === firstPermission}
-                    />
-                  )
-                case 'question':
-                  return <QuestionCard key={b.id} block={b} sessionId={session.id} />
-                case 'retry':
-                  return <RetryBar key={b.id} block={b} sessionId={session.id} />
-                case 'compaction':
-                  return <CompactionDivider key={b.id} block={b} />
-                case 'notice':
-                  return <NoticeLine key={b.id} block={b} />
-                case 'error':
-                  return (
-                    <ErrorCard
-                      key={b.id}
-                      block={b}
-                      session={session}
-                      canContinue={b.last && !running}
-                    />
-                  )
-                default:
-                  return null
-              }
-            })}
+            {threadBlocks.map((b) => (
+              <div key={b.id} className="k-thread-item">
+                {renderBlock(b)}
+              </div>
+            ))}
           </div>
           <div
             className={cx(

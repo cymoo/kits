@@ -1,7 +1,7 @@
 import type { PermissionMode } from '@kits/core/ipc'
 import { useQuery } from '@tanstack/react-query'
 import { AlertCircle, ChevronDown, ChevronRight, FileText, Lightbulb } from 'lucide-react'
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { t } from '../../app/i18n'
 import { kits } from '../../lib/kits'
 import { formatDuration, useNow } from '../../lib/use-now'
@@ -87,7 +87,7 @@ function Attachment({ a }: { a: MessageAttachment }) {
   )
 }
 
-export function UserBlock({
+export const UserBlock = memo(function UserBlock({
   text,
   attachments = [],
   pending = false,
@@ -123,7 +123,7 @@ export function UserBlock({
       ) : null}
     </div>
   )
-}
+})
 
 function turnSummary({ summary, filesChanged }: Extract<Block, { kind: 'turn' }>): string {
   const counts = [
@@ -138,7 +138,7 @@ function turnSummary({ summary, filesChanged }: Extract<Block, { kind: 'turn' }>
   return parts.join(' · ') || t('turn.think')
 }
 
-export function TurnBlock({
+export const TurnBlock = memo(function TurnBlock({
   block,
   onOpenFile,
   onOpenOutput,
@@ -228,10 +228,10 @@ export function TurnBlock({
       ) : null}
     </div>
   )
-}
+})
 
 // quiet：复制按钮平时藏着，鼠标移到回复上才出现；最后一条回复做完后一直显示
-export function TextBlock({
+export const TextBlock = memo(function TextBlock({
   block,
   quiet,
 }: {
@@ -244,7 +244,7 @@ export function TextBlock({
       <CopyReply text={block.text} quiet={quiet} />
     </div>
   )
-}
+})
 
 export function StatusLine({ block }: { block: Extract<Block, { kind: 'status' }> }) {
   const now = useNow(1000)
@@ -264,7 +264,11 @@ export function StatusLine({ block }: { block: Extract<Block, { kind: 'status' }
 }
 
 // 上下文压缩的分隔线（原型 session.html 的 context 场景）：点开看摘要
-export function NoticeLine({ block }: { block: Extract<Block, { kind: 'notice' }> }) {
+export const NoticeLine = memo(function NoticeLine({
+  block,
+}: {
+  block: Extract<Block, { kind: 'notice' }>
+}) {
   const text =
     block.setting === 'model'
       ? t('notice.model', { model: block.value.slice(block.value.indexOf('/') + 1) })
@@ -279,9 +283,13 @@ export function NoticeLine({ block }: { block: Extract<Block, { kind: 'notice' }
       <span className="h-px flex-1 bg-line-soft" />
     </div>
   )
-}
+})
 
-export function CompactionDivider({ block }: { block: Extract<Block, { kind: 'compaction' }> }) {
+export const CompactionDivider = memo(function CompactionDivider({
+  block,
+}: {
+  block: Extract<Block, { kind: 'compaction' }>
+}) {
   const [open, setOpen] = useState(false)
   const time = new Date(block.at)
   const hm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`
@@ -328,4 +336,4 @@ export function CompactionDivider({ block }: { block: Extract<Block, { kind: 'co
       ) : null}
     </div>
   )
-}
+})

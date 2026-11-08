@@ -239,6 +239,65 @@ describe('deriveBlocks', () => {
   })
 })
 
+describe('deriveBlocks reuse', () => {
+  // 两轮：第一轮做完了，第二轮还在跑
+  function twoTurns(): SessionDetail {
+    seq = 0
+    const first = [tool('read', { filePath: '/w/a.ts' }), part({ type: 'text', text: '好了' })]
+    const second = [{ ...tool('read', { filePath: '/w/b.ts' }, 'running'), messageId: 'a2' }]
+    return {
+      session,
+      messages: [
+        msg('u1', 'user'),
+        msg('a1', 'assistant', { completedAt: 2, finishReason: 'completed' }),
+        msg('u2', 'user', { createdAt: 5, completedAt: 5 }),
+        msg('a2', 'assistant', { createdAt: 6 }),
+      ],
+      parts: [...first, ...second],
+      attachments: [],
+    }
+  }
+  const finished = (blocks: ReturnType<typeof deriveBlocks>) =>
+    blocks.filter((b) => !b.id.startsWith('a2') && b.id !== 'u2')
+
+  it('returns the same block objects for a finished turn when only the running turn changes', () => {
+    const d = twoTurns()
+    const before = deriveBlocks(d)
+    const last = d.parts.at(-1) as PartView
+    const after = deriveBlocks({
+      ...d,
+      parts: [...d.parts.slice(0, -1), { ...last, status: 'completed', updatedAt: 9 }],
+    })
+    expect(finished(after)).toHaveLength(3)
+    for (const [i, b] of finished(after).entries()) expect(b).toBe(finished(before)[i])
+  })
+
+  it('rebuilds a finished turn when one of its parts changes', () => {
+    const d = twoTurns()
+    const before = deriveBlocks(d)
+    const answer = d.parts[1] as PartView
+    const after = deriveBlocks({
+      ...d,
+      parts: d.parts.map((p) =>
+        p === answer ? { ...p, payload: { type: 'text', text: '改好了' }, updatedAt: 9 } : p,
+      ),
+    })
+    expect(after.find((b) => b.kind === 'text')).toMatchObject({ text: '改好了' })
+    expect(after[1]).not.toBe(before[1])
+  })
+
+  it('rebuilds the user message when its attachments change', () => {
+    const d = twoTurns()
+    const before = deriveBlocks(d)
+    const attachments: SessionDetail['attachments'] = [
+      { id: 'f1', messageId: 'u1', name: 'spec.pdf', mime: 'application/pdf', size: 3 },
+    ]
+    const after = deriveBlocks({ ...d, attachments })
+    expect(after[0]).not.toBe(before[0])
+    expect(after[0]).toMatchObject({ attachments: [{ name: 'spec.pdf' }] })
+  })
+})
+
 describe('describeTool', () => {
   it('names mcp tools by server and tool', () => {
     expect(
