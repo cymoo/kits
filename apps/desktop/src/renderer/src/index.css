@@ -264,7 +264,7 @@ html[data-resizing] * {
 .k-md ul,
 .k-md ol,
 .k-md pre,
-.k-md table,
+.k-md .k-md-table,
 .k-md blockquote {
   margin: 0 0 0.6em;
 }
@@ -315,9 +315,16 @@ html[data-resizing] * {
   background: none;
   padding: 0;
 }
+.k-md .k-md-table {
+  max-width: 100%;
+  overflow-x: auto;
+}
 .k-md table {
   border-collapse: collapse;
   font-size: 0.929rem;
+}
+.k-md img {
+  max-width: 100%;
 }
 .k-md th,
 .k-md td {

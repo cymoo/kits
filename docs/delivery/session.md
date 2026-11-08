@@ -1319,7 +1319,8 @@ issue 给了两条路：加 `AgentKernel.deleteSession` 真删，或者改文案
 
 1. `pnpm -F @kits/desktop build`，然后 `PERF_SIZES=300,1000 pnpm -F @kits/e2e perf`。脚本自己造数据（先用 mock 内核跑一轮，再在数据库里克隆成 N 轮），不碰本机的 kits 数据。
 2. 看输出里 `PERF` 开头的两行，1000 轮那行应接近下表“改后”：`stream.longTasks` 为 0，`stream.p95` 在 17ms 左右，`fps` 50 以上。
-3. 平常用一遍会话页：发消息看流式回复、往上滚到早先的轮次、点开收起的工作过程、点改文件的步骤跳到“改动”、点提交产出的步骤跳到“产出”、复制回复。和原来一样，没有错位，卡片阴影、焦点框没被裁掉。
+3. 让 Agent 回一张二三十列的 Markdown 表格（或用 mock 场景 `KITS_KERNEL=mock KITS_MOCK_SCENARIO=wide-table`）：表格在自己的框里横向滚动，最后一列能滚出来看全，对话栏本身不出横向滚动条。
+4. 平常用一遍会话页：发消息看流式回复、往上滚到早先的轮次、点开收起的工作过程、点改文件的步骤跳到“改动”、点提交产出的步骤跳到“产出”、复制回复。和原来一样，没有错位，卡片阴影、焦点框没被裁掉。
 
 | 1000 轮 | 改前 | 改后 |
 |---|---|---|
@@ -1337,13 +1338,14 @@ issue 给了两条路：加 `AgentKernel.deleteSession` 真删，或者改文案
 - `session/thread/Blocks.tsx`：`UserBlock`、`TurnBlock`、`TextBlock`、`NoticeLine`、`CompactionDivider` 包上 `memo`。
 - `pages/session/SessionPage.tsx`：传给 `TurnBlock` 的两个回调改成固定的函数（`useCallback` + 读最新状态的 ref），memo 才起作用；对话里每一块外面套一层 `k-thread-item`，`switch` 挪进 `renderBlock`。
 - `index.css`：`k-thread-item` 用 `content-visibility: auto` 让屏幕外的块跳过布局和绘制，没画过的块按 120px 占位。它自带绘制裁剪，所以四周留 8px 内边距、再用负外边距抵掉，焦点环、确认卡片的阴影、复制按钮往左挪的 5px 都不会被裁。
+- `session/thread/Markdown.tsx`、`index.css`：回复里的表格套一层 `k-md-table`，列多、比对话栏宽时在这个框里横向滚动；图片最宽到正文宽度。原来宽表格会把整个对话栏撑出横向滚动条，加了绘制裁剪后右边的列会被直接裁掉、看不到（评审发现）。Mock 内核加了 `wide-table` 场景（24 列的表格）。
 - `e2e/perf/long-session.spec.ts` + `playwright.perf.config.ts`：上面的实测脚本，`pnpm -F @kits/e2e perf` 跑，不进 CI。
 - 配置项、数据库 schema 没有变化。
 
 ### 测试
 
 - 单元测试：`derive.test.ts` 加 3 个（只有在跑的那轮变了时做完的轮次返回同一批块对象、做完的轮次某个 part 变了就重算、附件变了用户消息重算）。
-- E2E：全量 101 个通过，覆盖会话页的流式、卡片、跳到底部、改动和产出的跳转。
+- E2E：`session-stream.spec.ts` 加 `scrolls a wide table in its own box instead of cutting off the right columns`（表格比对话栏宽时滚动框不超出这一块，滚到最右能看全最后一列；没修之前这条失败）。全量 102 个通过，覆盖会话页的流式、卡片、跳到底部、改动和产出的跳转。
 
 ### 新增依赖
 

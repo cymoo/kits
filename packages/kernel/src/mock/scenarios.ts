@@ -73,6 +73,7 @@ export const mockScenarioNames = [
   'empty-read',
   'changes',
   'no-git',
+  'wide-table',
 ] as const
 export type MockScenarioName = (typeof mockScenarioNames)[number]
 
@@ -146,6 +147,12 @@ const runTests: MockStep = {
 const answer =
   '改好了：把幂等检查抽成了装饰器 `@idempotent`，兑换接口加了一行。\n\n' +
   '| 文件 | 改动 |\n|---|---|\n| src/points/redeem.py | +6 −1 |\n\n跑一下 `tests/points` 确认没有回归。'
+
+// 列很多的表格：比对话栏宽，要能在表格自己的框里横向滚到最后一列
+const cols = Array.from({ length: 24 }, (_, i) => `用例${String(i + 1).padStart(2, '0')}`)
+const wideTable =
+  `回归结果：\n\n| ${cols.join(' | ')} |\n|${cols.map(() => '---').join('|')}|\n` +
+  `| ${cols.map(() => '通过').join(' | ')} |\n\n都过了。`
 
 const failedTests: MockStep = {
   delay: 200,
@@ -611,6 +618,10 @@ export const mockScenarios: Record<MockScenarioName, MockScenario> = {
     diff: [redeemDiff, ledgerDiff, configDiff, testDiff, legacyDiff],
   },
   // 工作区不是 Git 仓库：内核没有这一轮的快照 diff，改动只能从工具结果里取
+  'wide-table': {
+    name: 'wide-table',
+    steps: [busy, { delay: 100, text: wideTable, partId: 'prt_answer' }, usage(1_200, 300)],
+  },
   'no-git': {
     name: 'no-git',
     steps: [
