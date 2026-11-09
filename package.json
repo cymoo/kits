@@ -1,6 +1,6 @@
 {
   "name": "kits",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "description": "本地运行的 AI 测试作业平台",
   "packageManager": "pnpm@12.16.1",
